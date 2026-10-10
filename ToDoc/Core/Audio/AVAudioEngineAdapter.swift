@@ -17,12 +17,14 @@ final class AVAudioEngineAdapter: AudioRecorder {
     private let session = AVAudioSession.sharedInstance()
     /// 켜져 있는 동안만 값이 있다
     private var onBuffer: (@Sendable (AVAudioPCMBuffer) -> Void)?
+    private var observers: [Any] = []
 
     func prepare() async throws -> AVAudioFormat {
         guard await AVAudioApplication.requestRecordPermission() else { throw AudioRecorderError.microphoneDenied }
         // AI 음성(TTS)도 같은 세션으로 나오므로 듣기·말하기를 함께 쓰는 카테고리
         try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
         try session.setActive(true)
+        observeSystemEvents()
         return engine.inputNode.outputFormat(forBus: 0)
     }
 
@@ -45,6 +47,46 @@ final class AVAudioEngineAdapter: AudioRecorder {
         Self.installTap(on: input, format: input.outputFormat(forBus: 0), onBuffer: onBuffer)
         engine.prepare()
         try engine.start()
+    }
+
+    /// 오디오 중단(전화·Siri)과 장치 변경(이어폰·블루투스)을 처리한다. 한 번만 등록한다
+    private func observeSystemEvents() {
+        guard observers.isEmpty else { return }
+        let center = NotificationCenter.default
+        observers = [
+            center.addObserver(of: session, for: .didBecomeInactive) { [weak self] message in
+                guard case .systemInterruption = message.deactivationResult else { return }
+                self?.onEvent?(.interrupted)
+            },
+            center.addObserver(of: session, for: .resumptionRecommendation) { [weak self] message in
+                guard message.recommendation == .shouldResume else { return }
+                self?.resumeAfterInterruption()
+            },
+            // 장치가 바뀌면 엔진이 멈추고 입력 형식이 달라질 수 있어 탭을 다시 단다
+            center.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.restartAfterConfigurationChange() }
+            },
+        ]
+    }
+
+    private func resumeAfterInterruption() {
+        guard onBuffer != nil else { return }
+        do {
+            try session.setActive(true)
+            try startEngine()
+            onEvent?(.resumed)
+        } catch {
+            onEvent?(.failed(error))
+        }
+    }
+
+    private func restartAfterConfigurationChange() {
+        guard onBuffer != nil else { return }
+        do {
+            try startEngine()
+        } catch {
+            onEvent?(.failed(error))
+        }
     }
 
     /// 탭 블록은 오디오 스레드에서 불리므로 MainActor 밖(nonisolated)에서 만든다.
