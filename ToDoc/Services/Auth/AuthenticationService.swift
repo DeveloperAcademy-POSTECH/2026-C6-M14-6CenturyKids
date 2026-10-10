@@ -65,4 +65,27 @@ final class AuthenticationService {
 
         return patient
     }
+    
+    /// 의사 계정으로 인증한 후 해당 의사 정보를 조회해 Domain 객체를 반환합니다.
+    func signInDoctor(
+        email: String,
+        password: String
+    ) async throws -> Doctor {
+        let userId = try await authRepository.signIn(
+            email: email,
+            password: password
+        )
+
+        guard let user = try await userRepository.findById(userId) else {
+            // Core/Errors 에러 타입 확정 후 throw 구현 필요
+            fatalError("User 조회 실패 에러 타입 확정 필요")
+        }
+
+        guard let doctor = try await doctorRepository.findByUserId(userId) else {
+            // 에러 타입 확정 후 throw 구현 필요
+            fatalError("Doctor 조회 실패 에러 타입 확정 필요")
+        }
+
+        return doctor
+    }
 }
