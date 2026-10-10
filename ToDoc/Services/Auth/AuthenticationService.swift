@@ -33,6 +33,14 @@ final class AuthenticationService {
         try await authRepository.resetPassword(email: email)
     }
     
+    /// 현재 로그인된 사용자의 정보를 반환합니다.
+    func getCurrentUser() async throws -> User? {
+        guard let userId = try await authRepository.getCurrentUserId() else {
+            return nil
+        }
+
+        return try await userRepository.findById(userId)
+    }
     /// 환자 계정으로 인증한 후 환자 정보를 조회해 반환합니다.
     func signInPatient(
         email: String,
