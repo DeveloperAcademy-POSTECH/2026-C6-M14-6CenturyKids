@@ -17,4 +17,6 @@ protocol DoctorRepository {
     func findByHospitalId(
         _ hospitalId: UUID
     ) async throws -> [Doctor]
+    
+    func findByUserId(_ userId: UUID) async throws -> Doctor?
 }

@@ -17,4 +17,6 @@ protocol UserRepository {
     func findByName(
         _ name: String
     ) async throws -> [User]
+    
+    func findById(_ id: UUID) async throws -> User?
 }
