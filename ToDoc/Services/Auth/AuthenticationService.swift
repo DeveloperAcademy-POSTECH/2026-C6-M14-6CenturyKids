@@ -50,19 +50,17 @@ final class AuthenticationService {
             email: email,
             password: password
         )
-
-        let user = try await userRepository.findById(userId)
-
-        guard user != nil else {
-            // 여기서 사용할 에러 타입은 팀 확인 필요
+        
+        guard let user = try await userRepository.findById(userId) else{
+            // Core/Errors 에러 타입 확정 후 throw 구현 필요
+            fatalError("User 조회 실패 에러 타입 확정 필요")
         }
-
-        let patient = try await patientRepository.findByUserId(userId)
-
-        guard let patient else {
-            // 여기서 사용할 에러 타입은 팀 확인 필요
-        }
-
+        
+        guard let patient = try await patientRepository.findByUserId(user.id) else {
+            // 에러 타입 확정 후 throw 구현 필요
+            fatalError("Patient 조회 실패 에러 타입 확정 필요")
+            }
+        
         return patient
     }
     
