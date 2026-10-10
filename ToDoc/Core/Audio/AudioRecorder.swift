@@ -20,22 +20,3 @@ protocol AudioRecorder: AnyObject {
 
     func stop()
 }
-
-enum AudioRecorderEvent {
-    /// 다른 앱(전화, Siri 등)이 오디오를 가져가 마이크가 멈췄다
-    case interrupted
-    /// 끼어들기가 끝나 마이크를 다시 켰다
-    case resumed
-    /// 마이크를 다시 켜지 못했다
-    case failed(Error)
-}
-
-enum AudioRecorderError: LocalizedError {
-    case microphoneDenied
-
-    var errorDescription: String? {
-        switch self {
-        case .microphoneDenied: "마이크 권한이 없습니다. 설정에서 마이크 접근을 허용해 주세요."
-        }
-    }
-}
