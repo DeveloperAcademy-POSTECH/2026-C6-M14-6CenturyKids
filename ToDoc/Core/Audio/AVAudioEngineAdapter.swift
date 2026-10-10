@@ -28,7 +28,7 @@ final class AVAudioEngineAdapter: AudioRecorder {
 
     func start(onBuffer: @escaping @Sendable (AVReadOnlyAudioPCMBuffer) -> Void) throws {
         self.onBuffer = onBuffer
-        try startEngine()
+        try startEngine(onBuffer: onBuffer)
     }
 
     func stop() {
@@ -38,8 +38,7 @@ final class AVAudioEngineAdapter: AudioRecorder {
     }
 
     /// 탭을 현재 입력 형식으로 다시 달고 엔진을 켠다 (장치가 바뀌면 형식도 바뀔 수 있다)
-    private func startEngine() throws {
-        guard let onBuffer else { return }
+    private func startEngine(onBuffer: @escaping @Sendable (AVReadOnlyAudioPCMBuffer) -> Void) throws {
         let input = engine.inputNode
         input.removeTap(onBus: 0)
         // 탭 콜백은 오디오 스레드에서 불린다 (@Sendable 클로저라 MainActor에 묶이지 않음)
@@ -71,10 +70,11 @@ final class AVAudioEngineAdapter: AudioRecorder {
     }
 
     private func resumeAfterInterruption() {
-        guard onBuffer != nil else { return }
+        // 마이크가 꺼져 있었으면(stop 후) 다시 켜지 않는다
+        guard let onBuffer else { return }
         do {
             try session.setActive(true)
-            try startEngine()
+            try startEngine(onBuffer: onBuffer)
             onEvent?(.resumed)
         } catch {
             onEvent?(.failed(error))
@@ -82,9 +82,10 @@ final class AVAudioEngineAdapter: AudioRecorder {
     }
 
     private func restartAfterConfigurationChange() {
-        guard onBuffer != nil else { return }
+        // 마이크가 꺼져 있었으면(stop 후) 다시 켜지 않는다
+        guard let onBuffer else { return }
         do {
-            try startEngine()
+            try startEngine(onBuffer: onBuffer)
         } catch {
             onEvent?(.failed(error))
         }
