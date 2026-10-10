@@ -25,7 +25,6 @@
 				Data/DTOs/Pain/.gitkeep,
 				Data/DTOs/Symptom/.gitkeep,
 				Data/DTOs/User/.gitkeep,
-				Data/Repositories/Protocols/.gitkeep,
 				Data/Repositories/Supabase/.gitkeep,
 				Data/Supabase/EdgeFunction/.gitkeep,
 				Domain/Exercise/Enums/.gitkeep,
