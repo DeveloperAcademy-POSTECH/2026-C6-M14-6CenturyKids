@@ -6,3 +6,25 @@
 //
 
 import Foundation
+
+protocol AuthRepository {
+    func signUp(
+        email: String,
+        password: String
+    ) async throws -> UUID
+    
+    func signIn(
+        email: String,
+        password: String
+    ) async throws -> UUID
+    
+    func signOut() async throws
+    
+    func getCurrentUserId() async throws -> UUID?
+    
+    func isSignedIn() async throws -> Bool
+    
+    func resetPassword(
+        email: String
+    ) async throws
+}
