@@ -8,15 +8,13 @@
 import AVFAudio
 
 /// AVAudioEngine 마이크 입력. 녹음 파일 없이 마이크 소리를 실시간 버퍼로 넘긴다.
-/// `@MainActor` 명시: Swift 5 모드에서 기본 격리만 받으면 @Sendable 클로저 저장 시 잘못된 경고가 난다
-@MainActor
 final class AVAudioEngineAdapter: AudioRecorder {
     var onEvent: ((AudioRecorderEvent) -> Void)?
 
     private let engine = AVAudioEngine()
     private let session = AVAudioSession.sharedInstance()
     /// 켜져 있는 동안만 값이 있다
-    private var onBuffer: (@Sendable (AVAudioPCMBuffer) -> Void)?
+    private var onBuffer: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)?
     private var observers: [Any] = []
 
     func prepare() async throws -> AVAudioFormat {
@@ -28,7 +26,7 @@ final class AVAudioEngineAdapter: AudioRecorder {
         return engine.inputNode.outputFormat(forBus: 0)
     }
 
-    func start(onBuffer: @escaping @Sendable (AVAudioPCMBuffer) -> Void) throws {
+    func start(onBuffer: @escaping @Sendable (AVReadOnlyAudioPCMBuffer) -> Void) throws {
         self.onBuffer = onBuffer
         try startEngine()
     }
@@ -44,7 +42,10 @@ final class AVAudioEngineAdapter: AudioRecorder {
         guard let onBuffer else { return }
         let input = engine.inputNode
         input.removeTap(onBus: 0)
-        Self.installTap(on: input, format: input.outputFormat(forBus: 0), onBuffer: onBuffer)
+        // 탭 콜백은 오디오 스레드에서 불린다 (@Sendable 클로저라 MainActor에 묶이지 않음)
+        try input.installAudioTap(onBus: 0, bufferSize: 4096, format: input.outputFormat(forBus: 0)) { buffer, _ in
+            onBuffer(buffer)
+        }
         engine.prepare()
         try engine.start()
     }
@@ -87,14 +88,5 @@ final class AVAudioEngineAdapter: AudioRecorder {
         } catch {
             onEvent?(.failed(error))
         }
-    }
-
-    /// 탭 블록은 오디오 스레드에서 불리므로 MainActor 밖(nonisolated)에서 만든다.
-    /// iOS 27에서 deprecated지만 대체 API(installTapOnBus:…:error:block:)가 아직 Swift 이름으로 노출되지 않아 그대로 쓴다
-    private nonisolated static func installTap(
-        on node: AVAudioInputNode, format: AVAudioFormat,
-        onBuffer: @escaping @Sendable (AVAudioPCMBuffer) -> Void
-    ) {
-        node.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, _ in onBuffer(buffer) }
     }
 }

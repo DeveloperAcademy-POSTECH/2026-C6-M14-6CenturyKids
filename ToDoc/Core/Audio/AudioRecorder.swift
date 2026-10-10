@@ -16,7 +16,7 @@ protocol AudioRecorder: AnyObject {
     func prepare() async throws -> AVAudioFormat
 
     /// 마이크를 켠다. `onBuffer`는 오디오 스레드에서 불린다.
-    func start(onBuffer: @escaping @Sendable (AVAudioPCMBuffer) -> Void) throws
+    func start(onBuffer: @escaping @Sendable (AVReadOnlyAudioPCMBuffer) -> Void) throws
 
     func stop()
 }
