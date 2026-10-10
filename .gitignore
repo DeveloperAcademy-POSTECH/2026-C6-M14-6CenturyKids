@@ -130,3 +130,6 @@ iOSInjectionProject/
 *.provisionprofile
 
 # End of https://www.toptal.com/developers/gitignore/api/swift,macos,xcode
+
+### On-device models (용량 문제로 커밋하지 않음) ###
+ToDoc/Resources/Models/
