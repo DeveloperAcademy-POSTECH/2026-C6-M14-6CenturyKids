@@ -7,3 +7,14 @@
 
 import Foundation
 
+protocol DoctorRepository {
+    func save(_ doctor: Doctor) async throws
+
+    func findByName(
+        _ name: String
+    ) async throws -> [Doctor]
+
+    func findByHospitalId(
+        _ hospitalId: UUID
+    ) async throws -> [Doctor]
+}
