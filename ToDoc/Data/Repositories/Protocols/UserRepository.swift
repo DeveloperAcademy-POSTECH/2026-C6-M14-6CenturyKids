@@ -6,3 +6,15 @@
 //
 
 import Foundation
+
+protocol UserRepository {
+    func save(_ user: User) async throws
+
+    func findByEmail(
+        _ email: String
+    ) async throws -> User?
+
+    func findByName(
+        _ name: String
+    ) async throws -> [User]
+}
