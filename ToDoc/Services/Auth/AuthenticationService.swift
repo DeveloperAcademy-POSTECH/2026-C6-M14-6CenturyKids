@@ -24,4 +24,12 @@ final class AuthenticationService {
         self.patientRepository = patientRepository
         self.doctorRepository = doctorRepository
     }
+    
+    func signOut() async throws {
+        try await authRepository.signOut()
+    }
+
+    func resetPassword(email: String) async throws {
+        try await authRepository.resetPassword(email: email)
+    }
 }
