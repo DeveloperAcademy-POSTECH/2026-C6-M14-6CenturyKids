@@ -6,3 +6,15 @@
 //
 
 import Foundation
+
+protocol PatientRepository {
+    func save(_ patient: Patient) async throws
+
+    func findByName(
+        _ name: String
+    ) async throws -> [Patient]
+
+    func findByDoctorId(
+        _ doctorId: UUID
+    ) async throws -> [Patient]
+}
