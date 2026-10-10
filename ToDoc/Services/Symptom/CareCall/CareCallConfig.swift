@@ -112,16 +112,6 @@ struct EmergencyRules: Decodable, Sendable {
     }
 }
 
-enum CareCallConfigError: LocalizedError {
-    case missing(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .missing(let name): "앱에 설정 파일 \(name)이 없습니다"
-        }
-    }
-}
-
 extension Bundle {
     func decodeJSON<T: Decodable>(_ type: T.Type, named name: String) throws -> T {
         guard let url = url(forResource: name, withExtension: "json") else {
