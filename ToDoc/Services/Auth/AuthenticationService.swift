@@ -100,5 +100,17 @@ final class AuthenticationService {
         /// User, Patient 생성자 확인 후 구현
         fatalError("Patient Domain 생성자 확정 후 구현")
     }
+    
+    func signUpDoctor(
+        email: String,
+        password: String,
+        name: String,
+        birthday: Date,
+        sex: Sex,
+        hospitalCode: String
+    ) async throws -> Doctor {
+        /// User, Doctor, Hospital 생성자 확인후 구현
+        fatalError("Doctor Domain 생성자 확정 후 구현")
+    }
 }
 
