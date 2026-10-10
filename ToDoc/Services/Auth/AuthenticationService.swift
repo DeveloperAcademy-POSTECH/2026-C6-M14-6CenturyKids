@@ -87,6 +87,7 @@ final class AuthenticationService {
         return doctor
     }
     
+    /// 환자, 의사 회원가입은 생성자 확인 후 추후 구현 예정입니다.
     func signUpPatient(
         email: String,
         password: String,
