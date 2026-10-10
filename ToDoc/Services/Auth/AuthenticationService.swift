@@ -32,4 +32,29 @@ final class AuthenticationService {
     func resetPassword(email: String) async throws {
         try await authRepository.resetPassword(email: email)
     }
+    
+    /// 환자 계정으로 인증한 후 환자 정보를 조회해 반환합니다.
+    func signInPatient(
+        email: String,
+        password: String
+    ) async throws -> Patient {
+        let userId = try await authRepository.signIn(
+            email: email,
+            password: password
+        )
+
+        let user = try await userRepository.findById(userId)
+
+        guard user != nil else {
+            // 여기서 사용할 에러 타입은 팀 확인 필요
+        }
+
+        let patient = try await patientRepository.findByUserId(userId)
+
+        guard let patient else {
+            // 여기서 사용할 에러 타입은 팀 확인 필요
+        }
+
+        return patient
+    }
 }
