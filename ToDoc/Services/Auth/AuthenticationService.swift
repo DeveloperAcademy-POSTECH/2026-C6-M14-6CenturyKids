@@ -86,4 +86,19 @@ final class AuthenticationService {
 
         return doctor
     }
+    
+    func signUpPatient(
+        email: String,
+        password: String,
+        name: String,
+        birthday: Date,
+        sex: Sex,
+        carcinomaType: CarcinomaType?,
+        stage: CarcinomaStage?,
+        doctorCode: String?
+    ) async throws -> Patient {
+        /// User, Patient 생성자 확인 후 구현
+        fatalError("Patient Domain 생성자 확정 후 구현")
+    }
 }
+
