@@ -24,4 +24,16 @@ nonisolated enum DomainValidation {
         }
         return value
     }
+
+    static func address(_ rawValue: String) throws -> String {
+        let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { throw AddressValidationError.empty }
+        guard value.count >= 5 else { throw AddressValidationError.tooShort }
+        guard value.count <= 100 else { throw AddressValidationError.tooLong }
+        guard value.rangeOfCharacter(from: .controlCharacters) == nil else {
+            throw AddressValidationError.invalidCharacter
+        }
+        return value
+    }
+
 }
