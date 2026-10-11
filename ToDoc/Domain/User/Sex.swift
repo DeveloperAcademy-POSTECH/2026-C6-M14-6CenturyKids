@@ -2,4 +2,11 @@
 nonisolated public enum Sex: CaseIterable, Sendable {
     case male
     case female
+
+    public var displayName: String {
+        switch self {
+        case .male: "남성"
+        case .female: "여성"
+        }
+    }
 }
