@@ -7,7 +7,8 @@ let package = Package(
     platforms: [.macOS(.v14)],
     targets: [
         .target(name: "ToDocCoreErrors", path: "ToDoc/Core/Errors"),
-        .target(name: "ToDocDomain", dependencies: ["ToDocCoreErrors"], path: "ToDoc/Domain")
+        .target(name: "ToDocDomain", dependencies: ["ToDocCoreErrors"], path: "ToDoc/Domain"),
+        .testTarget(name: "DomainTests", dependencies: ["ToDocDomain", "ToDocCoreErrors"], path: "Tests/DomainTests")
     ],
     swiftLanguageModes: [.v5]
 )
