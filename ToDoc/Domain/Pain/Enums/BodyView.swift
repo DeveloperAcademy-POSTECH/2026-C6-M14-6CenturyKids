@@ -1,7 +1,7 @@
-nonisolated public enum BodyView: CaseIterable, Hashable, Sendable {
-    case front
-    case back
-    case unspecified
+nonisolated public enum BodyView: String, CaseIterable, Hashable, Sendable {
+    case front = "front"
+    case back = "back"
+    case unspecified = "unspecified"
 
     public var displayName: String {
         switch self {

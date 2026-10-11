@@ -1,5 +1,9 @@
-nonisolated public enum CarcinomaStage: CaseIterable, Sendable {
-    case stage0, stage1, stage2, stage3, stage4
+nonisolated public enum CarcinomaStage: String, CaseIterable, Sendable {
+    case stage0 = "stage0"
+    case stage1 = "stage1"
+    case stage2 = "stage2"
+    case stage3 = "stage3"
+    case stage4 = "stage4"
 
     public var displayName: String {
         switch self {

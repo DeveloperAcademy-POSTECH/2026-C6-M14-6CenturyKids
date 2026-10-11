@@ -1,9 +1,9 @@
-nonisolated public enum BodySide: CaseIterable, Hashable, Sendable {
-    case left
-    case right
-    case center
-    case both
-    case unspecified
+nonisolated public enum BodySide: String, CaseIterable, Hashable, Sendable {
+    case left = "left"
+    case right = "right"
+    case center = "center"
+    case both = "both"
+    case unspecified = "unspecified"
 
     public var displayName: String {
         switch self {

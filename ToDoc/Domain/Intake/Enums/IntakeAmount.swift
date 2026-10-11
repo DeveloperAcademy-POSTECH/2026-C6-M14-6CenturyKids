@@ -1,8 +1,8 @@
-nonisolated public enum IntakeAmount: CaseIterable, Sendable {
-    case veryFull
-    case moderate
-    case smallAmount
-    case barelyAte
+nonisolated public enum IntakeAmount: String, CaseIterable, Sendable {
+    case veryFull = "veryFull"
+    case moderate = "moderate"
+    case smallAmount = "smallAmount"
+    case barelyAte = "barelyAte"
 
     public var displayName: String {
         switch self {

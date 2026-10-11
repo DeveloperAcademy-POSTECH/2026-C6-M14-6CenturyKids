@@ -1,13 +1,13 @@
-nonisolated public enum BodyPart: CaseIterable, Hashable, Sendable {
-    case headFace
-    case neck
-    case shoulder
-    case chest
-    case abdomen
-    case backLowerBack
-    case pelvisButtocks
-    case armHand
-    case legFoot
+nonisolated public enum BodyPart: String, CaseIterable, Hashable, Sendable {
+    case headFace = "headFace"
+    case neck = "neck"
+    case shoulder = "shoulder"
+    case chest = "chest"
+    case abdomen = "abdomen"
+    case backLowerBack = "backLowerBack"
+    case pelvisButtocks = "pelvisButtocks"
+    case armHand = "armHand"
+    case legFoot = "legFoot"
 
     public var displayName: String {
         switch self {

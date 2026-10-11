@@ -1,7 +1,7 @@
-nonisolated public enum MealType: CaseIterable, Sendable {
-    case breakfast
-    case lunch
-    case dinner
+nonisolated public enum MealType: String, CaseIterable, Sendable {
+    case breakfast = "breakfast"
+    case lunch = "lunch"
+    case dinner = "dinner"
 
     public var displayName: String {
         switch self {

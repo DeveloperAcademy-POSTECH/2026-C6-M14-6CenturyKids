@@ -1,7 +1,15 @@
-/// 사용자 확인을 받은 Figma 암종 10개. DB 직렬화 값은 별도 계약으로 정합니다.
-nonisolated public enum CarcinomaType: CaseIterable, Sendable {
-    case liver, thyroid, gallbladderAndBileDuct, colorectal, kidney
-    case stomach, breast, prostate, pancreas, lung
+/// 사용자 확인을 받은 Figma 암종 10개. 영문 case명을 문자열 값으로 사용합니다.
+nonisolated public enum CarcinomaType: String, CaseIterable, Sendable {
+    case liver = "liver"
+    case thyroid = "thyroid"
+    case gallbladderAndBileDuct = "gallbladderAndBileDuct"
+    case colorectal = "colorectal"
+    case kidney = "kidney"
+    case stomach = "stomach"
+    case breast = "breast"
+    case prostate = "prostate"
+    case pancreas = "pancreas"
+    case lung = "lung"
 
     public var displayName: String {
         switch self {
