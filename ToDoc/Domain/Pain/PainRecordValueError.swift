@@ -1,7 +1,4 @@
-//
-//  PainRecordValueError.swift
-//  ToDoc
-//
-//  Created by 앤디 on 10/8/26.
-//
-
+nonisolated public enum PainRecordValueError: Error, Equatable, Sendable {
+    case belowMinimum
+    case aboveMaximum
+}
