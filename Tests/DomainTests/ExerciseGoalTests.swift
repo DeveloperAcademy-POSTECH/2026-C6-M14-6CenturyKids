@@ -14,9 +14,9 @@ final class ExerciseGoalTests: XCTestCase {
     private func goal(target: Int) throws -> ExerciseGoal {
         try ExerciseGoal(id: UUID(), year: 2026, month: 10, targetCount: target, exerciseRecords: [])
     }
-    func testTargetRangeIncludesZeroAndHundredAndRejectsOutside() throws {
-        for target in [0, 100] { XCTAssertEqual(try goal(target: target).targetCount, target) }
-        for (target, expected) in [(-1, TargetCountValidationError.belowMinimum), (101, .aboveMaximum)] {
+    func testTargetRangeIncludesZeroAndThirtyOneAndRejectsOutside() throws {
+        for target in [0, 31] { XCTAssertEqual(try goal(target: target).targetCount, target) }
+        for (target, expected) in [(-1, TargetCountValidationError.belowMinimum), (32, .aboveMaximum), (100, .aboveMaximum)] {
             XCTAssertThrowsError(try goal(target: target)) { XCTAssertEqual($0 as? TargetCountValidationError, expected) }
         }
     }

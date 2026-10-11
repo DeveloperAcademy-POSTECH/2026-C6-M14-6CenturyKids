@@ -9,7 +9,7 @@ nonisolated public struct ExerciseGoal: Sendable {
 
     public init(id: UUID, year: Int, month: Int, targetCount: Int, exerciseRecords: [ExerciseRecord]) throws {
         guard targetCount >= 0 else { throw TargetCountValidationError.belowMinimum }
-        guard targetCount <= 100 else { throw TargetCountValidationError.aboveMaximum }
+        guard targetCount <= 31 else { throw TargetCountValidationError.aboveMaximum }
         self.id = id
         self.year = year
         self.month = month
