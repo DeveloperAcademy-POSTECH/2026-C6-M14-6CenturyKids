@@ -1,7 +1,6 @@
-//
-//  SymptomValueError.swift
-//  ToDoc
-//
-//  Created by 앤디 on 10/8/26.
-//
-
+nonisolated public enum SymptomValueError: Error, Equatable, Sendable {
+    case invalidDuration
+    case invalidOccurrenceCount
+    case invalidSeverity
+    case detailTooLong
+}
