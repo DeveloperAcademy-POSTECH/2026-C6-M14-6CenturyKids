@@ -5,21 +5,23 @@ nonisolated public struct SymptomEntry: Sendable {
     public let symptomType: SymptomType
     public let bodyPart: BodyPart?
     public let bodySide: BodySide?
+    public let rawLocationText: String?
     public private(set) var durationMinutes: Int?
     public private(set) var occurrenceCount: Int?
-    public private(set) var severity: Int?
+    public private(set) var severity: Double?
     public private(set) var detail: String?
 
     public init(id: UUID, symptomType: SymptomType, bodyPart: BodyPart?, bodySide: BodySide?,
-                durationMinutes: Int?, occurrenceCount: Int?, severity: Int?, detail: String?) throws {
+                rawLocationText: String? = nil, durationMinutes: Int?, occurrenceCount: Int?, severity: Double?, detail: String?) throws {
         try Self.validate(durationMinutes, in: 10...1440, error: .invalidDuration)
         try Self.validate(occurrenceCount, in: 1...100, error: .invalidOccurrenceCount)
-        try Self.validate(severity, in: 0...10, error: .invalidSeverity)
+        try Self.validateSeverity(severity)
         try Self.validateDetail(detail)
         self.id = id
         self.symptomType = symptomType
         self.bodyPart = bodyPart
         self.bodySide = bodySide
+        self.rawLocationText = rawLocationText
         self.durationMinutes = durationMinutes
         self.occurrenceCount = occurrenceCount
         self.severity = severity
@@ -36,8 +38,8 @@ nonisolated public struct SymptomEntry: Sendable {
         self.occurrenceCount = occurrenceCount
     }
 
-    public mutating func updateSeverity(_ severity: Int) throws {
-        try Self.validate(severity, in: 0...10, error: .invalidSeverity)
+    public mutating func updateSeverity(_ severity: Double) throws {
+        try Self.validateSeverity(severity)
         self.severity = severity
     }
 
@@ -48,6 +50,12 @@ nonisolated public struct SymptomEntry: Sendable {
 
     private static func validate(_ value: Int?, in range: ClosedRange<Int>, error: SymptomValueError) throws {
         if let value, !range.contains(value) { throw error }
+    }
+
+    private static func validateSeverity(_ value: Double?) throws {
+        if let value, !value.isFinite || !(0...10).contains(value) {
+            throw SymptomValueError.invalidSeverity
+        }
     }
 
     private static func validateDetail(_ detail: String?) throws {

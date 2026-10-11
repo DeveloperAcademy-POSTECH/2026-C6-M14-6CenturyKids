@@ -4,7 +4,7 @@ import ToDocDomain
 
 final class SymptomEntryTests: XCTestCase {
     private func entry(durationMinutes: Int? = nil, occurrenceCount: Int? = nil,
-                       severity: Int? = nil, detail: String? = nil) throws -> SymptomEntry {
+                       severity: Double? = nil, detail: String? = nil) throws -> SymptomEntry {
         try SymptomEntry(id: UUID(), symptomType: .fatigueWeakness, bodyPart: nil, bodySide: nil,
                          durationMinutes: durationMinutes, occurrenceCount: occurrenceCount,
                          severity: severity, detail: detail)
@@ -54,12 +54,12 @@ final class SymptomEntryTests: XCTestCase {
     }
     func testSeverityRangeOnCreationAndUpdate() throws {
         var value = try entry()
-        for number in [0, 10] {
+        for number: Double in [0, 0.5, 5.25, 10] {
             XCTAssertEqual(try entry(severity: number).severity, number)
             try value.updateSeverity(number)
             XCTAssertEqual(value.severity, number)
         }
-        for number in [-1, 11] {
+        for number in [-0.1, 10.1, Double.nan, Double.infinity, -Double.infinity] {
             XCTAssertThrowsError(try entry(severity: number)) {
                 XCTAssertEqual($0 as? SymptomValueError, .invalidSeverity)
             }
