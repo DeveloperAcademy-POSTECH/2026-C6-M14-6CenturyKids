@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C6A1D0000000000000000011 /* CoreAILM in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1D0000000000000000012 /* CoreAILM */; };
 		A1B02669307B83AE00547CD2 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A1B02668307B83AE00547CD2 /* Supabase */; };
 		C6A1D0000000000000000001 /* onnxruntime in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1D0000000000000000002 /* onnxruntime */; };
 /* End PBXBuildFile section */
@@ -65,6 +66,7 @@
 		A13BCAF73077425800901BFD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				C6A1D0000000000000000011 /* CoreAILM in Frameworks */,
 				A1B02669307B83AE00547CD2 /* Supabase in Frameworks */,
 				C6A1D0000000000000000001 /* onnxruntime in Frameworks */,
 			);
@@ -107,6 +109,7 @@
 			);
 			name = ToDoc;
 			packageProductDependencies = (
+				C6A1D0000000000000000012 /* CoreAILM */,
 				C6A1D0000000000000000002 /* onnxruntime */,
 				A1B02668307B83AE00547CD2 /* Supabase */,
 			);
@@ -139,6 +142,7 @@
 			mainGroup = A13BCAF13077425800901BFD;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				C6A1D0000000000000000013 /* XCRemoteSwiftPackageReference "coreai-models" */,
 				C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */,
 				A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
@@ -424,6 +428,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		C6A1D0000000000000000013 /* XCRemoteSwiftPackageReference "coreai-models" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/YangSeokHoR/coreai-models.git";
+			requirement = {
+				kind = revision;
+				revision = b9ccaa0ec9acf864e25ac20d425cebdc252f4473;
+			};
+		};
 		A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
@@ -443,6 +455,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		C6A1D0000000000000000012 /* CoreAILM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C6A1D0000000000000000013 /* XCRemoteSwiftPackageReference "coreai-models" */;
+			productName = CoreAILM;
+		};
 		A1B02668307B83AE00547CD2 /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */;
