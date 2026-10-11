@@ -31,10 +31,22 @@ enum AppTypography {
             }
         }
 
+        private var fallbackWeight: UIFont.Weight {
+            switch self {
+            case .heading: .bold
+            case .label: .semibold
+            case .caption: .medium
+            }
+        }
+
         func font(at size: CGFloat) -> UIFont {
             _ = AppTypography.registerFont
             guard let font = UIFont(name: fontName, size: size) else {
-                preconditionFailure("등록한 Pretendard 폰트를 찾을 수 없습니다: \(fontName)")
+                #if DEBUG
+                assertionFailure("등록한 Pretendard 폰트를 찾을 수 없습니다: \(fontName)")
+                #endif
+                // 배포 앱에서는 같은 크기·굵기의 시스템 폰트로 계속 표시합니다.
+                return UIFont.systemFont(ofSize: size, weight: fallbackWeight)
             }
             return font
         }
@@ -43,7 +55,10 @@ enum AppTypography {
     // 앱과 독립 Preview 모두 첫 사용 시 한 번 등록합니다.
     private static let registerFont: Void = {
         guard let url = Bundle.main.url(forResource: "PretendardVariable", withExtension: "ttf") else {
-            preconditionFailure("PretendardVariable.ttf 리소스가 없습니다.")
+            #if DEBUG
+            assertionFailure("PretendardVariable.ttf 리소스가 없습니다.")
+            #endif
+            return
         }
         CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
     }()

@@ -27,6 +27,7 @@ struct AppButtonStyle: ButtonStyle {
                 }
             }
             .contentShape(shape)
+            .opacity(isEnabled && configuration.isPressed ? 0.85 : 1)
     }
 
     private var shape: RoundedRectangle {
