@@ -98,7 +98,7 @@
 				A13BCAF63077425800901BFD /* Sources */,
 				A13BCAF73077425800901BFD /* Frameworks */,
 				A13BCAF83077425800901BFD /* Resources */,
-				C6A1D0000000000000000004 /* Copy Supertonic Model */,
+				C6A1D0000000000000000004 /* Copy Models */,
 			);
 			buildRules = (
 			);
@@ -161,26 +161,39 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		C6A1D0000000000000000004 /* Copy Supertonic Model */ = {
+		C6A1D0000000000000000004 /* Copy Models */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			name = "Copy Supertonic Model";
+			name = "Copy Models";
 			shellPath = /bin/sh;
 			shellScript = (
-				"# Models/supertonic-3이 있으면 해시를 검사하고 앱에 복사한다. 없으면 넣지 않는다 (앱은 시스템 음성으로 말한다)",
-				"SRC=\"$SRCROOT/Models/supertonic-3\"",
-				"DEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/supertonic-3\"",
-				"if [ ! -d \"$SRC\" ]; then",
+				"# Models/<이름>이 있으면 tools/models/<이름>.sha256으로 해시를 검사하고 앱에 복사한다. 없으면 넣지 않는다.",
+				"# 모델이 바뀌지 않았으면(크기·수정 시각 같음) 이미 검사한 것으로 보고 건너뛴다 (Kanana 2.4GB 검사에 약 5초)",
+				"for SUMS in \"$SRCROOT\"/tools/models/*.sha256; do",
+				"  NAME=$(basename \"$SUMS\" .sha256)",
+				"  SRC=\"$SRCROOT/Models/$NAME\"",
+				"  DEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/$NAME\"",
+				"  STAMP=\"$DERIVED_FILE_DIR/model-$NAME.stamp\"",
+				"  # tools/models/<이름>.device-only가 있으면 시뮬레이터에는 넣지 않는다 (Kanana: 시뮬레이터에 CoreAI 없음)",
+				"  if [ ! -d \"$SRC\" ] || { [ \"$PLATFORM_NAME\" = iphonesimulator ] && [ -f \"$SRCROOT/tools/models/$NAME.device-only\" ]; }; then",
+				"    rm -rf \"$DEST\" \"$STAMP\"",
+				"    continue",
+				"  fi",
+				"  CURRENT=$( (cat \"$SUMS\"; cd \"$SRC\" && find . -type f ! -name .DS_Store -exec stat -f '%N %z %m' {} + | LC_ALL=C sort) | shasum -a 256)",
+				"  if [ -d \"$DEST\" ] && [ \"$(cat \"$STAMP\" 2>/dev/null)\" = \"$CURRENT\" ]; then",
+				"    continue",
+				"  fi",
+				"  if ! (cd \"$SRC\" && shasum -a 256 -c --quiet \"$SUMS\"); then",
+				"    echo \"error: Models/$NAME 파일이 고정 버전과 다릅니다. 모델을 다시 준비하세요.\"",
+				"    exit 1",
+				"  fi",
 				"  rm -rf \"$DEST\"",
-				"  exit 0",
-				"fi",
-				"if ! (cd \"$SRC\" && shasum -a 256 -c --quiet \"$SRCROOT/tools/supertonic-3.sha256\"); then",
-				"  echo \"error: Models/supertonic-3 파일이 고정 버전과 다릅니다. tools/download_supertonic.sh로 다시 받으세요.\"",
-				"  exit 1",
-				"fi",
-				"mkdir -p \"$DEST\"",
-				"for f in $(awk '{print $2}' \"$SRCROOT/tools/supertonic-3.sha256\"); do",
-				"  rsync -a \"$SRC/$f\" \"$DEST/\"",
+				"  mkdir -p \"$DEST\" \"$DERIVED_FILE_DIR\"",
+				"  if ! (cd \"$SRC\" && awk '{print $2}' \"$SUMS\" | rsync -a --files-from=- . \"$DEST/\"); then",
+				"    echo \"error: Models/$NAME을 앱에 복사하지 못했습니다.\"",
+				"    exit 1",
+				"  fi",
+				"  echo \"$CURRENT\" > \"$STAMP\"",
 				"done",
 				"",
 			);
