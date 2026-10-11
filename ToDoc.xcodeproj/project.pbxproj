@@ -383,8 +383,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
 			requirement = {
-				kind = exactVersion;
-				version = 2.5.1;
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
 			};
 		};
 		C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */ = {
