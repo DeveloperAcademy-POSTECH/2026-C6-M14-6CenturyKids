@@ -7,7 +7,7 @@
 
 import Foundation
 
-protocol UserRepository {
+protocol UserRepository: Repository where Entity == User {
     func save(_ user: User) async throws
 
     func findByEmail(

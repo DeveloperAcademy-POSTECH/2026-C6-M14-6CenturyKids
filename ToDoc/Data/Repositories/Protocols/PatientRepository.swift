@@ -7,7 +7,7 @@
 
 import Foundation
 
-protocol PatientRepository {
+protocol PatientRepository : Repository where Entity == Patient {
     func save(_ patient: Patient) async throws
 
     func findByName(
