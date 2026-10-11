@@ -133,3 +133,6 @@ iOSInjectionProject/
 
 ### On-device models (용량 문제로 커밋하지 않음) ###
 ToDoc/Resources/Models/
+
+# 음성 합성·AI 모델 파일 (tools/download_supertonic.sh로 받는다)
+/Models/
