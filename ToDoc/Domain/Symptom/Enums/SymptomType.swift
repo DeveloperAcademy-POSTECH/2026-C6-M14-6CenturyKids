@@ -1,23 +1,23 @@
 nonisolated public enum SymptomType: String, CaseIterable, Sendable {
-    case fatigueWeakness = "fatigueWeakness"
     case nauseaVomiting = "nauseaVomiting"
-    case diarrheaConstipation = "diarrheaConstipation"
-    case lossOfAppetite = "lossOfAppetite"
-    case sleepProblems = "sleepProblems"
-    case numbness = "numbness"
+    case constipation = "constipation"
+    case diarrhea = "diarrhea"
     case oralPain = "oralPain"
+    case numbness = "numbness"
+    case rashItching = "rashItching"
+    case dehydrationNutrition = "dehydrationNutrition"
     case other = "other"
 
     public var displayName: String {
         switch self {
-        case .fatigueWeakness: "피로·무기력"
-        case .nauseaVomiting: "메스꺼움·구토"
-        case .diarrheaConstipation: "설사·변비"
-        case .lossOfAppetite: "식욕 저하"
-        case .sleepProblems: "수면 문제"
-        case .numbness: "손발 저림·감각 이상"
-        case .oralPain: "입안 통증"
-        case .other: "그 밖의 불편 (기타)"
+        case .nauseaVomiting: "오심·구토"
+        case .constipation: "변비"
+        case .diarrhea: "설사"
+        case .oralPain: "구내염"
+        case .numbness: "손발 저림"
+        case .rashItching: "피부 발진·가려움"
+        case .dehydrationNutrition: "탈수·영양"
+        case .other: "기타"
         }
     }
 }

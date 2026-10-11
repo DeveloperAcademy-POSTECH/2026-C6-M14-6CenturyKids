@@ -68,10 +68,10 @@ final class DomainEnumRawValueTests: XCTestCase {
 
     func testSymptomTypeContract() {
         assertContract(SymptomType.self, [
-            (.fatigueWeakness, "fatigueWeakness"), (.nauseaVomiting, "nauseaVomiting"),
-            (.diarrheaConstipation, "diarrheaConstipation"), (.lossOfAppetite, "lossOfAppetite"),
-            (.sleepProblems, "sleepProblems"), (.numbness, "numbness"),
-            (.oralPain, "oralPain"), (.other, "other")
+            (.nauseaVomiting, "nauseaVomiting"), (.constipation, "constipation"),
+            (.diarrhea, "diarrhea"), (.oralPain, "oralPain"), (.numbness, "numbness"),
+            (.rashItching, "rashItching"), (.dehydrationNutrition, "dehydrationNutrition"),
+            (.other, "other")
         ])
     }
 }
