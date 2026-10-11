@@ -6,6 +6,10 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C6A1D0000000000000000001 /* onnxruntime in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1D0000000000000000002 /* onnxruntime */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		A13BCAFA3077425800901BFD /* ToDoc.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ToDoc.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -60,6 +64,7 @@
 		A13BCAF73077425800901BFD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				C6A1D0000000000000000001 /* onnxruntime in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -98,6 +103,9 @@
 				A13BCAFC3077425800901BFD /* ToDoc */,
 			);
 			name = ToDoc;
+			packageProductDependencies = (
+				C6A1D0000000000000000002 /* onnxruntime */,
+			);
 			productName = ToDoc;
 			productReference = A13BCAFA3077425800901BFD /* ToDoc.app */;
 			productType = "com.apple.product-type.application";
@@ -126,6 +134,9 @@
 			);
 			mainGroup = A13BCAF13077425800901BFD;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A13BCAFB3077425800901BFD /* Products */;
 			projectDirPath = "";
@@ -362,6 +373,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/microsoft/onnxruntime-swift-package-manager.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.24.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C6A1D0000000000000000002 /* onnxruntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */;
+			productName = onnxruntime;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A13BCAF23077425800901BFD /* Project object */;
 	validationLevel = 1;
