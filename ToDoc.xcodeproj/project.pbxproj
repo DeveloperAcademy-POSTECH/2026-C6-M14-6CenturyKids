@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1B02669307B83AE00547CD2 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A1B02668307B83AE00547CD2 /* Supabase */; };
 		C6A1D0000000000000000001 /* onnxruntime in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1D0000000000000000002 /* onnxruntime */; };
 /* End PBXBuildFile section */
 
@@ -64,6 +65,7 @@
 		A13BCAF73077425800901BFD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				A1B02669307B83AE00547CD2 /* Supabase in Frameworks */,
 				C6A1D0000000000000000001 /* onnxruntime in Frameworks */,
 			);
 		};
@@ -105,6 +107,7 @@
 			name = ToDoc;
 			packageProductDependencies = (
 				C6A1D0000000000000000002 /* onnxruntime */,
+				A1B02668307B83AE00547CD2 /* Supabase */,
 			);
 			productName = ToDoc;
 			productReference = A13BCAFA3077425800901BFD /* ToDoc.app */;
@@ -136,6 +139,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */,
+				A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A13BCAFB3077425800901BFD /* Products */;
@@ -375,6 +379,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = exactVersion;
+				version = 2.5.1;
+			};
+		};
 		C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/microsoft/onnxruntime-swift-package-manager.git";
@@ -386,6 +398,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A1B02668307B83AE00547CD2 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
 		C6A1D0000000000000000002 /* onnxruntime */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */;
