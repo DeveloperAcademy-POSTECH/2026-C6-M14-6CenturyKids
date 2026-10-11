@@ -17,6 +17,4 @@ protocol PatientRepository : Repository where Entity == Patient {
     func findByDoctorId(
         _ doctorId: UUID
     ) async throws -> [Patient]
-    
-    func findByUserId(_ userId: UUID) async throws -> Patient?
 }

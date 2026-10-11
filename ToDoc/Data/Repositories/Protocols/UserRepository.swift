@@ -17,6 +17,4 @@ protocol UserRepository: Repository where Entity == User {
     func findByName(
         _ name: String
     ) async throws -> [User]
-    
-    func findById(_ id: UUID) async throws -> User?
 }

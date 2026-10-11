@@ -56,7 +56,7 @@ final class AuthenticationService {
             fatalError("User 조회 실패 에러 타입 확정 필요")
         }
         
-        guard let patient = try await patientRepository.findByUserId(user.id) else {
+        guard let patient = try await patientRepository.findById(user.id) else {
             // 에러 타입 확정 후 throw 구현 필요
             fatalError("Patient 조회 실패 에러 타입 확정 필요")
             }
@@ -79,7 +79,7 @@ final class AuthenticationService {
             fatalError("User 조회 실패 에러 타입 확정 필요")
         }
 
-        guard let doctor = try await doctorRepository.findByUserId(userId) else {
+        guard let doctor = try await doctorRepository.findById(userId) else {
             // 에러 타입 확정 후 throw 구현 필요
             fatalError("Doctor 조회 실패 에러 타입 확정 필요")
         }
