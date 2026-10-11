@@ -17,7 +17,14 @@ nonisolated enum DomainDateRules {
     }
 
     static func age(birthday: Date, now: Date, calendar: Calendar) -> Int {
-        calendar.dateComponents([.year], from: calendar.startOfDay(for: birthday),
-                                to: calendar.startOfDay(for: now)).year ?? 0
+        let birth = calendar.dateComponents([.year, .month, .day], from: birthday)
+        let current = calendar.dateComponents([.year, .month, .day], from: now)
+        guard let birthYear = birth.year, let birthMonth = birth.month, let birthDay = birth.day,
+              let currentYear = current.year, let currentMonth = current.month, let currentDay = current.day else {
+            return 0
+        }
+        // 월·일을 비교하므로 2월 29일생은 평년의 3월 1일부터 새 나이가 됩니다.
+        let birthdayPassed = (currentMonth, currentDay) >= (birthMonth, birthDay)
+        return currentYear - birthYear - (birthdayPassed ? 0 : 1)
     }
 }
