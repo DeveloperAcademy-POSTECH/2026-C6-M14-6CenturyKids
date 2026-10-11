@@ -1,5 +1,5 @@
 /// User.sex — 클래스 다이어그램의 두 값을 유지합니다.
-public enum Sex: CaseIterable, Sendable {
+nonisolated public enum Sex: CaseIterable, Sendable {
     case male
     case female
 }
