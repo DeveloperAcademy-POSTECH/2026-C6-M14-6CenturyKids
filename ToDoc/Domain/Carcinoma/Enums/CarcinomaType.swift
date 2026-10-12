@@ -1,4 +1,4 @@
-/// 사용자 확인을 받은 Figma 암종 15개. 영문 case명을 문자열 값으로 사용합니다.
+/// 사용자 확인을 받은 Figma 암종 10개. 영문 case명을 문자열 값으로 사용합니다.
 nonisolated public enum CarcinomaType: String, CaseIterable, Sendable {
     case liver = "liver"
     case thyroid = "thyroid"
@@ -10,11 +10,6 @@ nonisolated public enum CarcinomaType: String, CaseIterable, Sendable {
     case prostate = "prostate"
     case pancreas = "pancreas"
     case lung = "lung"
-    case larynx = "larynx"
-    case thymus = "thymus"
-    case esophagus = "esophagus"
-    case smallIntestine = "smallIntestine"
-    case anus = "anus"
 
     public var displayName: String {
         switch self {
@@ -28,11 +23,6 @@ nonisolated public enum CarcinomaType: String, CaseIterable, Sendable {
         case .prostate: "전립선암"
         case .pancreas: "췌장암"
         case .lung: "폐암"
-        case .larynx: "후두암"
-        case .thymus: "흉선암"
-        case .esophagus: "식도암"
-        case .smallIntestine: "소장암"
-        case .anus: "항문암"
         }
     }
 }
