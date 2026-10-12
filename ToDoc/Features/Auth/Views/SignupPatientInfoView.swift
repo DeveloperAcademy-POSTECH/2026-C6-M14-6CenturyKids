@@ -38,7 +38,8 @@ struct SignupPatientInfoView: View {
         .sheet(isPresented: $showsBirthday) {
             NavigationStack {
                 DatePicker("생년월일", selection: $selectedBirthday, in: ...model.latestBirthday, displayedComponents: .date)
-                    .datePickerStyle(.graphical).padding()
+                    .datePickerStyle(.wheel).labelsHidden()
+                    .environment(\.locale, model.locale)
                     .environment(\.calendar, model.calendar)
                     .environment(\.timeZone, model.calendar.timeZone)
                     .navigationTitle("생년월일").navigationBarTitleDisplayMode(.inline)

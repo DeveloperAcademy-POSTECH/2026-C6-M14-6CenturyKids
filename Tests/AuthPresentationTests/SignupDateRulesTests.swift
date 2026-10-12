@@ -61,4 +61,12 @@ final class SignupDateRulesTests: XCTestCase {
         XCTAssertNil(value.age)
         XCTAssertNotNil(value.patientInfoError)
     }
+
+    func testBirthdayDisplayIsKoreanAndUsesTheSignupCalendarDay() {
+        let seoul = model(now: "2026-10-11T00:00:00Z", zone: TimeZone(secondsFromGMT: 9 * 3600)!)
+        let universal = model(now: "2026-10-11T00:00:00Z")
+        for value in [seoul, universal] { value.birthday = date("1960-01-01T16:00:00Z") }
+        XCTAssertEqual(seoul.birthdayText, "1960년 1월 2일")
+        XCTAssertEqual(universal.birthdayText, "1960년 1월 1일")
+    }
 }

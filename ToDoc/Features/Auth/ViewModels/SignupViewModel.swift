@@ -40,6 +40,7 @@ final class SignupViewModel {
     let termsContent: [SignupTerm: String]
     @ObservationIgnored private let now: () -> Date
     let calendar: Calendar
+    let locale = Locale(identifier: "ko_KR")
     @ObservationIgnored private let signUp: SignUp
     @ObservationIgnored private let lookupDoctor: LookupDoctor
     @ObservationIgnored private var requestID = UUID()
@@ -80,7 +81,8 @@ final class SignupViewModel {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        formatter.setLocalizedDateFormatFromTemplate("yyyyMMdd")
+        formatter.locale = locale
+        formatter.dateFormat = "yyyy년 M월 d일"
         return formatter.string(from: birthday)
     }
     var filteredCancerTypes: [CarcinomaType] {
