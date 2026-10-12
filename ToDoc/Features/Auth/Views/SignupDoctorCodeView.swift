@@ -11,7 +11,10 @@ struct SignupDoctorCodeView: View {
             AuthTextField(title: "연결 코드", placeholder: "예: A12B34", text: $model.doctorCode,
                           error: model.hasAttemptedStep ? model.currentValidationError : nil)
                 .disabled(model.isWorking)
-            Button("코드는 어디에서 받나요?") { showsHelp = true }.appTextStyle(.caption)
+            Button { showsHelp = true } label: {
+                Text("코드는 어디에서 받나요?").underline()
+            }
+            .appTextStyle(.caption).frame(minHeight: 44)
             if let error = model.errorMessage { AuthMessage(text: error) }
         } footer: {
             Button {

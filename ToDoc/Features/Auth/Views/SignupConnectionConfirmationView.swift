@@ -14,7 +14,10 @@ struct SignupConnectionConfirmationView: View {
                 .padding(24).frame(maxWidth: .infinity, alignment: .leading)
                 .background(AppColors.secondary, in: RoundedRectangle(cornerRadius: 20))
             }
-            Button("다른 코드 입력") { model.changeDoctorCode() }.appTextStyle(.caption)
+            Button { model.changeDoctorCode() } label: {
+                Text("다른 코드 입력").underline()
+            }
+            .appTextStyle(.caption).frame(minHeight: 44)
         }
     }
     private func row(_ title: String, _ value: String) -> some View {
