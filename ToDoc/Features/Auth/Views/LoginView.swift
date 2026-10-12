@@ -1,20 +1,27 @@
 import SwiftUI
 
 struct LoginView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var model: LoginViewModel
-    @State private var request: Task<Void, Never>?
-    @ScaledMetric(relativeTo: .title2) private var logoSize: CGFloat = 26
-    private let resetPassword: PasswordResetViewModel.ResetPassword
-    private let onSignedIn: () -> Void
+    @State private var flow: AuthFlowModel
 
     init(model: LoginViewModel? = nil,
          resetPassword: @escaping PasswordResetViewModel.ResetPassword = { _ in throw AuthPresentationError.unavailable },
-         onSignedIn: @escaping () -> Void = {}) {
-        _model = State(initialValue: model ?? LoginViewModel())
-        self.resetPassword = resetPassword
-        self.onSignedIn = onSignedIn
+         signupModel: SignupViewModel? = nil, onSignedIn: @escaping () -> Void = {}) {
+        _flow = State(initialValue: AuthFlowModel(login: model, signup: signupModel,
+            passwordReset: PasswordResetViewModel(resetPassword: resetPassword), onSignedIn: onSignedIn))
     }
+
+    init(flow: AuthFlowModel) { _flow = State(initialValue: flow) }
+    var body: some View { AuthFlowView(flow: flow) }
+}
+
+struct LoginFormView: View {
+    @Environment(\.dismiss) private var dismiss
+    let model: LoginViewModel
+    let onSignup: () -> Void
+    let onPasswordReset: () -> Void
+    var onBack: (() -> Void)? = nil
+    @State private var request: Task<Void, Never>?
+    @ScaledMetric(relativeTo: .title2) private var logoSize: CGFloat = 26
 
     var body: some View {
         @Bindable var model = model
@@ -24,6 +31,15 @@ struct LoginView: View {
                     .font(Font(AppTypography.Style.heading.font(at: logoSize)))
                     .foregroundStyle(Color(red: 0.21, green: 0.31, blue: 0.04))
                     .frame(maxWidth: .infinity)
+                    .overlay(alignment: .leading) {
+                        if let onBack {
+                            Button(action: onBack) {
+                                Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("온보딩으로 돌아가기")
+                        }
+                    }
                     .padding(.top, 28)
                     .padding(.bottom, 48)
 
@@ -46,6 +62,7 @@ struct LoginView: View {
                                   error: model.passwordError, appearance: .login)
                         .onSubmit(submit)
                 }
+                .disabled(model.isSubmitting)
 
                 Toggle("자동 로그인", isOn: .constant(false))
                     .appTextStyle(.caption)
@@ -99,7 +116,6 @@ struct LoginView: View {
                 .accessibilityHint("Apple 로그인은 준비 중입니다.")
                 .padding(.top, 20)
             }
-            .disabled(model.isSubmitting)
             .padding(.horizontal, AppSpacing.screenHorizontal)
             .padding(.bottom, 28)
         }
@@ -107,25 +123,20 @@ struct LoginView: View {
         .background(Color.white.ignoresSafeArea())
         .foregroundStyle(AppColors.Text.primary)
         .toolbar(.hidden, for: .navigationBar)
-        .accessibilityAction(.escape) { dismiss() }
-        .onChange(of: model.didSignIn) { _, signedIn in if signedIn { onSignedIn() } }
+        .accessibilityAction(.escape) { if let onBack { onBack() } else { dismiss() } }
         .onDisappear { request?.cancel(); model.cancel() }
     }
 
     private var signupLink: some View {
-        NavigationLink { SignupView() } label: {
+        Button(action: onSignup) {
             Text("회원가입").underline().frame(minHeight: 44)
-        }
+        }.disabled(model.isSubmitting)
     }
 
     private var passwordResetLink: some View {
-        NavigationLink {
-            PasswordResetView(model: PasswordResetViewModel { email in
-                try await resetPassword(email)
-            })
-        } label: {
+        Button(action: onPasswordReset) {
             Text("비밀번호 찾기").underline().frame(minHeight: 44)
-        }
+        }.disabled(model.isSubmitting)
     }
 
     private func submit() {

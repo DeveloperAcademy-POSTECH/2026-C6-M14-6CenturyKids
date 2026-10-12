@@ -3,12 +3,13 @@ import SwiftUI
 struct PasswordResetView: View {
     @Environment(\.dismiss) private var dismiss
     @State var model: PasswordResetViewModel = PasswordResetViewModel()
+    var onBack: (() -> Void)?
     @State private var request: Task<Void, Never>?
 
     var body: some View {
         @Bindable var model = model
         AuthFormScreen(title: model.didSend ? "이메일을\n확인해 주세요" : "비밀번호를\n잊으셨나요?",
-                       onBack: { dismiss() }) {
+                       onBack: finish) {
             if model.didSend {
                 Text("등록된 이메일이라면 비밀번호 재설정 안내를 보내드려요.")
                     .appTextStyle(.label)
@@ -20,7 +21,7 @@ struct PasswordResetView: View {
             }
         } footer: {
             Button {
-                if model.didSend { dismiss() }
+                if model.didSend { finish() }
                 else { request = Task { await model.submit() } }
             } label: {
                 AuthSubmitLabel(title: model.didSend ? "로그인으로 돌아가기" : "재설정 안내 받기", isLoading: model.isSubmitting)
@@ -28,6 +29,9 @@ struct PasswordResetView: View {
             .buttonStyle(AppButtonStyle()).disabled(model.isSubmitting)
         }
         .onDisappear { request?.cancel(); model.cancel() }
+    }
+    private func finish() {
+        if let onBack { onBack() } else { dismiss() }
     }
 }
 

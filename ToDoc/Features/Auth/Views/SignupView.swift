@@ -1,16 +1,26 @@
 import SwiftUI
 
 struct SignupView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var model: SignupViewModel
-    @State private var showsLogin = false
-    private let onLogin: (() -> Void)?
+    @State private var flow: AuthFlowModel
 
-    init(model: SignupViewModel? = nil, onLogin: (() -> Void)? = nil) {
-        _model = State(initialValue: model ?? SignupViewModel())
-        self.onLogin = onLogin
+    init(model: SignupViewModel? = nil, onLogin: (() -> Void)? = nil,
+         loginModel: LoginViewModel? = nil,
+         resetPassword: @escaping PasswordResetViewModel.ResetPassword = { _ in throw AuthPresentationError.unavailable },
+         onSignedIn: @escaping () -> Void = {}) {
+        _flow = State(initialValue: AuthFlowModel(entry: .signup, login: loginModel, signup: model,
+            passwordReset: PasswordResetViewModel(resetPassword: resetPassword),
+            onLogin: onLogin, onSignedIn: onSignedIn))
     }
+
+    init(flow: AuthFlowModel) { _flow = State(initialValue: flow) }
+    var body: some View { AuthFlowView(flow: flow) }
+}
+
+struct SignupFormView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let model: SignupViewModel
+    let onBack: () -> Void
+    let onLogin: () -> Void
 
     var body: some View {
         Group {
@@ -29,16 +39,15 @@ struct SignupView: View {
             case .review: SignupReviewView(model: model)
             case .completion:
                 SignupCompletionView(email: AuthFormValidation.trimmed(model.email)) {
-                    if let onLogin { onLogin() } else { showsLogin = true }
+                    onLogin()
                 }
             }
         }
-        .navigationDestination(isPresented: $showsLogin) { LoginView() }
         .onDisappear { model.cancel() }
     }
 
     private var roleSelection: some View {
-        AuthFormScreen(title: "어떻게\n이용하시나요?", progress: model.step.progress, onBack: { dismiss() }) {
+        AuthFormScreen(title: "어떻게\n이용하시나요?", progress: model.step.progress, onBack: onBack) {
             VStack(spacing: 16) {
                 roleCard(patient: true)
                 roleCard(patient: false)
