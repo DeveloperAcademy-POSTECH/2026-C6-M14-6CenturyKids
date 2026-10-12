@@ -3,7 +3,6 @@ import Observation
 /// 인증 화면 안의 입력 모델과 이동만 보존합니다. 서비스 생성·세션 저장은 담당하지 않습니다.
 @MainActor @Observable
 final class AuthFlowModel {
-    enum Screen { case login, signup, passwordReset }
     private(set) var screen: Screen
     let login: LoginViewModel
     private(set) var signup: SignupViewModel

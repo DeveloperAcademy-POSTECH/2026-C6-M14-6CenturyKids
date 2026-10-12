@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct AuthTextField: View {
-    enum Appearance { case standard, login }
     let title: String
     let placeholder: String
     @Binding var text: String
