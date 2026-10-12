@@ -170,4 +170,35 @@ final class SignupViewModelTests: XCTestCase {
         XCTAssertEqual(calls, 0)
     }
 
+
+    func testReviewCannotOpenBasicInfoWhileSignupIsPending() async {
+        await assertPendingSignupPreventsReviewEdit { $0.editBasicInfo() }
+    }
+
+    func testReviewCannotOpenDiagnosisWhileSignupIsPending() async {
+        await assertPendingSignupPreventsReviewEdit { $0.editDiagnosis() }
+    }
+
+    private func assertPendingSignupPreventsReviewEdit(_ edit: (SignupViewModel) -> Void) async {
+        var continuation: CheckedContinuation<Void, Error>?
+        let model = SignupViewModel(termsContent: Dictionary(uniqueKeysWithValues: SignupTerm.allCases.map { ($0, "테스트 약관") }), signUp: { _ in
+            try await withCheckedThrowingContinuation { continuation = $0 }
+        })
+        fill(model)
+        model.editBasicInfo(); model.next()
+        XCTAssertEqual(model.step, .review)
+        let request = Task { await model.submit() }
+        while continuation == nil { await Task.yield() }
+        edit(model)
+        XCTAssertEqual(model.step, .review, "제출 중에는 검토 화면을 유지해야 합니다.")
+        XCTAssertTrue(model.isWorking)
+        continuation?.resume(throwing: AuthPresentationError.message("재시도"))
+        await request.value
+        XCTAssertFalse(model.isWorking)
+        XCTAssertEqual(model.step, .review)
+        XCTAssertEqual(model.name, " 김하늘 ")
+        XCTAssertNotNil(model.errorMessage)
+        edit(model)
+        XCTAssertNotEqual(model.step, .review, "실패 후에는 초안을 수정할 수 있어야 합니다.")
+    }
 }

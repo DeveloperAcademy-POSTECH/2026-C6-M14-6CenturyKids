@@ -167,8 +167,16 @@ final class SignupViewModel {
         } else if let previous = SignupStep(rawValue: step.rawValue - 1) { move(to: previous) }
     }
 
-    func editBasicInfo() { editingReview = true; move(to: .patientInfo) }
-    func editDiagnosis() { editingReview = true; move(to: .cancerType) }
+    func editBasicInfo() {
+        guard !isWorking else { return }
+        editingReview = true
+        move(to: .patientInfo)
+    }
+    func editDiagnosis() {
+        guard !isWorking else { return }
+        editingReview = true
+        move(to: .cancerType)
+    }
     func changeDoctorCode() { cancel(); move(to: .doctorCode) }
     func skipDoctorCode() {
         cancel()
