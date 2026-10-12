@@ -30,6 +30,8 @@ struct CareCallConfig: Decodable, Sendable {
 
     let version: String
     let effects: [Effect]
+    /// 음성 통화 첫마디. 상대가 AI 음성임을 알린다 (Supertonic 라이선스 의무, 초안)
+    let aiVoiceNotice: String
     let openingQuestion: String
     let otherQuestion: String
     /// 첫 질문 꼬리질문: 답에 증상 표현(symptomHints)이나 컨디션이 나쁘다는 말(openingConcerns)이 있고 목록 증상이 기록되지 않았으면 한 번
@@ -67,6 +69,14 @@ struct CareCallConfig: Decodable, Sendable {
 
     func returnPrefix(for effect: Effect) -> String {
         returnPrefix.replacingOccurrences(of: "{name}", with: effect.spokenName)
+    }
+
+    /// 통화 중 말할 고정 문구 (음성 미리 합성용). 응급 안내는 시스템 음성으로 읽으므로 넣지 않는다
+    func spokenPhrases(rules: EmergencyRules) -> [String] {
+        [aiVoiceNotice, openingQuestion, openingFollowUp, openingTransition.fine, openingTransition.noted, openingTransition.afterFollowUp]
+            + effects.flatMap { [$0.ask, $0.detailQuestion].compactMap(\.self) } + effects.map(returnPrefix(for:))
+            + acknowledgements + [repeatPrefix, otherDetail.question, otherDetail.recorded, severityPrompt, severityPromptShort,
+                                  locationPrompt, otherQuestion, otherFollowUp, rules.closingMessage]
     }
 
     struct OpeningTransition: Decodable, Sendable {
