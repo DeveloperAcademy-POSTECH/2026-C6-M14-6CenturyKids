@@ -1,11 +1,12 @@
 import SwiftUI
 
 struct SignupNameView: View {
-    var body: some View {
-        Text("가입 · 이름")
-    }
-}
+    @Bindable var model: SignupViewModel
 
-#Preview {
-    SignupNameView()
+    var body: some View {
+        SignupStepScreen(model: model, title: "이름을\n입력해 주세요") {
+            AuthTextField(title: "이름", placeholder: "예: 김하늘", text: $model.name, contentType: .name)
+                .onSubmit { model.next() }
+        }
+    }
 }
