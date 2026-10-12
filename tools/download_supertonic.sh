@@ -10,7 +10,7 @@ REV="aafc6e32416a594460b32413efc49d7fe4ce6d46"
 FILES="onnx/duration_predictor.onnx onnx/text_encoder.onnx onnx/vector_estimator.onnx onnx/vocoder.onnx onnx/tts.json onnx/unicode_indexer.json voice_styles/M3.json"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SUMS="$ROOT/tools/supertonic-3.sha256"
+SUMS="$ROOT/tools/models/supertonic-3.sha256"
 DEST="$ROOT/Models/supertonic-3"
 
 if [ -d "$DEST" ] && (cd "$DEST" && shasum -a 256 -c --quiet "$SUMS") 2>/dev/null; then
