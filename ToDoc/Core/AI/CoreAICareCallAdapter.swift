@@ -13,12 +13,12 @@ final class CoreAICareCallAdapter: CareCallAI {
     /// 턴 분석 출력 상한. 프로토타입 평가 377회: 중앙 65, 상위 5% 113, 상위 1% 223토큰.
     /// 200토큰을 넘는 출력은 항목을 늘어놓는 비정상 출력이었고 한 번에 10~24초 걸렸다. 넘으면 형식 실패로 엔진이 재시도한다.
     private static let analysisMaxTokens = 160
-    private static let promptName = "prompt-turn-analysis-v13"
+    private static let promptName = "prompt-turn-analysis-v14"
 
     private let model: any LanguageModel
     private let template: PromptTemplate
     private let missingFieldNames: [CareCallStep: String] = [
-        .presence: "유무", .detail: "횟수·시작 시점·섭취량", .severity: "강도(0~10 숫자)", .location: "부위",
+        .presence: "유무", .detail: "횟수·시작 시점·섭취량", .location: "부위",
     ]
 
     init(model: any LanguageModel, bundle: Bundle = .main) throws {
