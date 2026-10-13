@@ -14,8 +14,6 @@ struct Ledger: Sendable {
         let effectId: String
         var otherName: String?
         var presence: MentionPresence?
-        /// 환자가 말한 0~10 점수 그대로 (소수 포함, 예: 3.5)
-        var severity: Double?
         var locations: [String] = []
         /// 횟수·시작 시점·섭취량 답 (환자 말 그대로)와 그 이름
         var detail: String?
@@ -44,16 +42,15 @@ struct Ledger: Sendable {
     subscript(key: String) -> Entry? { entries[key] }
 
     /// 모델이 낸 언급을 환자 발화로 검증해 반영한다.
-    /// - 강도: 0~10이고 환자 발화에 그 숫자가 실제로 있을 때만 (말을 숫자로 바꾼 값 차단)
     /// - 부위: 환자 발화에 있는 말만
     /// - 있음↔없음 번복: 최신 값으로 바꾸고 검토 필요
-    /// - mayChangeRecorded: false면 이미 기록된 있음/없음과 강도는 바꾸지 않고 빈 값만 채운다.
+    /// - mayChangeRecorded: false면 이미 기록된 있음/없음은 바꾸지 않고 빈 값만 채운다.
     mutating func apply(_ mention: Mention, patientText: String, knownEffectIds: Set<String>, mayChangeRecorded: Bool = true) {
         guard Self.grounded(mention.quote, in: patientText) else { return }
         var effectId = mention.effectId
         let otherName = mention.otherName?.trimmingCharacters(in: .whitespaces)
         if effectId != "other", !knownEffectIds.contains(effectId) {
-            // 목록 ID를 변형한 것("stomatitis_severity")은 버린다. 그 밖의 목록 밖 ID(모델이 만든 "headache" 등)는 기타로 받는다
+            // 목록 ID를 변형한 것("stomatitis_detail" 등)은 버린다. 그 밖의 목록 밖 ID(모델이 만든 "headache" 등)는 기타로 받는다
             if knownEffectIds.contains(where: { effectId.hasPrefix($0) }) { return }
             effectId = "other"
         }
@@ -71,7 +68,7 @@ struct Ledger: Sendable {
             entry.needsReview = true
             entry.presence = mention.presence
             entry.closed = false
-            entry.severity = nil // 번복 전 강도·부위는 버린다 (다시 물어 채움)
+            // 번복 전 부위는 버린다 (다시 물어 채움)
             entry.locations = []
         case (.some(.present), .unclear), (.some(.absent), .unclear):
             break // 이미 확인된 값을 불명확으로 낮추지 않는다
@@ -79,11 +76,6 @@ struct Ledger: Sendable {
             entry.presence = mention.presence
         }
 
-        if let severity = mention.severity.map(Double.init), (0...10).contains(severity), entry.presence == .present,
-           mayChangeRecorded || entry.severity == nil,  // 다른 항목을 묻는 중에는 기록된 강도를 덮어쓰지 않는다
-           SeverityParser.scores(in: patientText).contains(severity) {
-            entry.severity = severity
-        }
         for location in mention.locations where Self.mentioned(location, in: patientText) {
             if !entry.locations.contains(location) { entry.locations.append(location) }
         }
@@ -107,15 +99,11 @@ struct Ledger: Sendable {
         entries[key]?.detailLabel = label
     }
 
-    mutating func setSeverity(_ value: Double, for key: String) {
-        entries[key]?.severity = value
-    }
-
-    /// 기록 값(있음/없음·강도·부위)이 같은지. 근거 문장(quotes)과 질문 횟수는 보지 않는다
+    /// 기록 값(있음/없음·부위)이 같은지. 근거 문장(quotes)과 질문 횟수는 보지 않는다
     func sameRecords(as other: Ledger) -> Bool {
         order == other.order && entries.allSatisfy { key, e in
             guard let o = other.entries[key] else { return false }
-            return e.presence == o.presence && e.severity == o.severity && e.locations == o.locations
+            return e.presence == o.presence && e.locations == o.locations
         }
     }
 
@@ -147,8 +135,6 @@ struct Ledger: Sendable {
             let name = e.effectId == "other" ? (e.otherName ?? "기타") : (names[e.effectId] ?? e.effectId)
             var parts = ["\(name): \(e.unknownSteps.contains(.presence) ? "모름" : presence.rawValue)"]
             if let d = e.detail { parts.append("\(e.detailLabel ?? "추가") ‘\(d)’") }
-            if let s = e.severity { parts.append("강도 \(SeverityParser.text(s))") }
-            if e.unknownSteps.contains(.severity) { parts.append("강도 모름") }
             if !e.locations.isEmpty { parts.append("부위 \(e.locations.joined(separator: ", "))") }
             if e.unknownSteps.contains(.location) { parts.append("부위 모름") }
             if e.needsReview { parts.append("검토 필요") }

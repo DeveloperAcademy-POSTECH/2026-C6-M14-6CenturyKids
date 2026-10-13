@@ -102,7 +102,6 @@
       "ask": "식사나 물을 평소보다 적게 드시고 계세요?",
       "detailQuestion": "평소보다 얼마나 적게 드시나요?",
       "detailLabel": "섭취량",
-      "asksSeverity": false,
       "keywords": [
         "식사",
         "밥",
@@ -171,8 +170,6 @@
   "repeatPrefix": "죄송해요, 다시 한 번 여쭤볼게요.",
   "returnPrefix": "{name}에 대해 여쭤볼게요.",
   "otherDetail": {"question": "어떤 점이 그러신지 조금 더 말씀해 주시겠어요?", "label": "내용", "recorded": "알겠어요, 기록해 둘게요."},
-  "severityPrompt": "0점은 전혀 불편하지 않고 10점은 가장 심하게 불편한 정도라고 할 때, 몇 점 정도 되세요?",
-  "severityPromptShort": "불편한 정도를 0점에서 10점 사이 점수로 말씀해 주세요.",
   "locationPrompt": "어느 부위에 그런 증상이 있으세요?",
   "noPrefixes": [
     "아니요",

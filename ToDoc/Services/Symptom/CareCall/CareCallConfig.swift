@@ -18,13 +18,11 @@ struct CareCallConfig: Decodable, Sendable {
         /// 환자가 이 증상을 직접 말했는지 보는 낱말 (다른 항목을 묻는 중 번복 판단용, 초안)
         let keywords: [String]
         let requiresLocation: Bool
-        /// 있음 다음, 강도 전에 묻는 질문 (횟수·시작 시점·섭취량). 답은 모델 없이 환자 말 그대로 기록
+        /// 있음 다음에 묻는 질문 (횟수·시작 시점·섭취량). 답은 모델 없이 환자 말 그대로 기록
         let detailQuestion: String?
         /// 기록에 붙이는 이름 ("횟수", "시작", "섭취량")
         let detailLabel: String?
-        /// false면 강도(0~10)를 묻지 않는다 (탈수·영양). 없으면 묻는다
-        let asksSeverity: Bool?
-        /// 다른 항목을 묻다가 이 항목의 횟수·강도·부위로 돌아갈 때 앞에 말하는 이름 ("입안이 헐거나 아픈 것")
+        /// 다른 항목을 묻다가 이 항목의 횟수·부위로 돌아갈 때 앞에 말하는 이름 ("입안이 헐거나 아픈 것")
         let spokenName: String
     }
 
@@ -51,16 +49,13 @@ struct CareCallConfig: Decodable, Sendable {
     let returnPrefix: String
     /// '그 밖에'에서 기타 증상을 말하면 한 번 더 묻고(question) 답을 그대로 기록(label)한 뒤 마무리 인사 앞에 붙이는 말(recorded)
     let otherDetail: OtherDetail
-    let severityPrompt: String
-    /// 두 번째 항목부터 쓰는 짧은 강도 질문 (같은 항목을 다시 물을 때는 긴 문구)
-    let severityPromptShort: String
     let locationPrompt: String
     /// 유무 질문에 이 말로 시작하거나 끝나는 짧은 답은 모델 없이 '없음' (다른 증상·숫자·연결어가 없을 때만, 초안)
     let noPrefixes: [String]
     let noSuffixes: [String]
     /// 유무 질문에 이 말로 끝나는 답은 이유를 말한 것 → 있음 ("입이 아파서요" = 입이 아파서 많이 못 먹었다, 초안)
     let reasonSuffixes: [String]
-    /// 유무·강도·부위 질문에 이 말이 든 답("잘 모르겠어요", "기억이 안 나요")은 다시 묻지 않고 '모름'으로 기록 (초안)
+    /// 유무·부위 질문에 이 말이 든 답("잘 모르겠어요", "기억이 안 나요")은 다시 묻지 않고 '모름'으로 기록 (초안)
     let unknownAnswers: [String]
     /// 모델 없이 처리하는 짧은 답 (공백·문장부호를 뺀 뒤 완전히 같을 때만). 질문이 긍정형("~있으셨나요?")이라는 전제
     let shortAnswers: ShortAnswers
@@ -75,8 +70,8 @@ struct CareCallConfig: Decodable, Sendable {
     func spokenPhrases(rules: EmergencyRules) -> [String] {
         [aiVoiceNotice, openingQuestion, openingFollowUp, openingTransition.fine, openingTransition.noted, openingTransition.afterFollowUp]
             + effects.flatMap { [$0.ask, $0.detailQuestion].compactMap(\.self) } + effects.map(returnPrefix(for:))
-            + acknowledgements + [repeatPrefix, otherDetail.question, otherDetail.recorded, severityPrompt, severityPromptShort,
-                                  locationPrompt, otherQuestion, otherFollowUp, rules.closingMessage]
+            + acknowledgements + [repeatPrefix, otherDetail.question, otherDetail.recorded, locationPrompt,
+                                  otherQuestion, otherFollowUp, rules.closingMessage]
     }
 
     struct OpeningTransition: Decodable, Sendable {

@@ -16,7 +16,7 @@ enum SlotPlanner {
             }
         }
         guard otherAsked else { return .other }
-        // 기타 부작용: 있음/없음이 불분명할 때만 다시 묻는다 (내용은 '그 밖에' 꼬리질문으로 그대로 기록, 강도·부위는 묻지 않음)
+        // 기타 부작용: 있음/없음이 불분명할 때만 다시 묻는다 (내용은 '그 밖에' 꼬리질문으로 그대로 기록, 부위는 묻지 않음)
         for key in ledger.order where key.hasPrefix("other:") {
             if let step = pendingStep(ledger[key], effect: nil) {
                 return .slot(key: key, step: step)
@@ -25,7 +25,7 @@ enum SlotPlanner {
         return .done
     }
 
-    /// 아직 확인할 단계. 있음이면 횟수·시작(detail) → 강도 → 부위 순. 이미 있음/없음이 기록된 항목은 유무 단계를 건너뛴다.
+    /// 아직 확인할 단계. 있음이면 횟수·시작(detail) → 부위 순. 이미 있음/없음이 기록된 항목은 유무 단계를 건너뛴다.
     /// effect가 nil이면 기타 항목 (있음이면 더 묻지 않음)
     static func pendingStep(_ entry: Ledger.Entry?, effect: CareCallConfig.Effect?) -> CareCallStep? {
         guard let entry else { return .presence }
@@ -36,7 +36,6 @@ enum SlotPlanner {
         case .present?:
             guard let effect else { return nil }
             if effect.detailQuestion != nil && entry.detail == nil { return .detail }
-            if (effect.asksSeverity ?? true) && entry.severity == nil && !entry.unknownSteps.contains(.severity) { return .severity }
             if effect.requiresLocation && entry.locations.isEmpty && !entry.unknownSteps.contains(.location) { return .location }
             return nil
         }
