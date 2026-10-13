@@ -23,9 +23,31 @@ final class SupertonicAdapter: NSObject, SpeechSynthesizer, AVAudioPlayerDelegat
     private var speakingByFallback = false
     /// stop()마다 늘린다. 합성하는 동안 멈췄으면 합성이 끝나도 재생하지 않는다
     private var generation = 0
+    private var preloadTask: Task<Void, Never>?
 
     init(fallback: SpeechSynthesizer) {
         self.fallback = fallback
+    }
+
+    deinit {
+        preloadTask?.cancel()
+    }
+
+    /// 한 문장씩 넘겨서, 지금 말할 문장이 미리 합성 뒤로 오래 밀리지 않게 한다
+    func preload(_ texts: [String]) {
+        let sentences = texts.flatMap(SupertonicVoice.sentences)
+        preloadTask?.cancel()
+        preloadTask = Task { [voice] in
+            guard let voice = await voice.value else { return }
+            for sentence in sentences {
+                guard !Task.isCancelled else { return }
+                await voice.prepare(sentence)
+            }
+        }
+    }
+
+    func setBusy(_ busy: Bool) async {
+        await voice.value?.setBusy(busy)
     }
 
     func speak(_ text: String) async {
