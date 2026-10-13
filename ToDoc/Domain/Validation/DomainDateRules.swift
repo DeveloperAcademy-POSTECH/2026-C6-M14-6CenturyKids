@@ -3,20 +3,21 @@ import Foundation
 import ToDocCoreErrors
 #endif
 
-nonisolated enum DomainDateRules {
+/// 화면과 모델이 같은 생일 검증·만 나이 규칙을 사용합니다.
+nonisolated public enum DomainDateRules {
     static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         return calendar
     }
 
-    static func validateBirthday(_ birthday: Date, now: Date, calendar: Calendar) throws {
+    public static func validateBirthday(_ birthday: Date, now: Date, calendar: Calendar) throws {
         guard calendar.compare(birthday, to: now, toGranularity: .day) != .orderedDescending else {
             throw DateValidationError.futureDate
         }
     }
 
-    static func age(birthday: Date, now: Date, calendar: Calendar) -> Int {
+    public static func age(birthday: Date, now: Date, calendar: Calendar) -> Int {
         let birth = calendar.dateComponents([.year, .month, .day], from: birthday)
         let current = calendar.dateComponents([.year, .month, .day], from: now)
         guard let birthYear = birth.year, let birthMonth = birth.month, let birthDay = birth.day,
