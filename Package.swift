@@ -11,7 +11,7 @@ let package = Package(
         .target(name: "ToDocDomain", dependencies: ["ToDocCoreErrors"], path: "ToDoc/Domain"),
         .testTarget(name: "DomainTests", dependencies: ["ToDocDomain", "ToDocCoreErrors"], path: "Tests/DomainTests"),
         // 통화 서비스(CareCallService)는 마이크 타입이 macOS 27 전용이라 넣지 않는다
-        .target(name: "ToDocCareCall", path: "ToDoc",
+        .target(name: "ToDocCareCall", dependencies: ["ToDocDomain"], path: "ToDoc",
                 // 앱의 다른 파일은 빌드하지 않는다 (새 폴더가 생겨도 테스트가 깨지지 않게 sources로 고정, exclude는 경고 방지)
                 exclude: [
                     "Application", "Data", "Domain", "Features", "Resources", "ToDoc.entitlements",
@@ -26,6 +26,7 @@ let package = Package(
                 ],
                 sources: [
                     "Core/AI/CareCallAI.swift", "Core/AI/CareCallStep.swift", "Core/AI/MentionPresence.swift",
+                    "Services/Symptom/CareCall/BodyPartDictionary.swift",
                     "Services/Symptom/CareCall/CareCallConfig.swift", "Services/Symptom/CareCall/CareCallConfigError.swift",
                     "Services/Symptom/CareCall/InterviewEngine.swift", "Services/Symptom/CareCall/InterviewPhase.swift",
                     "Services/Symptom/CareCall/KeywordMatcher.swift", "Services/Symptom/CareCall/Ledger.swift",
@@ -33,7 +34,7 @@ let package = Package(
                     "Services/Symptom/CareCall/SlotPlanner.swift",
                 ],
                 swiftSettings: [.enableUpcomingFeature("BareSlashRegexLiterals")]),
-        .testTarget(name: "CareCallEngineTests", dependencies: ["ToDocCareCall"], path: "Tests/CareCallEngineTests",
+        .testTarget(name: "CareCallEngineTests", dependencies: ["ToDocCareCall", "ToDocDomain"], path: "Tests/CareCallEngineTests",
                     swiftSettings: [.enableUpcomingFeature("BareSlashRegexLiterals")]),
     ],
     swiftLanguageModes: [.v5]
