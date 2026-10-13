@@ -90,9 +90,11 @@ final class InterviewEngine {
         } else {
             result = await analyze(current, patientText: patientText)
             // 처음·그 밖에에서 모델이 증상을 기록하지 않고 맞장구만 쓰거나("열이 조금 나신다고 하셨습니다."),
-            // 증상 표현("머리가 좀 아파요")이 있는데 아무것도 기록하지 않으면 한 번 더 분석한다
+            // 증상 표현("머리가 좀 아파요")이나 목록 증상 낱말("설사", "올렸")이 있는데 아무것도 기록하지 않으면 한 번 더 분석한다
+            // (2026-10-13 실기기 평가 102회: 목록 낱말로 다시 분석할 턴 4개 중 3개가 실제로 놓친 증상)
             if let r = result, Self.acknowledgedWithoutRecord(r, during: current)
-                || Self.missedSymptomHint(r, during: current, patientText: patientText, hints: config.symptomHints) {
+                || Self.missedSymptomHint(r, during: current, patientText: patientText,
+                                          hints: config.symptomHints + config.effects.flatMap(\.keywords)) {
                 result = await analyze(current, patientText: patientText) ?? r
             }
         }
@@ -115,6 +117,12 @@ final class InterviewEngine {
             m.presence == .absent && m.effectId != current.slotKey
                 && config.effects.first { $0.id == m.effectId }.map { !$0.keywords.contains(where: patientText.contains) } == true
         }
+        // 한 답 안에서 같은 항목이 있음·없음으로 함께 나오면 있음만 받는다. 차례로 넣으면 번복으로 처리돼 마지막 '없음'이 남고
+        // 그 증상을 다시 묻지 않는다 ("어제 좀 토했어요, 그거 말고는 괜찮아요" → 구토 있음+없음, 2026-10-13 실기기 평가).
+        // '있음'은 횟수·강도를 물으며 환자가 바로잡을 수 있다. 근거 없는 '있음'(Ledger가 버림)으로 '없음'을 지우지 않는다
+        let presentKeys = Set((result?.mentions ?? []).filter { $0.presence == .present && Ledger.grounded($0.quote, in: patientText) }
+            .map { Ledger.key(effectId: $0.effectId, otherName: $0.otherName) })
+        result?.mentions.removeAll { $0.presence == .absent && presentKeys.contains(Ledger.key(effectId: $0.effectId, otherName: $0.otherName)) }
         let before = ledger
         var recordedPrefix: String? // '그 밖에' 기타 증상 기록 뒤 마무리 인사 앞에 붙이는 말
         for mention in result?.mentions ?? [] {
