@@ -90,9 +90,11 @@ final class InterviewEngine {
         } else {
             result = await analyze(current, patientText: patientText)
             // 처음·그 밖에에서 모델이 증상을 기록하지 않고 맞장구만 쓰거나("열이 조금 나신다고 하셨습니다."),
-            // 증상 표현("머리가 좀 아파요")이 있는데 아무것도 기록하지 않으면 한 번 더 분석한다
+            // 증상 표현("머리가 좀 아파요")이나 목록 증상 낱말("설사", "올렸")이 있는데 아무것도 기록하지 않으면 한 번 더 분석한다
+            // (2026-10-13 실기기 평가 102회: 목록 낱말로 다시 분석할 턴 4개 중 3개가 실제로 놓친 증상)
             if let r = result, Self.acknowledgedWithoutRecord(r, during: current)
-                || Self.missedSymptomHint(r, during: current, patientText: patientText, hints: config.symptomHints) {
+                || Self.missedSymptomHint(r, during: current, patientText: patientText,
+                                          hints: config.symptomHints + config.effects.flatMap(\.keywords)) {
                 result = await analyze(current, patientText: patientText) ?? r
             }
         }
