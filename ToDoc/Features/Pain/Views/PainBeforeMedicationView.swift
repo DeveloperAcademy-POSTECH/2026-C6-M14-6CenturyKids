@@ -1,11 +1,18 @@
 import SwiftUI
 
 struct PainBeforeMedicationView: View {
+    let locations: [BodyLocation]
+    @Binding var score: Int?
+    var onPrevious: (() -> Void)?
+    var onNext: (() -> Void)?
+    var onClose: (() -> Void)?
     var body: some View {
-        Text("통증 기록 · 복용 전")
+        PainScoreInputView(locations: locations, score: $score, onPrevious: onPrevious, onNext: onNext, onClose: onClose)
     }
 }
 
 #Preview {
-    PainBeforeMedicationView()
+    @Previewable @State var score: Int? = 7
+    PainBeforeMedicationView(locations: [.init(bodyPart: .chest, bodySide: .center, bodyView: .front)],
+                             score: $score, onPrevious: {}, onNext: {})
 }

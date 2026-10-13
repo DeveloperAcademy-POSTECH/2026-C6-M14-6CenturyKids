@@ -1,11 +1,7 @@
 import SwiftUI
-
 struct CancerStageEditView: View {
-    var body: some View {
-        Text("병기 수정")
-    }
+    var state: DiagnosisScreenState?
+    var onSaved: () -> Void = {}
+    var body: some View { DiagnosisEditScreen(state: state, field: .stage, onSaved: onSaved) }
 }
-
-#Preview {
-    CancerStageEditView()
-}
+#Preview { NavigationStack { CancerStageEditView() } }
