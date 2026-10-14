@@ -67,7 +67,7 @@ struct DetailNumberTests {
 
     @Test(arguments: [
         "평소의 삼분의 일 정도요", "아픈 부분이 있어요", "20~30분", "하루 종일요", "5분", "25시간", "두 분이 오셨어요",
-        "이 시간쯤", "한두 시간",
+        "이 시간쯤", "한두 시간", "이삼십 분이요", "사오십 분",
     ])
     func 모호하거나_기간이_아니면_nil(text: String) {
         #expect(NumberParser.minutes(in: text) == nil)
