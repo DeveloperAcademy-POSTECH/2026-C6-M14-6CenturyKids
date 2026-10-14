@@ -16,12 +16,12 @@ struct UserDTO: Codable {
     init(user: User) {
         id = user.id
         name = user.name
-        birthday = Self.formatter().string(from: user.birthday)
+        birthday = DateOnlyFormatter.string(from: user.birthday)
         sex = user.sex.rawValue
     }
     
     func toDomain(email: String) throws -> User {
-        guard let birthdayDate = Self.formatter().date(from: birthday) else {
+        guard let birthdayDate = DateOnlyFormatter.date(from: birthday) else {
             throw MappingError.invalidBirthday(birthday)
         }
         
@@ -34,17 +34,6 @@ struct UserDTO: Codable {
 }
 
 extension UserDTO {
-    private static func formatter() -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = .current
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.isLenient = false
-        
-        return formatter
-    }
-    
     enum CodingKeys: String, CodingKey {
             case id = "id"
             case name = "name"
