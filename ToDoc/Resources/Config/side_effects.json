@@ -69,8 +69,8 @@
       "name": "말초신경병증(손발 저림)",
       "spokenName": "손발 저림",
       "ask": "손이나 발이 저리거나 감각이 둔한 곳이 있으세요?",
-      "detailQuestion": "언제부터 그랬나요?",
-      "detailLabel": "시작",
+      "detailQuestion": "한 번 그러면 얼마나 가나요?",
+      "detailLabel": "지속 시간",
       "keywords": [
         "저려",
         "저리",
@@ -85,8 +85,8 @@
       "name": "피부 발진·가려움",
       "spokenName": "피부 발진이나 가려움",
       "ask": "피부에 발진이 생기거나 가려운 곳이 있으세요?",
-      "detailQuestion": "언제부터 그랬나요?",
-      "detailLabel": "시작",
+      "detailQuestion": "한 번 그러면 얼마나 가나요?",
+      "detailLabel": "지속 시간",
       "keywords": [
         "피부",
         "발진",

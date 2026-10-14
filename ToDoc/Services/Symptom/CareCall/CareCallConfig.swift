@@ -18,9 +18,9 @@ struct CareCallConfig: Decodable, Sendable {
         /// 환자가 이 증상을 직접 말했는지 보는 낱말 (다른 항목을 묻는 중 번복 판단용, 초안)
         let keywords: [String]
         let requiresLocation: Bool
-        /// 있음 다음에 묻는 질문 (횟수·시작 시점·섭취량). 답은 모델 없이 환자 말 그대로 기록
+        /// 있음 다음에 묻는 질문 (횟수·시작 시점·지속 시간·섭취량). 답은 모델 없이 환자 말 그대로 기록
         let detailQuestion: String?
-        /// 기록에 붙이는 이름 ("횟수", "시작", "섭취량")
+        /// 기록에 붙이는 이름 ("횟수", "시작", "지속 시간", "섭취량"). 저장할 때 "횟수"는 occurrenceCount, "지속 시간"은 durationMinutes로도 읽는다
         let detailLabel: String?
         /// 다른 항목을 묻다가 이 항목의 횟수·부위로 돌아갈 때 앞에 말하는 이름 ("입안이 헐거나 아픈 것")
         let spokenName: String

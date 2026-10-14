@@ -15,7 +15,7 @@ struct Ledger: Sendable {
         var otherName: String?
         var presence: MentionPresence?
         var locations: [String] = []
-        /// 횟수·시작 시점·섭취량 답 (환자 말 그대로)와 그 이름
+        /// 횟수·시작 시점·지속 시간·섭취량 답 (환자 말 그대로)와 그 이름
         var detail: String?
         var detailLabel: String?
         var quotes: [String] = []
