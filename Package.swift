@@ -21,7 +21,8 @@ let package = Package(
                     "Core/AI/LanguageModelError.swift", "Core/AI/LanguageModelProvider.swift", "Core/AI/PromptTemplate.swift",
                     "Services/Auth", "Services/Exercise", "Services/Hospital", "Services/Intake", "Services/Notification",
                     "Services/Pain", "Services/Records", "Services/User", "Services/Symptom/SymptomRecordService.swift",
-                    "Services/Symptom/CareCall/CareCallActivity.swift", "Services/Symptom/CareCall/CareCallService.swift",
+                    "Services/Symptom/CareCall/CareCallActivity.swift", "Services/Symptom/CareCall/CareCallOutcome.swift",
+                    "Services/Symptom/CareCall/CareCallService.swift",
                     "Services/Symptom/CareCall/CareCallServiceError.swift",
                 ],
                 sources: [
