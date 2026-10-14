@@ -23,8 +23,11 @@ struct SymptomRecordConverter {
     let config: CareCallConfig
     let bodyParts: BodyPartDictionary
 
+    /// 통화가 끊겼으면 끊긴 곳까지. 묻는 중이라 아직 답이 없는 항목은 넣지 않는다
+    /// (끝까지 물어도 답이 분명하지 않아 닫힌 항목은 '모름')
     func record(from ledger: Ledger, date: Date) -> SymptomRecord {
-        let entries = ledger.order.compactMap { ledger[$0] }.flatMap(entries(for:))
+        let answered = ledger.order.compactMap { ledger[$0] }.filter { $0.presence != nil || $0.closed }
+        let entries = answered.flatMap(entries(for:))
         return SymptomRecord(id: UUID(), recordedDate: date, symptoms: entries)
     }
 

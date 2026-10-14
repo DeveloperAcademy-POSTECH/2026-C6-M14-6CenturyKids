@@ -34,6 +34,23 @@ struct SymptomRecordConverterTests {
         #expect(record.symptoms.map(\.detail) == [nil, nil, "[검토 필요]"])
     }
 
+    @Test func 끊기면_답한_곳까지만() {
+        var ledger = Ledger()
+        said(&ledger, "nausea_vomiting", .present, "네 토했어요")
+        _ = ledger.markAsked("constipation", step: .presence) // 묻는 중에 끊김
+        #expect(converter.record(from: ledger, date: date).symptoms.map(\.symptomType) == [.nauseaVomiting])
+    }
+
+    @Test func 끝까지_물어도_답이_없으면_모름() {
+        var ledger = Ledger()
+        for _ in 0...Ledger.maxFollowUps { _ = ledger.markAsked("constipation", step: .presence) }
+        let askedAgain = ledger.markAsked("constipation", step: .presence) // 꼬리질문 한도를 넘어 닫힘
+        #expect(!askedAgain)
+        let entry = converter.record(from: ledger, date: date).symptoms.first
+        #expect(entry?.presence == .unknown)
+        #expect(entry?.detail == "[검토 필요]")
+    }
+
     @Test func 횟수는_횟수_질문의_답에서만_읽는다() {
         var ledger = Ledger()
         said(&ledger, "diarrhea", .present, "네 했어요")

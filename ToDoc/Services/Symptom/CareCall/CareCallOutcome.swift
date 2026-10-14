@@ -11,6 +11,6 @@ enum CareCallOutcome: Sendable {
     case completed(SymptomRecord)
     /// 응급 안내 후 종료. 응급 기록 저장은 디자인 팀과 정할 때까지 보류
     case emergencyEnded
-    /// stop·전화 등으로 중간에 끝남. 기록을 쓰지 않는다
-    case interrupted
+    /// stop·전화·오류로 중간에 끝남. 끊긴 곳까지 답한 기록 (묻지 못한 증상은 없음, 받은 답이 없으면 nil)
+    case interrupted(SymptomRecord?)
 }
