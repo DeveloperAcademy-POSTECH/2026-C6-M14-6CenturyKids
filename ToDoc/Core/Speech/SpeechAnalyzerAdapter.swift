@@ -23,6 +23,7 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
     /// 이번 턴에 확정된 문장
     private var finalized = ""
     private var turnEnd: CheckedContinuation<String, Never>?
+    private var micOn = false
 
     init(recorder: AudioRecorder) {
         self.recorder = recorder
@@ -46,17 +47,24 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
             try await analyzer.prepareToAnalyze(in: format)
             try await analyzer.start(inputSequence: stream)
             self.analyzer = analyzer
-            try recorder.start { [feed] buffer in feed.send(buffer) }
         } catch {
-            // 중간에 실패하면 이미 시작한 결과 수신·분석기·마이크를 정리한다
+            // 중간에 실패하면 이미 시작한 결과 수신·분석기를 정리한다
             await stop()
             throw error
         }
     }
 
-    func listen() async -> String {
+    /// 마이크는 준비 때가 아니라 통화를 시작할 때 켠다 (준비 화면에서 마이크 표시가 켜지지 않게)
+    func startMicrophone() throws {
+        guard analyzer != nil, !micOn else { return }
+        try recorder.start { [feed] buffer in feed.send(buffer) }
+        micOn = true
+    }
+
+    func listen() async throws -> String {
         // 준비 전이나 정지 후에는 들을 수 없으니 바로 빈 문장을 돌려준다 (영원히 기다리지 않게)
         guard analyzer != nil else { return "" }
+        try startMicrophone()
         finalized = ""
         feed.listening = true
         return await withCheckedContinuation { turnEnd = $0 }
@@ -65,6 +73,7 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
     func stop() async {
         feed.listening = false
         recorder.stop()
+        micOn = false
         feed.finish()
         await analyzer?.cancelAndFinishNow()
         analyzer = nil

@@ -6,8 +6,10 @@
       "name": "오심·구토",
       "spokenName": "구토나 메스꺼움",
       "ask": "구토를 하시거나 속이 메스꺼우신 적이 있으셨나요?",
-      "detailQuestion": "구토는 하루에 몇 번 정도 하셨나요?",
-      "detailLabel": "횟수",
+      "details": [
+        {"label": "구토 횟수", "question": "구토는 하루에 몇 번 정도 하셨나요?", "number": "count", "keywords": ["토", "게우", "게웠", "올렸"]},
+        {"label": "메스꺼움 시작", "question": "메스꺼움은 언제부터 그랬나요?", "keywords": ["메스", "메슥", "울렁"]}
+      ],
       "keywords": [
         "토",
         "구토",
@@ -25,8 +27,9 @@
       "name": "변비",
       "spokenName": "변비",
       "ask": "변을 보기 힘들거나 변비가 있으셨나요?",
-      "detailQuestion": "언제부터 그랬나요?",
-      "detailLabel": "시작",
+      "details": [
+        {"label": "시작", "question": "언제부터 그랬나요?"}
+      ],
       "keywords": [
         "변비",
         "변을",
@@ -40,8 +43,9 @@
       "name": "설사",
       "spokenName": "설사",
       "ask": "설사를 하셨나요?",
-      "detailQuestion": "설사는 하루에 몇 번 정도 하셨나요?",
-      "detailLabel": "횟수",
+      "details": [
+        {"label": "횟수", "question": "설사는 하루에 몇 번 정도 하셨나요?", "number": "count"}
+      ],
       "keywords": [
         "설사",
         "묽은"
@@ -53,8 +57,9 @@
       "name": "구내염",
       "spokenName": "입안이 헐거나 아픈 것",
       "ask": "입안이 헐거나 아픈 곳이 있으세요?",
-      "detailQuestion": "언제부터 그랬나요?",
-      "detailLabel": "시작",
+      "details": [
+        {"label": "시작", "question": "언제부터 그랬나요?"}
+      ],
       "keywords": [
         "입안",
         "입이",
@@ -69,8 +74,9 @@
       "name": "말초신경병증(손발 저림)",
       "spokenName": "손발 저림",
       "ask": "손이나 발이 저리거나 감각이 둔한 곳이 있으세요?",
-      "detailQuestion": "언제부터 그랬나요?",
-      "detailLabel": "시작",
+      "details": [
+        {"label": "지속 시간", "question": "한 번 그러면 얼마나 가나요?", "number": "minutes"}
+      ],
       "keywords": [
         "저려",
         "저리",
@@ -85,8 +91,9 @@
       "name": "피부 발진·가려움",
       "spokenName": "피부 발진이나 가려움",
       "ask": "피부에 발진이 생기거나 가려운 곳이 있으세요?",
-      "detailQuestion": "언제부터 그랬나요?",
-      "detailLabel": "시작",
+      "details": [
+        {"label": "지속 시간", "question": "한 번 그러면 얼마나 가나요?", "number": "minutes"}
+      ],
       "keywords": [
         "피부",
         "발진",
@@ -100,9 +107,9 @@
       "name": "탈수·영양",
       "spokenName": "식사량",
       "ask": "식사나 물을 평소보다 적게 드시고 계세요?",
-      "detailQuestion": "평소보다 얼마나 적게 드시나요?",
-      "detailLabel": "섭취량",
-      "asksSeverity": false,
+      "details": [
+        {"label": "섭취량", "question": "평소보다 얼마나 적게 드시나요?"}
+      ],
       "keywords": [
         "식사",
         "밥",
@@ -113,6 +120,7 @@
       "requiresLocation": false
     }
   ],
+  "aiVoiceNotice": "안녕하세요. 지금부터 AI 음성으로 오늘 몸 상태를 여쭤볼게요.",
   "openingQuestion": "오늘 컨디션은 어떠세요?",
   "openingFollowUp": "어떤 점이 그러신지 조금 더 말씀해 주시겠어요?",
   "openingTransition": {
@@ -170,8 +178,6 @@
   "repeatPrefix": "죄송해요, 다시 한 번 여쭤볼게요.",
   "returnPrefix": "{name}에 대해 여쭤볼게요.",
   "otherDetail": {"question": "어떤 점이 그러신지 조금 더 말씀해 주시겠어요?", "label": "내용", "recorded": "알겠어요, 기록해 둘게요."},
-  "severityPrompt": "0점은 전혀 불편하지 않고 10점은 가장 심하게 불편한 정도라고 할 때, 몇 점 정도 되세요?",
-  "severityPromptShort": "불편한 정도를 0점에서 10점 사이 점수로 말씀해 주세요.",
   "locationPrompt": "어느 부위에 그런 증상이 있으세요?",
   "noPrefixes": [
     "아니요",
@@ -228,7 +234,7 @@
   ],
   "reasonSuffixes": ["서", "서요", "때문에", "때문에요", "때문이에요", "때문이요", "서 그래요", "서 그렇다고요", "서 그런 거예요", "서 그런 것 같아요"],
   "unknownAnswers": ["모르겠", "잘 모르", "모름", "기억이 안", "기억 안", "기억이 잘 안"],
-  "draftNote": "requiresLocation, ask(긍정형 질문), locationPrompt, keywords, shortAnswers는 초안. 의료진 확인 후 수정 (HANDOFF 4-a, 11장)",
+  "draftNote": "requiresLocation, ask(긍정형 질문), locationPrompt, keywords, shortAnswers는 초안. 의료진 확인 후 수정 (HANDOFF 4-a, 11장). aiVoiceNotice는 디자인 팀 확인 전 초안",
   "shortAnswers": {
     "yes": [
       "네",

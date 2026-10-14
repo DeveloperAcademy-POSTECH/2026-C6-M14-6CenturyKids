@@ -18,18 +18,41 @@ struct CareCallConfig: Decodable, Sendable {
         /// 환자가 이 증상을 직접 말했는지 보는 낱말 (다른 항목을 묻는 중 번복 판단용, 초안)
         let keywords: [String]
         let requiresLocation: Bool
-        /// 있음 다음, 강도 전에 묻는 질문 (횟수·시작 시점·섭취량). 답은 모델 없이 환자 말 그대로 기록
-        let detailQuestion: String?
-        /// 기록에 붙이는 이름 ("횟수", "시작", "섭취량")
-        let detailLabel: String?
-        /// false면 강도(0~10)를 묻지 않는다 (탈수·영양). 없으면 묻는다
-        let asksSeverity: Bool?
-        /// 다른 항목을 묻다가 이 항목의 횟수·강도·부위로 돌아갈 때 앞에 말하는 이름 ("입안이 헐거나 아픈 것")
+        /// 있음 다음에 묻는 꼬리질문 (횟수·시작 시점·지속 시간·섭취량). 답은 모델 없이 환자 말 그대로 기록
+        let details: [Detail]
+        /// 다른 항목을 묻다가 이 항목의 횟수·부위로 돌아갈 때 앞에 말하는 이름 ("입안이 헐거나 아픈 것")
         let spokenName: String
+
+        struct Detail: Decodable, Sendable {
+            /// 기록에 붙이는 이름 ("횟수", "구토 횟수"). 한 항목 안에서 겹치지 않는다
+            let label: String
+            let question: String
+            /// 저장할 때 답에서 읽을 숫자 (count → occurrenceCount, minutes → durationMinutes). 없으면 답만 남긴다
+            let number: Number?
+            /// 환자가 이 말을 했을 때만 묻는다 (구토 → 횟수, 메스꺼움 → 시작). 없으면 늘 묻는다
+            let keywords: [String]?
+
+            enum Number: String, Decodable, Sendable {
+                case count, minutes
+            }
+        }
+
+        /// 이 항목에서 물을 꼬리질문. 낱말이 있는 질문은 환자가 그 말을 했을 때만 묻고("토했어요" → 횟수만),
+        /// 어느 쪽인지 말하지 않았으면("네") 전부 묻는다. "토하진 않았어요"처럼 부정한 말은 보지 않는다
+        func details(heard quotes: [String]) -> [Detail] {
+            let heard = details.filter { detail in
+                guard let keywords = detail.keywords else { return true }
+                let matcher = KeywordMatcher(keywords: keywords, prefixNegation: true)
+                return quotes.contains { matcher.matches($0) != nil }
+            }
+            return heard.contains { $0.keywords != nil } ? heard : details
+        }
     }
 
     let version: String
     let effects: [Effect]
+    /// 음성 통화 첫마디. 상대가 AI 음성임을 알린다 (Supertonic 라이선스 의무, 초안)
+    let aiVoiceNotice: String
     let openingQuestion: String
     let otherQuestion: String
     /// 첫 질문 꼬리질문: 답에 증상 표현(symptomHints)이나 컨디션이 나쁘다는 말(openingConcerns)이 있고 목록 증상이 기록되지 않았으면 한 번
@@ -49,16 +72,13 @@ struct CareCallConfig: Decodable, Sendable {
     let returnPrefix: String
     /// '그 밖에'에서 기타 증상을 말하면 한 번 더 묻고(question) 답을 그대로 기록(label)한 뒤 마무리 인사 앞에 붙이는 말(recorded)
     let otherDetail: OtherDetail
-    let severityPrompt: String
-    /// 두 번째 항목부터 쓰는 짧은 강도 질문 (같은 항목을 다시 물을 때는 긴 문구)
-    let severityPromptShort: String
     let locationPrompt: String
     /// 유무 질문에 이 말로 시작하거나 끝나는 짧은 답은 모델 없이 '없음' (다른 증상·숫자·연결어가 없을 때만, 초안)
     let noPrefixes: [String]
     let noSuffixes: [String]
     /// 유무 질문에 이 말로 끝나는 답은 이유를 말한 것 → 있음 ("입이 아파서요" = 입이 아파서 많이 못 먹었다, 초안)
     let reasonSuffixes: [String]
-    /// 유무·강도·부위 질문에 이 말이 든 답("잘 모르겠어요", "기억이 안 나요")은 다시 묻지 않고 '모름'으로 기록 (초안)
+    /// 유무·부위 질문에 이 말이 든 답("잘 모르겠어요", "기억이 안 나요")은 다시 묻지 않고 '모름'으로 기록 (초안)
     let unknownAnswers: [String]
     /// 모델 없이 처리하는 짧은 답 (공백·문장부호를 뺀 뒤 완전히 같을 때만). 질문이 긍정형("~있으셨나요?")이라는 전제
     let shortAnswers: ShortAnswers
@@ -67,6 +87,14 @@ struct CareCallConfig: Decodable, Sendable {
 
     func returnPrefix(for effect: Effect) -> String {
         returnPrefix.replacingOccurrences(of: "{name}", with: effect.spokenName)
+    }
+
+    /// 통화 중 말할 고정 문구 (음성 미리 합성용). 응급 안내는 시스템 음성으로 읽으므로 넣지 않는다
+    func spokenPhrases(rules: EmergencyRules) -> [String] {
+        [aiVoiceNotice, openingQuestion, openingFollowUp, openingTransition.fine, openingTransition.noted, openingTransition.afterFollowUp]
+            + effects.flatMap { [$0.ask] + $0.details.map(\.question) } + effects.map(returnPrefix(for:))
+            + acknowledgements + [repeatPrefix, otherDetail.question, otherDetail.recorded, locationPrompt,
+                                  otherQuestion, otherFollowUp, rules.closingMessage]
     }
 
     struct OpeningTransition: Decodable, Sendable {

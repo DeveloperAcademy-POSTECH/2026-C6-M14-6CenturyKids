@@ -1,0 +1,9 @@
+Kanana 1.5 2.1B Instruct (kakaocorp/kanana-1.5-2.1b-instruct-2505)
+Original model by Kakao Corp., licensed under the Apache License, Version 2.0 (Kanana-Apache-2.0.txt).
+Source: https://huggingface.co/kakaocorp/kanana-1.5-2.1b-instruct-2505 (revision 7df4bc35ccd610e451809d7106e1c3cf82bfd44c)
+
+Modifications made for this app:
+- Converted to Apple Core AI format with apple/coreai-models (patched fork: https://github.com/YangSeokHoR/coreai-models)
+- All linear layers compressed to 8-bit palettization
+- Vocabulary padded from 128259 to 128264 rows (5 zero rows) for on-device embedding
+- Ahead-of-time compiled for iPhone 17 (h18p) Neural Engine

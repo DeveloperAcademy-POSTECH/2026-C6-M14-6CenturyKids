@@ -25,6 +25,17 @@ actor SupertonicVoice {
     private let style: Supertonic.Style
     // ponytail: 캐시 크기 제한 없음 (고정 문구 위주라 수십 문장). 동적 문장이 많아지면 오래된 것부터 지우는 방식으로 제한
     private var cache: [String: [Float]] = [:]
+    /// 다른 무거운 작업(모델 분석) 중이면 미리 합성을 기다린다. 지금 말할 문장은 그대로 합성한다
+    private var busy = false
+
+    func setBusy(_ value: Bool) { busy = value }
+
+    /// 고정 문구 한 문장을 미리 합성해 캐시에 둔다 (busy가 아닐 때)
+    func prepare(_ text: String) async {
+        while busy, !Task.isCancelled { try? await Task.sleep(for: .milliseconds(200)) }
+        guard !Task.isCancelled else { return }
+        _ = try? sentence(text)
+    }
 
     /// 앱에 모델 폴더가 없으면 nil (빌드 단계에서 Models/supertonic-3이 있을 때만 복사한다)
     init?() throws {
