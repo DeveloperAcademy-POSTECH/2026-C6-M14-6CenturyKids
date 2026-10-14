@@ -127,6 +127,10 @@ final class InterviewEngine {
             ledger.apply(mention, patientText: patientText, knownEffectIds: knownIds,
                          mayChangeRecorded: mayChangeRecorded(mention, during: current, patientText: patientText))
         }
+        // 첫 질문 답은 그대로 남긴다 (꼬리질문의 답이면 첫 답과 이어서)
+        if current == .opening {
+            ledger.setConditionText([openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / "))
+        }
         // 첫 질문: 증상 표현이나 컨디션이 나쁘다는 말이 있고 목록 증상은 기록되지 않았으면 한 번 되묻는다
         // ("피곤해요" → "어떤 점이 그러신지…". "보통이에요", "잠은 잘 자요"는 묻지 않음)
         if current == .opening, openingFirstAnswer == nil, result?.needsClarification != true,
@@ -146,8 +150,11 @@ final class InterviewEngine {
         case .slot(let key, let step) where step != .detail && isUnknownAnswer(patientText):
             ledger.markUnknown(key, step: step, quote: patientText)
         case .slot(let key, .detail):
-            let answer = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
-            ledger.setDetail(answer, label: config.effects.first { $0.id == key }?.detailLabel, for: key)
+            // 이 답 전에 물은 꼬리질문 (꼬리질문 답은 모델 없이 처리해 그사이 기록이 바뀌지 않는다)
+            if let detail = pendingDetail(for: key) {
+                let answer = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+                ledger.addDetail(answer, label: detail.label, for: key)
+            }
         case .other:
             if let key = otherDetailKey {
                 // 기타 증상 꼬리질문의 답 → 그대로 기록하고 마무리
@@ -190,7 +197,7 @@ final class InterviewEngine {
 
     private func recordOtherDetail(_ patientText: String, for key: String) {
         let answer = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
-        ledger.setDetail(answer, label: config.otherDetail.label, for: key)
+        ledger.addDetail(answer, label: config.otherDetail.label, for: key)
         otherDetailKey = nil
     }
 
@@ -396,7 +403,7 @@ final class InterviewEngine {
              .other where isUnknownAnswer(patientText): // "모르겠어요": 모델 없이 '모름'으로 기록 (아래 switch), 그 밖에는 없음
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
                               emergencySignal: false, utterance: "")
-        case .slot(_, .detail): // 횟수·시작 시점·섭취량: 모델 없이 환자 말 그대로 기록 (아래 switch)
+        case .slot(_, .detail): // 횟수·시작 시점·지속 시간·섭취량: 모델 없이 환자 말 그대로 기록 (아래 switch)
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
                               emergencySignal: false, utterance: "")
         case .opening where no || isOpeningFine(patientText), .other where no:
@@ -485,11 +492,16 @@ final class InterviewEngine {
             if let model, !model.isEmpty { return model }
             return config.effects.first { $0.id == key }?.ask ?? config.otherQuestion
         case .detail:
-            return config.effects.first { $0.id == key }?.detailQuestion ?? config.otherQuestion
+            return pendingDetail(for: key)?.question ?? config.otherQuestion
         case .location:
             if let model, !model.isEmpty { return model }
             return config.locationPrompt
         }
+    }
+
+    private func pendingDetail(for key: String) -> CareCallConfig.Effect.Detail? {
+        guard let entry = ledger[key], let effect = config.effects.first(where: { $0.id == key }) else { return nil }
+        return SlotPlanner.pendingDetail(entry, effect: effect)
     }
 
     private func request(for phase: InterviewPhase, patientText: String) -> AnalysisRequest {

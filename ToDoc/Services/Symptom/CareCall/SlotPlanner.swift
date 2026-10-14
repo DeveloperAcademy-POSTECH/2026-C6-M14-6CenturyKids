@@ -25,7 +25,12 @@ enum SlotPlanner {
         return .done
     }
 
-    /// 아직 확인할 단계. 있음이면 횟수·시작(detail) → 부위 순. 이미 있음/없음이 기록된 항목은 유무 단계를 건너뛴다.
+    /// 아직 묻지 않은 꼬리질문 (구토·메스꺼움처럼 둘이면 차례로)
+    static func pendingDetail(_ entry: Ledger.Entry, effect: CareCallConfig.Effect) -> CareCallConfig.Effect.Detail? {
+        effect.details(heard: entry.quotes).first { detail in !entry.details.contains { $0.label == detail.label } }
+    }
+
+    /// 아직 확인할 단계. 있음이면 횟수·시작·지속 시간(detail) → 부위 순. 이미 있음/없음이 기록된 항목은 유무 단계를 건너뛴다.
     /// effect가 nil이면 기타 항목 (있음이면 더 묻지 않음)
     static func pendingStep(_ entry: Ledger.Entry?, effect: CareCallConfig.Effect?) -> CareCallStep? {
         guard let entry else { return .presence }
@@ -35,7 +40,7 @@ enum SlotPlanner {
         case .absent?: return nil
         case .present?:
             guard let effect else { return nil }
-            if effect.detailQuestion != nil && entry.detail == nil { return .detail }
+            if pendingDetail(entry, effect: effect) != nil { return .detail }
             if effect.requiresLocation && entry.locations.isEmpty && !entry.unknownSteps.contains(.location) { return .location }
             return nil
         }

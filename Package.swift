@@ -21,7 +21,8 @@ let package = Package(
                     "Core/AI/LanguageModelError.swift", "Core/AI/LanguageModelProvider.swift", "Core/AI/PromptTemplate.swift",
                     "Services/Auth", "Services/Exercise", "Services/Hospital", "Services/Intake", "Services/Notification",
                     "Services/Pain", "Services/Records", "Services/User", "Services/Symptom/SymptomRecordService.swift",
-                    "Services/Symptom/CareCall/CareCallActivity.swift", "Services/Symptom/CareCall/CareCallService.swift",
+                    "Services/Symptom/CareCall/CareCallActivity.swift", "Services/Symptom/CareCall/CareCallOutcome.swift",
+                    "Services/Symptom/CareCall/CareCallService.swift",
                     "Services/Symptom/CareCall/CareCallServiceError.swift",
                 ],
                 sources: [
@@ -31,7 +32,7 @@ let package = Package(
                     "Services/Symptom/CareCall/InterviewEngine.swift", "Services/Symptom/CareCall/InterviewPhase.swift",
                     "Services/Symptom/CareCall/KeywordMatcher.swift", "Services/Symptom/CareCall/Ledger.swift",
                     "Services/Symptom/CareCall/NumberParser.swift", "Services/Symptom/CareCall/PlannedQuestion.swift",
-                    "Services/Symptom/CareCall/SlotPlanner.swift",
+                    "Services/Symptom/CareCall/SlotPlanner.swift", "Services/Symptom/CareCall/SymptomRecordConverter.swift",
                 ],
                 swiftSettings: [.enableUpcomingFeature("BareSlashRegexLiterals")]),
         .testTarget(name: "CareCallEngineTests", dependencies: ["ToDocCareCall", "ToDocDomain"], path: "Tests/CareCallEngineTests",

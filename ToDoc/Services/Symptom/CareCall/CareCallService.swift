@@ -8,12 +8,13 @@
 import Foundation
 
 /// 케어콜 음성 통화. 준비(마이크 권한 → 모델 → 한국어 인식) 뒤 엔진·음성 인식·음성 합성·AI 분석을 한 통화로 묶는다.
-/// 통화 한 번에 하나씩 만든다. 기록 저장은 아직 하지 않는다.
+/// 통화 한 번에 하나씩 만든다. 끝나면 저장할 기록을 돌려주고, 저장은 부른 쪽이 한다.
 final class CareCallService {
     /// 분석이 이보다 오래 걸리면 맞장구를 먼저 말한다 (바로 말하면 어색함, 프로토타입 기기 테스트)
     private static let acknowledgementDelay: Duration = .seconds(1)
 
     private let config: CareCallConfig
+    private let converter: SymptomRecordConverter
     private let rules: EmergencyRules
     private let recorder: AudioRecorder
     private let recognizer: SpeechRecognizer
@@ -26,10 +27,11 @@ final class CareCallService {
     private var voice: SpeechSynthesizer?
     private var stopped = false
 
-    init(config: CareCallConfig, rules: EmergencyRules, recorder: AudioRecorder, recognizer: SpeechRecognizer,
+    init(config: CareCallConfig, rules: EmergencyRules, bodyParts: BodyPartDictionary, recorder: AudioRecorder, recognizer: SpeechRecognizer,
          systemVoice: SpeechSynthesizer, loadAnalyzer: @escaping () async throws -> CareCallAI,
          makeVoice: @escaping () -> SpeechSynthesizer) {
         self.config = config
+        self.converter = SymptomRecordConverter(config: config, bodyParts: bodyParts)
         self.rules = rules
         self.recorder = recorder
         self.recognizer = recognizer
@@ -62,30 +64,41 @@ final class CareCallService {
 
     // MARK: - 통화
 
-    /// 통화를 끝까지 진행하고 마지막 단계를 돌려준다.
-    /// `.saved` 마무리 인사까지 마침, `.emergencyEnded` 응급 안내 후 종료, 그 밖의 단계는 중단(stop·전화 등 오디오 중단)이라 기록을 쓰지 않는다.
-    func run(onActivity: @escaping (CareCallActivity) -> Void) async throws -> InterviewPhase {
+    /// 통화를 끝까지 진행하고 결과를 돌려준다. 마무리 인사까지 마쳤으면 그날 기록, 중간에 끝났으면(stop·전화 등 오디오 중단, 통화 중 오류)
+    /// 끊긴 곳까지 답한 기록. 통화 중 오류인데 받은 답이 없으면 오류를 그대로 던진다
+    func run(onActivity: @escaping (CareCallActivity) -> Void) async throws -> CareCallOutcome {
         guard let analyzer, let voice else { throw CareCallServiceError.notPrepared }
         // 전화·Siri로 오디오가 끊기면 통화를 끝낸다 (중간부터 이어 가지 않는다)
         recorder.onEvent = { [weak self] event in
             if case .resumed = event { return }
             Task { await self?.stop() }
         }
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: analyzer)
         let phase: InterviewPhase
         do {
             // 부른 쪽 작업이 취소되면(화면을 닫음) stop과 같이 끝낸다. 음성 인식은 취소를 직접 보지 않는다
             phase = try await withTaskCancellationHandler {
-                try await converse(engine: InterviewEngine(config: config, rules: rules, analyzer: analyzer),
-                                   voice: voice, onActivity: onActivity)
+                try await converse(engine: engine, voice: voice, onActivity: onActivity)
             } onCancel: {
                 Task { @MainActor [weak self] in await self?.stop() }
             }
         } catch {
             await finish()
-            throw error
+            guard let partial = record(of: engine) else { throw error }
+            return .interrupted(partial)
         }
         await finish()
-        return phase
+        switch phase {
+        case .saved: return .completed(converter.record(from: engine.ledger, date: Date()))
+        case .emergencyEnded: return .emergencyEnded
+        default: return .interrupted(record(of: engine))
+        }
+    }
+
+    /// 받은 답이 하나도 없으면 nil (빈 기록으로 그날 기록을 덮지 않게)
+    private func record(of engine: InterviewEngine) -> SymptomRecord? {
+        let record = converter.record(from: engine.ledger, date: Date())
+        return record.symptoms.isEmpty ? nil : record
     }
 
     /// 통화를 바로 끝낸다 (말하기·듣기 정지). 진행 중인 run은 중단 단계로 돌아온다

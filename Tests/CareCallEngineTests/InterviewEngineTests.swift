@@ -67,12 +67,47 @@ struct InterviewEngineTests {
 
         let out = await engine.handle(patientText: "어제 좀 토했어요, 그거 말고는 괜찮아요")
         #expect(out.phase == .slot(key: "nausea_vomiting", step: .detail))
-        #expect(out.utterance == config.openingTransition.noted + " " + config.effects[0].detailQuestion!)
+        #expect(out.utterance == config.openingTransition.noted + " " + config.effects[0].details[0].question)
 
         let next = await engine.handle(patientText: "한 번이요")
-        #expect(engine.ledger["nausea_vomiting"]?.detail == "한 번이요")
+        #expect(engine.ledger["nausea_vomiting"]?.details.map(\.text) == ["한 번이요"])
         #expect(next.phase == .slot(key: "constipation", step: .presence))
         #expect(!engine.ledger["nausea_vomiting"]!.askedSteps.contains(.presence))
+    }
+
+    @Test(arguments: [
+        ("네 토했어요", ["구토 횟수"]),
+        ("네 속이 메스꺼워요", ["메스꺼움 시작"]),
+        ("네", ["구토 횟수", "메스꺼움 시작"]), // 어느 쪽인지 말하지 않으면 둘 다
+        ("네 메스꺼웠는데 토하진 않았어요", ["메스꺼움 시작"]),
+    ])
+    func 구토는_횟수_메스꺼움은_시작을_묻는다(answer: String, labels: [String]) async {
+        _ = engine.start()
+        _ = await engine.handle(patientText: "없어요") // 첫 질문
+        var out = await engine.handle(patientText: answer)
+        var asked: [String] = []
+        while out.phase == .slot(key: "nausea_vomiting", step: .detail) {
+            asked.append(out.utterance)
+            out = await engine.handle(patientText: "어제부터 두 번이요")
+        }
+        let questions = config.effects[0].details
+        #expect(asked == labels.map { label in questions.first { $0.label == label }!.question })
+        #expect(engine.ledger["nausea_vomiting"]?.details.map(\.label) == labels)
+        #expect(engine.ledger["nausea_vomiting"]?.followUps == 0) // 두 번째 꼬리질문은 되묻기가 아니다
+        #expect(out.phase == .slot(key: "constipation", step: .presence))
+    }
+
+    @Test func 첫_질문_답은_그대로_남기고_꼬리질문_답은_이어_붙인다() async {
+        _ = engine.start()
+        _ = await engine.handle(patientText: "그럭저럭이요")
+        #expect(engine.ledger.conditionText == "그럭저럭이요")
+
+        let other = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = other.start()
+        let followUp = await other.handle(patientText: "좀 피곤해요")
+        #expect(followUp.utterance == config.openingFollowUp)
+        _ = await other.handle(patientText: "잠을 잘 못 자서요")
+        #expect(other.ledger.conditionText == "좀 피곤해요 / 잠을 잘 못 자서요")
     }
 
     @Test func 불명확하면_꼬리질문은_2회까지_후_검토필요로_넘어간다() async {
@@ -170,7 +205,7 @@ struct InterviewEngineTests {
         let out = await engine.handle(patientText: "머리가 아파요")
         #expect(out.phase == .other && out.utterance == config.otherDetail.question)
         let summary = await engine.handle(patientText: "오후만 되면 지끈거려요")
-        #expect(engine.ledger["other:머리가 아파요"]?.detail == "오후만 되면 지끈거려요")
+        #expect(engine.ledger["other:머리가 아파요"]?.details.map(\.text) == ["오후만 되면 지끈거려요"])
         #expect(engine.phase == .saved)
         #expect(summary.utterance == config.otherDetail.recorded + " " + rules.closingMessage)
     }
