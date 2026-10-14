@@ -24,3 +24,12 @@ struct SymptomRecordDTO: Codable {
         return SymptomRecord(id: id, patientId: patientId, recordedDate: recordedAt, symptoms: symptoms)
     }
 }
+
+extension SymptomRecordDTO {
+    enum CodingKeys: String, CodingKey {
+            case id = "id"
+            case patientId = "patient_id"
+            case date = "date"
+            case recordedAt = "recorded_at"
+    }
+}
