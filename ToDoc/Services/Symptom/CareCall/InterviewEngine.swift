@@ -127,6 +127,10 @@ final class InterviewEngine {
             ledger.apply(mention, patientText: patientText, knownEffectIds: knownIds,
                          mayChangeRecorded: mayChangeRecorded(mention, during: current, patientText: patientText))
         }
+        // 첫 질문 답은 그대로 남긴다 (꼬리질문의 답이면 첫 답과 이어서)
+        if current == .opening {
+            ledger.setConditionText([openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / "))
+        }
         // 첫 질문: 증상 표현이나 컨디션이 나쁘다는 말이 있고 목록 증상은 기록되지 않았으면 한 번 되묻는다
         // ("피곤해요" → "어떤 점이 그러신지…". "보통이에요", "잠은 잘 자요"는 묻지 않음)
         if current == .opening, openingFirstAnswer == nil, result?.needsClarification != true,

@@ -23,6 +23,7 @@ struct SymptomRecordConverter {
     let config: CareCallConfig
     let bodyParts: BodyPartDictionary
 
+    /// 첫 질문 답(ledger.conditionText)은 SymptomRecord에 담을 필드가 생기면 넘긴다 (Domain 변경 예정).
     /// 통화가 끊겼으면 끊긴 곳까지. 묻는 중이라 아직 답이 없는 항목은 넣지 않는다
     /// (끝까지 물어도 답이 분명하지 않아 닫힌 항목은 '모름')
     func record(from ledger: Ledger, date: Date) -> SymptomRecord {
@@ -42,7 +43,11 @@ struct SymptomRecordConverter {
         let answers = e.details.filter { !$0.text.isEmpty }
         let questions = effect?.details ?? []
         // 꼬리질문이 둘인 항목은 어느 질문의 답인지 이름을 붙인다 ("구토 횟수: 하루 세 번이요 / 메스꺼움 시작: 어제부터요")
-        let answerText = answers.map { questions.count > 1 ? "\($0.label): \($0.text)" : $0.text }.joined(separator: " / ")
+        // 기타 증상은 처음 말한 문장도 남긴다. 모델이 이름을 못 뽑아 그 문장이 이름이면 한 번만
+        let firstSaid = e.effectId == "other" ? e.quotes.first.map { $0.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) }
+            .flatMap { said in said.isEmpty || e.otherName?.contains(said) == true ? nil : said } : nil
+        let answerText = ([firstSaid].compactMap(\.self) + answers.map { questions.count > 1 ? "\($0.label): \($0.text)" : $0.text })
+            .joined(separator: " / ")
         // 검토 필요 → 앞에 표시, 기타 증상 → 앞에 이름 (#84)
         let body = [e.otherName, answerText.isEmpty ? nil : answerText].compactMap(\.self).joined(separator: ": ")
         let text = ([e.needsReview ? "[검토 필요]" : nil, body.isEmpty ? nil : body].compactMap(\.self)).joined(separator: " ")

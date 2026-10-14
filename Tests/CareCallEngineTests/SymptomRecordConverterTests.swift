@@ -121,8 +121,16 @@ struct SymptomRecordConverterTests {
         ledger.markNeedsReview("other:어지러움")
         let entry = converter.record(from: ledger, date: date).symptoms.first
         #expect(entry?.symptomType == .other)
-        #expect(entry?.detail == "[검토 필요] 어지러움: 아침에 잠깐요")
+        #expect(entry?.detail == "[검토 필요] 어지러움: 어지러워요 / 아침에 잠깐요") // 처음 말한 문장도
     }
+
+    @Test func 모델이_이름을_못_뽑은_기타_증상은_문장을_한_번만() {
+        var ledger = Ledger()
+        ledger.apply(Mention(effectId: "other", otherName: "잠을 잘 못 자요", presence: .present, quote: "잠을 잘 못 자요."),
+                     patientText: "잠을 잘 못 자요.", knownEffectIds: ids)
+        #expect(converter.record(from: ledger, date: date).symptoms.first?.detail == "잠을 잘 못 자요")
+    }
+
 
     @Test func 답이_길어도_항목을_잃지_않는다() {
         var ledger = Ledger()

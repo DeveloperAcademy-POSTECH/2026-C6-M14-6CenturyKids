@@ -37,6 +37,8 @@ struct Ledger: Sendable {
     static let maxFollowUps = 2
 
     private(set) var entries: [String: Entry] = [:]
+    /// 첫 질문(오늘 컨디션) 답 원문
+    private(set) var conditionText: String?
     /// 처음 기록된 순서 (기타 부작용 질문 순서용)
     private(set) var order: [String] = []
 
@@ -97,6 +99,10 @@ struct Ledger: Sendable {
         entry.needsReview = true
         entry.quotes.append(quote)
         entries[key] = entry
+    }
+
+    mutating func setConditionText(_ text: String) {
+        conditionText = text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     mutating func addDetail(_ text: String, label: String, for key: String) {

@@ -97,6 +97,19 @@ struct InterviewEngineTests {
         #expect(out.phase == .slot(key: "constipation", step: .presence))
     }
 
+    @Test func 첫_질문_답은_그대로_남기고_꼬리질문_답은_이어_붙인다() async {
+        _ = engine.start()
+        _ = await engine.handle(patientText: "그럭저럭이요")
+        #expect(engine.ledger.conditionText == "그럭저럭이요")
+
+        let other = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = other.start()
+        let followUp = await other.handle(patientText: "좀 피곤해요")
+        #expect(followUp.utterance == config.openingFollowUp)
+        _ = await other.handle(patientText: "잠을 잘 못 자서요")
+        #expect(other.ledger.conditionText == "좀 피곤해요 / 잠을 잘 못 자서요")
+    }
+
     @Test func 불명확하면_꼬리질문은_2회까지_후_검토필요로_넘어간다() async {
         _ = engine.start()
         _ = await engine.handle(patientText: "없어요") // opening (Mock: 언급 없음)
