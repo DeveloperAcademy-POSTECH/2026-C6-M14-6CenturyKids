@@ -8,7 +8,7 @@
 import Foundation
 
 /// 케어콜 음성 통화. 준비(마이크 권한 → 모델 → 한국어 인식) 뒤 엔진·음성 인식·음성 합성·AI 분석을 한 통화로 묶는다.
-/// 통화 한 번에 하나씩 만든다. 끝나면 저장할 기록을 돌려주고, 저장은 부른 쪽이 한다.
+/// 끝나면 저장할 기록을 돌려주고, 저장은 부른 쪽이 한다. 통화가 끝나면 음성 인식을 닫으므로, 다시 걸려면 prepareSpeech()부터 다시 부른다.
 final class CareCallService: CareCallPreparing {
     /// 분석이 이보다 오래 걸리면 맞장구를 먼저 말한다 (바로 말하면 어색함, 프로토타입 기기 테스트)
     private static let acknowledgementDelay: Duration = .seconds(1)
@@ -68,6 +68,7 @@ final class CareCallService: CareCallPreparing {
     /// 끊긴 곳까지 답한 기록. 통화 중 오류인데 받은 답이 없으면 오류를 그대로 던진다
     func run(onActivity: @escaping (CareCallActivity) -> Void) async throws -> CareCallOutcome {
         guard let analyzer, let voice else { throw CareCallServiceError.notPrepared }
+        stopped = false // 지난 통화를 stop으로 끝냈어도 다시 걸 수 있게
         // 전화·Siri로 오디오가 끊기면 통화를 끝낸다 (중간부터 이어 가지 않는다)
         recorder.onEvent = { [weak self] event in
             if case .resumed = event { return }
