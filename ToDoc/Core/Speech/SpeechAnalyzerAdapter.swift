@@ -54,14 +54,17 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
         }
     }
 
+    /// 마이크는 준비 때가 아니라 통화를 시작할 때 켠다 (준비 화면에서 마이크 표시가 켜지지 않게)
+    func startMicrophone() throws {
+        guard analyzer != nil, !micOn else { return }
+        try recorder.start { [feed] buffer in feed.send(buffer) }
+        micOn = true
+    }
+
     func listen() async throws -> String {
         // 준비 전이나 정지 후에는 들을 수 없으니 바로 빈 문장을 돌려준다 (영원히 기다리지 않게)
         guard analyzer != nil else { return "" }
-        // 마이크는 준비 때가 아니라 처음 들을 때 켠다 (준비 화면에서 마이크 표시가 켜지지 않게)
-        if !micOn {
-            try recorder.start { [feed] buffer in feed.send(buffer) }
-            micOn = true
-        }
+        try startMicrophone()
         finalized = ""
         feed.listening = true
         return await withCheckedContinuation { turnEnd = $0 }

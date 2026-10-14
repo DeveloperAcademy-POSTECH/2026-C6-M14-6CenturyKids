@@ -55,7 +55,7 @@ final class CareCallService {
         }
     }
 
-    /// 한국어 음성 인식을 준비한다 (처음 한 번 인식 에셋을 내려받는다). 마이크는 통화에서 처음 들을 때 켜진다
+    /// 한국어 음성 인식을 준비한다 (처음 한 번 인식 에셋을 내려받는다). 마이크는 통화를 시작할 때 켜진다
     func prepareSpeech() async throws {
         try await recognizer.prepare()
     }
@@ -100,6 +100,9 @@ final class CareCallService {
                           onActivity: @escaping (CareCallActivity) -> Void) async throws -> InterviewPhase {
         var out = engine.start()
         let opening = config.aiVoiceNotice + " " + out.utterance
+        // 첫 질문을 말하는 동안 마이크를 미리 켠다: 바로 대답해도 말 앞부분을 놓치지 않고,
+        // 엔진을 켤 때의 메인 스레드 멈춤(iPhone 17 약 0.3초)이 듣기 시작하는 순간이 아니라 AI가 말하기 전에 생긴다
+        try recognizer.startMicrophone()
         onActivity(.speaking(opening))
         await voice.speak(opening)
         // 첫 질문을 말하는 동안 모델을 데운다. 듣기 전에 끝나므로 분석과 겹치지 않는다
