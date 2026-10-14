@@ -20,7 +20,7 @@ struct PatientDTO: Codable {
         carcinomaStage = patient.disease?.stage.rawValue
     }
     
-    func toDomain(user: User) -> Patient {
+    func toDomain(user: User) throws -> Patient {
         let disease: CarcinomaDetail?
         
         switch (carcinomaType, carcinomaStage) {
@@ -28,12 +28,12 @@ struct PatientDTO: Codable {
             disease = nil
             
         case let (type?, stage?):
-            guard let domainType = CarcinomaType(rawValue: carcinomaType) else {
-                throw MappingError.invalidCarcinomaType(carcinomaType)
+            guard let domainType = CarcinomaType(rawValue: type) else {
+                throw MappingError.invalidCarcinomaType(type)
             }
             
-            guard let domainStage = CarcinomaStage(rawValue: carcinomaStage) else {
-                throw MappingError.invalidCarcinomaStage(carcinomaStage)
+            guard let domainStage = CarcinomaStage(rawValue: stage) else {
+                throw MappingError.invalidCarcinomaStage(stage)
             }
             
             disease = CarcinomaDetail(carcinoma: domainType, stage: domainStage)
