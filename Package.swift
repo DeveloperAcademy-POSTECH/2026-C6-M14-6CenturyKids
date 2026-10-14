@@ -31,7 +31,7 @@ let package = Package(
                     "Services/Symptom/CareCall/InterviewEngine.swift", "Services/Symptom/CareCall/InterviewPhase.swift",
                     "Services/Symptom/CareCall/KeywordMatcher.swift", "Services/Symptom/CareCall/Ledger.swift",
                     "Services/Symptom/CareCall/NumberParser.swift", "Services/Symptom/CareCall/PlannedQuestion.swift",
-                    "Services/Symptom/CareCall/SlotPlanner.swift",
+                    "Services/Symptom/CareCall/SlotPlanner.swift", "Services/Symptom/CareCall/SymptomRecordConverter.swift",
                 ],
                 swiftSettings: [.enableUpcomingFeature("BareSlashRegexLiterals")]),
         .testTarget(name: "CareCallEngineTests", dependencies: ["ToDocCareCall", "ToDocDomain"], path: "Tests/CareCallEngineTests",

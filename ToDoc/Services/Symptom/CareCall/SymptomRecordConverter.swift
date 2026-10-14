@@ -1,0 +1,81 @@
+//
+//  SymptomRecordConverter.swift
+//  ToDoc
+//
+//  Created by seokho on 10/14/26.
+//
+
+#if canImport(ToDocDomain)
+import ToDocDomain // 테스트 패키지에서는 Domain이 별도 모듈
+#endif
+import Foundation
+
+/// 통화 기록(Ledger)을 저장할 증상 기록으로 바꾼다 (#84 저장 규칙).
+/// 값이 Domain 검증에 걸려도 그 항목이나 그날 기록 전체를 잃지 않게, 환자 말은 길이를 맞추고 숫자는 검증에 걸리면 뺀다.
+struct SymptomRecordConverter {
+    /// side_effects.json의 항목 ID → Domain 증상 종류
+    private static let types: [String: SymptomType] = [
+        "nausea_vomiting": .nauseaVomiting, "constipation": .constipation, "diarrhea": .diarrhea,
+        "stomatitis": .oralPain, "neuropathy": .numbness, "rash_pruritus": .rashItching,
+        "dehydration_nutrition": .dehydrationNutrition,
+    ]
+
+    let config: CareCallConfig
+    let bodyParts: BodyPartDictionary
+
+    func record(from ledger: Ledger, date: Date) -> SymptomRecord {
+        let entries = ledger.order.compactMap { ledger[$0] }.flatMap(entries(for:))
+        return SymptomRecord(id: UUID(), recordedDate: date, symptoms: entries)
+    }
+
+    /// 한 항목 → 부위별 SymptomEntry (부위가 없으면 하나)
+    private func entries(for e: Ledger.Entry) -> [SymptomEntry] {
+        let effect = config.effects.first { $0.id == e.effectId }
+        let presence: SymptomPresence = switch e.presence {
+        case .present: .present
+        case .absent: .absent
+        case .unclear, nil: .unknown // 모르겠다고 답했거나, 꼬리질문 끝에도 분명하지 않음
+        }
+        let answer = e.detail.flatMap { $0.isEmpty ? nil : $0 }
+        // 검토 필요 → 앞에 표시, 기타 증상 → 앞에 이름 (#84)
+        let body = [e.otherName, answer].compactMap(\.self).joined(separator: ": ")
+        let text = ([e.needsReview ? "[검토 필요]" : nil, body.isEmpty ? nil : body].compactMap(\.self)).joined(separator: " ")
+        let detail = text.isEmpty ? nil : String(text.prefix(SymptomEntry.detailLimit))
+        // 숫자는 그 숫자를 물은 질문의 답에서만 읽는다 ("언제부터"의 "두 시간 전"을 지속 시간으로 읽지 않게)
+        let count = presence == .present && effect?.detailLabel == "횟수" ? answer.flatMap(NumberParser.count(in:)) : nil
+        let minutes = presence == .present && effect?.detailLabel == "지속 시간" ? answer.flatMap(NumberParser.minutes(in:)) : nil
+        // 부위는 부위를 묻는 항목만 ("식사량"에 붙은 "물" 같은 낱말은 버린다)
+        // 좌우를 붙이면 같아지는 낱말("발", "양쪽 발")은 한 항목으로
+        var seen = Set<String>()
+        let spoken = e.locations.map { spokenLocation($0, in: e.quotes) }.filter { seen.insert($0).inserted }
+        let locations: [String?] = presence == .present && effect?.requiresLocation == true && !spoken.isEmpty ? spoken : [nil]
+        let type = Self.types[e.effectId] ?? .other
+        return locations.compactMap { location in
+            let part = location.flatMap(bodyParts.bodyPart(for:)), side = location.flatMap(bodyParts.bodySide(for:))
+            func entry(count: Int?, minutes: Int?) -> SymptomEntry? {
+                try? SymptomEntry(id: UUID(), symptomType: type, presence: presence, bodyPart: part, bodySide: side,
+                                  rawLocationText: location, durationMinutes: minutes, occurrenceCount: count, detail: detail)
+            }
+            // detail은 길이를 맞췄으니 숫자를 빼면 항상 만들어진다
+            return entry(count: count, minutes: minutes) ?? entry(count: nil, minutes: nil)
+        }
+    }
+
+    /// 모델이 좌우를 빼고 낱말만 낸 경우 환자 말에서 좌우를 찾아 붙인다 ("왼손이 저려요" → "왼손", "양쪽 발이요" → "양쪽 발").
+    /// 앞 낱말은 "쪽"·"편"이 든 말만 본다 ("양말 신으면 발이"의 "양말"을 양쪽으로 읽지 않게)
+    private func spokenLocation(_ word: String, in quotes: [String]) -> String {
+        guard bodyParts.bodySide(for: word) == nil else { return word }
+        for quote in quotes {
+            let tokens = quote.split(whereSeparator: \.isWhitespace).map(String.init)
+            for (i, token) in tokens.enumerated() {
+                guard let range = token.range(of: word) else { continue }
+                let head = String(token[..<range.upperBound])
+                if bodyParts.bodySide(for: head) != nil { return head }
+                if i > 0, tokens[i - 1].contains(where: { "쪽편".contains($0) }), bodyParts.bodySide(for: tokens[i - 1]) != nil {
+                    return tokens[i - 1] + " " + head
+                }
+            }
+        }
+        return word
+    }
+}
