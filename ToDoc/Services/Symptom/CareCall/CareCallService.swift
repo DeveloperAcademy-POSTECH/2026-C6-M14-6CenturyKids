@@ -9,7 +9,7 @@ import Foundation
 
 /// 케어콜 음성 통화. 준비(마이크 권한 → 모델 → 한국어 인식) 뒤 엔진·음성 인식·음성 합성·AI 분석을 한 통화로 묶는다.
 /// 통화 한 번에 하나씩 만든다. 끝나면 저장할 기록을 돌려주고, 저장은 부른 쪽이 한다.
-final class CareCallService {
+final class CareCallService: CareCallPreparing {
     /// 분석이 이보다 오래 걸리면 맞장구를 먼저 말한다 (바로 말하면 어색함, 프로토타입 기기 테스트)
     private static let acknowledgementDelay: Duration = .seconds(1)
 
