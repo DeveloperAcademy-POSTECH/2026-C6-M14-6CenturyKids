@@ -3,11 +3,10 @@ import XCTest
 import ToDocDomain
 
 final class SymptomEntryTests: XCTestCase {
-    private func entry(durationMinutes: Int? = nil, occurrenceCount: Int? = nil,
-                       severity: Double? = nil, detail: String? = nil) throws -> SymptomEntry {
-        try SymptomEntry(id: UUID(), symptomType: .nauseaVomiting, bodyPart: nil, bodySide: nil,
-                         durationMinutes: durationMinutes, occurrenceCount: occurrenceCount,
-                         severity: severity, detail: detail)
+    private func entry(presence: SymptomPresence = .present, durationMinutes: Int? = nil, occurrenceCount: Int? = nil,
+                       detail: String? = nil) throws -> SymptomEntry {
+        try SymptomEntry(id: UUID(), symptomType: .nauseaVomiting, presence: presence, bodyPart: nil, bodySide: nil,
+                         durationMinutes: durationMinutes, occurrenceCount: occurrenceCount, detail: detail)
     }
     func testUnansweredOptionalFieldsRemainNil() throws {
         let value = try entry()
@@ -15,7 +14,6 @@ final class SymptomEntryTests: XCTestCase {
         XCTAssertNil(value.bodySide)
         XCTAssertNil(value.durationMinutes)
         XCTAssertNil(value.occurrenceCount)
-        XCTAssertNil(value.severity)
         XCTAssertNil(value.detail)
     }
     func testDurationMinutesRangeOnCreationAndUpdate() throws {
@@ -52,22 +50,11 @@ final class SymptomEntryTests: XCTestCase {
             XCTAssertEqual(value.occurrenceCount, 100)
         }
     }
-    func testSeverityRangeOnCreationAndUpdate() throws {
-        var value = try entry()
-        for number: Double in [0, 0.5, 3.5, 5.25, 10] {
-            XCTAssertEqual(try entry(severity: number).severity, number)
-            try value.updateSeverity(number)
-            XCTAssertEqual(value.severity, number)
+    func testAbsentAndUnknownAnswersAreKeptAsEntries() throws {
+        for presence in SymptomPresence.allCases {
+            XCTAssertEqual(try entry(presence: presence).presence, presence)
         }
-        for number in [-0.1, 10.1, Double.nan, Double.infinity, -Double.infinity] {
-            XCTAssertThrowsError(try entry(severity: number)) {
-                XCTAssertEqual($0 as? SymptomValueError, .invalidSeverity)
-            }
-            XCTAssertThrowsError(try value.updateSeverity(number)) {
-                XCTAssertEqual($0 as? SymptomValueError, .invalidSeverity)
-            }
-            XCTAssertEqual(value.severity, 10)
-        }
+        XCTAssertEqual(SymptomPresence.allCases.map(\.displayName), ["있음", "없음", "모름"])
     }
     func testDetailCountsCharactersAndRejectedUpdatePreservesText() throws {
         let allowed = String(repeating: "👩‍👩‍👧‍👧", count: 300)
