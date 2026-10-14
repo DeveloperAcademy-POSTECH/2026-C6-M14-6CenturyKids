@@ -5,6 +5,10 @@
 //  Created by seokho on 10/14/26.
 //
 
+#if canImport(ToDocDomain)
+import ToDocDomain // 테스트 패키지에서는 Domain이 별도 모듈
+#endif
+
 /// 통화가 끝난 결과. 기록 저장은 부른 쪽(Service)이 한다
 enum CareCallOutcome: Sendable {
     /// 마무리 인사까지 마침. 저장할 그날 기록 (없음·모름 답 포함)

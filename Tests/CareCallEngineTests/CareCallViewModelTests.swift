@@ -1,20 +1,36 @@
 import Foundation
 import Testing
+import ToDocDomain
 @testable import ToDocCareCall
 
-/// 케어콜 준비 단계를 흉내 내는 가짜 서비스. 단계마다 오류를 낼 수 있고, hold 단계에서 release()까지 붙잡는다
+/// 케어콜 서비스를 흉내 내는 가짜. 단계마다 오류를 낼 수 있고, hold 단계에서 release()(통화는 stop())까지 붙잡는다
 @MainActor
-final class FakePreparer: CareCallPreparing {
-    enum Step { case microphone, model, speech }
+final class FakeCareCall: CareCalling {
+    enum Step { case microphone, model, speech, call }
     private(set) var calls: [Step] = []
     var errors: [Step: Error] = [:]
     var hold: Step?
     var isHolding: Bool { held != nil }
+    /// 통화에서 차례로 알릴 진행 상황과 돌려줄 결과
+    var activities: [CareCallActivity] = []
+    var outcome: CareCallOutcome = .interrupted(nil)
+    private(set) var stopCount = 0
     private var held: CheckedContinuation<Void, Never>?
 
     func requestMicrophone() async throws { try await run(.microphone) }
     func loadModel() async throws { try await run(.model) }
     func prepareSpeech() async throws { try await run(.speech) }
+
+    func run(onActivity: @escaping (CareCallActivity) -> Void) async throws -> CareCallOutcome {
+        activities.forEach(onActivity)
+        try await run(.call)
+        return outcome
+    }
+
+    func stop() async {
+        stopCount += 1
+        release()
+    }
 
     func release() {
         held?.resume()
@@ -33,7 +49,7 @@ final class FakePreparer: CareCallPreparing {
 
 @MainActor
 struct CareCallViewModelTests {
-    let service = FakePreparer()
+    let service = FakeCareCall()
     let viewModel: CareCallViewModel
     var state: CareCallScreenState { viewModel.preparation }
 
@@ -67,13 +83,13 @@ struct CareCallViewModelTests {
     }
 
     @Test(arguments: [
-        (FakePreparer.Step.microphone, AudioRecorderError.microphoneDenied as Error, CareCallPreparationState.microphoneDenied),
+        (FakeCareCall.Step.microphone, AudioRecorderError.microphoneDenied as Error, CareCallPreparationState.microphoneDenied),
         (.model, LanguageModelError.modelMissing, .modelMissing),
         (.model, LanguageModelError.loadFailed(CancellationError()), .modelLoadFailed),
         (.speech, SpeechRecognizerError.koreanUnsupported, .speechRecognitionUnsupported),
         (.speech, SpeechRecognizerError.noAudioFormat, .failed),
     ])
-    func 오류는_화면_상태로_바꾼다(step: FakePreparer.Step, error: Error, expected: CareCallPreparationState) async {
+    func 오류는_화면_상태로_바꾼다(step: FakeCareCall.Step, error: Error, expected: CareCallPreparationState) async {
         service.errors[step] = error
         await viewModel.prepare()?.value
         #expect(state.preparation == expected)
@@ -136,5 +152,120 @@ struct CareCallViewModelTests {
         await viewModel.prepare()?.value
         state.onAction?(.cancel) // 전화를 받아 통화 화면으로 넘어갈 때도 불린다
         #expect(state.preparation == .ready && state.canStart)
+    }
+
+    // MARK: - 통화
+
+    private var conversation: SymptomScreenState { viewModel.conversation }
+
+    private func entry(_ type: SymptomType, _ presence: SymptomPresence, _ detail: String? = nil) -> SymptomEntry {
+        try! SymptomEntry(id: UUID(), symptomType: type, presence: presence, bodyPart: nil, bodySide: nil,
+                          durationMinutes: nil, occurrenceCount: nil, detail: detail)
+    }
+
+    private func record(_ entries: [SymptomEntry]) -> SymptomRecord {
+        SymptomRecord(id: UUID(), recordedDate: Date(timeIntervalSince1970: 1_000), symptoms: entries)
+    }
+
+    /// 준비를 마치고 음성 대화 화면에 들어간 상태
+    private func enterVoiceCall() async {
+        await viewModel.prepare()?.value
+        conversation.onAction?(.switchMode(.voice))
+    }
+
+    @Test func 통화_진행을_대화_화면에_옮긴다() async {
+        await enterVoiceCall()
+        service.activities = [.speaking("오늘 컨디션은 어떠세요?"), .listening, .heard("그럭저럭이요")]
+        service.hold = .call
+        let task = viewModel.startCall()
+        for _ in 0..<1_000 where !service.isHolding { await Task.yield() }
+        #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?")
+        #expect(conversation.transcript == "그럭저럭이요")
+        #expect(conversation.isWorking && !conversation.isListening) // 분석 중
+        service.release()
+        await task?.value
+    }
+
+    @Test func 끝까지_마치면_요약으로_넘어가고_없음_모름은_결과에만_남긴다() async {
+        await enterVoiceCall()
+        let saved = record([entry(.nauseaVomiting, .present, "구토 횟수: 하루 세 번이요"), entry(.constipation, .absent),
+                            entry(.diarrhea, .unknown, "[검토 필요]")])
+        service.outcome = .completed(saved)
+        await viewModel.startCall()?.value
+        let summary = conversation.summary?.record
+        #expect(summary?.id == saved.id)
+        #expect(summary?.symptoms.map(\.presence) == [.present, .absent, .unknown]) // 화면에 전부 넘기고
+        #expect(summary?.presentSymptoms.map(\.symptomType) == [.nauseaVomiting]) // 화면은 '있음'만 보여 준다
+        #expect(summary?.presentSymptoms.first?.detail == "구토 횟수: 하루 세 번이요")
+        guard case .completed(let kept)? = viewModel.outcome else { Issue.record("결과 없음"); return }
+        #expect(kept.symptoms.count == 3)
+        #expect(viewModel.startCall() == nil) // 요약까지 갔으면 다시 걸지 않음
+    }
+
+    @Test func 화면을_떠나면_통화를_끊고_끊긴_곳까지_남긴다() async {
+        await enterVoiceCall()
+        let partial = record([entry(.nauseaVomiting, .present)])
+        service.outcome = .interrupted(partial)
+        service.hold = .call
+        let task = viewModel.startCall()
+        for _ in 0..<1_000 where !service.isHolding { await Task.yield() }
+        conversation.onAction?(.cancel)
+        await task?.value
+        #expect(service.stopCount == 1)
+        guard case .interrupted(let kept?)? = viewModel.outcome else { Issue.record("끊긴 기록 없음"); return }
+        #expect(kept.id == partial.id)
+        #expect(conversation.summary != nil)
+    }
+
+    @Test func 들어가자마자_떠나면_통화를_걸지_않는다() async {
+        await enterVoiceCall()
+        let task = viewModel.startCall()
+        conversation.onAction?(.cancel) // 통화가 시작되기 전에 화면을 떠남
+        await task?.value
+        #expect(!service.calls.contains(.call))
+        #expect(!conversation.isWorking && conversation.errorMessage == nil)
+    }
+
+    @Test func 답이_없이_끊기면_다시_시도할_수_있고_음성_인식부터_다시_준비한다() async {
+        await enterVoiceCall()
+        service.outcome = .interrupted(nil)
+        await viewModel.startCall()?.value
+        #expect(conversation.question == nil)
+        #expect(conversation.errorMessage == "통화가 끊겼어요. 다시 시도해 주세요.")
+
+        service.outcome = .completed(record([entry(.diarrhea, .present)]))
+        conversation.onAction?(.start) // "다시 시도"
+        for _ in 0..<1_000 where conversation.summary == nil { await Task.yield() }
+        #expect(service.calls == [.microphone, .model, .speech, .call, .speech, .call])
+        #expect(conversation.summary != nil && conversation.errorMessage == nil)
+    }
+
+    @Test func 통화_중_오류면_알리고_다시_시도할_수_있다() async {
+        await enterVoiceCall()
+        service.errors[.call] = SpeechRecognizerError.noAudioFormat
+        await viewModel.startCall()?.value
+        #expect(conversation.question == nil && !conversation.isWorking)
+        #expect(conversation.errorMessage == "통화 중 문제가 생겼어요. 다시 시도해 주세요.")
+    }
+
+    @Test func 준비가_안_됐거나_문자_모드면_통화하지_않는다() async {
+        conversation.onAction?(.switchMode(.voice))
+        #expect(viewModel.startCall() == nil)
+        #expect(conversation.errorMessage == "통화 준비가 끝나지 않았어요. 다시 시도해 주세요.")
+
+        await viewModel.prepare()?.value
+        conversation.onAction?(.switchMode(.text))
+        #expect(viewModel.startCall() == nil)
+        #expect(conversation.errorMessage == "문자 대화는 아직 연결 전이에요.")
+        #expect(!service.calls.contains(.call))
+    }
+
+    @Test func 응급으로_끝나면_마지막_안내를_그대로_둔다() async {
+        await enterVoiceCall()
+        service.activities = [.speaking("응급 안내 문구")]
+        service.outcome = .emergencyEnded
+        await viewModel.startCall()?.value
+        #expect(conversation.question?.text == "응급 안내 문구")
+        #expect(conversation.summary == nil && conversation.errorMessage == nil)
     }
 }
