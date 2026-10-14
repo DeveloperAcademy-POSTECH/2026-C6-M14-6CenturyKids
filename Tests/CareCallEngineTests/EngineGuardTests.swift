@@ -139,8 +139,8 @@ struct EngineGuardTests {
                                      analyzer: analyzer)
         _ = engine.start()
         _ = await engine.handle(patientText: "괜찮아요")
-        _ = await engine.handle(patientText: "네")                       // 구토 있음
-        _ = await engine.handle(patientText: "하루 두 번이요")             // 횟수
+        _ = await engine.handle(patientText: "네 토했어요")               // 구토 있음 (메스꺼움은 말하지 않음)
+        _ = await engine.handle(patientText: "하루 두 번이요")             // 구토 횟수
         #expect(engine.phase == .slot(key: "constipation", step: .presence))
         #expect(engine.acknowledgement(for: "잘 모르겠어요") == nil)      // 모델 없이 처리 → 맞장구 없음
         _ = await engine.handle(patientText: "잘 모르겠어요")
@@ -151,7 +151,7 @@ struct EngineGuardTests {
         _ = await engine.handle(patientText: "글쎄요, 기억이 안 나요")
         #expect(engine.ledger["diarrhea"]?.presence == .unclear)
         #expect(engine.phase == .slot(key: "stomatitis", step: .presence))
-        #expect(engine.ledgerSummary().contains("오심·구토: present, 횟수 ‘하루 두 번이요’"))
+        #expect(engine.ledgerSummary().contains("오심·구토: present, 구토 횟수 ‘하루 두 번이요’"))
         #expect(engine.ledgerSummary().contains("변비: 모름"))
     }
 
@@ -275,7 +275,7 @@ struct QuickAnswerTests {
         _ = await engine.handle(patientText: "네")              // 변비: 있음 → 시작
         #expect(engine.phase == .slot(key: "constipation", step: .detail))
         _ = await engine.handle(patientText: "그저께부터요")     // 시작: 모델 없이 그대로 기록
-        #expect(engine.ledger["constipation"]?.detail == "그저께부터요")
+        #expect(engine.ledger["constipation"]?.details.map(\.text) == ["그저께부터요"])
         #expect(engine.phase == .slot(key: "diarrhea", step: .presence))
         #expect(mock.requests.isEmpty)
         #expect(engine.ledger["nausea_vomiting"]?.presence == .absent)
@@ -373,7 +373,7 @@ struct OtherSymptomTests {
         #expect(engine.phase == .other)
         _ = await engine.handle(patientText: "네") // 꼬리질문의 답은 모델 없이 그 항목의 내용으로 (새 기타를 만들지 않음)
         #expect(engine.ledger.order.filter { $0.hasPrefix("other:") } == ["other:열이 조금 나요"])
-        #expect(engine.ledger["other:열이 조금 나요"]?.detail == "네")
+        #expect(engine.ledger["other:열이 조금 나요"]?.details.map(\.text) == ["네"])
         #expect(engine.phase == .saved)
     }
 
@@ -655,9 +655,9 @@ struct DetailStepTests {
             _ = await engine.handle(patientText: "없어요")
         }
         let q = await engine.handle(patientText: "네")
-        #expect(q.utterance == config.effects.first { $0.id == "dehydration_nutrition" }?.detailQuestion)
+        #expect(q.utterance == config.effects.first { $0.id == "dehydration_nutrition" }?.details.first?.question)
         let next = await engine.handle(patientText: "평소의 반 정도요")
-        #expect(engine.ledger["dehydration_nutrition"]?.detail == "평소의 반 정도요")
+        #expect(engine.ledger["dehydration_nutrition"]?.details.map(\.text) == ["평소의 반 정도요"])
         #expect(next.phase == .other)
         _ = await engine.handle(patientText: "없어요")
         #expect(engine.phase == .saved)

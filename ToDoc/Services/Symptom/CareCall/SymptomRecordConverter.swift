@@ -39,14 +39,21 @@ struct SymptomRecordConverter {
         case .absent: .absent
         case .unclear, nil: .unknown // 모르겠다고 답했거나, 꼬리질문 끝에도 분명하지 않음
         }
-        let answer = e.detail.flatMap { $0.isEmpty ? nil : $0 }
+        let answers = e.details.filter { !$0.text.isEmpty }
+        let questions = effect?.details ?? []
+        // 꼬리질문이 둘인 항목은 어느 질문의 답인지 이름을 붙인다 ("구토 횟수: 하루 세 번이요 / 메스꺼움 시작: 어제부터요")
+        let answerText = answers.map { questions.count > 1 ? "\($0.label): \($0.text)" : $0.text }.joined(separator: " / ")
         // 검토 필요 → 앞에 표시, 기타 증상 → 앞에 이름 (#84)
-        let body = [e.otherName, answer].compactMap(\.self).joined(separator: ": ")
+        let body = [e.otherName, answerText.isEmpty ? nil : answerText].compactMap(\.self).joined(separator: ": ")
         let text = ([e.needsReview ? "[검토 필요]" : nil, body.isEmpty ? nil : body].compactMap(\.self)).joined(separator: " ")
         let detail = text.isEmpty ? nil : String(text.prefix(SymptomEntry.detailLimit))
         // 숫자는 그 숫자를 물은 질문의 답에서만 읽는다 ("언제부터"의 "두 시간 전"을 지속 시간으로 읽지 않게)
-        let count = presence == .present && effect?.detailLabel == "횟수" ? answer.flatMap(NumberParser.count(in:)) : nil
-        let minutes = presence == .present && effect?.detailLabel == "지속 시간" ? answer.flatMap(NumberParser.minutes(in:)) : nil
+        func number(_ kind: CareCallConfig.Effect.Detail.Number, _ read: (String) -> Int?) -> Int? {
+            guard presence == .present else { return nil }
+            let asked = answers.filter { a in questions.contains { $0.label == a.label && $0.number == kind } }
+            return asked.compactMap { read($0.text) }.first
+        }
+        let count = number(.count, NumberParser.count(in:)), minutes = number(.minutes, NumberParser.minutes(in:))
         // 부위는 부위를 묻는 항목만 ("식사량"에 붙은 "물" 같은 낱말은 버린다)
         // 좌우를 붙이면 같아지는 낱말("발", "양쪽 발")은 한 항목으로
         var seen = Set<String>()

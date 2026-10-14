@@ -18,12 +18,35 @@ struct CareCallConfig: Decodable, Sendable {
         /// 환자가 이 증상을 직접 말했는지 보는 낱말 (다른 항목을 묻는 중 번복 판단용, 초안)
         let keywords: [String]
         let requiresLocation: Bool
-        /// 있음 다음에 묻는 질문 (횟수·시작 시점·지속 시간·섭취량). 답은 모델 없이 환자 말 그대로 기록
-        let detailQuestion: String?
-        /// 기록에 붙이는 이름 ("횟수", "시작", "지속 시간", "섭취량"). 저장할 때 "횟수"는 occurrenceCount, "지속 시간"은 durationMinutes로도 읽는다
-        let detailLabel: String?
+        /// 있음 다음에 묻는 꼬리질문 (횟수·시작 시점·지속 시간·섭취량). 답은 모델 없이 환자 말 그대로 기록
+        let details: [Detail]
         /// 다른 항목을 묻다가 이 항목의 횟수·부위로 돌아갈 때 앞에 말하는 이름 ("입안이 헐거나 아픈 것")
         let spokenName: String
+
+        struct Detail: Decodable, Sendable {
+            /// 기록에 붙이는 이름 ("횟수", "구토 횟수"). 한 항목 안에서 겹치지 않는다
+            let label: String
+            let question: String
+            /// 저장할 때 답에서 읽을 숫자 (count → occurrenceCount, minutes → durationMinutes). 없으면 답만 남긴다
+            let number: Number?
+            /// 환자가 이 말을 했을 때만 묻는다 (구토 → 횟수, 메스꺼움 → 시작). 없으면 늘 묻는다
+            let keywords: [String]?
+
+            enum Number: String, Decodable, Sendable {
+                case count, minutes
+            }
+        }
+
+        /// 이 항목에서 물을 꼬리질문. 낱말이 있는 질문은 환자가 그 말을 했을 때만 묻고("토했어요" → 횟수만),
+        /// 어느 쪽인지 말하지 않았으면("네") 전부 묻는다. "토하진 않았어요"처럼 부정한 말은 보지 않는다
+        func details(heard quotes: [String]) -> [Detail] {
+            let heard = details.filter { detail in
+                guard let keywords = detail.keywords else { return true }
+                let matcher = KeywordMatcher(keywords: keywords, prefixNegation: true)
+                return quotes.contains { matcher.matches($0) != nil }
+            }
+            return heard.contains { $0.keywords != nil } ? heard : details
+        }
     }
 
     let version: String
@@ -69,7 +92,7 @@ struct CareCallConfig: Decodable, Sendable {
     /// 통화 중 말할 고정 문구 (음성 미리 합성용). 응급 안내는 시스템 음성으로 읽으므로 넣지 않는다
     func spokenPhrases(rules: EmergencyRules) -> [String] {
         [aiVoiceNotice, openingQuestion, openingFollowUp, openingTransition.fine, openingTransition.noted, openingTransition.afterFollowUp]
-            + effects.flatMap { [$0.ask, $0.detailQuestion].compactMap(\.self) } + effects.map(returnPrefix(for:))
+            + effects.flatMap { [$0.ask] + $0.details.map(\.question) } + effects.map(returnPrefix(for:))
             + acknowledgements + [repeatPrefix, otherDetail.question, otherDetail.recorded, locationPrompt,
                                   otherQuestion, otherFollowUp, rules.closingMessage]
     }

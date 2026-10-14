@@ -146,8 +146,11 @@ final class InterviewEngine {
         case .slot(let key, let step) where step != .detail && isUnknownAnswer(patientText):
             ledger.markUnknown(key, step: step, quote: patientText)
         case .slot(let key, .detail):
-            let answer = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
-            ledger.setDetail(answer, label: config.effects.first { $0.id == key }?.detailLabel, for: key)
+            // 이 답 전에 물은 꼬리질문 (꼬리질문 답은 모델 없이 처리해 그사이 기록이 바뀌지 않는다)
+            if let detail = pendingDetail(for: key) {
+                let answer = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+                ledger.addDetail(answer, label: detail.label, for: key)
+            }
         case .other:
             if let key = otherDetailKey {
                 // 기타 증상 꼬리질문의 답 → 그대로 기록하고 마무리
@@ -190,7 +193,7 @@ final class InterviewEngine {
 
     private func recordOtherDetail(_ patientText: String, for key: String) {
         let answer = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
-        ledger.setDetail(answer, label: config.otherDetail.label, for: key)
+        ledger.addDetail(answer, label: config.otherDetail.label, for: key)
         otherDetailKey = nil
     }
 
@@ -485,11 +488,16 @@ final class InterviewEngine {
             if let model, !model.isEmpty { return model }
             return config.effects.first { $0.id == key }?.ask ?? config.otherQuestion
         case .detail:
-            return config.effects.first { $0.id == key }?.detailQuestion ?? config.otherQuestion
+            return pendingDetail(for: key)?.question ?? config.otherQuestion
         case .location:
             if let model, !model.isEmpty { return model }
             return config.locationPrompt
         }
+    }
+
+    private func pendingDetail(for key: String) -> CareCallConfig.Effect.Detail? {
+        guard let entry = ledger[key], let effect = config.effects.first(where: { $0.id == key }) else { return nil }
+        return SlotPlanner.pendingDetail(entry, effect: effect)
     }
 
     private func request(for phase: InterviewPhase, patientText: String) -> AnalysisRequest {

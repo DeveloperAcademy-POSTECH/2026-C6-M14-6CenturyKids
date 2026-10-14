@@ -15,9 +15,8 @@ struct Ledger: Sendable {
         var otherName: String?
         var presence: MentionPresence?
         var locations: [String] = []
-        /// 횟수·시작 시점·지속 시간·섭취량 답 (환자 말 그대로)와 그 이름
-        var detail: String?
-        var detailLabel: String?
+        /// 꼬리질문(횟수·시작 시점·지속 시간·섭취량) 답. 물은 순서대로
+        var details: [Detail] = []
         var quotes: [String] = []
         var needsReview = false
         /// 같은 항목에서 이미 물은 단계. 다시 물으면 꼬리질문으로 센다.
@@ -27,6 +26,12 @@ struct Ledger: Sendable {
         var closed = false
         /// 환자가 "모르겠어요"라고 답한 단계. 다시 묻지 않고 '모름'으로 기록한다
         var unknownSteps: Set<CareCallStep> = []
+    }
+
+    /// 꼬리질문 답 (환자 말 그대로)과 그 질문 이름
+    struct Detail: Equatable, Sendable {
+        let label: String
+        let text: String
     }
 
     static let maxFollowUps = 2
@@ -94,9 +99,8 @@ struct Ledger: Sendable {
         entries[key] = entry
     }
 
-    mutating func setDetail(_ text: String, label: String?, for key: String) {
-        entries[key]?.detail = text
-        entries[key]?.detailLabel = label
+    mutating func addDetail(_ text: String, label: String, for key: String) {
+        entries[key]?.details.append(Detail(label: label, text: text))
     }
 
     /// 기록 값(있음/없음·부위)이 같은지. 근거 문장(quotes)과 질문 횟수는 보지 않는다
@@ -115,7 +119,8 @@ struct Ledger: Sendable {
     mutating func markAsked(_ key: String, step: CareCallStep) -> Bool {
         var entry = entries[key] ?? Entry(key: key, effectId: key, otherName: nil)
         if entries[key] == nil { order.append(key) }
-        if entry.askedSteps.contains(step) {
+        // 꼬리질문이 둘인 항목(구토 횟수·메스꺼움 시작)은 다음 질문이라 되묻기로 세지 않는다
+        if entry.askedSteps.contains(step), step != .detail {
             if entry.followUps >= Self.maxFollowUps {
                 entry.needsReview = true
                 entry.closed = true
@@ -134,7 +139,7 @@ struct Ledger: Sendable {
             guard let e = entries[key], let presence = e.presence else { return nil }
             let name = e.effectId == "other" ? (e.otherName ?? "기타") : (names[e.effectId] ?? e.effectId)
             var parts = ["\(name): \(e.unknownSteps.contains(.presence) ? "모름" : presence.rawValue)"]
-            if let d = e.detail { parts.append("\(e.detailLabel ?? "추가") ‘\(d)’") }
+            parts += e.details.map { "\($0.label) ‘\($0.text)’" }
             if !e.locations.isEmpty { parts.append("부위 \(e.locations.joined(separator: ", "))") }
             if e.unknownSteps.contains(.location) { parts.append("부위 모름") }
             if e.needsReview { parts.append("검토 필요") }

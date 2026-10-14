@@ -19,7 +19,7 @@ struct SymptomRecordConverterTests {
         ledger.apply(Mention(effectId: id, presence: presence, locations: locations, quote: text), patientText: text, knownEffectIds: ids)
     }
 
-    private func label(_ id: String) -> String? { config.effects.first { $0.id == id }?.detailLabel }
+    private func label(_ id: String) -> String { config.effects.first { $0.id == id }!.details[0].label }
 
     @Test func 없음과_모름도_답으로_저장한다() {
         var ledger = Ledger()
@@ -54,9 +54,9 @@ struct SymptomRecordConverterTests {
     @Test func 횟수는_횟수_질문의_답에서만_읽는다() {
         var ledger = Ledger()
         said(&ledger, "diarrhea", .present, "네 했어요")
-        ledger.setDetail("하루 세 번이요", label: label("diarrhea"), for: "diarrhea")
+        ledger.addDetail("하루 세 번이요", label: label("diarrhea"), for: "diarrhea")
         said(&ledger, "constipation", .present, "네 있어요")
-        ledger.setDetail("세 번째 날이에요 두 시간 전부터요", label: label("constipation"), for: "constipation")
+        ledger.addDetail("세 번째 날이에요 두 시간 전부터요", label: label("constipation"), for: "constipation")
         let symptoms = converter.record(from: ledger, date: date).symptoms
         #expect(symptoms.map(\.occurrenceCount) == [3, nil])
         #expect(symptoms.map(\.durationMinutes) == [nil, nil]) // "언제부터"의 답은 지속 시간이 아니다
@@ -66,9 +66,9 @@ struct SymptomRecordConverterTests {
     @Test func 지속_시간은_분으로_읽고_모호하면_말만_남긴다() {
         var ledger = Ledger()
         said(&ledger, "neuropathy", .present, "네 저려요", locations: [])
-        ledger.setDetail("한 시간 반쯤 가요", label: label("neuropathy"), for: "neuropathy")
+        ledger.addDetail("한 시간 반쯤 가요", label: label("neuropathy"), for: "neuropathy")
         said(&ledger, "rash_pruritus", .present, "네 가려워요")
-        ledger.setDetail("이삼십 분이요", label: label("rash_pruritus"), for: "rash_pruritus")
+        ledger.addDetail("이삼십 분이요", label: label("rash_pruritus"), for: "rash_pruritus")
         let symptoms = converter.record(from: ledger, date: date).symptoms
         #expect(symptoms.map(\.durationMinutes) == [90, nil])
         #expect(symptoms.map(\.detail) == ["한 시간 반쯤 가요", "이삼십 분이요"])
@@ -77,7 +77,7 @@ struct SymptomRecordConverterTests {
     @Test func 부위가_여럿이면_부위별로_나누고_빠진_좌우는_환자_말에서_찾는다() {
         var ledger = Ledger()
         said(&ledger, "neuropathy", .present, "네 저려요")
-        ledger.setDetail("삼십 분쯤이요", label: label("neuropathy"), for: "neuropathy")
+        ledger.addDetail("삼십 분쯤이요", label: label("neuropathy"), for: "neuropathy")
         said(&ledger, "neuropathy", .present, "양쪽 발이랑 왼손이요", locations: ["발", "왼손"])
         let symptoms = converter.record(from: ledger, date: date).symptoms
         #expect(symptoms.map(\.bodyPart) == [.legFoot, .armHand])
@@ -117,7 +117,7 @@ struct SymptomRecordConverterTests {
         var ledger = Ledger()
         ledger.apply(Mention(effectId: "other", otherName: "어지러움", presence: .present, quote: "어지러워요"),
                      patientText: "어지러워요", knownEffectIds: ids)
-        ledger.setDetail("아침에 잠깐요", label: config.otherDetail.label, for: "other:어지러움")
+        ledger.addDetail("아침에 잠깐요", label: config.otherDetail.label, for: "other:어지러움")
         ledger.markNeedsReview("other:어지러움")
         let entry = converter.record(from: ledger, date: date).symptoms.first
         #expect(entry?.symptomType == .other)
@@ -127,7 +127,7 @@ struct SymptomRecordConverterTests {
     @Test func 답이_길어도_항목을_잃지_않는다() {
         var ledger = Ledger()
         said(&ledger, "diarrhea", .present, "네")
-        ledger.setDetail(String(repeating: "하루 세 번이요 ", count: 40), label: label("diarrhea"), for: "diarrhea")
+        ledger.addDetail(String(repeating: "하루 세 번이요 ", count: 40), label: label("diarrhea"), for: "diarrhea")
         ledger.markNeedsReview("diarrhea")
         let entry = converter.record(from: ledger, date: date).symptoms.first
         #expect(entry?.detail?.count == SymptomEntry.detailLimit)
@@ -135,9 +135,19 @@ struct SymptomRecordConverterTests {
         #expect(entry?.occurrenceCount == 3)
     }
 
-    /// 숫자를 읽는 기준이 설정 파일 이름이라, 이름을 바꾸면 여기서 알 수 있게
-    @Test func 횟수와_지속_시간을_묻는_항목() {
-        #expect(config.effects.filter { $0.detailLabel == "횟수" }.map(\.id) == ["nausea_vomiting", "diarrhea"])
-        #expect(config.effects.filter { $0.detailLabel == "지속 시간" }.map(\.id) == ["neuropathy", "rash_pruritus"])
+    @Test func 횟수와_지속_시간을_읽는_항목() {
+        let reads = { (n: CareCallConfig.Effect.Detail.Number) in config.effects.filter { $0.details.contains { $0.number == n } }.map(\.id) }
+        #expect(reads(.count) == ["nausea_vomiting", "diarrhea"])
+        #expect(reads(.minutes) == ["neuropathy", "rash_pruritus"])
+    }
+
+    @Test func 구토와_메스꺼움을_둘_다_답하면_이름을_붙여_한_항목에() {
+        var ledger = Ledger()
+        said(&ledger, "nausea_vomiting", .present, "네")
+        ledger.addDetail("하루 두 번이요", label: "구토 횟수", for: "nausea_vomiting")
+        ledger.addDetail("어제부터요", label: "메스꺼움 시작", for: "nausea_vomiting")
+        let entry = converter.record(from: ledger, date: date).symptoms.first
+        #expect(entry?.detail == "구토 횟수: 하루 두 번이요 / 메스꺼움 시작: 어제부터요")
+        #expect(entry?.occurrenceCount == 2)
     }
 }
