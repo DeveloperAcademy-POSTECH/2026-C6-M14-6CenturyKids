@@ -12,16 +12,18 @@ struct SymptomRecordDTO: Codable {
     let patientId: UUID
     let date: String
     let recordedAt: Date
+    let condition: String
     
     init(symptomRecord: SymptomRecord) {
         id = symptomRecord.id
         patientId = symptomRecord.patientId
         date = DateOnlyFormatter.string(from: symptomRecord.recordedDate)
         recordedAt = symptomRecord.recordedDate
+        condition = symptomRecord.conditionText
     }
     
     func toDomain(symptoms: [SymptomEntry]) -> SymptomRecord {
-        return SymptomRecord(id: id, patientId: patientId, recordedDate: recordedAt, symptoms: symptoms)
+        return SymptomRecord(id: id, patientId: patientId, recordedDate: recordedAt, conditionText: condition, symptoms: symptoms)
     }
 }
 
@@ -31,5 +33,6 @@ extension SymptomRecordDTO {
             case patientId = "patient_id"
             case date = "date"
             case recordedAt = "recorded_at"
+            case condition = "condition"
     }
 }
