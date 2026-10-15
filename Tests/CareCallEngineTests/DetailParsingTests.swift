@@ -53,6 +53,7 @@ struct DetailNumberTests {
     @Test(arguments: [
         "토하지는 않고 하루 한두 번 그래요", "하루에 서너 번이요", "어제부터요, 하루 두세 번 정도요", "2~3번",
         "두 번이나 세 번", "두 번째예요", "사흘 전부터요", "이번 주부터요", "여러 번", "150번", "몇 번 했어요",
+        "열 번 넘게", "10번 이상이요", "다섯 번 넘었어요",
     ])
     func 모호하거나_횟수가_아니면_nil(text: String) {
         #expect(NumberParser.count(in: text) == nil)
@@ -67,7 +68,7 @@ struct DetailNumberTests {
 
     @Test(arguments: [
         "평소의 삼분의 일 정도요", "아픈 부분이 있어요", "20~30분", "하루 종일요", "5분", "25시간", "두 분이 오셨어요",
-        "이 시간쯤", "한두 시간", "이삼십 분이요", "사오십 분",
+        "이 시간쯤", "한두 시간", "이삼십 분이요", "사오십 분", "한 시간 넘게요", "30분 이상",
     ])
     func 모호하거나_기간이_아니면_nil(text: String) {
         #expect(NumberParser.minutes(in: text) == nil)
