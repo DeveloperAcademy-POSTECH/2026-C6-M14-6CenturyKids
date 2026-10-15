@@ -156,6 +156,17 @@ struct CareCallTextModeTests {
         #expect(service.beginCount == 1)
     }
 
+    @Test func 통화를_걸기_전에_문자로_바꾸면_통화하지_않고_문자로_시작한다() async {
+        await viewModel.prepare()?.value
+        conversation.onAction?(.switchMode(.voice))
+        let call = viewModel.start()
+        conversation.onAction?(.switchMode(.text)) // 첫 질문 전에 바꿈
+        await call?.value
+        await waitUntil { conversation.question != nil }
+        #expect(!service.calls.contains(.call))
+        #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?" && service.beginCount == 1)
+    }
+
     @Test func 문자에서_음성으로_바꾸면_준비부터_하고_같은_대화를_통화로_이어_간다() async {
         await enterText()
         service.outcome = .completed(record())

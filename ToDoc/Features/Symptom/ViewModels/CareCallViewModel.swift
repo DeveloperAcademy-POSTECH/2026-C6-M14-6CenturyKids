@@ -153,17 +153,17 @@ final class CareCallViewModel {
     private func switchMode(to mode: SymptomConversationMode) {
         guard mode != conversation.mode else { return }
         conversation.mode = mode
-        guard began, !isOver else { return }
+        guard !isOver else { return }
         switch mode {
         case .text:
-            if let call { // 통화를 끊으면 같은 질문을 문자로 보여 준다 (startCall에서)
+            if let call { // 통화를 끊고(거는 중이어도) 끝나면 같은 대화를 문자로 이어 간다 (startCall에서)
                 call.cancel()
                 Task { await service.stop() }
-            } else {
+            } else if began {
                 continueInText()
             }
         case .voice:
-            if typing == nil { startCall() } // 문자 답을 처리 중이면 끝난 뒤 이어서 (afterTyping)
+            if began, typing == nil { startCall() } // 문자 답을 처리 중이면 끝난 뒤 이어서 (typing에서)
         }
     }
 
@@ -199,7 +199,7 @@ final class CareCallViewModel {
             conversation.isWorking = false
             // 통화 중에 문자로 바꿈: 끝까지 마친 게 아니면 같은 대화를 문자로 이어 간다
             if conversation.mode == .text, !leftCall, !Self.isFinal(outcome) {
-                continueInText()
+                startText() // 대화를 시작했으면 지금 질문부터, 아니면 문자로 시작한다
             } else if let outcome {
                 finish(outcome)
             } else if case CareCallServiceError.notPrepared? = failure {
