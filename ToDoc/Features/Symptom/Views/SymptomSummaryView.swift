@@ -22,29 +22,21 @@ struct SymptomSummaryView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 VStack(spacing: 24) {
-                    ForEach(SymptomPresence.allCases, id: \.self) { presence in
-                        let entries = state.record.entries(with: presence)
-                        if !entries.isEmpty {
-                            Text("\(presence.displayName)으로 답한 항목")
-                                .font(.headline).frame(maxWidth: .infinity, alignment: .leading)
-                                .accessibilityAddTraits(.isHeader)
-                        }
-                        ForEach(entries) { entry in
-                            if state.editingEntryID == entry.id {
-                                SymptomSummaryEntryEditor(draft: entry, errorMessage: state.editErrorMessage,
-                                    onDelete: { state.onAction?(.delete(entry.id)) },
-                                    onFinish: { state.onAction?(.finishEdit(entry.id, $0)) })
-                                .id(entry.id)
-                            } else {
-                                SymptomSummaryEntryView(entry: entry, canEdit: !state.isSaving &&
-                                                        state.onAction != nil && state.editingEntryID == nil) {
-                                    state.onAction?(.edit(entry.id))
-                                }
+                    ForEach(state.record.presentSymptoms) { entry in
+                        if state.editingEntryID == entry.id {
+                            SymptomSummaryEntryEditor(draft: entry, errorMessage: state.editErrorMessage,
+                                onDelete: { state.onAction?(.delete(entry.id)) },
+                                onFinish: { state.onAction?(.finishEdit(entry.id, $0)) })
+                            .id(entry.id)
+                        } else {
+                            SymptomSummaryEntryView(entry: entry, canEdit: !state.isSaving &&
+                                                    state.onAction != nil && state.editingEntryID == nil) {
+                                state.onAction?(.edit(entry.id))
                             }
                         }
                     }
-                    if state.record.symptoms.isEmpty {
-                        Text("기록된 답변이 없습니다.").font(.body).foregroundStyle(.secondary)
+                    if state.record.presentSymptoms.isEmpty {
+                        Text("표시할 증상 기록이 없어요.").font(.body).foregroundStyle(.secondary)
                     }
                 }
                 VStack(spacing: 16) {

@@ -4,8 +4,8 @@ import SwiftUI
 /// Xcode Canvas에서만 사용하는 화면 모음. 앱 실행 경로에서는 생성하지 않습니다.
 struct ScreenCatalogPreview: View {
     enum Screen: String, CaseIterable {
-        case voice = "증상 자동 음성", noPresent = "증상 0건 · 없음과 모름", missingCount = "증상 집계 미제공"
-        case summary = "증상 요약"
+        case voice = "증상 자동 음성", noPresent = "증상 0건 · 표시 항목 없음", missingCount = "증상 집계 미제공"
+        case summary = "증상 요약", noPresentSummary = "증상 요약 · 표시 항목 없음"
         case onboarding = "온보딩", login = "로그인", signup = "회원가입", reset = "비밀번호 재설정"
         case home = "홈", pain = "통증 입력", incoming = "케어콜 수신", conversation = "증상 입력"
         case records = "기록 목록", painDetail = "통증 상세", symptomDetail = "증상 상세"
@@ -43,6 +43,7 @@ struct ScreenCatalogPreview: View {
         case .incoming: CareCallIncomingView(canAnswer: true, onAnswer: {}, onEnd: {}, onPostpone: {}, onSwitchToText: {})
         case .conversation: SymptomRecordView(state: conversationState())
         case .summary: SymptomSummaryView(state: .init(record: symptomRecord()))
+        case .noPresentSummary: SymptomSummaryView(state: .init(record: symptomRecord(includesPresent: false)))
         case .records: RecordsView(snapshot: .init(pain: .init(averageBefore: 7, averageAfter: 0, difference: 7, previousDayDifference: nil), symptom: .init(presentCount: 1, types: [.constipation])), state: .loaded)
         case .voice: SymptomRecordView(state: voiceState())
         case .noPresent: SymptomRecordDetailView(state: symptomDetailState(presentCount: 0, includesPresent: false))

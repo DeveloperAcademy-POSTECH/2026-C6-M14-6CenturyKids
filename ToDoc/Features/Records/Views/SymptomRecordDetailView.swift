@@ -10,37 +10,30 @@ struct SymptomRecordDetailView: View {
                     RecordSymptomChart(state: state, days: data.days)
                 }
                 if state.period == .day {
-                    if let record = data.days.first?.record, !record.symptoms.isEmpty { entries(record) }
-                    else { Text("기록된 답변이 없어요.").foregroundStyle(.secondary) }
+                    if let record = data.days.first?.record, !record.presentSymptoms.isEmpty { entries(record) }
+                    else { Text("표시할 증상 기록이 없어요.").foregroundStyle(.secondary) }
                 }
             }
         }
     }
 
     @ViewBuilder private func entries(_ record: SymptomRecordDisplay) -> some View {
-        ForEach(SymptomPresence.allCases, id: \.self) { presence in
-            let entries = record.entries(with: presence)
-            if !entries.isEmpty {
-                Text("\(presence.displayName)으로 답한 항목").font(.headline)
-                    .frame(maxWidth: .infinity, alignment: .leading).accessibilityAddTraits(.isHeader)
-            }
-            ForEach(entries) { entry in
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(entry.symptomType.displayName).modifier(RecordTextStyle(size: 16, weight: .semibold))
-                    Text("증상 유무: \(entry.presence.displayName)").modifier(RecordTextStyle(size: 14, weight: .semibold))
-                    if let location = entry.rawLocationText, !location.isEmpty {
-                        Text(location).modifier(RecordTextStyle(size: 14))
-                    } else if let part = entry.bodyPart {
-                        Text([entry.bodySide?.displayName, part.displayName].compactMap { $0 }.joined(separator: " "))
-                            .modifier(RecordTextStyle(size: 14))
-                    }
-                    if let detail = entry.detail, !detail.isEmpty { Text(detail).modifier(RecordTextStyle(size: 14)) }
-                    if let count = entry.occurrenceCount { Text("횟수 \(count)회").modifier(RecordTextStyle(size: 14)).foregroundStyle(.secondary) }
-                    if let minutes = entry.durationMinutes { Text("지속 시간 \(minutes)분").modifier(RecordTextStyle(size: 14)).foregroundStyle(.secondary) }
-                }.fixedSize(horizontal: false, vertical: true)
-                    .padding(22).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.white, in: RoundedRectangle(cornerRadius: 26))
-            }
+        ForEach(record.presentSymptoms) { entry in
+            VStack(alignment: .leading, spacing: 10) {
+                Text(entry.symptomType.displayName).modifier(RecordTextStyle(size: 16, weight: .semibold))
+                Text("증상 유무: \(entry.presence.displayName)").modifier(RecordTextStyle(size: 14, weight: .semibold))
+                if let location = entry.rawLocationText, !location.isEmpty {
+                    Text(location).modifier(RecordTextStyle(size: 14))
+                } else if let part = entry.bodyPart {
+                    Text([entry.bodySide?.displayName, part.displayName].compactMap { $0 }.joined(separator: " "))
+                        .modifier(RecordTextStyle(size: 14))
+                }
+                if let detail = entry.detail, !detail.isEmpty { Text(detail).modifier(RecordTextStyle(size: 14)) }
+                if let count = entry.occurrenceCount { Text("횟수 \(count)회").modifier(RecordTextStyle(size: 14)).foregroundStyle(.secondary) }
+                if let minutes = entry.durationMinutes { Text("지속 시간 \(minutes)분").modifier(RecordTextStyle(size: 14)).foregroundStyle(.secondary) }
+            }.fixedSize(horizontal: false, vertical: true)
+                .padding(22).frame(maxWidth: .infinity, alignment: .leading)
+                .background(.white, in: RoundedRectangle(cornerRadius: 26))
         }
     }
 }

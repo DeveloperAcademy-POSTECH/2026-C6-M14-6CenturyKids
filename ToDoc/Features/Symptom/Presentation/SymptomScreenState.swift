@@ -24,9 +24,9 @@ struct SymptomRecordDisplay: Identifiable {
     let recordedDate: Date
     var symptoms: [SymptomEntryDisplay]
 
-    /// 화면에서 상태별로 나눠 보여 줍니다. 기간 집계는 ViewModel에서 제공합니다.
-    func entries(with presence: SymptomPresence) -> [SymptomEntryDisplay] {
-        symptoms.filter { $0.presence == presence }
+    /// 요약·상세는 있음만 표시합니다. 저장용 symptoms에는 없음·모름도 보존합니다.
+    var presentSymptoms: [SymptomEntryDisplay] {
+        symptoms.filter { $0.presence == .present }
     }
 }
 /// 숫자 입력을 문자열 그대로 보냅니다. 실패한 변환을 0/nil로 덮어쓰지 않습니다.
