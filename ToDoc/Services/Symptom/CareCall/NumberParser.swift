@@ -69,7 +69,7 @@ enum NumberParser {
     /// 어림수·범위, "열 번 넘게"·"한 시간 이상"처럼 그보다 많다는 말 (정확한 값이 아니다)
     private static func isAmbiguous(_ raw: String) -> Bool {
         approximate.contains(where: raw.contains) || raw.contains(/\d+\s*[~\-]\s*\d+/)
-            || raw.contains(/(번|회|차례|시간|분)\s?(넘|이상)/)
+            || raw.contains(/(번|회|차례|시간|분)\s?(넘게|넘었|넘어요|넘는|이상(?![해하한]))/)
     }
 
     /// 숫자, 또는 수를 나타내는 우리말("세", "열두")·한자어("삼십")를 읽는다. 앞에 다른 말이 붙어 있으면("하루세") 뒤쪽만 본다.

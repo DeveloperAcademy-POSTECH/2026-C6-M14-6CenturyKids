@@ -45,6 +45,7 @@ struct DetailNumberTests {
     @Test(arguments: [
         ("하루 다섯 번이요", 5), ("하루 두 번이요", 2), ("하루에 두 번쯤 그랬지예", 2), ("어제 두 번이요", 2),
         ("어제 한 번 그랬어요", 1), ("한 3번?", 3), ("세번", 3), ("열두 번", 12), ("하루 열 번", 10), ("3회", 3),
+        ("한 번 넘어졌어요", 1), ("두 번 했는데 이상해요", 2),
     ])
     func 분명한_횟수를_읽는다(text: String, count: Int) {
         #expect(NumberParser.count(in: text) == count)
