@@ -26,6 +26,10 @@ final class CareCallService: CareCalling {
     private var analyzer: CareCallAI?
     private var voice: SpeechSynthesizer?
     private var stopped = false
+    /// 지금 대화. 음성 통화와 문자 답이 같은 대화를 이어 간다
+    private var engine: InterviewEngine?
+    /// 지금 대화에서 AI 음성 안내를 했음 (문자로 시작해 음성으로 바꿔도 처음 말할 때 한 번은 알린다)
+    private var noticed = false
 
     init(config: CareCallConfig, rules: EmergencyRules, bodyParts: BodyPartDictionary, recorder: AudioRecorder, recognizer: SpeechRecognizer,
          systemVoice: SpeechSynthesizer, loadAnalyzer: @escaping () async throws -> CareCallAI,
@@ -62,19 +66,57 @@ final class CareCallService: CareCalling {
         try await recognizer.prepare()
     }
 
+    // MARK: - 대화
+
+    func begin() throws -> CareCallTurn {
+        guard let analyzer else { throw CareCallServiceError.notPrepared }
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: analyzer)
+        self.engine = engine
+        noticed = false
+        return turn(engine.start(), of: engine)
+    }
+
+    var current: CareCallTurn? {
+        engine.map { turn(InterviewEngine.Output(utterance: $0.lastQuestion, phase: $0.phase), of: $0) }
+    }
+
+    func answer(_ text: String) async throws -> CareCallTurn {
+        guard let engine else { throw CareCallServiceError.notPrepared }
+        return turn(await engine.handle(patientText: text), of: engine)
+    }
+
+    func end() -> CareCallOutcome {
+        defer { engine = nil }
+        guard let engine else { return .interrupted(nil) }
+        return outcome(of: engine, phase: engine.phase)
+    }
+
+    private func turn(_ out: InterviewEngine.Output, of engine: InterviewEngine) -> CareCallTurn {
+        CareCallTurn(utterance: out.utterance, number: engine.expectedNumber,
+                     outcome: out.isFinished ? outcome(of: engine, phase: out.phase) : nil)
+    }
+
+    /// 마무리 인사까지 마쳤으면 그날 기록, 응급이면 응급 종료, 중간이면 끊긴 곳까지 답한 기록
+    private func outcome(of engine: InterviewEngine, phase: InterviewPhase) -> CareCallOutcome {
+        switch phase {
+        case .saved: .completed(converter.record(from: engine.ledger, date: Date()))
+        case .emergencyEnded: .emergencyEnded
+        default: .interrupted(record(of: engine))
+        }
+    }
+
     // MARK: - 통화
 
-    /// 통화를 끝까지 진행하고 결과를 돌려준다. 마무리 인사까지 마쳤으면 그날 기록, 중간에 끝났으면(stop·전화 등 오디오 중단, 통화 중 오류)
+    /// 지금 대화를 끝까지 통화로 진행하고 결과를 돌려준다. 마무리 인사까지 마쳤으면 그날 기록, 중간에 끝났으면(stop·전화 등 오디오 중단, 통화 중 오류)
     /// 끊긴 곳까지 답한 기록. 통화 중 오류인데 받은 답이 없으면 오류를 그대로 던진다
     func run(onActivity: @escaping (CareCallActivity) -> Void) async throws -> CareCallOutcome {
-        guard let analyzer, let voice else { throw CareCallServiceError.notPrepared }
+        guard let engine, let voice else { throw CareCallServiceError.notPrepared }
         stopped = false // 지난 통화를 stop으로 끝냈어도 다시 걸 수 있게
         // 전화·Siri로 오디오가 끊기면 통화를 끝낸다 (중간부터 이어 가지 않는다)
         recorder.onEvent = { [weak self] event in
             if case .resumed = event { return }
             Task { await self?.stop() }
         }
-        let engine = InterviewEngine(config: config, rules: rules, analyzer: analyzer)
         let phase: InterviewPhase
         do {
             // 부른 쪽 작업이 취소되면(화면을 닫음) stop과 같이 끝낸다. 음성 인식은 취소를 직접 보지 않는다
@@ -89,11 +131,7 @@ final class CareCallService: CareCalling {
             return .interrupted(partial)
         }
         await finish()
-        switch phase {
-        case .saved: return .completed(converter.record(from: engine.ledger, date: Date()))
-        case .emergencyEnded: return .emergencyEnded
-        default: return .interrupted(record(of: engine))
-        }
+        return outcome(of: engine, phase: phase)
     }
 
     /// 받은 답이 하나도 없으면 nil (빈 기록으로 그날 기록을 덮지 않게)
@@ -112,16 +150,17 @@ final class CareCallService: CareCalling {
 
     private func converse(engine: InterviewEngine, voice: SpeechSynthesizer,
                           onActivity: @escaping (CareCallActivity) -> Void) async throws -> InterviewPhase {
-        var out = engine.start()
-        let opening = config.aiVoiceNotice + " " + out.utterance
+        var out = InterviewEngine.Output(utterance: engine.lastQuestion, phase: engine.phase)
+        let opening = noticed ? out.utterance : config.aiVoiceNotice + " " + out.utterance
+        noticed = true
         // 첫 질문을 말하는 동안 마이크를 미리 켠다: 바로 대답해도 말 앞부분을 놓치지 않고,
         // 엔진을 켤 때의 메인 스레드 멈춤(iPhone 17 약 0.3초)이 듣기 시작하는 순간이 아니라 AI가 말하기 전에 생긴다
         try recognizer.startMicrophone()
         onActivity(.speaking(opening))
         await voice.speak(opening)
         // 첫 질문을 말하는 동안 모델을 데운다. 듣기 전에 끝나므로 분석과 겹치지 않는다
-        // (모델은 새 생성이 시작되면 진행 중인 생성을 취소한다)
-        await engine.prewarm()
+        // (모델은 새 생성이 시작되면 진행 중인 생성을 취소한다). 문자로 이미 답했으면 데워져 있다
+        if engine.phase == .opening { await engine.prewarm() }
         await voice.waitUntilDone()
 
         while !out.isFinished, !stopped {

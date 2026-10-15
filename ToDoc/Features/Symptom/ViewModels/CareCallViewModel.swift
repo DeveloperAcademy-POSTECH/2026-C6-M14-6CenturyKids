@@ -10,8 +10,8 @@ import ToDocDomain
 #endif
 import Foundation
 
-/// 케어콜 화면(CareCallFlowView)의 상태를 보관한다: 준비(대기 화면) → 음성 통화(대화 화면) → 요약 수정·저장.
-/// 준비한 서비스로 그대로 통화한다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장한다. 문자 대화는 아직 연결하지 않는다
+/// 케어콜 화면(CareCallFlowView)의 상태를 보관한다: 준비(대기 화면) → 대화(음성 통화·문자 답) → 요약 수정·저장.
+/// 음성과 문자를 오가도 서비스의 같은 대화를 이어 간다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장한다
 @MainActor
 final class CareCallViewModel {
     let preparation = CareCallScreenState()
@@ -31,9 +31,13 @@ final class CareCallViewModel {
     private var generation = 0
     /// 지금 진행 중인 통화
     private var call: Task<Void, Never>?
+    /// 지금 처리 중인 문자 답 (대화 시작 포함)
+    private var typing: Task<Void, Never>?
+    /// 서비스에서 대화를 시작함 (이후로는 음성·문자 모두 이 대화를 이어 간다)
+    private var began = false
     /// 통화를 건 적이 있음. 통화가 끝나면 서비스가 음성 인식을 닫아서, 다시 걸 때는 음성 인식부터 준비한다
     private var hasCalled = false
-    /// 통화 중에 대화 화면을 떠남 (끝나면 요약을 볼 사람이 없어 바로 저장한다)
+    /// 대화 중에 대화 화면을 떠남 (끝나면 요약을 볼 사람이 없어 바로 저장한다)
     private var leftCall = false
     private var saving: Task<Void, Never>?
     private var isSaved = false
@@ -119,58 +123,202 @@ final class CareCallViewModel {
         }
     }
 
-    // MARK: - 통화 (대화 화면)
+    // MARK: - 대화 (대화 화면)
 
     private func handle(_ action: SymptomAction) {
         switch action {
-        case .switchMode(let mode): conversation.mode = mode
-        case .start: startCall()
+        case .switchMode(let mode): switchMode(to: mode)
+        case .start: start()
+        case .answer(let answer): self.answer(answer)
         case .cancel: endCall()
-        // 음성 통화는 스스로 듣고 다음 질문으로 넘어가서 이전·답변 버튼을 쓰지 않는다. 문자 대화는 아직 연결 전
-        case .previous, .answer: break
+        // 엔진이 지난 답을 되돌리지 못해 이전 질문으로 가지 않는다 (canGoPrevious는 늘 false)
+        case .previous: break
         }
     }
 
-    /// 대화 화면이 보이면 불린다 (끊긴 뒤 "다시 시도"도). 통화 중이거나 이미 요약까지 갔으면 그대로 둔다
+    /// 요약으로 넘어갔거나 응급 안내로 끝남 (더 묻지 않는다)
+    private var isOver: Bool {
+        if conversation.summary != nil { return true }
+        if case .emergencyEnded? = outcome { return true }
+        return false
+    }
+
+    /// 대화 화면이 보이면 불린다 (끊긴 뒤 "다시 시도"도). 지금 방식으로 대화를 시작하거나 이어 간다
+    @discardableResult
+    func start() -> Task<Void, Never>? {
+        conversation.mode == .voice ? startCall() : startText()
+    }
+
+    /// 대화 중에 음성·문자를 바꾼다. 대화 전이면 방식만 정하고, 화면이 start를 부를 때 그 방식으로 시작한다
+    private func switchMode(to mode: SymptomConversationMode) {
+        guard mode != conversation.mode else { return }
+        conversation.mode = mode
+        guard began, !isOver else { return }
+        switch mode {
+        case .text:
+            if let call { // 통화를 끊으면 같은 질문을 문자로 보여 준다 (startCall에서)
+                call.cancel()
+                Task { await service.stop() }
+            } else {
+                continueInText()
+            }
+        case .voice:
+            if typing == nil { startCall() } // 문자 답을 처리 중이면 끝난 뒤 이어서 (afterTyping)
+        }
+    }
+
+    /// 음성 통화로 대화를 시작하거나 이어 간다. 문자로 시작해 음성 준비가 안 됐으면 준비부터 한다
     @discardableResult
     func startCall() -> Task<Void, Never>? {
-        guard conversation.mode == .voice else {
-            conversation.errorMessage = "문자 대화는 아직 연결 전이에요."
-            return nil
-        }
-        guard call == nil, conversation.summary == nil else { return nil }
-        guard preparation.canStart else {
-            conversation.errorMessage = "통화 준비가 끝나지 않았어요. 다시 시도해 주세요."
-            return nil
-        }
+        guard call == nil, typing == nil, !isOver else { return nil }
         conversation.errorMessage = nil
         conversation.isWorking = true // 첫 질문을 말하기 전까지
-        let retry = hasCalled
-        hasCalled = true
         let task = Task {
+            if !preparation.canStart { await (prepare() ?? last)?.value }
+            var outcome: CareCallOutcome?
+            var failure: Error?
             do {
-                if retry { try await service.prepareSpeech() }
                 // 들어가자마자 떠났으면 걸지 않는다 (서비스는 통화를 시작할 때 이전 stop 표시를 지우기 때문에 여기서 막는다)
                 try Task.checkCancellation()
-                let outcome = try await service.run { activity in self.show(activity) } // 통화하는 동안만 잡는다
-                finish(outcome)
+                guard preparation.canStart else { throw CareCallServiceError.notPrepared }
+                // 통화가 끝나면 서비스가 음성 인식을 닫아서, 다시 걸 때는 음성 인식부터 준비한다
+                if hasCalled { try await service.prepareSpeech() }
+                hasCalled = true
+                try Task.checkCancellation()
+                if !began {
+                    _ = try service.begin()
+                    began = true
+                }
+                outcome = try await service.run { activity in self.show(activity) } // 통화하는 동안만 잡는다
             } catch is CancellationError {
-                conversation.isWorking = false
             } catch {
-                finish(error)
+                failure = error
             }
             call = nil
+            conversation.isListening = false
+            conversation.isWorking = false
+            // 통화 중에 문자로 바꿈: 끝까지 마친 게 아니면 같은 대화를 문자로 이어 간다
+            if conversation.mode == .text, !leftCall, !Self.isFinal(outcome) {
+                continueInText()
+            } else if let outcome {
+                finish(outcome)
+            } else if case CareCallServiceError.notPrepared? = failure {
+                conversation.errorMessage = "통화 준비가 끝나지 않았어요. 다시 시도해 주세요."
+            } else if let failure {
+                finish(failure)
+            }
         }
         call = task
         return task
     }
 
-    /// 대화 화면을 떠날 때 불린다. 통화 중이면 끊는다 (끊긴 곳까지의 기록은 outcome에 남는다)
+    /// 문자로 대화를 시작하거나 이어 간다. 문자에는 모델만 있으면 된다 (마이크·음성 인식 준비가 없어도 된다)
+    @discardableResult
+    func startText() -> Task<Void, Never>? {
+        guard call == nil, typing == nil, !isOver else { return nil }
+        conversation.errorMessage = nil
+        if began {
+            continueInText()
+            return nil
+        }
+        conversation.isWorking = true
+        return typing {
+            // 대기 화면에서 하던 준비가 모델을 불러오는 중일 수 있다 (2.4GB를 두 번 불러오지 않게)
+            await self.last?.value
+            try await self.service.loadModel()
+            try Task.checkCancellation()
+            let turn = try self.service.begin()
+            self.began = true
+            return turn
+        } failed: { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
+    }
+
+    /// 문자 답을 보낸다. 횟수·지속 시간 입력은 말로 한 답처럼 문장으로 바꿔 같은 엔진에 넣는다
+    @discardableResult
+    func answer(_ answer: SymptomConversationAnswer) -> Task<Void, Never>? {
+        let text = Self.sentence(for: answer)
+        guard conversation.mode == .text, began, call == nil, typing == nil, !isOver, !text.isEmpty else { return nil }
+        conversation.errorMessage = nil
+        conversation.isWorking = true
+        return typing {
+            try await self.service.answer(text)
+        } failed: { "답을 전하지 못했어요. 다시 보내 주세요." }
+    }
+
+    /// 문자 대화 한 단계를 진행하고 다음 질문을 보여 준다
+    private func typing(_ step: @escaping () async throws -> CareCallTurn, failed message: @escaping () -> String) -> Task<Void, Never> {
+        let task = Task {
+            do {
+                show(try await step())
+            } catch is CancellationError {
+            } catch {
+                conversation.errorMessage = message()
+            }
+            conversation.isWorking = false
+            typing = nil
+            // 처리하는 동안 화면을 떠났거나 음성으로 바꿨으면 이어서 한다
+            if leftCall {
+                endText()
+            } else if conversation.mode == .voice, began, !isOver {
+                startCall()
+            }
+        }
+        typing = task
+        return task
+    }
+
+    /// 답을 기다리는 지금 질문을 문자 입력으로 보여 준다
+    private func continueInText() {
+        guard let turn = service.current else { return }
+        show(turn)
+    }
+
+    private func show(_ turn: CareCallTurn) {
+        let input: SymptomConversationQuestion.Input = switch turn.number {
+        case .count?: .frequency
+        case .minutes?: .duration
+        case nil: .text
+        }
+        conversation.question = SymptomConversationQuestion(id: UUID(), text: turn.utterance, guidance: nil, progress: nil, input: input)
+        conversation.answerText = ""
+        conversation.transcript = ""
+        if let outcome = turn.outcome { finish(outcome) }
+    }
+
+    /// 문자 입력 → 엔진에 넣을 문장. "10+"는 정확한 횟수로 저장되지 않게 "열 번 넘게"로 (NumberParser가 읽지 않는다)
+    static func sentence(for answer: SymptomConversationAnswer) -> String {
+        switch answer {
+        case .text(let text): text.trimmingCharacters(in: .whitespacesAndNewlines)
+        case .frequency(.count(let count)): "\(count)번"
+        case .frequency(.tenPlus): "열 번 넘게"
+        case .durationMinutes(let minutes) where minutes >= 60:
+            minutes % 60 == 0 ? "\(minutes / 60)시간" : "\(minutes / 60)시간 \(minutes % 60)분"
+        case .durationMinutes(let minutes): "\(minutes)분"
+        }
+    }
+
+    private static func isFinal(_ outcome: CareCallOutcome?) -> Bool {
+        switch outcome {
+        case .completed?, .emergencyEnded?: true
+        case .interrupted?, nil: false
+        }
+    }
+
+    /// 대화 화면을 떠날 때 불린다. 통화 중이면 끊고(끊긴 곳까지의 기록은 outcome에 남는다), 문자 대화면 받은 답까지 끝낸다
     func endCall() {
-        guard let call else { return }
         leftCall = true
-        call.cancel()
-        Task { await service.stop() }
+        if let call {
+            call.cancel()
+            Task { await service.stop() }
+        } else if typing == nil {
+            endText() // 문자 답을 처리 중이면 끝난 뒤에 (typing)
+        }
+    }
+
+    /// 마치지 않은 대화를 여기서 끝내고 받은 답까지 결과로 받는다 (떠났으면 finish가 바로 저장한다)
+    private func endText() {
+        guard began, !isOver, outcome == nil else { return }
+        finish(service.end())
     }
 
     private func show(_ activity: CareCallActivity) {

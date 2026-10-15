@@ -6,7 +6,7 @@ import ToDocDomain
 /// 케어콜 서비스를 흉내 내는 가짜. 단계마다 오류를 낼 수 있고, hold 단계에서 release()(통화는 stop())까지 붙잡는다
 @MainActor
 final class FakeCareCall: CareCalling {
-    enum Step { case microphone, model, speech, call }
+    enum Step { case microphone, model, speech, call, answer }
     private(set) var calls: [Step] = []
     var errors: [Step: Error] = [:]
     var hold: Step?
@@ -14,6 +14,16 @@ final class FakeCareCall: CareCalling {
     /// 통화에서 차례로 알릴 진행 상황과 돌려줄 결과
     var activities: [CareCallActivity] = []
     var outcome: CareCallOutcome = .interrupted(nil)
+    /// 통화가 끝났을 때 대화가 와 있는 질문 (없으면 그대로)
+    var questionAfterCall: CareCallTurn?
+    /// 문자 대화: 첫 질문, 답마다 차례로 돌려줄 다음 질문, 중간에 끝낼 때의 결과
+    var opening = CareCallTurn(utterance: "오늘 컨디션은 어떠세요?", number: nil, outcome: nil)
+    var replies: [CareCallTurn] = []
+    var endOutcome: CareCallOutcome = .interrupted(nil)
+    private(set) var current: CareCallTurn?
+    private(set) var answers: [String] = []
+    private(set) var beginCount = 0
+    private(set) var endCount = 0
     private(set) var stopCount = 0
     private var held: CheckedContinuation<Void, Never>?
 
@@ -21,10 +31,30 @@ final class FakeCareCall: CareCalling {
     func loadModel() async throws { try await run(.model) }
     func prepareSpeech() async throws { try await run(.speech) }
 
+    func begin() throws -> CareCallTurn {
+        beginCount += 1
+        current = opening
+        return opening
+    }
+
     func run(onActivity: @escaping (CareCallActivity) -> Void) async throws -> CareCallOutcome {
         activities.forEach(onActivity)
         try await run(.call)
+        if let questionAfterCall { current = questionAfterCall }
         return outcome
+    }
+
+    func answer(_ text: String) async throws -> CareCallTurn {
+        answers.append(text)
+        try await run(.answer)
+        if !replies.isEmpty { current = replies.removeFirst() }
+        return current!
+    }
+
+    func end() -> CareCallOutcome {
+        endCount += 1
+        current = nil
+        return endOutcome
     }
 
     func stop() async {
@@ -269,16 +299,13 @@ struct CareCallViewModelTests {
         #expect(conversation.errorMessage == "통화 중 문제가 생겼어요. 다시 시도해 주세요.")
     }
 
-    @Test func 준비가_안_됐거나_문자_모드면_통화하지_않는다() async {
+    @Test func 준비가_안_됐으면_준비부터_하고_실패하면_통화하지_않는다() async {
         conversation.onAction?(.switchMode(.voice))
-        #expect(viewModel.startCall() == nil)
+        service.errors[.microphone] = AudioRecorderError.microphoneDenied
+        await viewModel.startCall()?.value
+        #expect(service.calls == [.microphone])
         #expect(conversation.errorMessage == "통화 준비가 끝나지 않았어요. 다시 시도해 주세요.")
-
-        await viewModel.prepare()?.value
-        conversation.onAction?(.switchMode(.text))
-        #expect(viewModel.startCall() == nil)
-        #expect(conversation.errorMessage == "문자 대화는 아직 연결 전이에요.")
-        #expect(!service.calls.contains(.call))
+        #expect(!conversation.isWorking && service.beginCount == 0)
     }
 
     @Test func 응급으로_끝나면_마지막_안내를_그대로_둔다() async {

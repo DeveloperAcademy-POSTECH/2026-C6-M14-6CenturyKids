@@ -40,7 +40,6 @@ let package = Package(
                     "Services/Auth", "Services/Exercise", "Services/Hospital", "Services/Intake", "Services/Notification",
                     "Services/Pain", "Services/Records", "Services/User",
                     "Services/Symptom/CareCall/CareCallService.swift",
-                    "Services/Symptom/CareCall/CareCallServiceError.swift",
                 ],
                 sources: [
                     "Core/AI/CareCallAI.swift", "Core/AI/CareCallStep.swift", "Core/AI/MentionPresence.swift",
@@ -53,7 +52,8 @@ let package = Package(
                     // 케어콜 화면 ViewModel (CareCalling으로 가짜 서비스를 넣어 검증)
                     "Features/Symptom/Presentation", "Features/Symptom/ViewModels",
                     "Services/Symptom/CareCall/CareCalling.swift", "Services/Symptom/CareCall/CareCallActivity.swift",
-                    "Services/Symptom/CareCall/CareCallOutcome.swift", "Core/Audio/AudioRecorderError.swift",
+                    "Services/Symptom/CareCall/CareCallOutcome.swift", "Services/Symptom/CareCall/CareCallTurn.swift",
+                    "Services/Symptom/CareCall/CareCallServiceError.swift", "Core/Audio/AudioRecorderError.swift",
                     "Core/AI/LanguageModelError.swift", "Core/Speech/SpeechRecognizerError.swift",
                     "Data/Repositories/Protocols/Repository.swift",
                     "Data/Repositories/Protocols/RecordRepository.swift", "Data/Repositories/Protocols/SymptomRepository.swift",
