@@ -16,4 +16,15 @@ protocol SpeechSynthesizer: AnyObject {
     func waitUntilDone() async
 
     func stop()
+
+    /// 앞으로 말할 고정 문구를 뒤에서 미리 합성해 둔다 (합성이 느린 구현만)
+    func preload(_ texts: [String])
+
+    /// 다른 무거운 작업(모델 분석) 동안 미리 합성을 멈춘다
+    func setBusy(_ busy: Bool) async
+}
+
+extension SpeechSynthesizer {
+    func preload(_ texts: [String]) {}
+    func setBusy(_ busy: Bool) async {}
 }

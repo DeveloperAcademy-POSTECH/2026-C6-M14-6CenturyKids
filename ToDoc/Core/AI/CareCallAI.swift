@@ -45,7 +45,6 @@ struct Mention: Equatable, Sendable {
     var effectId: String
     var otherName: String? = nil
     var presence: MentionPresence
-    var severity: Int? = nil
     var locations: [String] = []
     /// 근거로 단 환자 말
     var quote: String = ""

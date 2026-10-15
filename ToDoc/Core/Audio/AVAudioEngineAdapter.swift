@@ -19,9 +19,7 @@ final class AVAudioEngineAdapter: AudioRecorder {
 
     func prepare() async throws -> AVAudioFormat {
         guard await AVAudioApplication.requestRecordPermission() else { throw AudioRecorderError.microphoneDenied }
-        // AI 음성(TTS)도 같은 세션으로 나오므로 듣기·말하기를 함께 쓰는 카테고리
-        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
-        try session.setActive(true)
+        try await Self.activateSession()
         observeSystemEvents()
         return engine.inputNode.outputFormat(forBus: 0)
     }
@@ -35,6 +33,17 @@ final class AVAudioEngineAdapter: AudioRecorder {
         onBuffer = nil
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
+    }
+
+    /// 세션 설정·활성화는 오디오 서버를 기다리는 동기 호출이라(시뮬레이터 측정 약 60ms) 메인 스레드 밖에서 하고,
+    /// 활성화는 iOS 27 비동기 API로 한다 (메인에서 부르면 "UI unresponsiveness" 경고)
+    @concurrent
+    private nonisolated static func activateSession() async throws {
+        let session = AVAudioSession.sharedInstance()
+        // AI 음성(TTS)도 같은 세션으로 나오므로 듣기·말하기를 함께 쓰는 카테고리
+        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
+        // 실패하면 에러를 던진다. 돌려주는 값(활성화 여부)이 false여도 마이크를 켤 때 엔진이 에러를 낸다
+        _ = try await session.activate(options: [])
     }
 
     /// 탭을 현재 입력 형식으로 다시 달고 엔진을 켠다 (장치가 바뀌면 형식도 바뀔 수 있다)
@@ -71,13 +80,17 @@ final class AVAudioEngineAdapter: AudioRecorder {
 
     private func resumeAfterInterruption() {
         // 마이크가 꺼져 있었으면(stop 후) 다시 켜지 않는다
-        guard let onBuffer else { return }
-        do {
-            try session.setActive(true)
-            try startEngine(onBuffer: onBuffer)
-            onEvent?(.resumed)
-        } catch {
-            onEvent?(.failed(error))
+        guard onBuffer != nil else { return }
+        Task {
+            do {
+                try await Self.activateSession()
+                // 세션을 켜는 동안 정지됐으면 다시 켜지 않는다
+                guard let onBuffer else { return }
+                try startEngine(onBuffer: onBuffer)
+                onEvent?(.resumed)
+            } catch {
+                onEvent?(.failed(error))
+            }
         }
     }
 
