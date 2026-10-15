@@ -22,21 +22,29 @@ struct SymptomSummaryView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 VStack(spacing: 24) {
-                    ForEach(state.record.symptoms, id: \.id) { entry in
-                        if state.editingEntryID == entry.id {
-                            SymptomSummaryEntryEditor(draft: entry, errorMessage: state.editErrorMessage,
-                                onDelete: { state.onAction?(.delete(entry.id)) },
-                                onFinish: { state.onAction?(.finishEdit(entry.id, $0)) })
-                            .id(entry.id)
-                        } else {
-                            SymptomSummaryEntryView(entry: entry, canEdit: !state.isSaving &&
-                                                    state.onAction != nil && state.editingEntryID == nil) {
-                                state.onAction?(.edit(entry.id))
+                    ForEach(SymptomPresence.allCases, id: \.self) { presence in
+                        let entries = state.record.entries(with: presence)
+                        if !entries.isEmpty {
+                            Text("\(presence.displayName)으로 답한 항목")
+                                .font(.headline).frame(maxWidth: .infinity, alignment: .leading)
+                                .accessibilityAddTraits(.isHeader)
+                        }
+                        ForEach(entries) { entry in
+                            if state.editingEntryID == entry.id {
+                                SymptomSummaryEntryEditor(draft: entry, errorMessage: state.editErrorMessage,
+                                    onDelete: { state.onAction?(.delete(entry.id)) },
+                                    onFinish: { state.onAction?(.finishEdit(entry.id, $0)) })
+                                .id(entry.id)
+                            } else {
+                                SymptomSummaryEntryView(entry: entry, canEdit: !state.isSaving &&
+                                                        state.onAction != nil && state.editingEntryID == nil) {
+                                    state.onAction?(.edit(entry.id))
+                                }
                             }
                         }
                     }
                     if state.record.symptoms.isEmpty {
-                        Text("기록할 증상이 없습니다.").font(.body).foregroundStyle(.secondary)
+                        Text("기록된 답변이 없습니다.").font(.body).foregroundStyle(.secondary)
                     }
                 }
                 VStack(spacing: 16) {
@@ -102,15 +110,15 @@ private struct SymptomSummaryEntryView: View {
                     .accessibilityLabel("\(entry.symptomType.displayName) 수정")
             }
             VStack(spacing: 0) {
+                row("증상 유무", entry.presence.displayName)
                 if let value = entry.occurrenceCount { row("횟수", "\(value)회") }
                 if let value = entry.durationMinutes { row("지속 시간", "\(value)분") }
-                if let value = entry.severity { row("불편함 정도", "\(score(value))/10점") }
                 if let value = entry.rawLocationText, !value.isEmpty { row("부위", value) }
                 else if let part = entry.bodyPart {
                     row("부위", [entry.bodySide?.displayName, part.displayName].compactMap { $0 }.joined(separator: " "))
                 }
                 if let value = entry.detail, !value.isEmpty { row("상세 내용", value) }
-                if entry.occurrenceCount == nil && entry.durationMinutes == nil && entry.severity == nil &&
+                if entry.occurrenceCount == nil && entry.durationMinutes == nil &&
                     entry.rawLocationText?.isEmpty != false && entry.bodyPart == nil && entry.detail?.isEmpty != false {
                     row("추가 정보", "입력하지 않음")
                 }
@@ -152,8 +160,4 @@ struct SymptomSummaryRow<Content: View>: View {
         .overlay(alignment: .bottom) { Divider() }
         .padding(.horizontal, 16)
     }
-}
-
-private func score(_ value: Double) -> String {
-    value.rounded() == value ? String(Int(value)) : String(value)
 }

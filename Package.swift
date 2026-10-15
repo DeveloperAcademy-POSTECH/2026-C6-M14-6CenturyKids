@@ -11,6 +11,8 @@ let package = Package(
         .target(name: "ToDocDomain", dependencies: ["ToDocCoreErrors"], path: "ToDoc/Domain"),
         .target(name: "AuthScreens", dependencies: ["ToDocDomain"], path: "ToDoc/Features/Auth/Presentation"),
         .testTarget(name: "AuthScreenTests", dependencies: ["AuthScreens"], path: "Tests/AuthScreenTests"),
+        .target(name: "SymptomScreens", dependencies: ["ToDocDomain"], path: "ToDoc/Features/Symptom/Presentation"),
+        .testTarget(name: "SymptomScreenTests", dependencies: ["SymptomScreens", "ToDocDomain"], path: "Tests/SymptomScreenTests"),
         .testTarget(name: "DomainTests", dependencies: ["ToDocDomain", "ToDocCoreErrors"], path: "Tests/DomainTests"),
         // 통화 서비스(CareCallService)는 마이크 타입이 macOS 27 전용이라 넣지 않는다
         .target(name: "ToDocCareCall", dependencies: ["ToDocDomain"], path: "ToDoc",

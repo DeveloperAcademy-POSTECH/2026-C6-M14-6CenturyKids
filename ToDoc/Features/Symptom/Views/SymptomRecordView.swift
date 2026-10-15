@@ -41,7 +41,6 @@ private struct SymptomConversationContent: View {
     let question: SymptomConversationQuestion
     let onEnd: () -> Void
     let onSwitch: (SymptomConversationMode) -> Void
-    @State private var severity: Double?
     @State private var frequency: SymptomConversationAnswer.Frequency?
     @State private var duration: Int?
 
@@ -49,12 +48,8 @@ private struct SymptomConversationContent: View {
         Group {
             if state.mode == .voice {
                 SymptomVoiceInputView(question: question, transcript: state.transcript,
-                                      buttonTitle: voiceButtonTitle, isListening: state.isListening,
-                                      canProceed: state.onAction != nil && !state.isWorking && !state.isListening,
-                                      onNext: {
-                    if state.hasCompletedVoiceInput { state.onAction?(.answer(.text(state.transcript))) }
-                    else { state.onAction?(.listen) }
-                }, onEnd: onEnd, onSwitchToText: { onSwitch(.text) })
+                                      isListening: state.isListening, isWorking: state.isWorking,
+                                      onEnd: onEnd, onSwitchToText: { onSwitch(.text) })
             } else {
                 switch question.input {
                 case .text:
@@ -64,10 +59,6 @@ private struct SymptomConversationContent: View {
                                          onPrevious: state.canGoPrevious ? { state.onAction?(.previous) } : nil,
                                          onNext: { state.onAction?(.answer(.text(state.answerText))) }, onEnd: onEnd,
                                          onSwitchToVoice: { onSwitch(.voice) })
-                case .severity:
-                    SymptomSeverityInputView(question: question, severity: $severity, isSubmitting: state.isWorking || state.onAction == nil,
-                                             onSubmit: { value in state.onAction?(.answer(.severity(value))) },
-                                             onEnd: onEnd, onSwitchToVoice: { onSwitch(.voice) })
                 case .frequency:
                     SymptomFrequencyInputView(question: question, frequency: $frequency, isSubmitting: state.isWorking || state.onAction == nil,
                                               onSubmit: { value in state.onAction?(.answer(.frequency(value))) },
@@ -81,7 +72,6 @@ private struct SymptomConversationContent: View {
         }
         .onAppear {
             switch state.restoredAnswer {
-            case .severity(let value): severity = value
             case .frequency(let value): frequency = value
             case .durationMinutes(let value): duration = value
             case .text, nil: break
@@ -89,12 +79,6 @@ private struct SymptomConversationContent: View {
         }
     }
 
-    private var voiceButtonTitle: String {
-        if state.isListening { return "음성 인식 중 .." }
-        if state.isWorking { return "답변 확인 중" }
-        if state.hasCompletedVoiceInput { return question.isLastQuestion ? "완료하기" : "다음" }
-        return state.errorMessage == nil ? "대화 시작하기" : "다시 말하기"
-    }
 }
 
 #Preview("서비스 미연결") { SymptomRecordView() }

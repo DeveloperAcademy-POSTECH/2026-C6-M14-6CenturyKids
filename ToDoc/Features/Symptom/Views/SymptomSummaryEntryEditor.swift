@@ -29,6 +29,7 @@ struct SymptomSummaryEntryEditor: View {
                 .modifier(SymptomTextStyle(size: 16))
             }
             VStack(spacing: 0) {
+                SymptomSummaryRow(title: "증상 유무") { Text(draft.presence.displayName).foregroundStyle(.secondary) }
                 if draft.occurrenceCount != nil {
                     SymptomSummaryRow(title: "횟수") {
                         TextField("1~100회", text: $input.occurrenceText)
@@ -41,14 +42,6 @@ struct SymptomSummaryEntryEditor: View {
                         TextField("10~1440분", text: $input.durationText)
                             .keyboardType(.numberPad).multilineTextAlignment(.trailing)
                             .accessibilityLabel("지속 시간 수정")
-                    }
-                }
-                if draft.severity != nil {
-                    SymptomSummaryRow(title: "불편함 정도") {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 14) { severityControl; severityText }
-                            VStack(alignment: .trailing) { severityText; severityControl }
-                        }
                     }
                 }
                 if let location = draft.rawLocationText, !location.isEmpty {
@@ -67,24 +60,6 @@ struct SymptomSummaryEntryEditor: View {
                     .accessibilityIdentifier("symptom.edit.error")
             }
         }
-    }
-
-    private var severityControl: some View {
-        Slider(value: Binding(get: { input.severity ?? 0 }, set: { input.severity = $0 }), in: 0...10)
-            .tint(Color(white: 102 / 255))
-            .frame(minWidth: 80, maxWidth: 171)
-            .accessibilityLabel("불편함 정도 수정")
-            .accessibilityValue(severityValue)
-    }
-
-    private var severityText: some View {
-        Text(severityValue).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var severityValue: String {
-        guard let value = input.severity else { return "입력하지 않음" }
-        let text = value.rounded() == value ? String(Int(value)) : String(value)
-        return "\(text)/10점"
     }
 
     private func finish() { onFinish(input) }

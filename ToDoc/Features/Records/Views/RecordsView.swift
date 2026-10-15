@@ -75,11 +75,15 @@ struct RecordsView: View {
         }.accessibilityIdentifier("records.pain")
     }
     private var symptomCard: some View {
-        let value = data?.symptom?.averageSeverity.map { RecordDisplay.number($0) + "점" } ?? (data?.symptom == nil ? "기록 없음" : "점수 미제공")
+        let value = data?.symptom?.presentCount.map { "\($0)건" } ?? (data?.symptom == nil ? "기록 없음" : "집계 미제공")
         let subtitle = data?.symptom?.types.map(\.displayName).joined(separator: ", ") ?? ""
         return RecordOverviewCard(label: "증상 기록", value: value + ", " + subtitle, action: selection(.symptom),
-                                  graphic: { RecordSymptomMiniChart(score: data?.symptom?.averageSeverity) }) {
-            VStack(alignment: .leading, spacing: 7) { heading("증상", value); if !subtitle.isEmpty { caption(subtitle) } }
+                                  graphic: { RecordSymptomCountBadge(count: data?.symptom?.presentCount) }) {
+            VStack(alignment: .leading, spacing: 7) {
+                heading("증상 기록", value)
+                caption("있음으로 답한 항목")
+                if !subtitle.isEmpty { caption(subtitle) }
+            }
         }.accessibilityIdentifier("records.symptom")
     }
     private func heading(_ title: String, _ value: String) -> some View {

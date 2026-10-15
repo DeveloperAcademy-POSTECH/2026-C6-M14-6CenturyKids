@@ -4,13 +4,15 @@ import SwiftUI
 /// Xcode Canvas에서만 사용하는 화면 모음. 앱 실행 경로에서는 생성하지 않습니다.
 struct ScreenCatalogPreview: View {
     enum Screen: String, CaseIterable {
+        case voice = "증상 자동 음성", noPresent = "증상 0건 · 없음과 모름", missingCount = "증상 집계 미제공"
+        case summary = "증상 요약"
         case onboarding = "온보딩", login = "로그인", signup = "회원가입", reset = "비밀번호 재설정"
         case home = "홈", pain = "통증 입력", incoming = "케어콜 수신", conversation = "증상 입력"
-        case summary = "증상 요약", records = "기록 목록", painDetail = "통증 상세", symptomDetail = "증상 상세"
+        case records = "기록 목록", painDetail = "통증 상세", symptomDetail = "증상 상세"
         case settings = "설정", personal = "개인정보", cancer = "암종", stage = "병기", hospital = "의사 연결"
         case notifications = "알림", notificationSettings = "알림 설정"
     }
-    @State private var screen: Screen = .home
+    @State private var screen: Screen = .summary
     @State private var signup = SignupScreenState()
     @State private var personal = PersonalInfoScreenState()
     @State private var cancer = DiagnosisScreenState()
@@ -41,7 +43,10 @@ struct ScreenCatalogPreview: View {
         case .incoming: CareCallIncomingView(canAnswer: true, onAnswer: {}, onEnd: {}, onPostpone: {}, onSwitchToText: {})
         case .conversation: SymptomRecordView(state: conversationState())
         case .summary: SymptomSummaryView(state: .init(record: symptomRecord()))
-        case .records: RecordsView(snapshot: .init(pain: .init(averageBefore: 7, averageAfter: 0, difference: 7, previousDayDifference: nil), symptom: .init(averageSeverity: 3.5, types: [.constipation])), state: .loaded)
+        case .records: RecordsView(snapshot: .init(pain: .init(averageBefore: 7, averageAfter: 0, difference: 7, previousDayDifference: nil), symptom: .init(presentCount: 1, types: [.constipation])), state: .loaded)
+        case .voice: SymptomRecordView(state: voiceState())
+        case .noPresent: SymptomRecordDetailView(state: symptomDetailState(presentCount: 0, includesPresent: false))
+        case .missingCount: SymptomRecordDetailView(state: symptomDetailState(presentCount: nil, includesPresent: false))
         case .painDetail: PainRecordDetailView(state: detailState(.pain))
         case .symptomDetail: SymptomRecordDetailView(state: detailState(.symptom))
         case .settings: SettingsView(state: settingsState())
@@ -65,11 +70,18 @@ struct ScreenCatalogPreview: View {
         state.question = .init(id: UUID(), text: "오늘 불편했던 증상이 있나요?", guidance: "화면 예시 질문이에요.", progress: 0.2, input: .text)
         return state
     }
-    private func symptomRecord() -> SymptomRecordDisplay {
+    private func voiceState() -> SymptomScreenState {
+        let state = conversationState()
+        state.mode = .voice; state.isListening = true; state.transcript = "어제부터 양쪽 손이 저렸어요."
+        return state
+    }
+    private func symptomRecord(includesPresent: Bool = true) -> SymptomRecordDisplay {
         .init(id: UUID(), recordedDate: .now, symptoms: [
-            .init(id: UUID(), symptomType: .constipation, rawLocationText: "아랫배", durationMinutes: 30,
-                  occurrenceCount: 2, severity: 3.5, detail: "화면 확인용 예시")
-        ])
+            .init(id: UUID(), symptomType: .constipation, presence: .present, rawLocationText: "아랫배", durationMinutes: 30,
+                  occurrenceCount: 2, detail: "[검토 필요] 어제부터 두세 번 불편했어요. (화면 예시)"),
+            .init(id: UUID(), symptomType: .nauseaVomiting, presence: .absent, detail: "오늘은 없었어요."),
+            .init(id: UUID(), symptomType: .rashItching, presence: .unknown, detail: "[검토 필요] 잘 모르겠어요.")
+        ].filter { includesPresent || $0.presence != .present })
     }
     private func detailState(_ kind: RecordOverviewKind) -> RecordDetailScreenState {
         let state = RecordDetailScreenState(kind: kind)
@@ -79,7 +91,15 @@ struct ScreenCatalogPreview: View {
             state.content = .pain(.init(averageDifference: 7, days: [], records: [
                 .init(id: UUID(), recordedDate: date, painBefore: 7, painAfter: 0)
             ]))
-        } else { state.content = .symptom(.init(averageSeverity: 3.5, days: [.init(date: date, averageSeverity: 3.5, record: symptomRecord())])) }
+        } else { state.content = .symptom(.init(presentCount: 1, days: [.init(date: date, presentCount: 1, record: symptomRecord())])) }
+        return state
+    }
+    private func symptomDetailState(presentCount: Int?, includesPresent: Bool) -> RecordDetailScreenState {
+        let state = detailState(.symptom)
+        let record = symptomRecord(includesPresent: includesPresent)
+        state.content = .symptom(.init(presentCount: presentCount, days: [
+            .init(date: record.recordedDate, presentCount: presentCount, record: record)
+        ]))
         return state
     }
     private func settingsState() -> SettingsScreenState {

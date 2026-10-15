@@ -7,6 +7,7 @@ struct SymptomQuestionLayout<Content: View>: View {
     var canProceed = false
     var switchTitle = "음성 전환"
     var showsPrevious = false
+    var showsNext = true
     var onPrevious: (() -> Void)?
     var onNext: (() -> Void)?
     var onEnd: (() -> Void)?
@@ -43,25 +44,27 @@ struct SymptomQuestionLayout<Content: View>: View {
                     Spacer()
                     control(switchTitle, asset: "CareConversationText", action: onSwitch)
                 }
-                HStack(spacing: 20) {
-                    if showsPrevious {
-                        Button("이전") { onPrevious?() }
-                            .buttonStyle(AppButtonStyle(kind: .back))
-                            .disabled(onPrevious == nil)
-                    }
-                    Button { onNext?() } label: {
-                        HStack {
-                            Color.clear.frame(width: 12, height: 12)
-                            Spacer(minLength: 8)
-                            Text(nextTitle)
-                            Spacer(minLength: 8)
-                            Image("CareConversationNext").frame(width: 12, height: 12)
-                                .accessibilityHidden(true)
+                if showsNext {
+                    HStack(spacing: 20) {
+                        if showsPrevious {
+                            Button("이전") { onPrevious?() }
+                                .buttonStyle(AppButtonStyle(kind: .back))
+                                .disabled(onPrevious == nil)
                         }
+                        Button { onNext?() } label: {
+                            HStack {
+                                Color.clear.frame(width: 12, height: 12)
+                                Spacer(minLength: 8)
+                                Text(nextTitle)
+                                Spacer(minLength: 8)
+                                Image("CareConversationNext").frame(width: 12, height: 12)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .buttonStyle(AppButtonStyle())
+                        .disabled(!canProceed || onNext == nil)
+                        .accessibilityIdentifier("symptom.next")
                     }
-                    .buttonStyle(AppButtonStyle())
-                    .disabled(!canProceed || onNext == nil)
-                    .accessibilityIdentifier("symptom.next")
                 }
             }
             .padding(.horizontal, 24)

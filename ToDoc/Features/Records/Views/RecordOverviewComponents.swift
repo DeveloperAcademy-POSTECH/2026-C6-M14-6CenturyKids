@@ -102,22 +102,14 @@ struct RecordPainMiniChart: View {
     }
 }
 
-struct RecordSymptomMiniChart: View {
-    let score: Double?
+struct RecordSymptomCountBadge: View {
+    let count: Int?
     var body: some View {
         VStack(spacing: 6) {
-            Text(score.map { RecordDisplay.number($0) } ?? "—")
-                .font(Font(AppTypography.Style.caption.font(at: 15)).weight(.bold)).foregroundStyle(RecordDisplay.darkGreen)
-            ZStack(alignment: .leading) {
-                Capsule().fill(RecordDisplay.paleGreen)
-                if score != nil {
-                    Capsule().fill(AppColors.primary).frame(width: 24 + 46 * RecordDisplay.fraction(score, maximum: 10))
-                    Circle().fill(.white).overlay { Circle().strokeBorder(RecordDisplay.green, lineWidth: 5) }
-                        .frame(width: 24, height: 24).offset(x: 46 * RecordDisplay.fraction(score, maximum: 10))
-                }
-            }.frame(width: 70, height: 24)
-            HStack { Text("0"); Spacer(); Text("10") }
-                .font(Font(AppTypography.Style.caption.font(at: 12))).foregroundStyle(Color(white: 0.82)).frame(width: 70)
-        }.frame(width: 80, height: 80).accessibilityHidden(true)
+            Text(count.map(String.init) ?? "—")
+                .modifier(RecordTextStyle(size: 24, weight: .bold)).foregroundStyle(RecordDisplay.darkGreen)
+            Text("건").modifier(RecordTextStyle(size: 12)).foregroundStyle(.secondary)
+        }.frame(width: 80, height: 80).background(RecordDisplay.paleGreen, in: RoundedRectangle(cornerRadius: 20))
+            .accessibilityHidden(true)
     }
 }
