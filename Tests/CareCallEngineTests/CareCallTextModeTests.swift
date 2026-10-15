@@ -188,4 +188,62 @@ struct CareCallTextModeTests {
         await task?.value
         await waitUntil { service.calls.contains(.call) }
     }
+
+    // MARK: - 재검토에서 찾은 경우
+
+    @Test func 음성이_답_없이_끊긴_뒤_문자로_이어_답하고_떠나도_저장한다() async {
+        await viewModel.prepare()?.value
+        conversation.onAction?(.switchMode(.voice))
+        await viewModel.start()?.value // 답 없이 끊김 (.interrupted(nil))
+        conversation.onAction?(.switchMode(.text))
+        #expect(conversation.question != nil && conversation.errorMessage == nil)
+        await viewModel.answer(.text("설사를 했어요"))?.value
+        service.endOutcome = .interrupted(record())
+        conversation.onAction?(.cancel)
+        await waitUntil { repository.saved.count == 1 }
+    }
+
+    @Test func 문자로_답한_뒤_음성_준비_중에_떠나도_받은_답을_저장한다() async {
+        await enterText()
+        await viewModel.answer(.text("설사를 했어요"))?.value
+        service.hold = .microphone
+        conversation.onAction?(.switchMode(.voice)) // 음성 준비를 시작한다
+        await waitUntil { service.isHolding }
+        service.endOutcome = .interrupted(record())
+        conversation.onAction?(.cancel)
+        service.release()
+        await waitUntil { repository.saved.count == 1 }
+        #expect(!service.calls.contains(.call))
+    }
+
+    @Test func 통화를_끊는_중에_다시_음성으로_바꾸면_요약이_아니라_통화를_이어_간다() async {
+        await viewModel.prepare()?.value
+        conversation.onAction?(.switchMode(.voice))
+        service.hold = .call
+        service.outcome = .interrupted(record())
+        let call = viewModel.start()
+        await waitUntil { service.isHolding }
+        service.hold = .call // 이어 거는 통화도 붙잡는다
+        conversation.onAction?(.switchMode(.text)) // 끊는 중에
+        conversation.onAction?(.switchMode(.voice)) // 다시 음성으로
+        await call?.value
+        await waitUntil { service.isHolding }
+        #expect(conversation.summary == nil) // 끊긴 첫 통화는 요약으로 넘기지 않는다
+        let finished = record()
+        service.outcome = .completed(finished) // 이어 건 통화는 끝까지 마친다
+        service.release()
+        await waitUntil { conversation.summary != nil }
+        #expect(conversation.summary?.record.id == finished.id)
+        #expect(service.calls.suffix(2) == [.speech, .call]) // 다시 걸 때는 음성 인식부터
+    }
+
+    @Test func 문자에서_음성으로_바꿨는데_마이크가_막혀_있으면_문자로_돌아온다() async {
+        await enterText()
+        service.errors[.microphone] = AudioRecorderError.microphoneDenied
+        conversation.onAction?(.switchMode(.voice))
+        await waitUntil { conversation.mode == .text }
+        #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?")
+        #expect(conversation.errorMessage == "음성 통화를 준비하지 못했어요. 문자로 이어서 답해 주세요.")
+        #expect(!service.calls.contains(.call))
+    }
 }

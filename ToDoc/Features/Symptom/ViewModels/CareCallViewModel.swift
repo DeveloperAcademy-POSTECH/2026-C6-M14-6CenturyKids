@@ -35,6 +35,8 @@ final class CareCallViewModel {
     private var typing: Task<Void, Never>?
     /// 서비스에서 대화를 시작함 (이후로는 음성·문자 모두 이 대화를 이어 간다)
     private var began = false
+    /// 방식을 바꾸려고 통화를 끊음 (끊긴 통화를 요약으로 넘기지 않고 바꾼 방식으로 이어 간다)
+    private var switchingMode = false
     /// 통화를 건 적이 있음. 통화가 끝나면 서비스가 음성 인식을 닫아서, 다시 걸 때는 음성 인식부터 준비한다
     private var hasCalled = false
     /// 대화 중에 대화 화면을 떠남 (끝나면 요약을 볼 사람이 없어 바로 저장한다)
@@ -157,6 +159,7 @@ final class CareCallViewModel {
         switch mode {
         case .text:
             if let call { // 통화를 끊고(거는 중이어도) 끝나면 같은 대화를 문자로 이어 간다 (startCall에서)
+                switchingMode = true
                 call.cancel()
                 Task { await service.stop() }
             } else if began {
@@ -197,11 +200,19 @@ final class CareCallViewModel {
             call = nil
             conversation.isListening = false
             conversation.isWorking = false
-            // 통화 중에 문자로 바꿈: 끝까지 마친 게 아니면 같은 대화를 문자로 이어 간다
-            if conversation.mode == .text, !leftCall, !Self.isFinal(outcome) {
-                startText() // 대화를 시작했으면 지금 질문부터, 아니면 문자로 시작한다
+            let switched = switchingMode
+            switchingMode = false
+            if leftCall, outcome == nil {
+                endText() // 통화를 걸기 전에 떠남: 문자로 받은 답이 있으면 그것까지 저장한다
+            } else if switched, !leftCall, !Self.isFinal(outcome) {
+                start() // 방식을 바꿈: 끝까지 마친 게 아니면 같은 대화를 바꾼 방식으로 이어 간다 (끊는 중에 다시 바꿨으면 그 방식)
             } else if let outcome {
                 finish(outcome)
+            } else if case CareCallServiceError.notPrepared? = failure, began {
+                // 문자로 하다 음성으로 바꿨는데 준비가 안 됨 (마이크 권한 등): 문자로 돌아온다
+                conversation.mode = .text
+                continueInText()
+                conversation.errorMessage = "음성 통화를 준비하지 못했어요. 문자로 이어서 답해 주세요."
             } else if case CareCallServiceError.notPrepared? = failure {
                 conversation.errorMessage = "통화 준비가 끝나지 않았어요. 다시 시도해 주세요."
             } else if let failure {
@@ -270,6 +281,7 @@ final class CareCallViewModel {
     /// 답을 기다리는 지금 질문을 문자 입력으로 보여 준다
     private func continueInText() {
         guard let turn = service.current else { return }
+        conversation.errorMessage = nil
         show(turn)
     }
 
@@ -317,7 +329,8 @@ final class CareCallViewModel {
 
     /// 마치지 않은 대화를 여기서 끝내고 받은 답까지 결과로 받는다 (떠났으면 finish가 바로 저장한다)
     private func endText() {
-        guard began, !isOver, outcome == nil else { return }
+        guard began, !isOver else { return }
+        began = false // 서비스가 대화를 닫는다 (두 번 끝내지 않게)
         finish(service.end())
     }
 
