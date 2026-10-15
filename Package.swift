@@ -4,11 +4,15 @@ import PackageDescription
 // 앱의 Foundation 기반 Domain 소스를 별도 패키지에서도 검증합니다.
 // 케어콜 대화 엔진도 앱 소스를 그대로 가져와 검증합니다 (모델·음성 없이, 가짜 분석기로).
 let package = Package(
-    name: "ToDocDomainTests",
+    name: "ToDocTests",
     platforms: [.macOS(.v14)],
     targets: [
         .target(name: "ToDocCoreErrors", path: "ToDoc/Core/Errors"),
         .target(name: "ToDocDomain", dependencies: ["ToDocCoreErrors"], path: "ToDoc/Domain"),
+        .target(name: "AuthScreens", dependencies: ["ToDocDomain"], path: "ToDoc/Features/Auth/Presentation"),
+        .testTarget(name: "AuthScreenTests", dependencies: ["AuthScreens"], path: "Tests/AuthScreenTests"),
+        .target(name: "SymptomScreens", dependencies: ["ToDocDomain"], path: "ToDoc/Features/Symptom/Presentation"),
+        .testTarget(name: "SymptomScreenTests", dependencies: ["SymptomScreens", "ToDocDomain"], path: "Tests/SymptomScreenTests"),
         .testTarget(name: "DomainTests", dependencies: ["ToDocDomain", "ToDocCoreErrors"], path: "Tests/DomainTests"),
         // 통화 서비스(CareCallService)는 마이크 타입이 macOS 27 전용이라 넣지 않는다
         .target(name: "ToDocCareCall", dependencies: ["ToDocDomain"], path: "ToDoc",

@@ -1,11 +1,28 @@
 import SwiftUI
 
 struct SignupConnectionConfirmationView: View {
+    @Bindable var state: SignupScreenState
     var body: some View {
-        Text("가입 · 연결 정보 확인")
+        SignupStepScreen(state: state, title: "소속 병원을\n확인했어요") {
+            if let connection = state.connection {
+                VStack(alignment: .leading, spacing: 20) {
+                    AuthMessage(text: "인증 완료", isError: false)
+                    row("병원", connection.hospitalName)
+                    if let department = connection.department { row("진료과", department) }
+                    row("주치의", connection.doctorName)
+                }
+                .padding(24).frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppColors.secondary, in: RoundedRectangle(cornerRadius: 20))
+            }
+            Button { state.onAction?(.changeDoctorCode) } label: {
+                Text("다른 코드 입력").underline().appTextStyle(.caption).frame(minHeight: 44)
+            }
+        }
     }
-}
-
-#Preview {
-    SignupConnectionConfirmationView()
+    private func row(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).appTextStyle(.caption).foregroundStyle(AppColors.Text.secondary)
+            Text(value).appTextStyle(.label)
+        }
+    }
 }
