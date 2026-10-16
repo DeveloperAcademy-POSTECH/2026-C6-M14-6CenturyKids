@@ -47,14 +47,35 @@ final class FakeCareCall: CareCalling {
     }
 }
 
+/// 증상 기록 저장소 가짜. 같은 날 기록 하나만 다룬다. failNextSave면 다음 저장이 실패한다
+@MainActor
+final class FakeSymptomRecords: SymptomRepository {
+    struct Failure: Error {}
+    var existing: SymptomRecord?
+    private(set) var saved: [SymptomRecord] = []
+    var failNextSave = false
+    func findByPatientIdAndDate(_ patientId: UUID, _ date: Date) async throws -> SymptomRecord? { existing }
+    func save(_ entity: SymptomRecord, for patientId: UUID) async throws {
+        if failNextSave {
+            failNextSave = false
+            throw Failure()
+        }
+        saved.append(entity)
+    }
+    func findByPatientId(_ patientId: UUID) async throws -> [SymptomRecord] { saved }
+    func findById(_ id: UUID) async throws -> SymptomRecord? { nil }
+    func deleteById(_ id: UUID) async throws {}
+}
+
 @MainActor
 struct CareCallViewModelTests {
     let service = FakeCareCall()
+    let repository = FakeSymptomRecords()
     let viewModel: CareCallViewModel
     var state: CareCallScreenState { viewModel.preparation }
 
     init() {
-        viewModel = CareCallViewModel(service: service)
+        viewModel = CareCallViewModel(service: service, repository: repository, patientId: UUID())
     }
 
     private func waitUntilHolding() async {
@@ -158,8 +179,8 @@ struct CareCallViewModelTests {
 
     private var conversation: SymptomScreenState { viewModel.conversation }
 
-    private func entry(_ type: SymptomType, _ presence: SymptomPresence, _ detail: String? = nil) -> SymptomEntry {
-        try! SymptomEntry(id: UUID(), symptomType: type, presence: presence, bodyPart: nil, bodySide: nil,
+    private func entry(_ type: SymptomType, _ presence: SymptomPresence, _ detail: String? = nil, part: BodyPart? = nil) -> SymptomEntry {
+        try! SymptomEntry(id: UUID(), symptomType: type, presence: presence, bodyPart: part, bodySide: nil,
                           durationMinutes: nil, occurrenceCount: nil, detail: detail)
     }
 
@@ -267,5 +288,129 @@ struct CareCallViewModelTests {
         await viewModel.startCall()?.value
         #expect(conversation.question?.text == "응급 안내 문구")
         #expect(conversation.summary == nil && conversation.errorMessage == nil)
+    }
+
+    // MARK: - 요약 수정·저장
+
+    /// 통화를 끝까지 마치고 요약 화면에 온 상태
+    private func reachSummary(_ entries: [SymptomEntry]) async -> SymptomSummaryScreenState {
+        await enterVoiceCall()
+        service.outcome = .completed(record(entries))
+        await viewModel.startCall()?.value
+        return conversation.summary!
+    }
+
+    private func input(_ entry: SymptomEntryDisplay, occurrence: String = "", duration: String = "", detail: String? = nil) -> SymptomEntryEditInput {
+        var input = SymptomEntryEditInput(entry)
+        input.occurrenceText = occurrence
+        input.durationText = duration
+        if let detail { input.detail = detail }
+        return input
+    }
+
+    @Test func 요약에서_횟수를_고치면_반영하고_잘못된_값은_이유를_알린다() async {
+        let summary = await reachSummary([entry(.diarrhea, .present, "많이요")])
+        let shown = summary.record.symptoms[0]
+        summary.onAction?(.edit(shown.id))
+        #expect(summary.editingEntryID == shown.id)
+        summary.onAction?(.finishEdit(shown.id, input(shown, occurrence: "0")))
+        #expect(summary.editErrorMessage == "횟수는 1에서 100 사이 숫자로 입력해 주세요.")
+        #expect(summary.editingEntryID == shown.id) // 고치는 중으로 둔다
+        summary.onAction?(.finishEdit(shown.id, input(shown, occurrence: " 3 ", detail: "하루 세 번이요")))
+        #expect(summary.editingEntryID == nil && summary.editErrorMessage == nil)
+        #expect(summary.record.symptoms[0].occurrenceCount == 3 && summary.record.symptoms[0].detail == "하루 세 번이요")
+        #expect(viewModel.record?.symptoms[0].occurrenceCount == 3)
+    }
+
+    @Test func 지우면_없음과_검토_필요로_바꾸고_다른_부위가_남으면_그_항목만_뺀다() async {
+        let summary = await reachSummary([entry(.nauseaVomiting, .present, "[검토 필요] 구토 횟수: 두 번"),
+                                          entry(.numbness, .present, part: .armHand), entry(.numbness, .present, part: .legFoot)])
+        summary.onAction?(.delete(summary.record.symptoms[0].id))
+        summary.onAction?(.delete(summary.record.symptoms.first { $0.bodyPart == .armHand }!.id))
+        #expect(summary.record.presentSymptoms.map(\.symptomType) == [.numbness]) // 요약에는 '있음'만
+        let saved = viewModel.record!.symptoms
+        #expect(saved.map(\.presence) == [.absent, .present])
+        #expect(saved[0].detail == "[검토 필요] 환자가 요약에서 지움: 구토 횟수: 두 번")
+        #expect(saved[1].bodyPart == .legFoot)
+    }
+
+    @Test func 저장하면_없음_모름까지_저장하고_완료_화면으로() async {
+        let summary = await reachSummary([entry(.diarrhea, .present), entry(.constipation, .absent), entry(.oralPain, .unknown)])
+        #expect(summary.canSave)
+        summary.onAction?(.save)
+        #expect(summary.isSaving && !summary.canSave)
+        await viewModel.save(showingResult: true)?.value // 이미 저장 중이면 nil
+        for _ in 0..<1_000 where !conversation.didSave { await Task.yield() }
+        #expect(conversation.didSave && !summary.isSaving)
+        #expect(repository.saved.count == 1 && repository.saved[0].symptoms.count == 3)
+        summary.onAction?(.cancel) // 완료 화면으로 바뀌며 떠나도 다시 저장하지 않음
+        for _ in 0..<100 { await Task.yield() }
+        #expect(repository.saved.count == 1)
+    }
+
+    @Test func 저장에_실패하면_알리고_다시_저장할_수_있다() async {
+        let summary = await reachSummary([entry(.diarrhea, .present)])
+        repository.failNextSave = true
+        await viewModel.save(showingResult: true)?.value
+        #expect(summary.errorMessage == "저장하지 못했어요. 다시 저장해 주세요.")
+        #expect(summary.canSave && !conversation.didSave)
+        await viewModel.save(showingResult: true)?.value
+        #expect(conversation.didSave && repository.saved.count == 1)
+    }
+
+    @Test func 저장하지_않고_요약을_떠나면_자동으로_저장한다() async {
+        let summary = await reachSummary([entry(.diarrhea, .present)])
+        summary.onAction?(.cancel)
+        for _ in 0..<1_000 where repository.saved.isEmpty { await Task.yield() }
+        #expect(repository.saved.count == 1)
+        #expect(!conversation.didSave) // 떠난 화면에는 아무것도 보여 주지 않음
+    }
+
+    @Test func 통화_중에_떠나면_끊긴_곳까지_바로_저장한다() async {
+        await enterVoiceCall()
+        service.outcome = .interrupted(record([entry(.nauseaVomiting, .present)]))
+        service.hold = .call
+        let task = viewModel.startCall()
+        for _ in 0..<1_000 where !service.isHolding { await Task.yield() }
+        conversation.onAction?(.cancel)
+        await task?.value
+        for _ in 0..<1_000 where repository.saved.isEmpty { await Task.yield() }
+        #expect(repository.saved.first?.symptoms.map(\.symptomType) == [.nauseaVomiting])
+    }
+
+    @Test func 같은_날_기록이_있으면_끝까지_마친_통화로_바꾼다() async {
+        let old = record([entry(.nauseaVomiting, .present, "아침"), entry(.diarrhea, .absent)])
+        repository.existing = old
+        let summary = await reachSummary([entry(.diarrhea, .present, "저녁")])
+        summary.onAction?(.save)
+        for _ in 0..<1_000 where !conversation.didSave { await Task.yield() }
+        let saved = repository.saved.first
+        #expect(saved?.id == old.id) // 그날 기록 하나를 바꾼다
+        #expect(saved?.symptoms.map(\.detail) == ["저녁"]) // 이전 답은 남기지 않는다
+    }
+
+    @Test func 같은_날_기록이_있으면_끊긴_통화는_저장하지_않고_알린다() async {
+        repository.existing = record([entry(.nauseaVomiting, .present, "아침")])
+        await enterVoiceCall()
+        service.outcome = .interrupted(record([entry(.diarrhea, .present)]))
+        await viewModel.startCall()?.value
+        let summary = conversation.summary!
+        summary.onAction?(.save)
+        for _ in 0..<1_000 where summary.errorMessage == nil { await Task.yield() }
+        #expect(repository.saved.isEmpty && !conversation.didSave)
+        #expect(summary.errorMessage == "오늘 기록이 이미 있어서, 중간에 끊긴 이번 답은 저장하지 않았어요.")
+        #expect(!summary.canSave)
+        summary.onAction?(.cancel) // 떠나도 다시 저장하지 않는다
+        for _ in 0..<100 { await Task.yield() }
+        #expect(repository.saved.isEmpty)
+    }
+
+    @Test func 그날_기록이_없으면_끊긴_통화도_저장한다() async {
+        await enterVoiceCall()
+        service.outcome = .interrupted(record([entry(.diarrhea, .present)]))
+        await viewModel.startCall()?.value
+        conversation.summary?.onAction?(.save)
+        for _ in 0..<1_000 where !conversation.didSave { await Task.yield() }
+        #expect(repository.saved.count == 1)
     }
 }

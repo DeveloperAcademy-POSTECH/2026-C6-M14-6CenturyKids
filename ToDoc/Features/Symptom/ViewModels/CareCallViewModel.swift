@@ -10,15 +10,19 @@ import ToDocDomain
 #endif
 import Foundation
 
-/// 케어콜 화면(CareCallFlowView)의 상태를 보관한다: 준비(대기 화면) → 음성 통화(대화 화면) → 요약.
-/// 준비한 서비스로 그대로 통화한다. 문자 대화와 요약 수정·저장은 아직 연결하지 않는다
+/// 케어콜 화면(CareCallFlowView)의 상태를 보관한다: 준비(대기 화면) → 음성 통화(대화 화면) → 요약 수정·저장.
+/// 준비한 서비스로 그대로 통화한다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장한다. 문자 대화는 아직 연결하지 않는다
 @MainActor
 final class CareCallViewModel {
     let preparation = CareCallScreenState()
     let conversation = SymptomScreenState()
-    /// 마지막 통화 결과. 저장은 Service를 연결할 때 한다 (요약에는 '있음'만 보이지만 저장은 없음·모름까지, #84)
+    /// 마지막 통화 결과
     private(set) var outcome: CareCallOutcome?
+    /// 저장할 기록 (요약에서 고친 내용 포함). 요약에는 '있음'만 보이지만 저장은 없음·모름까지 한다 (#84)
+    private(set) var record: SymptomRecord?
     private let service: any CareCalling
+    private let repository: any SymptomRepository
+    private let patientId: UUID
     /// 지금 진행 중인 준비 (없으면 준비 중이 아님)
     private var preparing: Task<Void, Never>?
     /// 마지막으로 시작한 준비. 취소해도 서비스 작업(모델 불러오기 등)은 끝까지 돌기 때문에 다음 준비는 이게 끝난 뒤 시작한다
@@ -29,9 +33,16 @@ final class CareCallViewModel {
     private var call: Task<Void, Never>?
     /// 통화를 건 적이 있음. 통화가 끝나면 서비스가 음성 인식을 닫아서, 다시 걸 때는 음성 인식부터 준비한다
     private var hasCalled = false
+    /// 통화 중에 대화 화면을 떠남 (끝나면 요약을 볼 사람이 없어 바로 저장한다)
+    private var leftCall = false
+    private var saving: Task<Void, Never>?
+    private var isSaved = false
 
-    init(service: any CareCalling) {
+    /// patientId: 로그인한 환자 (화면에 연결할 때 getCurrentUserId()로 받아 넘긴다)
+    init(service: any CareCalling, repository: any SymptomRepository, patientId: UUID) {
         self.service = service
+        self.repository = repository
+        self.patientId = patientId
         show(.idle)
         preparation.onAction = { [weak self] action in
             switch action {
@@ -141,7 +152,7 @@ final class CareCallViewModel {
                 if retry { try await service.prepareSpeech() }
                 // 들어가자마자 떠났으면 걸지 않는다 (서비스는 통화를 시작할 때 이전 stop 표시를 지우기 때문에 여기서 막는다)
                 try Task.checkCancellation()
-                let outcome = try await service.run { [weak self] activity in self?.show(activity) }
+                let outcome = try await service.run { activity in self.show(activity) } // 통화하는 동안만 잡는다
                 finish(outcome)
             } catch is CancellationError {
                 conversation.isWorking = false
@@ -157,6 +168,7 @@ final class CareCallViewModel {
     /// 대화 화면을 떠날 때 불린다. 통화 중이면 끊는다 (끊긴 곳까지의 기록은 outcome에 남는다)
     func endCall() {
         guard let call else { return }
+        leftCall = true
         call.cancel()
         Task { await service.stop() }
     }
@@ -183,7 +195,12 @@ final class CareCallViewModel {
         conversation.isWorking = false
         switch outcome {
         case .completed(let record), .interrupted(let record?):
-            conversation.summary = SymptomSummaryScreenState(record: Self.display(record))
+            self.record = record
+            let summary = SymptomSummaryScreenState(record: SymptomRecordDisplay(record: record))
+            summary.canSave = true
+            summary.onAction = { [weak self] action in self?.handle(action) }
+            conversation.summary = summary
+            if leftCall { save(showingResult: false) }
         case .interrupted(nil):
             conversation.question = nil
             conversation.errorMessage = "통화가 끊겼어요. 다시 시도해 주세요."
@@ -199,12 +216,122 @@ final class CareCallViewModel {
         conversation.errorMessage = "통화 중 문제가 생겼어요. 다시 시도해 주세요."
     }
 
-    /// 요약 화면용. 없음·모름도 그대로 넘기고, 화면이 presentSymptoms로 있음만 보여 준다 (#76)
-    private static func display(_ record: SymptomRecord) -> SymptomRecordDisplay {
-        SymptomRecordDisplay(id: record.id, recordedDate: record.recordedDate, symptoms: record.symptoms.map {
-            SymptomEntryDisplay(id: $0.id, symptomType: $0.symptomType, presence: $0.presence, bodyPart: $0.bodyPart,
-                                bodySide: $0.bodySide, rawLocationText: $0.rawLocationText, durationMinutes: $0.durationMinutes,
-                                occurrenceCount: $0.occurrenceCount, detail: $0.detail)
-        })
+    // MARK: - 요약 (수정·삭제·저장)
+
+    private func handle(_ action: SymptomSummaryAction) {
+        guard let summary = conversation.summary else { return }
+        switch action {
+        case .edit(let id):
+            guard saving == nil else { return }
+            summary.editingEntryID = id
+            summary.editErrorMessage = nil
+        case .discardEdit:
+            summary.editingEntryID = nil
+            summary.editErrorMessage = nil
+        case .finishEdit(let id, let input):
+            guard saving == nil else { return } // 저장 중에는 저장하는 기록을 바꾸지 않는다
+            finishEdit(id, input, in: summary)
+        case .delete(let id):
+            guard saving == nil else { return }
+            delete(id, in: summary)
+        case .save: save(showingResult: true)
+        case .cancel: save(showingResult: false) // 저장하지 않고 떠나면 받은 답까지 저장한다
+        }
+    }
+
+    /// 고친 횟수·지속 시간·내용을 검증해 반영한다. 비운 칸은 값 없음. 검증에 걸리면 이유를 보여 주고 고치는 중으로 둔다
+    private func finishEdit(_ id: UUID, _ input: SymptomEntryEditInput, in summary: SymptomSummaryScreenState) {
+        guard let record, let entry = record.symptoms.first(where: { $0.id == id }) else { return }
+        do {
+            let detail = input.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            let edited = try SymptomEntry(
+                id: entry.id, symptomType: entry.symptomType, presence: entry.presence, bodyPart: entry.bodyPart, bodySide: entry.bodySide,
+                rawLocationText: entry.rawLocationText, durationMinutes: try Self.number(input.durationText, else: .invalidDuration),
+                occurrenceCount: try Self.number(input.occurrenceText, else: .invalidOccurrenceCount), detail: detail.isEmpty ? nil : detail)
+            update(record.symptoms.map { $0.id == id ? edited : $0 }, in: summary)
+            summary.editingEntryID = nil
+            summary.editErrorMessage = nil
+        } catch {
+            summary.editErrorMessage = switch error {
+            case SymptomValueError.invalidDuration: "지속 시간은 10분에서 1440분 사이 숫자로 입력해 주세요."
+            case SymptomValueError.invalidOccurrenceCount: "횟수는 1에서 100 사이 숫자로 입력해 주세요."
+            case SymptomValueError.detailTooLong: "내용은 \(SymptomEntry.detailLimit)자까지 쓸 수 있어요."
+            default: "입력한 내용을 확인해 주세요."
+            }
+        }
+    }
+
+    /// 환자가 요약에서 지운 증상은 '없음'으로 바꾸고 의료진이 알 수 있게 검토 필요로 남긴다.
+    /// 같은 증상의 다른 부위 항목이 남아 있으면 그 항목만 뺀다
+    private func delete(_ id: UUID, in summary: SymptomSummaryScreenState) {
+        guard let record, let index = record.symptoms.firstIndex(where: { $0.id == id }) else { return }
+        var symptoms = record.symptoms
+        let removed = symptoms.remove(at: index)
+        if !symptoms.contains(where: { $0.symptomType == removed.symptomType && $0.presence == .present }) {
+            // 원래 내용에 이미 검토 필요 표시가 있으면 한 번만 쓴다
+            let original = removed.detail.map { $0.hasPrefix("[검토 필요] ") ? String($0.dropFirst("[검토 필요] ".count)) : $0 }
+            let note = ["[검토 필요] 환자가 요약에서 지움", original].compactMap(\.self).joined(separator: ": ")
+            if let absent = try? SymptomEntry(id: UUID(), symptomType: removed.symptomType, presence: .absent, bodyPart: nil, bodySide: nil,
+                                              durationMinutes: nil, occurrenceCount: nil,
+                                              detail: String(note.prefix(SymptomEntry.detailLimit))) {
+                symptoms.insert(absent, at: index)
+            }
+        }
+        update(symptoms, in: summary)
+        summary.editingEntryID = nil
+    }
+
+    private func update(_ symptoms: [SymptomEntry], in summary: SymptomSummaryScreenState) {
+        guard let record else { return }
+        let updated = SymptomRecord(id: record.id, recordedDate: record.recordedDate, symptoms: symptoms)
+        self.record = updated
+        summary.record = SymptomRecordDisplay(record: updated)
+    }
+
+    /// 기록을 한 번만 저장한다. 저장 버튼이면 결과를 보여 주고(성공 → 완료 화면, 실패 → 다시 저장),
+    /// 떠나면서 하는 자동 저장은 화면에 아무것도 보여 주지 않는다
+    @discardableResult
+    func save(showingResult: Bool) -> Task<Void, Never>? {
+        guard let record, !isSaved, saving == nil else { return nil }
+        let summary = conversation.summary
+        if showingResult {
+            summary?.isSaving = true
+            summary?.canSave = false
+            summary?.errorMessage = nil
+            summary?.editingEntryID = nil
+        }
+        let complete = if case .completed? = outcome { true } else { false }
+        let task = Task {
+            do {
+                let stored = try await store(record, complete: complete)
+                isSaved = true // 저장하지 않기로 한 기록도 다시 저장하지 않는다
+                if showingResult, stored { conversation.didSave = true }
+                if showingResult, !stored { summary?.errorMessage = "오늘 기록이 이미 있어서, 중간에 끊긴 이번 답은 저장하지 않았어요." }
+            } catch {
+                if showingResult { summary?.errorMessage = "저장하지 못했어요. 다시 저장해 주세요." }
+            }
+            summary?.isSaving = false
+            summary?.canSave = !isSaved
+            saving = nil
+        }
+        saving = task
+        return task
+    }
+
+    /// 그날 기록은 하루 1건. 이미 있으면 끝까지 마친 통화는 그 기록을 이번 기록으로 바꾸고(같은 id),
+    /// 끊긴 통화는 저장하지 않는다 (일부만 답한 기록이 그날 기록을 지우지 않게). 저장했으면 true
+    private func store(_ record: SymptomRecord, complete: Bool) async throws -> Bool {
+        let existing = try await repository.findByPatientIdAndDate(patientId, record.recordedDate)
+        if existing != nil, !complete { return false }
+        let replaced = SymptomRecord(id: existing?.id ?? record.id, recordedDate: record.recordedDate, symptoms: record.symptoms)
+        try await repository.save(replaced, for: patientId)
+        return true
+    }
+
+    private static func number(_ text: String, else error: SymptomValueError) throws -> Int? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty { return nil }
+        guard let value = Int(trimmed) else { throw error }
+        return value
     }
 }
