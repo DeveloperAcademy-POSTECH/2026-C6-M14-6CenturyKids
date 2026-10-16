@@ -9,8 +9,9 @@ import Foundation
 
 /// 다음 질문은 Ledger 상태로만 정한다 (모델 출력으로 순서를 정하지 않음).
 enum SlotPlanner {
-    static func next(ledger: Ledger, config: CareCallConfig, otherAsked: Bool) -> PlannedQuestion {
-        for effect in config.effects {
+    /// only: 이 항목만 묻는다 (다시 거는 통화). nil이면 모든 항목
+    static func next(ledger: Ledger, config: CareCallConfig, otherAsked: Bool, only: Set<String>? = nil) -> PlannedQuestion {
+        for effect in config.effects where only?.contains(effect.id) ?? true {
             if let step = pendingStep(ledger[effect.id], effect: effect) {
                 return .slot(key: effect.id, step: step)
             }
