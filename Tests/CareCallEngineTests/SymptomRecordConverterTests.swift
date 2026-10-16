@@ -9,6 +9,7 @@ struct SymptomRecordConverterTests {
     let converter: SymptomRecordConverter
     let ids: Set<String>
     let date = Date(timeIntervalSince1970: 1_000)
+    let patientId = UUID()
 
     init() throws {
         converter = SymptomRecordConverter(config: config, bodyParts: try fixture(BodyPartDictionary.self, "body_parts"))
@@ -27,7 +28,7 @@ struct SymptomRecordConverterTests {
         said(&ledger, "constipation", .absent, "없어요")
         _ = ledger.markAsked("diarrhea", step: .presence)
         ledger.markUnknown("diarrhea", step: .presence, quote: "잘 모르겠어요")
-        let record = converter.record(from: ledger, date: date)
+        let record = converter.record(from: ledger, patientId: patientId, date: date)
         #expect(record.recordedDate == date)
         #expect(record.symptoms.map(\.symptomType) == [.nauseaVomiting, .constipation, .diarrhea])
         #expect(record.symptoms.map(\.presence) == [.present, .absent, .unknown])
@@ -38,7 +39,7 @@ struct SymptomRecordConverterTests {
         var ledger = Ledger()
         said(&ledger, "nausea_vomiting", .present, "네 토했어요")
         _ = ledger.markAsked("constipation", step: .presence) // 묻는 중에 끊김
-        #expect(converter.record(from: ledger, date: date).symptoms.map(\.symptomType) == [.nauseaVomiting])
+        #expect(converter.record(from: ledger, patientId: patientId, date: date).symptoms.map(\.symptomType) == [.nauseaVomiting])
     }
 
     @Test func 끝까지_물어도_답이_없으면_모름() {
@@ -46,7 +47,7 @@ struct SymptomRecordConverterTests {
         for _ in 0...Ledger.maxFollowUps { _ = ledger.markAsked("constipation", step: .presence) }
         let askedAgain = ledger.markAsked("constipation", step: .presence) // 꼬리질문 한도를 넘어 닫힘
         #expect(!askedAgain)
-        let entry = converter.record(from: ledger, date: date).symptoms.first
+        let entry = converter.record(from: ledger, patientId: patientId, date: date).symptoms.first
         #expect(entry?.presence == .unknown)
         #expect(entry?.detail == "[검토 필요]")
     }
@@ -57,7 +58,7 @@ struct SymptomRecordConverterTests {
         ledger.addDetail("하루 세 번이요", label: label("diarrhea"), for: "diarrhea")
         said(&ledger, "constipation", .present, "네 있어요")
         ledger.addDetail("세 번째 날이에요 두 시간 전부터요", label: label("constipation"), for: "constipation")
-        let symptoms = converter.record(from: ledger, date: date).symptoms
+        let symptoms = converter.record(from: ledger, patientId: patientId, date: date).symptoms
         #expect(symptoms.map(\.occurrenceCount) == [3, nil])
         #expect(symptoms.map(\.durationMinutes) == [nil, nil]) // "언제부터"의 답은 지속 시간이 아니다
         #expect(symptoms.map(\.detail) == ["하루 세 번이요", "세 번째 날이에요 두 시간 전부터요"])
@@ -69,7 +70,7 @@ struct SymptomRecordConverterTests {
         ledger.addDetail("한 시간 반쯤 가요", label: label("neuropathy"), for: "neuropathy")
         said(&ledger, "rash_pruritus", .present, "네 가려워요")
         ledger.addDetail("이삼십 분이요", label: label("rash_pruritus"), for: "rash_pruritus")
-        let symptoms = converter.record(from: ledger, date: date).symptoms
+        let symptoms = converter.record(from: ledger, patientId: patientId, date: date).symptoms
         #expect(symptoms.map(\.durationMinutes) == [90, nil])
         #expect(symptoms.map(\.detail) == ["한 시간 반쯤 가요", "이삼십 분이요"])
     }
@@ -79,7 +80,7 @@ struct SymptomRecordConverterTests {
         said(&ledger, "neuropathy", .present, "네 저려요")
         ledger.addDetail("삼십 분쯤이요", label: label("neuropathy"), for: "neuropathy")
         said(&ledger, "neuropathy", .present, "양쪽 발이랑 왼손이요", locations: ["발", "왼손"])
-        let symptoms = converter.record(from: ledger, date: date).symptoms
+        let symptoms = converter.record(from: ledger, patientId: patientId, date: date).symptoms
         #expect(symptoms.map(\.bodyPart) == [.legFoot, .armHand])
         #expect(symptoms.map(\.bodySide) == [.both, .left])
         #expect(symptoms.map(\.rawLocationText) == ["양쪽 발", "왼손"])
@@ -89,7 +90,7 @@ struct SymptomRecordConverterTests {
     @Test func 좌우를_붙여_같아진_부위는_한_번만() {
         var ledger = Ledger()
         said(&ledger, "neuropathy", .present, "양쪽 발이요", locations: ["발", "양쪽 발"])
-        #expect(converter.record(from: ledger, date: date).symptoms.map(\.rawLocationText) == ["양쪽 발"])
+        #expect(converter.record(from: ledger, patientId: patientId, date: date).symptoms.map(\.rawLocationText) == ["양쪽 발"])
     }
 
     @Test(arguments: [
@@ -99,7 +100,7 @@ struct SymptomRecordConverterTests {
     func 좌우는_환자가_말한_대로(text: String, word: String, raw: String, side: BodySide?) {
         var ledger = Ledger()
         said(&ledger, "neuropathy", .present, text, locations: [word])
-        let entry = converter.record(from: ledger, date: date).symptoms.first
+        let entry = converter.record(from: ledger, patientId: patientId, date: date).symptoms.first
         #expect(entry?.rawLocationText == raw)
         #expect(entry?.bodySide == side)
     }
@@ -108,7 +109,7 @@ struct SymptomRecordConverterTests {
         var ledger = Ledger()
         said(&ledger, "dehydration_nutrition", .present, "물을 잘 못 마셔요", locations: ["물"])
         said(&ledger, "rash_pruritus", .present, "온몸이 가려워요", locations: ["온몸"])
-        let symptoms = converter.record(from: ledger, date: date).symptoms
+        let symptoms = converter.record(from: ledger, patientId: patientId, date: date).symptoms
         #expect(symptoms.map(\.rawLocationText) == [nil, "온몸"])
         #expect(symptoms.map(\.bodyPart) == [nil, nil])
     }
@@ -119,7 +120,7 @@ struct SymptomRecordConverterTests {
                      patientText: "어지러워요", knownEffectIds: ids)
         ledger.addDetail("아침에 잠깐요", label: config.otherDetail.label, for: "other:어지러움")
         ledger.markNeedsReview("other:어지러움")
-        let entry = converter.record(from: ledger, date: date).symptoms.first
+        let entry = converter.record(from: ledger, patientId: patientId, date: date).symptoms.first
         #expect(entry?.symptomType == .other)
         #expect(entry?.detail == "[검토 필요] 어지러움: 어지러워요 / 아침에 잠깐요") // 처음 말한 문장도
     }
@@ -128,7 +129,7 @@ struct SymptomRecordConverterTests {
         var ledger = Ledger()
         ledger.apply(Mention(effectId: "other", otherName: "잠을 잘 못 자요", presence: .present, quote: "잠을 잘 못 자요."),
                      patientText: "잠을 잘 못 자요.", knownEffectIds: ids)
-        #expect(converter.record(from: ledger, date: date).symptoms.first?.detail == "잠을 잘 못 자요")
+        #expect(converter.record(from: ledger, patientId: patientId, date: date).symptoms.first?.detail == "잠을 잘 못 자요")
     }
 
 
@@ -137,7 +138,7 @@ struct SymptomRecordConverterTests {
         said(&ledger, "diarrhea", .present, "네")
         ledger.addDetail(String(repeating: "하루 세 번이요 ", count: 40), label: label("diarrhea"), for: "diarrhea")
         ledger.markNeedsReview("diarrhea")
-        let entry = converter.record(from: ledger, date: date).symptoms.first
+        let entry = converter.record(from: ledger, patientId: patientId, date: date).symptoms.first
         #expect(entry?.detail?.count == SymptomEntry.detailLimit)
         #expect(entry?.detail?.hasPrefix("[검토 필요] 하루 세 번이요") == true)
         #expect(entry?.occurrenceCount == 3)
@@ -154,8 +155,17 @@ struct SymptomRecordConverterTests {
         said(&ledger, "nausea_vomiting", .present, "네")
         ledger.addDetail("하루 두 번이요", label: "구토 횟수", for: "nausea_vomiting")
         ledger.addDetail("어제부터요", label: "메스꺼움 시작", for: "nausea_vomiting")
-        let entry = converter.record(from: ledger, date: date).symptoms.first
+        let entry = converter.record(from: ledger, patientId: patientId, date: date).symptoms.first
         #expect(entry?.detail == "구토 횟수: 하루 두 번이요 / 메스꺼움 시작: 어제부터요")
         #expect(entry?.occurrenceCount == 2)
+    }
+
+    @Test func 환자와_첫_질문_답을_기록에_넣는다() {
+        var ledger = Ledger()
+        ledger.setConditionText("그럭저럭이요 / 어제 좀 토했어요")
+        let record = converter.record(from: ledger, patientId: patientId, date: date)
+        #expect(record.patientId == patientId)
+        #expect(record.conditionText == "그럭저럭이요 / 어제 좀 토했어요")
+        #expect(converter.record(from: Ledger(), patientId: patientId, date: date).conditionText == nil) // 첫 질문 전
     }
 }

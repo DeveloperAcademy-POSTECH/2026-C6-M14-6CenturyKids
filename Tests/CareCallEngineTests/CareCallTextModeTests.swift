@@ -23,7 +23,7 @@ struct CareCallTextModeTests {
     private func record() -> SymptomRecord {
         let entry = try! SymptomEntry(id: UUID(), symptomType: .diarrhea, presence: .present, bodyPart: nil, bodySide: nil,
                                       durationMinutes: nil, occurrenceCount: nil, detail: nil)
-        return SymptomRecord(id: UUID(), recordedDate: Date(timeIntervalSince1970: 1_000), symptoms: [entry])
+        return SymptomRecord(id: UUID(), patientId: UUID(), recordedDate: Date(timeIntervalSince1970: 1_000), conditionText: nil, symptoms: [entry])
     }
 
     private func waitUntil(_ condition: () -> Bool) async {

@@ -26,8 +26,12 @@ final class CareCallService: CareCalling {
     private var analyzer: CareCallAI?
     private var voice: SpeechSynthesizer?
     private var stopped = false
-    /// 지금 대화. 음성 통화와 문자 답이 같은 대화를 이어 간다
-    private var engine: InterviewEngine?
+    /// 지금 대화와 그 환자. 음성 통화와 문자 답이 같은 대화를 이어 간다
+    private struct Conversation {
+        let engine: InterviewEngine
+        let patientId: UUID
+    }
+    private var conversation: Conversation?
     /// 지금 대화에서 AI 음성 안내를 했음 (문자로 시작해 음성으로 바꿔도 처음 말할 때 한 번은 알린다)
     private var noticed = false
 
@@ -68,45 +72,55 @@ final class CareCallService: CareCalling {
 
     // MARK: - 대화
 
-    func begin() throws -> CareCallTurn {
+    func begin(patientId: UUID) throws -> CareCallTurn {
         guard let analyzer else { throw CareCallServiceError.notPrepared }
-        let engine = InterviewEngine(config: config, rules: rules, analyzer: analyzer)
-        self.engine = engine
+        let conversation = Conversation(engine: InterviewEngine(config: config, rules: rules, analyzer: analyzer), patientId: patientId)
+        self.conversation = conversation
         noticed = false
-        return turn(engine.start(), of: engine)
+        return turn(conversation.engine.start(), of: conversation)
     }
 
     var current: CareCallTurn? {
-        engine.map { turn(InterviewEngine.Output(utterance: $0.lastQuestion, phase: $0.phase), of: $0) }
+        conversation.map { turn(InterviewEngine.Output(utterance: $0.engine.lastQuestion, phase: $0.engine.phase), of: $0) }
     }
 
     func answer(_ text: String) async throws -> CareCallTurn {
-        guard let engine else { throw CareCallServiceError.notPrepared }
+        guard let conversation else { throw CareCallServiceError.notPrepared }
         // 문자 대화에서도 모델을 불러올 때 음성 합성이 고정 문구를 미리 합성하기 시작한다. 분석 중에는 멈춘다 (CPU 경쟁)
         await voice?.setBusy(true)
-        let out = await engine.handle(patientText: text)
+        let out = await conversation.engine.handle(patientText: text)
         await voice?.setBusy(false)
-        return turn(out, of: engine)
+        return turn(out, of: conversation)
     }
 
     func end() -> CareCallOutcome {
-        defer { engine = nil }
-        guard let engine else { return .interrupted(nil) }
-        return outcome(of: engine, phase: engine.phase)
+        defer { conversation = nil }
+        guard let conversation else { return .interrupted(nil) }
+        return outcome(of: conversation, phase: conversation.engine.phase)
     }
 
-    private func turn(_ out: InterviewEngine.Output, of engine: InterviewEngine) -> CareCallTurn {
-        CareCallTurn(utterance: out.utterance, number: engine.expectedNumber,
-                     outcome: out.isFinished ? outcome(of: engine, phase: out.phase) : nil)
+    private func turn(_ out: InterviewEngine.Output, of conversation: Conversation) -> CareCallTurn {
+        CareCallTurn(utterance: out.utterance, number: conversation.engine.expectedNumber,
+                     outcome: out.isFinished ? outcome(of: conversation, phase: out.phase) : nil)
     }
 
     /// 마무리 인사까지 마쳤으면 그날 기록, 응급이면 응급 종료, 중간이면 끊긴 곳까지 답한 기록
-    private func outcome(of engine: InterviewEngine, phase: InterviewPhase) -> CareCallOutcome {
+    private func outcome(of conversation: Conversation, phase: InterviewPhase) -> CareCallOutcome {
         switch phase {
-        case .saved: .completed(converter.record(from: engine.ledger, date: Date()))
+        case .saved: .completed(record(of: conversation))
         case .emergencyEnded: .emergencyEnded
-        default: .interrupted(record(of: engine))
+        default: .interrupted(partialRecord(of: conversation))
         }
+    }
+
+    private func record(of conversation: Conversation) -> SymptomRecord {
+        converter.record(from: conversation.engine.ledger, patientId: conversation.patientId, date: Date())
+    }
+
+    /// 받은 답이 하나도 없으면 nil (빈 기록으로 그날 기록을 덮지 않게. 첫 질문 답만 있어도 저장하지 않는다)
+    private func partialRecord(of conversation: Conversation) -> SymptomRecord? {
+        let record = record(of: conversation)
+        return record.symptoms.isEmpty ? nil : record
     }
 
     // MARK: - 통화
@@ -114,7 +128,7 @@ final class CareCallService: CareCalling {
     /// 지금 대화를 끝까지 통화로 진행하고 결과를 돌려준다. 마무리 인사까지 마쳤으면 그날 기록, 중간에 끝났으면(stop·전화 등 오디오 중단, 통화 중 오류)
     /// 끊긴 곳까지 답한 기록. 통화 중 오류인데 받은 답이 없으면 오류를 그대로 던진다
     func run(onActivity: @escaping (CareCallActivity) -> Void) async throws -> CareCallOutcome {
-        guard let engine, let voice else { throw CareCallServiceError.notPrepared }
+        guard let conversation, let voice else { throw CareCallServiceError.notPrepared }
         stopped = false // 지난 통화를 stop으로 끝냈어도 다시 걸 수 있게
         // 전화·Siri로 오디오가 끊기면 통화를 끝낸다 (중간부터 이어 가지 않는다)
         recorder.onEvent = { [weak self] event in
@@ -125,23 +139,17 @@ final class CareCallService: CareCalling {
         do {
             // 부른 쪽 작업이 취소되면(화면을 닫음) stop과 같이 끝낸다. 음성 인식은 취소를 직접 보지 않는다
             phase = try await withTaskCancellationHandler {
-                try await converse(engine: engine, voice: voice, onActivity: onActivity)
+                try await converse(engine: conversation.engine, voice: voice, onActivity: onActivity)
             } onCancel: {
                 Task { @MainActor [weak self] in await self?.stop() }
             }
         } catch {
             await finish()
-            guard let partial = record(of: engine) else { throw error }
+            guard let partial = partialRecord(of: conversation) else { throw error }
             return .interrupted(partial)
         }
         await finish()
-        return outcome(of: engine, phase: phase)
-    }
-
-    /// 받은 답이 하나도 없으면 nil (빈 기록으로 그날 기록을 덮지 않게)
-    private func record(of engine: InterviewEngine) -> SymptomRecord? {
-        let record = converter.record(from: engine.ledger, date: Date())
-        return record.symptoms.isEmpty ? nil : record
+        return outcome(of: conversation, phase: phase)
     }
 
     /// 통화를 바로 끝낸다 (말하기·듣기 정지). 진행 중인 run은 중단 단계로 돌아온다

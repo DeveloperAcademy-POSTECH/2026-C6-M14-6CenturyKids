@@ -23,6 +23,8 @@ final class FakeCareCall: CareCalling {
     private(set) var current: CareCallTurn?
     private(set) var answers: [String] = []
     private(set) var beginCount = 0
+    /// begin에 넘어온 환자
+    private(set) var patientIds: [UUID] = []
     private(set) var endCount = 0
     private(set) var stopCount = 0
     private var held: CheckedContinuation<Void, Never>?
@@ -31,8 +33,9 @@ final class FakeCareCall: CareCalling {
     func loadModel() async throws { try await run(.model) }
     func prepareSpeech() async throws { try await run(.speech) }
 
-    func begin() throws -> CareCallTurn {
+    func begin(patientId: UUID) throws -> CareCallTurn {
         beginCount += 1
+        patientIds.append(patientId)
         current = opening
         return opening
     }
@@ -104,8 +107,10 @@ struct CareCallViewModelTests {
     let viewModel: CareCallViewModel
     var state: CareCallScreenState { viewModel.preparation }
 
+    let patientId = UUID()
+
     init() {
-        viewModel = CareCallViewModel(service: service, repository: repository, patientId: UUID())
+        viewModel = CareCallViewModel(service: service, repository: repository, patientId: patientId)
     }
 
     private func waitUntilHolding() async {
@@ -215,7 +220,8 @@ struct CareCallViewModelTests {
     }
 
     private func record(_ entries: [SymptomEntry]) -> SymptomRecord {
-        SymptomRecord(id: UUID(), recordedDate: Date(timeIntervalSince1970: 1_000), symptoms: entries)
+        SymptomRecord(id: UUID(), patientId: patientId, recordedDate: Date(timeIntervalSince1970: 1_000),
+                      conditionText: "그럭저럭이요", symptoms: entries)
     }
 
     /// 준비를 마치고 음성 대화 화면에 들어간 상태
@@ -359,6 +365,16 @@ struct CareCallViewModelTests {
         #expect(saved.map(\.presence) == [.absent, .present])
         #expect(saved[0].detail == "[검토 필요] 환자가 요약에서 지움: 구토 횟수: 두 번")
         #expect(saved[1].bodyPart == .legFoot)
+    }
+
+    @Test func 요약에서_고쳐도_환자와_컨디션은_그대로_저장한다() async {
+        let summary = await reachSummary([entry(.diarrhea, .present, "많이요"), entry(.constipation, .present)])
+        summary.onAction?(.delete(summary.record.symptoms[1].id))
+        summary.onAction?(.save)
+        for _ in 0..<1_000 where !conversation.didSave { await Task.yield() }
+        #expect(service.patientIds == [patientId])
+        #expect(repository.saved.first?.patientId == patientId)
+        #expect(repository.saved.first?.conditionText == "그럭저럭이요")
     }
 
     @Test func 저장하면_없음_모름까지_저장하고_완료_화면으로() async {

@@ -189,7 +189,7 @@ final class CareCallViewModel {
                 hasCalled = true
                 try Task.checkCancellation()
                 if !began {
-                    _ = try service.begin()
+                    _ = try service.begin(patientId: patientId)
                     began = true
                 }
                 outcome = try await service.run { activity in self.show(activity) } // 통화하는 동안만 잡는다
@@ -238,7 +238,7 @@ final class CareCallViewModel {
             await self.last?.value
             try await self.service.loadModel()
             try Task.checkCancellation()
-            let turn = try self.service.begin()
+            let turn = try self.service.begin(patientId: self.patientId)
             self.began = true
             return turn
         } failed: { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
@@ -444,7 +444,8 @@ final class CareCallViewModel {
 
     private func update(_ symptoms: [SymptomEntry], in summary: SymptomSummaryScreenState) {
         guard let record else { return }
-        let updated = SymptomRecord(id: record.id, recordedDate: record.recordedDate, symptoms: symptoms)
+        let updated = SymptomRecord(id: record.id, patientId: record.patientId, recordedDate: record.recordedDate,
+                                    conditionText: record.conditionText, symptoms: symptoms)
         self.record = updated
         summary.record = SymptomRecordDisplay(record: updated)
     }
@@ -484,7 +485,8 @@ final class CareCallViewModel {
     private func store(_ record: SymptomRecord, complete: Bool) async throws -> Bool {
         let existing = try await repository.findByPatientIdAndDate(patientId, record.recordedDate)
         if existing != nil, !complete { return false }
-        let replaced = SymptomRecord(id: existing?.id ?? record.id, recordedDate: record.recordedDate, symptoms: record.symptoms)
+        let replaced = SymptomRecord(id: existing?.id ?? record.id, patientId: record.patientId, recordedDate: record.recordedDate,
+                                     conditionText: record.conditionText, symptoms: record.symptoms)
         try await repository.save(replaced, for: patientId)
         return true
     }
