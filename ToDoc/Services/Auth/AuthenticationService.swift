@@ -12,7 +12,7 @@ final class AuthenticationService {
     private let userRepository: UserRepository
     private let patientRepository: PatientRepository
     private let doctorRepository: DoctorRepository
-
+    
     init(
         authRepository: AuthRepository,
         userRepository: UserRepository,
@@ -28,18 +28,16 @@ final class AuthenticationService {
     func signOut() async throws {
         try await authRepository.signOut()
     }
-
+    
     func resetPassword(email: String) async throws {
         try await authRepository.resetPassword(email: email)
     }
     
     /// 현재 로그인된 사용자의 정보를 반환합니다.
-        func getCurrentUserId() async throws -> UUID? {
-            return try await authRepository.getCurrentUserId()
-        }
-
-        return try await userRepository.findById(userId)
+    func getCurrentUserId() async throws -> UUID? {
+        return try await authRepository.getCurrentUserId()
     }
+    
     /// 환자 계정으로 인증한 후 환자 정보를 조회해 반환합니다.
     func signInPatient(
         email: String,
@@ -58,7 +56,7 @@ final class AuthenticationService {
         guard let patient = try await patientRepository.findById(user.id) else {
             // 에러 타입 확정 후 throw 구현 필요
             fatalError("Patient 조회 실패 에러 타입 확정 필요")
-            }
+        }
         
         return patient
     }
@@ -72,17 +70,17 @@ final class AuthenticationService {
             email: email,
             password: password
         )
-
+        
         guard let user = try await userRepository.findById(userId) else {
             // Core/Errors 에러 타입 확정 후 throw 구현 필요
             fatalError("User 조회 실패 에러 타입 확정 필요")
         }
-
+        
         guard let doctor = try await doctorRepository.findById(userId) else {
             // 에러 타입 확정 후 throw 구현 필요
             fatalError("Doctor 조회 실패 에러 타입 확정 필요")
         }
-
+        
         return doctor
     }
     
