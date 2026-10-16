@@ -155,16 +155,22 @@ final class InterviewEngine {
         // - "글쎄요"면 달라진 점을 '모름'으로 남긴다
         // - 분명히 달라진 게 없다면 '그 밖에'도 묻지 않는다 (첫 질문이 이미 물었다). 지난 통화에서 못 물은 항목이 있으면 묻고 '그 밖에'로 마무리
         if current == .opening, let unasked {
-            // 증상이 없어졌다고 분명히 말한 답("설사는 멈췄어요" → 설사 없음)도 알아들은 답이다
-            let toldAbsent = ledger.order.contains { ledger[$0]?.presence == .absent }
-            let unclear = isUnclearChange(patientText), settled = unclear || toldAbsent || isUnchanged(patientText)
-            if !toldNewSymptom, !settled, openingFirstAnswer == nil {
+            // 증상이 없어졌다고만 말한 답("설사는 멈췄어요" → 이번 답으로 목록 증상 없음)은 알아들은 답이라 되묻지 않는다.
+            // 연결어·숫자·나빠졌다는 말이 섞이면("멈췄는데 대신…") 놓친 증상이 있을 수 있어 되묻는다
+            let mixed = ["근데", "그런데", "는데", "지만", "한데"].contains(where: Self.normalized(patientText).contains)
+                || !NumberParser.numbers(in: patientText).isEmpty || openingConcerns.matches(patientText) != nil
+            let toldAbsent = !mixed && ledger.order.contains { key in
+                knownIds.contains(key) && ledger[key]?.presence == .absent && before[key]?.presence != .absent
+            }
+            let unclear = isUnclearChange(patientText), settled = unclear || isUnchanged(patientText)
+            if !toldNewSymptom, !settled, !toldAbsent, openingFirstAnswer == nil {
                 openingFirstAnswer = patientText
                 // 첫 답에서 생긴 기타 항목: 되물은 답에서 같은 증상을 또 기록하지 않게 (위의 되묻기와 같다)
                 openingOtherName = ledger.order.first { $0.hasPrefix("other:") && before[$0] == nil }.flatMap { ledger[$0]?.otherName }
                 return Output(utterance: say(config.openingFollowUp), phase: phase)
             }
             if unclear { recordUnclearChange(patientText) }
+            // '그 밖에'는 달라진 게 없다·모르겠다고 분명히 답했을 때만 생략한다 (없어졌다는 답 뒤에는 한 번 묻는다)
             if !toldNewSymptom { otherAsked = settled && unasked.isEmpty }
         }
 

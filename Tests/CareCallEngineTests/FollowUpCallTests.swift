@@ -157,12 +157,22 @@ struct FollowUpCallTests {
         #expect(next.phase == .other)
     }
 
-    @Test func 전에_있던_증상이_없어졌다고_하면_되묻지_않고_마친다() async {
+    @Test func 전에_있던_증상이_없어졌다고_하면_되묻지_않고_그_밖에를_묻는다() async {
         mock.script["설사는 멈췄어요"] = .mentions(Mention(effectId: "diarrhea", presence: .absent))
         let call = engine()
         _ = call.start()
         let out = await call.handle(patientText: "설사는 멈췄어요")
-        #expect(out.phase == .saved && out.utterance == rules.closingMessage)
+        #expect(out.phase == .other) // 놓친 증상이 없는지 '그 밖에'로 한 번 묻는다
         #expect(call.ledger["diarrhea"]?.presence == .absent) // 기록에 더할 때 "지금은 없다고 함"으로 남는다
+        let done = await call.handle(patientText: "없어요")
+        #expect(done.phase == .saved)
+    }
+
+    @Test func 없어졌다면서_다른_말이_섞이면_되묻는다() async {
+        mock.script["설사는 멈췄는데 대신 머리가 좀"] = .mentions(Mention(effectId: "diarrhea", presence: .absent))
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: "설사는 멈췄는데 대신 머리가 좀")
+        #expect(out.phase == .opening && out.utterance == config.openingFollowUp)
     }
 }
