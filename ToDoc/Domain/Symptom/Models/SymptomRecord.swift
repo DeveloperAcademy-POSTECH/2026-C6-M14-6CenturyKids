@@ -4,10 +4,10 @@ nonisolated public struct SymptomRecord: Sendable {
     public let id: UUID
     public let patientId: UUID
     public let recordedDate: Date
-    public let conditionText: String
+    public let conditionText: String?
     public private(set) var symptoms: [SymptomEntry]
 
-    public init(id: UUID, patientId: UUID, recordedDate: Date, conditionText: String, symptoms: [SymptomEntry]) {
+    public init(id: UUID, patientId: UUID, recordedDate: Date, conditionText: String?, symptoms: [SymptomEntry]) {
         self.id = id
         self.patientId = patientId
         self.recordedDate = recordedDate
