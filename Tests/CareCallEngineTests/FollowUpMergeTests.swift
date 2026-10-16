@@ -65,11 +65,22 @@ struct FollowUpMergeTests {
         #expect(unsaid.symptoms[0].durationMinutes == 30 && unsaid.symptoms[0].detail == "손이요 / 다시 통화: 또 저렸어요")
     }
 
-    @Test func 이번에_없음_모름이어도_그날_기록에_있던_증상은_그대로() {
+    @Test func 전에_있던_증상을_이번에_없다고_하면_값은_두고_그_말을_덧붙인다() {
+        let present = entry(.diarrhea, .present, "세 번", count: 3)
+        let merged = CareCallViewModel.merge(record([present]), with: record([entry(.diarrhea, .absent)]))
+        #expect(merged.symptoms.map(\.id) == [present.id])
+        #expect(merged.symptoms[0].presence == .present && merged.symptoms[0].occurrenceCount == 3)
+        #expect(merged.symptoms[0].detail == "세 번 / 다시 통화: 지금은 없다고 함")
+    }
+
+    @Test func 이번에_모름이거나_전에도_없던_증상은_그대로() {
         let present = entry(.diarrhea, .present, "세 번")
-        let old = record([present])
-        let merged = CareCallViewModel.merge(old, with: record([entry(.diarrhea, .absent)]))
-        #expect(merged.symptoms.map(\.id) == [present.id] && merged.symptoms[0].presence == .present)
+        let absent = entry(.constipation, .absent)
+        let merged = CareCallViewModel.merge(record([present, absent]),
+                                             with: record([entry(.diarrhea, .unknown), entry(.constipation, .absent)]))
+        #expect(merged.symptoms.first { $0.symptomType == .diarrhea }?.detail == "세 번")
+        #expect(merged.symptoms.first { $0.symptomType == .constipation }?.detail == nil)
+        #expect(merged.symptoms.map(\.presence) == [.absent, .present]) // 목록 순서: 변비, 설사
     }
 
     @Test func 기타_증상은_늘_추가한다() {
@@ -101,5 +112,15 @@ struct FollowUpMergeTests {
         let merged = CareCallViewModel.merge(old, with: record([entry(.diarrhea, .absent, "[검토 필요] 환자가 요약에서 지움: 또 했어요")]))
         #expect(merged.symptoms[0].presence == .present && merged.symptoms[0].occurrenceCount == 3)
         #expect(merged.symptoms[0].detail == "[검토 필요] 세 번 / 다시 통화: 환자가 요약에서 지움: 또 했어요")
+    }
+
+    @Test func 이번_답이_아주_길어도_전_내용을_반은_남기고_잘렸으면_검토_필요() {
+        let old = String(repeating: "가", count: 200), new = String(repeating: "나", count: 300)
+        let merged = CareCallViewModel.merge(record([entry(.diarrhea, .present, old)]), with: record([entry(.diarrhea, .present, new)]))
+        let detail = merged.symptoms[0].detail ?? ""
+        #expect(detail.count <= SymptomEntry.detailLimit)
+        #expect(detail.hasPrefix("[검토 필요] 가"))
+        #expect(detail.filter { $0 == "가" }.count >= (SymptomEntry.detailLimit - 20) / 2 - 10)
+        #expect(detail.contains("다시 통화: 나"))
     }
 }
