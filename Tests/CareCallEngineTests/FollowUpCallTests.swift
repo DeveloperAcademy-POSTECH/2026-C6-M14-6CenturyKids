@@ -144,4 +144,16 @@ struct FollowUpCallTests {
         let other = await call.handle(patientText: "음 뭐였더라")
         #expect(other.phase == .other) // 분명히 '없다'고 하지 않았으면 '그 밖에'로 한 번 더 기회를 준다
     }
+
+    @Test func 증상_없이_나빠졌다고만_하면_그_말을_검토_필요로_남긴다() async {
+        let call = engine()
+        _ = call.start()
+        let ask = await call.handle(patientText: "좀 안 좋아졌어요")
+        #expect(ask.utterance == config.openingFollowUp)
+        let next = await call.handle(patientText: "그냥 전반적으로요")
+        let kept = call.ledger.order.compactMap { call.ledger[$0] }.first { $0.effectId == "other" }
+        #expect(kept?.presence == .present && kept?.needsReview == true)
+        #expect(kept?.otherName == "좀 안 좋아졌어요 / 그냥 전반적으로요")
+        #expect(next.phase == .other)
+    }
 }
