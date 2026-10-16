@@ -90,6 +90,17 @@ struct FollowUpCallTests {
         #expect(call.ledger[key]?.needsReview == true)
     }
 
+    @Test func 네만_답하면_무엇이_달라졌는지_되묻는다() async {
+        mock.script["설사를 했어요"] = .mentions(Mention(effectId: "diarrhea", presence: .present))
+        let call = engine()
+        _ = call.start()
+        let ask = await call.handle(patientText: "네")
+        #expect(ask.phase == .opening && ask.utterance == config.openingFollowUp)
+        #expect(mock.requests.isEmpty)
+        let out = await call.handle(patientText: "설사를 했어요")
+        #expect(out.phase == .slot(key: "diarrhea", step: .detail))
+    }
+
     @Test func 달라진_게_없다면서_증상을_말하면_모델이_본다() async {
         mock.script["똑같은데 어제 설사를 했어요"] = .mentions(Mention(effectId: "diarrhea", presence: .present))
         let call = engine()

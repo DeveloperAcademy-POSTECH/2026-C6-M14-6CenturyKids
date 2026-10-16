@@ -136,6 +136,11 @@ final class InterviewEngine {
         if current == .opening, unasked == nil {
             ledger.setConditionText([openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / "))
         }
+        // 다시 거는 통화에서 "네"만 답함 ("다시 전화하셨네요?"에 답했을 수 있다): 무엇이 달라졌는지 한 번 되묻는다
+        if current == .opening, unasked != nil, openingFirstAnswer == nil, isShortYes(patientText) {
+            openingFirstAnswer = patientText
+            return Output(utterance: say(config.openingFollowUp), phase: phase)
+        }
         // 첫 질문: 증상 표현이나 컨디션이 나쁘다는 말이 있고 목록 증상은 기록되지 않았으면 한 번 되묻는다
         // ("피곤해요" → "어떤 점이 그러신지…". "보통이에요", "잠은 잘 자요"는 묻지 않음)
         if current == .opening, openingFirstAnswer == nil, result?.needsClarification != true,
@@ -441,8 +446,8 @@ final class InterviewEngine {
         case .slot(_, .detail): // 횟수·시작 시점·지속 시간·섭취량: 모델 없이 환자 말 그대로 기록 (아래 switch)
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
                               emergencySignal: false, utterance: "")
-        case .opening where unasked != nil && (isUnchanged(patientText) || isUnclearChange(patientText)):
-            // 다시 거는 통화: 달라진 게 없음·모르겠음 → 기록할 증상 없음 ("글쎄요"는 아래에서 '모름'으로 남긴다)
+        case .opening where unasked != nil && (yes || isUnchanged(patientText) || isUnclearChange(patientText)):
+            // 다시 거는 통화: 달라진 게 없음·모르겠음 → 기록할 증상 없음 ("글쎄요"는 아래에서 '모름'으로 남긴다), "네"만 → 아래에서 되묻는다
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
                               emergencySignal: false, utterance: "")
         case .opening where no || isOpeningFine(patientText), .other where no:
