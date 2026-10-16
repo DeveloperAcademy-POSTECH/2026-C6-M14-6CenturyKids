@@ -151,11 +151,13 @@ final class InterviewEngine {
         recordVerbatimOtherIfMissed(result, during: current, patientText: patientText, text: answerText,
                                     unchanged: ledger.sameRecords(as: before))
         // 다시 거는 통화의 첫 답
-        // - 말한 증상이 없는데 달라진 게 없다·모르겠다고 분명히 답하지도 않음("네"만, 분석 실패, 알아듣지 못한 답): 한 번 되묻는다
+        // - 말한 증상이 없는데 달라진 게 없다·없어졌다·모르겠다고 분명히 답하지도 않음("네"만, 분석 실패, 알아듣지 못한 답): 한 번 되묻는다
         // - "글쎄요"면 달라진 점을 '모름'으로 남긴다
         // - 분명히 달라진 게 없다면 '그 밖에'도 묻지 않는다 (첫 질문이 이미 물었다). 지난 통화에서 못 물은 항목이 있으면 묻고 '그 밖에'로 마무리
         if current == .opening, let unasked {
-            let unclear = isUnclearChange(patientText), settled = unclear || isUnchanged(patientText)
+            // 증상이 없어졌다고 분명히 말한 답("설사는 멈췄어요" → 설사 없음)도 알아들은 답이다
+            let toldAbsent = ledger.order.contains { ledger[$0]?.presence == .absent }
+            let unclear = isUnclearChange(patientText), settled = unclear || toldAbsent || isUnchanged(patientText)
             if !toldNewSymptom, !settled, openingFirstAnswer == nil {
                 openingFirstAnswer = patientText
                 // 첫 답에서 생긴 기타 항목: 되물은 답에서 같은 증상을 또 기록하지 않게 (위의 되묻기와 같다)

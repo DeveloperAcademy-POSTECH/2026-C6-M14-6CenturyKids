@@ -156,4 +156,13 @@ struct FollowUpCallTests {
         #expect(kept?.otherName == "좀 안 좋아졌어요 / 그냥 전반적으로요")
         #expect(next.phase == .other)
     }
+
+    @Test func 전에_있던_증상이_없어졌다고_하면_되묻지_않고_마친다() async {
+        mock.script["설사는 멈췄어요"] = .mentions(Mention(effectId: "diarrhea", presence: .absent))
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: "설사는 멈췄어요")
+        #expect(out.phase == .saved && out.utterance == rules.closingMessage)
+        #expect(call.ledger["diarrhea"]?.presence == .absent) // 기록에 더할 때 "지금은 없다고 함"으로 남는다
+    }
 }
