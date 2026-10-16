@@ -138,9 +138,9 @@ final class CareCallViewModel {
         }
     }
 
-    /// 요약으로 넘어갔거나 응급 안내로 끝남 (더 묻지 않는다)
+    /// 요약·완료로 넘어갔거나 응급 안내로 끝남 (더 묻지 않는다)
     private var isOver: Bool {
-        if conversation.summary != nil { return true }
+        if conversation.summary != nil || conversation.didSave { return true }
         if case .emergencyEnded? = outcome { return true }
         return false
     }
@@ -189,7 +189,7 @@ final class CareCallViewModel {
                 hasCalled = true
                 try Task.checkCancellation()
                 if !began {
-                    _ = try service.begin(patientId: patientId)
+                    _ = try service.begin(patientId: patientId, previous: try await today())
                     began = true
                 }
                 outcome = try await service.run { activity in self.show(activity) } // 통화하는 동안만 잡는다
@@ -238,7 +238,7 @@ final class CareCallViewModel {
             await self.last?.value
             try await self.service.loadModel()
             try Task.checkCancellation()
-            let turn = try self.service.begin(patientId: self.patientId)
+            let turn = try self.service.begin(patientId: self.patientId, previous: try await self.today())
             self.began = true
             return turn
         } failed: { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
@@ -355,6 +355,10 @@ final class CareCallViewModel {
         conversation.isListening = false
         conversation.isWorking = false
         switch outcome {
+        case .completed(let record) where record.symptoms.isEmpty:
+            // 다시 거는 통화에서 달라진 게 없음: 더할 것이 없어 바로 완료 화면 (이때 보여 줄 화면은 화면 담당과 정할 예정)
+            isSaved = true
+            conversation.didSave = true
         case .completed(let record), .interrupted(let record?):
             self.record = record
             let summary = SymptomSummaryScreenState(record: SymptomRecordDisplay(record: record))
@@ -480,15 +484,79 @@ final class CareCallViewModel {
         return task
     }
 
-    /// 그날 기록은 하루 1건. 이미 있으면 끝까지 마친 통화는 그 기록을 이번 기록으로 바꾸고(같은 id),
-    /// 끊긴 통화는 저장하지 않는다 (일부만 답한 기록이 그날 기록을 지우지 않게). 저장했으면 true
+    /// 오늘 이미 저장된 기록 (있으면 다시 거는 통화)
+    private func today() async throws -> SymptomRecord? {
+        try await repository.findByPatientIdAndDate(patientId, Date())
+    }
+
+    /// 그날 기록은 하루 1건. 이미 있으면 끝까지 마친 통화(다시 거는 통화)는 그 기록에 더하고,
+    /// 끊긴 통화는 저장하지 않는다 (일부만 답한 기록으로 그날 기록을 바꾸지 않게). 저장했으면 true
     private func store(_ record: SymptomRecord, complete: Bool) async throws -> Bool {
-        let existing = try await repository.findByPatientIdAndDate(patientId, record.recordedDate)
-        if existing != nil, !complete { return false }
-        let replaced = SymptomRecord(id: existing?.id ?? record.id, patientId: record.patientId, recordedDate: record.recordedDate,
-                                     conditionText: record.conditionText, symptoms: record.symptoms)
-        try await repository.save(entity: replaced)
+        guard let existing = try await repository.findByPatientIdAndDate(patientId, record.recordedDate) else {
+            try await repository.save(entity: record)
+            return true
+        }
+        guard complete else { return false }
+        try await repository.save(entity: Self.merge(existing, with: record))
         return true
+    }
+
+    /// 다시 거는 통화의 기록을 그날 기록에 더한다 (덮어쓰지 않는다). 기록 id·환자·날짜·컨디션은 그날 기록 것
+    /// - 그날 기록에 없는 증상(지난 통화가 끊겨 못 물음)과 기타 증상은 그대로 추가
+    /// - 전에 없음·모름이었는데 이번에 있음 → 이번 항목으로 바꾼다
+    /// - 전에도 있음 → 같은 부위면 기존 값을 두고 빈 칸만 채우고 내용에 "다시 통화: …"를 덧붙인다, 다른 부위면 추가
+    /// - 이번에 없음·모름인데 그날 기록에 이미 있는 증상은 그대로 둔다
+    static func merge(_ old: SymptomRecord, with new: SymptomRecord) -> SymptomRecord {
+        var symptoms = old.symptoms
+        for entry in new.symptoms {
+            let sameType = symptoms.filter { $0.symptomType == entry.symptomType }
+            if entry.symptomType == .other || sameType.isEmpty {
+                symptoms.append(entry)
+                continue
+            }
+            guard entry.presence == .present else { continue }
+            if !sameType.contains(where: { $0.presence == .present }) {
+                symptoms.removeAll { $0.symptomType == entry.symptomType }
+                symptoms.append(entry)
+            } else if let index = symptoms.firstIndex(where: { $0.symptomType == entry.symptomType && $0.presence == .present
+                                                                && sameSpot($0, entry) }) {
+                symptoms[index] = filled(symptoms[index], with: entry)
+            } else {
+                symptoms.append(entry)
+            }
+        }
+        // 목록 순서로 (같은 종류 안에서는 원래 순서)
+        let rank = Dictionary(uniqueKeysWithValues: SymptomType.allCases.enumerated().map { ($1, $0) })
+        let sorted = symptoms.enumerated()
+            .sorted { (rank[$0.element.symptomType] ?? 0, $0.offset) < (rank[$1.element.symptomType] ?? 0, $1.offset) }
+            .map(\.element)
+        // 다시 거는 통화는 컨디션을 묻지 않으니 처음 통화의 컨디션을 그대로 둔다
+        return SymptomRecord(id: old.id, patientId: old.patientId, recordedDate: old.recordedDate, conditionText: old.conditionText,
+                             symptoms: sorted)
+    }
+
+    /// 같은 곳의 증상인지. 이번에 부위를 말하지 않았으면 같은 증상으로 본다
+    private static func sameSpot(_ old: SymptomEntry, _ new: SymptomEntry) -> Bool {
+        if new.bodyPart == nil, new.rawLocationText == nil { return true }
+        if let part = new.bodyPart { return old.bodyPart == part }
+        return old.rawLocationText == new.rawLocationText
+    }
+
+    /// 전에도 있던 증상: 기존 값은 두고 빈 칸만 이번 값으로 채운다. 이번 내용은 "다시 통화: …"로 덧붙인다
+    /// (검토 필요 표시는 맨 앞에 하나만)
+    private static func filled(_ old: SymptomEntry, with new: SymptomEntry) -> SymptomEntry {
+        let review = "[검토 필요] "
+        let newText = new.detail.map { $0.hasPrefix(review) ? String($0.dropFirst(review.count)) : $0 }
+        let oldText = old.detail.map { $0.hasPrefix(review) ? String($0.dropFirst(review.count)) : $0 }
+        let flagged = old.detail?.hasPrefix(review) == true || new.detail?.hasPrefix(review) == true
+        let body = [oldText, newText.map { "다시 통화: " + $0 }].compactMap(\.self).joined(separator: " / ")
+        let detail = body.isEmpty ? nil : String(((flagged ? review : "") + body).prefix(SymptomEntry.detailLimit))
+        let merged = try? SymptomEntry(id: old.id, symptomType: old.symptomType, presence: .present,
+                                       bodyPart: old.bodyPart ?? new.bodyPart, bodySide: old.bodySide ?? new.bodySide,
+                                       rawLocationText: old.rawLocationText ?? new.rawLocationText,
+                                       durationMinutes: old.durationMinutes ?? new.durationMinutes,
+                                       occurrenceCount: old.occurrenceCount ?? new.occurrenceCount, detail: detail)
+        return merged ?? old
     }
 
     private static func number(_ text: String, else error: SymptomValueError) throws -> Int? {
