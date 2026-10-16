@@ -119,7 +119,7 @@ struct FollowUpCallTests {
 
     // MARK: - 재검토 (자동 검토 지적)
 
-    @Test(arguments: ["똑같지 않아요", "그대로가 아니에요"])
+    @Test(arguments: ["똑같지 않아요", "그대로가 아니에요", "그대로가아니에요", "똑같진않아요"])
     func 달라진_게_없다는_말을_부정하면_끝내지_않고_되묻는다(answer: String) async {
         let call = engine()
         _ = call.start()

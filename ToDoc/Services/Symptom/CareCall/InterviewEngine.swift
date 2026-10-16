@@ -158,6 +158,8 @@ final class InterviewEngine {
             let unclear = isUnclearChange(patientText), settled = unclear || isUnchanged(patientText)
             if !toldNewSymptom, !settled, openingFirstAnswer == nil {
                 openingFirstAnswer = patientText
+                // 첫 답에서 생긴 기타 항목: 되물은 답에서 같은 증상을 또 기록하지 않게 (위의 되묻기와 같다)
+                openingOtherName = ledger.order.first { $0.hasPrefix("other:") && before[$0] == nil }.flatMap { ledger[$0]?.otherName }
                 return Output(utterance: say(config.openingFollowUp), phase: phase)
             }
             if unclear { recordUnclearChange(patientText) }
@@ -511,9 +513,9 @@ final class InterviewEngine {
         let compact = Self.normalized(t)
         guard soundsNegative(t) || config.followUpCall.unchangedAnswers.contains(where: { compact.contains(Self.normalized($0)) })
         else { return false }
-        if ["근데", "그런데", "는데", "지만", "한데"].contains(where: { t.contains($0) }) { return false }
-        // "똑같지 않아요", "그대로가 아니에요": 달라졌다는 뜻이라 모델이 본다
-        if ["지 않", "진 않", "지않", "가 아니", "이 아니", "게 아니"].contains(where: { t.contains($0) }) { return false }
+        if ["근데", "그런데", "는데", "지만", "한데"].contains(where: { compact.contains($0) }) { return false }
+        // "똑같지 않아요", "그대로가 아니에요": 달라졌다는 뜻이라 모델이 본다 (띄어쓰기 없이 비교)
+        if ["지않", "진않", "가아니", "이아니", "게아니"].contains(where: { compact.contains($0) }) { return false }
         if !NumberParser.numbers(in: t).isEmpty { return false }
         if config.effects.flatMap(\.keywords).contains(where: { t.contains($0) }) { return false }
         return symptomHints.matches(t) == nil && openingConcerns.matches(t) == nil
