@@ -11,4 +11,9 @@ public enum MappingError: Error {
     case invalidCarcinomaType(String)
     case invalidCarcinomaStage(String)
     case incompleteCarcinomaDetail
+    case invalidSymptomType(String)
+    case invalidBodyPart(String)
+    case invalidBodySide(String)
+    case invalidBodyView(String)
+    case invalidSymptomPresence(String)
 }
