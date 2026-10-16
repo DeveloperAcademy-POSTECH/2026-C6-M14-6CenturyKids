@@ -82,7 +82,11 @@ final class CareCallService: CareCalling {
 
     func answer(_ text: String) async throws -> CareCallTurn {
         guard let engine else { throw CareCallServiceError.notPrepared }
-        return turn(await engine.handle(patientText: text), of: engine)
+        // 문자 대화에서도 모델을 불러올 때 음성 합성이 고정 문구를 미리 합성하기 시작한다. 분석 중에는 멈춘다 (CPU 경쟁)
+        await voice?.setBusy(true)
+        let out = await engine.handle(patientText: text)
+        await voice?.setBusy(false)
+        return turn(out, of: engine)
     }
 
     func end() -> CareCallOutcome {
