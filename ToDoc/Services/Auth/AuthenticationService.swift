@@ -34,9 +34,8 @@ final class AuthenticationService {
     }
     
     /// 현재 로그인된 사용자의 정보를 반환합니다.
-    func getCurrentUser() async throws -> User? {
-        guard let userId = try await authRepository.getCurrentUserId() else {
-            return nil
+        func getCurrentUserId() async throws -> UUID? {
+            return try await authRepository.getCurrentUserId()
         }
 
         return try await userRepository.findById(userId)
