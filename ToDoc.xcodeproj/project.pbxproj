@@ -24,7 +24,6 @@
 				Data/DTOs/Exercise/.gitkeep,
 				Data/DTOs/Intake/.gitkeep,
 				Data/DTOs/Notification/.gitkeep,
-				Data/Repositories/Supabase/.gitkeep,
 				Data/Supabase/EdgeFunction/.gitkeep,
 				Domain/Exercise/Enums/.gitkeep,
 				Domain/Hospital/Enums/.gitkeep,

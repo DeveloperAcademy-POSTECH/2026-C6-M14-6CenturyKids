@@ -3,7 +3,6 @@ import Foundation
 /// 사용자 정보의 값 스냅샷입니다. 변경 실패 시 기존 값을 보존합니다.
 nonisolated public struct User: Sendable {
     public let id: UUID
-    public let email: String
     public private(set) var name: String
     public private(set) var birthday: Date
     public private(set) var sex: Sex
@@ -11,17 +10,15 @@ nonisolated public struct User: Sendable {
     public var age: Int { age(on: Date(), calendar: DomainDateRules.calendar) }
 
     public init(id: UUID, email: String, name: String, birthday: Date, sex: Sex) throws {
-        try self.init(id: id, email: email, name: name, birthday: birthday, sex: sex,
+        try self.init(id: id, name: name, birthday: birthday, sex: sex,
                       now: Date(), calendar: DomainDateRules.calendar)
     }
 
-    init(id: UUID, email: String, name: String, birthday: Date, sex: Sex,
+    init(id: UUID, name: String, birthday: Date, sex: Sex,
          now: Date, calendar: Calendar) throws {
-        let validEmail = try DomainValidation.email(email)
         let validName = try DomainValidation.name(name, maximum: 10)
         try DomainDateRules.validateBirthday(birthday, now: now, calendar: calendar)
         self.id = id
-        self.email = validEmail
         self.name = validName
         self.birthday = birthday
         self.sex = sex
