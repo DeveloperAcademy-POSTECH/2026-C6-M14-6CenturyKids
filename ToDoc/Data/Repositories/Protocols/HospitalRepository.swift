@@ -8,7 +8,7 @@ import Foundation
 protocol HospitalRepository: Repository
 where Entity == Hospital {
     func save(
-        _ hospital: Hospital
+        hospital: Hospital
     ) async throws
 
     func findByName(

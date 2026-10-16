@@ -8,8 +8,8 @@ import Foundation
 protocol ExerciseRepository: Repository
 where Entity == ExerciseGoal {
     func save(
-        _ goal: ExerciseGoal,
-        for patientId: UUID, /// 다이어그램의 userId -> patientId로 변경했다.
+        goal: ExerciseGoal,
+        for patientId: UUID,
         setBy doctorId: UUID
     ) async throws
 

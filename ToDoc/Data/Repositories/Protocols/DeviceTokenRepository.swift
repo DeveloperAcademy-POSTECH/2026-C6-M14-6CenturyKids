@@ -6,12 +6,12 @@
 import Foundation
 
 protocol DeviceTokenRepository {
-    func saveToken(
-        userId: UUID,
-        _ token: String
+    func save(
+        token: String,
+        for userId: UUID
     ) async throws
 
-    func deleteToken(
-        _ token: String
+    func delete(
+        token: String
     ) async throws
 }

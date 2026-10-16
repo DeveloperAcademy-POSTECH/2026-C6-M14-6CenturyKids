@@ -7,8 +7,7 @@ import Foundation
 
 protocol RecordRepository: Repository {
     func save(
-        _ entity: Entity,
-        for patientId: UUID
+        entity: Entity
     ) async throws
 
     func findByPatientId(
