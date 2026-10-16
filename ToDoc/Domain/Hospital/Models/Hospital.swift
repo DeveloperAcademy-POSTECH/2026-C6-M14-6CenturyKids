@@ -6,16 +6,14 @@ nonisolated public struct Hospital: Sendable {
     public let name: String
     public let code: String
     public private(set) var address: String
-    public let doctors: [Doctor]
 
-    public init(id: UUID, name: String, code: String, address: String, doctors: [Doctor]) throws {
+    public init(id: UUID, name: String, code: String, address: String) throws {
         let validName = try DomainValidation.name(name, maximum: 30)
         let validAddress = try DomainValidation.address(address)
         self.id = id
         self.name = validName
         self.code = code
         self.address = validAddress
-        self.doctors = doctors
     }
 
     public mutating func updateAddress(_ address: String) throws {
