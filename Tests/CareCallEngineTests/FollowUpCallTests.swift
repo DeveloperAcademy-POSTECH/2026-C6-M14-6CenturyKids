@@ -116,4 +116,32 @@ struct FollowUpCallTests {
         let out = await first.handle(patientText: "똑같아요")
         #expect(out.phase != .saved)
     }
+
+    // MARK: - 재검토 (자동 검토 지적)
+
+    @Test(arguments: ["똑같지 않아요", "그대로가 아니에요"])
+    func 달라진_게_없다는_말을_부정하면_끝내지_않고_되묻는다(answer: String) async {
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: answer)
+        #expect(out.phase == .opening && out.utterance == config.openingFollowUp)
+    }
+
+    @Test func 글쎄요라도_나빠졌다는_말이_있으면_모름으로_끝내지_않는다() async {
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: "글쎄요, 좀 안 좋아진 것 같기도 하고요")
+        #expect(out.phase == .opening && out.utterance == config.openingFollowUp)
+        #expect(call.ledger.order.isEmpty)
+    }
+
+    @Test func 분석이_실패하면_끝내지_않고_되묻고_다시_모르면_그_밖에를_묻는다() async {
+        mock.failOn = ["어제 이상한 게 있었는데"]
+        let call = engine()
+        _ = call.start()
+        let ask = await call.handle(patientText: "어제 이상한 게 있었는데")
+        #expect(ask.phase == .opening && ask.utterance == config.openingFollowUp)
+        let other = await call.handle(patientText: "음 뭐였더라")
+        #expect(other.phase == .other) // 분명히 '없다'고 하지 않았으면 '그 밖에'로 한 번 더 기회를 준다
+    }
 }

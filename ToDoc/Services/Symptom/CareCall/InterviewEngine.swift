@@ -136,11 +136,6 @@ final class InterviewEngine {
         if current == .opening, unasked == nil {
             ledger.setConditionText([openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / "))
         }
-        // 다시 거는 통화에서 "네"만 답함 ("다시 전화하셨네요?"에 답했을 수 있다): 무엇이 달라졌는지 한 번 되묻는다
-        if current == .opening, unasked != nil, openingFirstAnswer == nil, isShortYes(patientText) {
-            openingFirstAnswer = patientText
-            return Output(utterance: say(config.openingFollowUp), phase: phase)
-        }
         // 첫 질문: 증상 표현이나 컨디션이 나쁘다는 말이 있고 목록 증상은 기록되지 않았으면 한 번 되묻는다
         // ("피곤해요" → "어떤 점이 그러신지…". "보통이에요", "잠은 잘 자요"는 묻지 않음)
         if current == .opening, openingFirstAnswer == nil, result?.needsClarification != true,
@@ -155,11 +150,18 @@ final class InterviewEngine {
         let answerText = current == .opening ? [openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / ") : patientText
         recordVerbatimOtherIfMissed(result, during: current, patientText: patientText, text: answerText,
                                     unchanged: ledger.sameRecords(as: before))
-        // 다시 거는 통화: "글쎄요"면 달라진 점을 '모름'으로 남긴다. 말한 증상이 없으면 '그 밖에'도 묻지 않는다 (첫 질문이 이미 물었다).
-        // 지난 통화에서 못 물은 항목이 있으면 그 항목을 묻고 '그 밖에'로 마무리한다
+        // 다시 거는 통화의 첫 답
+        // - 말한 증상이 없는데 달라진 게 없다·모르겠다고 분명히 답하지도 않음("네"만, 분석 실패, 알아듣지 못한 답): 한 번 되묻는다
+        // - "글쎄요"면 달라진 점을 '모름'으로 남긴다
+        // - 분명히 달라진 게 없다면 '그 밖에'도 묻지 않는다 (첫 질문이 이미 물었다). 지난 통화에서 못 물은 항목이 있으면 묻고 '그 밖에'로 마무리
         if current == .opening, let unasked {
-            if isUnclearChange(patientText) { recordUnclearChange(patientText) }
-            if !toldNewSymptom { otherAsked = unasked.isEmpty }
+            let unclear = isUnclearChange(patientText), settled = unclear || isUnchanged(patientText)
+            if !toldNewSymptom, !settled, openingFirstAnswer == nil {
+                openingFirstAnswer = patientText
+                return Output(utterance: say(config.openingFollowUp), phase: phase)
+            }
+            if unclear { recordUnclearChange(patientText) }
+            if !toldNewSymptom { otherAsked = settled && unasked.isEmpty }
         }
 
         switch current {
@@ -206,7 +208,7 @@ final class InterviewEngine {
             case (true, true): f.noted
             case (true, false): f.notedAndResume
             case (false, false): f.resume
-            case (false, true): isUnclearChange(patientText) ? nil : f.unchanged
+            case (false, true): isUnchanged(patientText) && !isUnclearChange(patientText) ? f.unchanged : nil
             }
             utterance = [transition, utterance].compactMap(\.self).joined(separator: " ")
         } else if current == .opening {
@@ -490,6 +492,8 @@ final class InterviewEngine {
 
     /// 다시 거는 통화의 첫 질문에 "글쎄요"·"잘 모르겠어요" (증상 낱말·숫자·연결어가 있으면 모델이 본다)
     private func isUnclearChange(_ patientText: String) -> Bool {
+        // 나빠졌다는 말이 섞이면 모델이 본다 ("글쎄요, 좀 안 좋아진 것 같기도 하고요")
+        guard openingConcerns.matches(patientText) == nil else { return false }
         if isUnknownAnswer(patientText) { return true }
         let compact = Self.normalized(patientText)
         guard config.followUpCall.unclearAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
@@ -506,6 +510,8 @@ final class InterviewEngine {
         guard soundsNegative(t) || config.followUpCall.unchangedAnswers.contains(where: { compact.contains(Self.normalized($0)) })
         else { return false }
         if ["근데", "그런데", "는데", "지만", "한데"].contains(where: { t.contains($0) }) { return false }
+        // "똑같지 않아요", "그대로가 아니에요": 달라졌다는 뜻이라 모델이 본다
+        if ["지 않", "진 않", "지않", "가 아니", "이 아니", "게 아니"].contains(where: { t.contains($0) }) { return false }
         if !NumberParser.numbers(in: t).isEmpty { return false }
         if config.effects.flatMap(\.keywords).contains(where: { t.contains($0) }) { return false }
         return symptomHints.matches(t) == nil && openingConcerns.matches(t) == nil
