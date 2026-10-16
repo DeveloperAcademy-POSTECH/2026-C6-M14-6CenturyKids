@@ -86,4 +86,20 @@ struct FollowUpMergeTests {
         let cut = CareCallViewModel.merge(record([entry(.diarrhea, .present, long)]), with: record([entry(.diarrhea, .present, "추가")]))
         #expect(cut.symptoms[0].detail?.count == SymptomEntry.detailLimit)
     }
+
+    @Test func 길어도_이번_답은_잘리지_않고_전_내용을_줄인다() {
+        let long = String(repeating: "가", count: 295)
+        let merged = CareCallViewModel.merge(record([entry(.diarrhea, .present, long)]),
+                                             with: record([entry(.diarrhea, .present, "오늘 오후에 네 번이요")]))
+        let detail = merged.symptoms[0].detail ?? ""
+        #expect(detail.count <= SymptomEntry.detailLimit)
+        #expect(detail.hasSuffix("다시 통화: 오늘 오후에 네 번이요"))
+    }
+
+    @Test func 요약에서_지운_증상의_검토_필요는_그날_기록에_남긴다() {
+        let old = record([entry(.diarrhea, .present, "세 번", count: 3)])
+        let merged = CareCallViewModel.merge(old, with: record([entry(.diarrhea, .absent, "[검토 필요] 환자가 요약에서 지움: 또 했어요")]))
+        #expect(merged.symptoms[0].presence == .present && merged.symptoms[0].occurrenceCount == 3)
+        #expect(merged.symptoms[0].detail == "[검토 필요] 세 번 / 다시 통화: 환자가 요약에서 지움: 또 했어요")
+    }
 }

@@ -514,7 +514,14 @@ final class CareCallViewModel {
                 symptoms.append(entry)
                 continue
             }
-            guard entry.presence == .present else { continue }
+            guard entry.presence == .present else {
+                // 이번에 없음·모름이면 그날 기록은 그대로. 검토가 필요한 답(요약에서 지움 등)이면 내용만 덧붙여 의료진이 보게 한다
+                if entry.detail?.hasPrefix(Self.review) == true,
+                   let index = symptoms.firstIndex(where: { $0.symptomType == entry.symptomType }) {
+                    symptoms[index] = filled(symptoms[index], with: entry)
+                }
+                continue
+            }
             if !sameType.contains(where: { $0.presence == .present }) {
                 symptoms.removeAll { $0.symptomType == entry.symptomType }
                 symptoms.append(entry)
@@ -542,16 +549,23 @@ final class CareCallViewModel {
         return old.rawLocationText == new.rawLocationText
     }
 
-    /// 전에도 있던 증상: 기존 값은 두고 빈 칸만 이번 값으로 채운다. 이번 내용은 "다시 통화: …"로 덧붙인다
-    /// (검토 필요 표시는 맨 앞에 하나만)
+    private static let review = "[검토 필요] "
+
+    /// 전에도 있던 증상: 기존 값(유무 포함)은 두고 빈 칸만 이번 값으로 채운다. 이번 내용은 "다시 통화: …"로 덧붙인다.
+    /// 검토 필요 표시는 맨 앞에 하나만. 길면 전 내용을 줄여 이번 답은 남긴다
     private static func filled(_ old: SymptomEntry, with new: SymptomEntry) -> SymptomEntry {
-        let review = "[검토 필요] "
-        let newText = new.detail.map { $0.hasPrefix(review) ? String($0.dropFirst(review.count)) : $0 }
-        let oldText = old.detail.map { $0.hasPrefix(review) ? String($0.dropFirst(review.count)) : $0 }
+        func stripped(_ text: String?) -> String? { text.map { $0.hasPrefix(review) ? String($0.dropFirst(review.count)) : $0 } }
         let flagged = old.detail?.hasPrefix(review) == true || new.detail?.hasPrefix(review) == true
-        let body = [oldText, newText.map { "다시 통화: " + $0 }].compactMap(\.self).joined(separator: " / ")
-        let detail = body.isEmpty ? nil : String(((flagged ? review : "") + body).prefix(SymptomEntry.detailLimit))
-        let merged = try? SymptomEntry(id: old.id, symptomType: old.symptomType, presence: .present,
+        let head = flagged ? review : ""
+        let added = stripped(new.detail).map { "다시 통화: " + $0 }
+        var oldText = stripped(old.detail)
+        if let text = oldText, let added {
+            let room = SymptomEntry.detailLimit - head.count - added.count - " / ".count
+            oldText = room <= 1 ? nil : text.count <= room ? text : String(text.prefix(room - 1)) + "…"
+        }
+        let body = [oldText, added].compactMap(\.self).joined(separator: " / ")
+        let detail = body.isEmpty ? nil : String((head + body).prefix(SymptomEntry.detailLimit))
+        let merged = try? SymptomEntry(id: old.id, symptomType: old.symptomType, presence: old.presence,
                                        bodyPart: old.bodyPart ?? new.bodyPart, bodySide: old.bodySide ?? new.bodySide,
                                        rawLocationText: old.rawLocationText ?? new.rawLocationText,
                                        durationMinutes: old.durationMinutes ?? new.durationMinutes,
