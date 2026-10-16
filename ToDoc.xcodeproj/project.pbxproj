@@ -7,9 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		C6A1D0000000000000000011 /* CoreAILM in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1D0000000000000000012 /* CoreAILM */; };
 		A1B02669307B83AE00547CD2 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A1B02668307B83AE00547CD2 /* Supabase */; };
 		C6A1D0000000000000000001 /* onnxruntime in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1D0000000000000000002 /* onnxruntime */; };
+		C6A1D0000000000000000011 /* CoreAILM in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1D0000000000000000012 /* CoreAILM */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,27 +23,20 @@
 				Core/Errors/.gitkeep,
 				Core/Extensions/.gitkeep,
 				Core/UI/Components/.gitkeep,
-				Data/.gitkeep,
 				Data/DTOs/Exercise/.gitkeep,
-				Data/DTOs/Hospital/.gitkeep,
 				Data/DTOs/Intake/.gitkeep,
 				Data/DTOs/Notification/.gitkeep,
 				Data/DTOs/Pain/.gitkeep,
-				Data/DTOs/Symptom/.gitkeep,
-				Data/DTOs/User/.gitkeep,
 				Data/Repositories/Supabase/.gitkeep,
 				Data/Supabase/EdgeFunction/.gitkeep,
 				Domain/Exercise/Enums/.gitkeep,
 				Domain/Hospital/Enums/.gitkeep,
-				Domain/Hospital/Models/.gitkeep,
 				Domain/Intake/Enums/.gitkeep,
 				Domain/Intake/Models/.gitkeep,
 				Domain/Notification/Enums/.gitkeep,
 				Domain/Notification/Models/.gitkeep,
 				Domain/Pain/Enums/.gitkeep,
 				Domain/Pain/Models/.gitkeep,
-				Domain/Symptom/Enums/.gitkeep,
-				Domain/Symptom/Models/.gitkeep,
 				Features/.gitkeep,
 			);
 			target = A13BCAF93077425800901BFD /* ToDoc */;
@@ -429,14 +422,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		C6A1D0000000000000000013 /* XCRemoteSwiftPackageReference "coreai-models" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/YangSeokHoR/coreai-models.git";
-			requirement = {
-				kind = revision;
-				revision = b9ccaa0ec9acf864e25ac20d425cebdc252f4473;
-			};
-		};
 		A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
@@ -453,14 +438,17 @@
 				version = 1.24.2;
 			};
 		};
+		C6A1D0000000000000000013 /* XCRemoteSwiftPackageReference "coreai-models" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/YangSeokHoR/coreai-models.git";
+			requirement = {
+				kind = revision;
+				revision = b9ccaa0ec9acf864e25ac20d425cebdc252f4473;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		C6A1D0000000000000000012 /* CoreAILM */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C6A1D0000000000000000013 /* XCRemoteSwiftPackageReference "coreai-models" */;
-			productName = CoreAILM;
-		};
 		A1B02668307B83AE00547CD2 /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */;
@@ -470,6 +458,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */;
 			productName = onnxruntime;
+		};
+		C6A1D0000000000000000012 /* CoreAILM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C6A1D0000000000000000013 /* XCRemoteSwiftPackageReference "coreai-models" */;
+			productName = CoreAILM;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
