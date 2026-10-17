@@ -66,4 +66,12 @@ final class PainRecordViewModel {
         preparedRecord = nil
         return record
     }
+
+    func discardPreparedRecord() throws {
+        guard !isSaving else {
+            throw SaveError.alreadySaving
+        }
+
+        preparedRecord = nil
+    }
 }
