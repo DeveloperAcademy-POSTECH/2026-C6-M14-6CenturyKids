@@ -1,23 +1,22 @@
 import SwiftUI
 
-/// View는 입력과 페이지 이동을 담당하고 저장 요청을 외부로 전달합니다.
+/// View는 입력과 페이지 이동을 담당하고, ViewModel에서 기록을 준비합니다.
 struct PainRecordView: View {
     let viewModel: PainRecordViewModel
     @State private var state: PainScreenState
     @State private var step = 0
     @Environment(\.dismiss) private var dismiss
-    var onSave: ((PainFormInput) -> Void)?
     var onClose: (() -> Void)?
     var onShowRecord: (() -> Void)?
     var onHome: (() -> Void)?
     var onCancel: (() -> Void)?
 
-    init(viewModel: PainRecordViewModel, state: PainScreenState = PainScreenState(), onSave: ((PainFormInput) -> Void)? = nil,
+    init(viewModel: PainRecordViewModel, state: PainScreenState = PainScreenState(),
          onClose: (() -> Void)? = nil, onShowRecord: (() -> Void)? = nil,
          onHome: (() -> Void)? = nil, onCancel: (() -> Void)? = nil) {
         self.viewModel = viewModel
         _state = State(initialValue: state)
-        self.onSave = onSave; self.onClose = onClose; self.onShowRecord = onShowRecord
+        self.onClose = onClose; self.onShowRecord = onShowRecord
         self.onHome = onHome; self.onCancel = onCancel
     }
     var body: some View {
@@ -37,8 +36,8 @@ struct PainRecordView: View {
                 default:
                     PainAfterMedicationView(locations: viewModel.selectedLocations, before: viewModel.painBefore,
                         score: afterScoreBinding, isSaving: state.isSaving,
-                        errorMessage: state.errorMessage ?? (onSave == nil ? "저장 기능 연결 전이에요. 입력한 값은 저장되지 않아요." : nil),
-                        onPrevious: { step = 1 }, onSave: onSave.map { save in { save(state.input) } }, onClose: close)
+                        errorMessage: state.errorMessage,
+                        onPrevious: { step = 1 }, onNext: prepareSummary, onClose: close)
                 }
             }
         }.onDisappear { onCancel?() }
@@ -60,6 +59,21 @@ struct PainRecordView: View {
                 if let score { viewModel.setAfterScore(score) }
             }
         )
+    }
+
+    private func prepareSummary() {
+        do {
+            let record = try viewModel.prepareRecord()
+            state.completion = PainCompletionData(
+                location: record.location,
+                painBefore: record.painBefore,
+                painAfter: record.painAfter,
+                painChange: record.painChange
+            )
+            state.errorMessage = nil
+        } catch {
+            state.errorMessage = "통증 기록을 준비하지 못했어요."
+        }
     }
 
     private func close() { if let onClose { onClose() } else { dismiss() } }
