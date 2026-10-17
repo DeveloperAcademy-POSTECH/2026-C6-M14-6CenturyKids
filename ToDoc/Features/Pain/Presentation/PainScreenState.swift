@@ -18,7 +18,6 @@ struct PainCompletionData {
 
 @Observable final class PainScreenState {
     var input = PainFormInput()
-    var isSaving = false
     var errorMessage: String?
     var completion: PainCompletionData?
 }

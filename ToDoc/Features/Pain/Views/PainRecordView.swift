@@ -6,12 +6,26 @@ struct PainRecordView: View {
     @State private var state: PainScreenState
     @State private var step = 0
     @State private var didStartRecord = false
-    @State private var showsRecordAgainError = false
+    @State private var activeAlert: PainRecordAlert?
     @Environment(\.dismiss) private var dismiss
     var onClose: (() -> Void)?
     var onShowRecord: (() -> Void)?
     var onHome: (() -> Void)?
     var onCancel: (() -> Void)?
+
+    private enum PainRecordAlert: String, Identifiable {
+        case recordAgainFailed
+        case saveFailed
+
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .recordAgainFailed: "다시 기록할 수 없어요"
+            case .saveFailed: "기록을 저장하지 못했어요"
+            }
+        }
+    }
 
     init(viewModel: PainRecordViewModel, state: PainScreenState = PainScreenState(),
          onClose: (() -> Void)? = nil, onShowRecord: (() -> Void)? = nil,
@@ -24,8 +38,17 @@ struct PainRecordView: View {
     var body: some View {
         Group {
             if let completion = state.completion {
-                PainCompletionView(record: completion, onRecordAgain: recordAgain,
-                                   onShowRecord: onShowRecord, onHome: onHome)
+                PainCompletionView(
+                    record: completion,
+                    isSaving: viewModel.isSaving,
+                    onRecordAgain: recordAgain,
+                    onShowRecord: onShowRecord.map { destination in
+                        { saveAndMove(to: destination) }
+                    },
+                    onHome: onHome.map { destination in
+                        { saveAndMove(to: destination) }
+                    }
+                )
             } else {
                 switch step {
                 case 0:
@@ -38,7 +61,7 @@ struct PainRecordView: View {
                         onPrevious: { step = 0 }, onNext: { step = 2 }, onClose: close)
                 default:
                     PainAfterMedicationView(locations: viewModel.selectedLocations, before: viewModel.painBefore,
-                        score: afterScoreBinding, isSaving: state.isSaving,
+                        score: afterScoreBinding, isSaving: viewModel.isSaving,
                         errorMessage: state.errorMessage,
                         onPrevious: { step = 1 }, onNext: prepareSummary, onClose: close)
                 }
@@ -46,10 +69,12 @@ struct PainRecordView: View {
         }
         .onAppear { startRecordIfNeeded() }
         .onDisappear { onCancel?() }
-        .alert("다시 기록할 수 없어요", isPresented: $showsRecordAgainError) {
-            Button("확인", role: .cancel) {}
-        } message: {
-            Text("잠시 후 다시 시도해 주세요.")
+        .alert(item: $activeAlert) { alert in
+            Alert(
+                title: Text(alert.title),
+                message: Text("잠시 후 다시 시도해 주세요."),
+                dismissButton: .default(Text("확인"))
+            )
         }
     }
 
@@ -105,7 +130,22 @@ struct PainRecordView: View {
             state.errorMessage = nil
             step = 0
         } catch {
-            showsRecordAgainError = true
+            activeAlert = .recordAgainFailed
+        }
+    }
+
+    private func saveAndMove(to destination: @escaping () -> Void) {
+        guard !viewModel.isSaving else { return }
+
+        Task { @MainActor in
+            do {
+                _ = try await viewModel.savePreparedRecord()
+                destination()
+            } catch PainRecordViewModel.SaveError.alreadySaving {
+                return
+            } catch {
+                activeAlert = .saveFailed
+            }
         }
     }
 
