@@ -39,7 +39,8 @@ final class InterviewEngine {
     /// 첫 질문에 꼬리질문을 했으면 그 첫 답
     private var openingFirstAnswer: String?
     private var openingOtherName: String?
-    private var lastQuestion: String
+    /// 마지막으로 한 말 = 답을 기다리는 질문 (음성·문자를 바꿔도 이 질문부터 이어 간다)
+    private(set) var lastQuestion: String
 
     init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI) {
         self.config = config
@@ -497,6 +498,12 @@ final class InterviewEngine {
             if let model, !model.isEmpty { return model }
             return config.locationPrompt
         }
+    }
+
+    /// 지금 묻는 세부 질문이 받는 숫자 (횟수·지속 시간). 문자 대화에서 입력 칸을 고른다. 글자로 받으면 nil
+    var expectedNumber: CareCallConfig.Effect.Detail.Number? {
+        guard case .slot(let key, .detail) = phase else { return nil }
+        return pendingDetail(for: key)?.number
     }
 
     private func pendingDetail(for key: String) -> CareCallConfig.Effect.Detail? {

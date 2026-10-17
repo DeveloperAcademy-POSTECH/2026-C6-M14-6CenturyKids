@@ -23,13 +23,13 @@ struct SymptomRecordConverter {
     let config: CareCallConfig
     let bodyParts: BodyPartDictionary
 
-    /// 첫 질문 답(ledger.conditionText)은 SymptomRecord에 담을 필드가 생기면 넘긴다 (Domain 변경 예정).
+    /// 첫 질문 답(ledger.conditionText)은 컨디션으로 그대로 넣는다 (첫 질문에 답하기 전이면 nil).
     /// 통화가 끊겼으면 끊긴 곳까지. 묻는 중이라 아직 답이 없는 항목은 넣지 않는다
     /// (끝까지 물어도 답이 분명하지 않아 닫힌 항목은 '모름')
-    func record(from ledger: Ledger, date: Date) -> SymptomRecord {
+    func record(from ledger: Ledger, patientId: UUID, date: Date) -> SymptomRecord {
         let answered = ledger.order.compactMap { ledger[$0] }.filter { $0.presence != nil || $0.closed }
         let entries = answered.flatMap(entries(for:))
-        return SymptomRecord(id: UUID(), recordedDate: date, symptoms: entries)
+        return SymptomRecord(id: UUID(), patientId: patientId, recordedDate: date, conditionText: ledger.conditionText, symptoms: entries)
     }
 
     /// 한 항목 → 부위별 SymptomEntry (부위가 없으면 하나)

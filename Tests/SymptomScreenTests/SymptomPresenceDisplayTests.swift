@@ -1,6 +1,6 @@
 import XCTest
 import ToDocDomain
-@testable import SymptomScreens
+@testable import ToDocCareCall
 
 final class SymptomPresenceDisplayTests: XCTestCase {
     func testDisplaysOnlyPresentSymptomsWithoutLosingOriginalAnswers() {

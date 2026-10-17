@@ -3,6 +3,9 @@
 //  ToDoc
 //
 
+#if SWIFT_PACKAGE
+import ToDocDomain
+#endif
 import Foundation
 
 protocol SymptomRepository: RecordRepository
