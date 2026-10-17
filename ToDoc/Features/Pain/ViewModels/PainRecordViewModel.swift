@@ -22,7 +22,6 @@ final class PainRecordViewModel {
 
     enum PreparationError: Error {
         case recordNotStarted
-        case missingScores
     }
 
     enum SaveError: Error {
@@ -57,24 +56,20 @@ final class PainRecordViewModel {
         recordedDate = Date()
     }
 
-    func prepareRecord(from input: PainFormInput) throws -> PainRecord {
+    func prepareRecord() throws -> PainRecord {
         preparedRecord = nil
 
         guard let recordedDate else {
             throw PreparationError.recordNotStarted
         }
 
-        guard let before = input.before, let after = input.after else {
-            throw PreparationError.missingScores
-        }
-
         let record = try PainRecord(
             id: UUID(),
             patientId: patientId,
-            recordedDate: recordedDate, // -> view에서 따로 선어하는겥x
-            location: input.locations,
-            painBefore: before,
-            painAfter: after
+            recordedDate: recordedDate,
+            location: selectedLocations,
+            painBefore: painBefore,
+            painAfter: painAfter
         )
         preparedRecord = record
         return record
@@ -106,5 +101,8 @@ final class PainRecordViewModel {
 
         preparedRecord = nil
         recordedDate = nil
+        selectedLocations = []
+        painBefore = 0
+        painAfter = 0
     }
 }
