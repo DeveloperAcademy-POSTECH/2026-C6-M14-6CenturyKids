@@ -8,22 +8,15 @@ import Foundation
 import ToDocDomain
 #endif
 
-protocol HospitalRepository: Repository
-where Entity == Hospital {
-    func save(
-        hospital: Hospital
-    ) async throws
-
+protocol HospitalRepository {
+    func findById(_ id: UUID) async throws -> Hospital?
+    
     func findByName(
         _ name: String
     ) async throws -> [Hospital]
 
     func findByCode(
         _ code: String
-    ) async throws -> Hospital?
-
-    func findByDoctorId(
-        _ doctorId: UUID
     ) async throws -> Hospital?
 
     func searchByAddress(
