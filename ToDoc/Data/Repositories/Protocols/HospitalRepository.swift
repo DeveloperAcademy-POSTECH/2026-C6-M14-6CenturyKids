@@ -16,10 +16,6 @@ protocol HospitalRepository {
         _ code: String
     ) async throws -> Hospital?
 
-    func findByDoctorId(
-        _ doctorId: UUID
-    ) async throws -> Hospital?
-
     func searchByAddress(
         _ keyword: String
     ) async throws -> [Hospital]
