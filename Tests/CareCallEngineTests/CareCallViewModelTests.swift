@@ -88,7 +88,7 @@ final class FakeSymptomRecords: SymptomRepository {
     private(set) var saved: [SymptomRecord] = []
     var failNextSave = false
     func findByPatientIdAndDate(_ patientId: UUID, _ date: Date) async throws -> SymptomRecord? { existing }
-    func save(_ entity: SymptomRecord, for patientId: UUID) async throws {
+    func save(entity: SymptomRecord) async throws {
         if failNextSave {
             failNextSave = false
             throw Failure()

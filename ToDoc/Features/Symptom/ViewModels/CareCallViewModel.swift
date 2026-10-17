@@ -487,7 +487,7 @@ final class CareCallViewModel {
         if existing != nil, !complete { return false }
         let replaced = SymptomRecord(id: existing?.id ?? record.id, patientId: record.patientId, recordedDate: record.recordedDate,
                                      conditionText: record.conditionText, symptoms: record.symptoms)
-        try await repository.save(replaced, for: patientId)
+        try await repository.save(entity: replaced)
         return true
     }
 
