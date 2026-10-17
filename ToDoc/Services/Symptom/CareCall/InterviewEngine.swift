@@ -111,7 +111,8 @@ final class InterviewEngine {
             result?.mentions.append(reason)
         }
         if let mentions = result?.mentions {
-            result?.mentions = normalizedOthers(mentions, during: current, patientText: patientText)
+            result?.mentions = reassignedByKeywords(normalizedOthers(mentions, during: current, patientText: patientText),
+                                                    during: current, patientText: patientText)
         }
         // 지금 묻지 않은 항목의 '없음'은 환자가 그 항목 낱말을 말했을 때만 받는다. 모델이 상관없는 말("잠은 잘 자요",
         // "음 좀 어지러웠어요")을 근거로 식사를 '없음'으로 채워 식사 질문이 통째로 빠졌다 (2026-10-08 평가).
@@ -233,6 +234,20 @@ final class InterviewEngine {
             utterance = prefix + " " + utterance
         }
         return Output(utterance: utterance, phase: phase)
+    }
+
+    /// 모델이 고른 목록 증상의 낱말은 환자 말에 없고 다른 목록 증상 하나의 낱말만 있으면 그 증상으로 바꾼다
+    /// ("요즘 입맛이 좀 없어요" → 모델은 구내염, 말한 낱말은 식사의 "입맛", 2026-10-17 실기기). 지금 묻는 항목의 답("네")은 그대로
+    private func reassignedByKeywords(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
+        func said(_ id: String) -> Bool { config.effects.first { $0.id == id }?.keywords.contains(where: patientText.contains) == true }
+        let saidIds = config.effects.map(\.id).filter(said)
+        guard saidIds.count == 1, let target = saidIds.first, !mentions.contains(where: { $0.effectId == target }) else { return mentions }
+        return mentions.map { mention in
+            guard knownIds.contains(mention.effectId), mention.effectId != phase.slotKey, !said(mention.effectId) else { return mention }
+            var moved = mention
+            moved.effectId = target
+            return moved
+        }
     }
 
     /// 다시 거는 통화에서 새로 '있음'으로 말한 증상이 있음 (기타 포함)

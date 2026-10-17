@@ -205,4 +205,14 @@ struct FollowUpCallTests {
         #expect(call.ledger["diarrhea"]?.presence == .present)
         #expect(call.ledger["diarrhea"]?.otherName == nil) // 이름이 ""이면 내용이 ": 세 번이요"로 저장됐다
     }
+
+    @Test func 모델이_고른_증상의_낱말이_없고_다른_증상_낱말만_있으면_그_증상으로_바꾼다() async {
+        mock.script["요즘 입맛이 좀 없어요"] = .mentions(Mention(effectId: "stomatitis", presence: .present))
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: "요즘 입맛이 좀 없어요")
+        #expect(call.ledger["stomatitis"] == nil)
+        #expect(call.ledger["dehydration_nutrition"]?.presence == .present)
+        #expect(out.phase == .slot(key: "dehydration_nutrition", step: .detail))
+    }
 }
