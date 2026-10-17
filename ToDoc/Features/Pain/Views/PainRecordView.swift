@@ -6,6 +6,7 @@ struct PainRecordView: View {
     @State private var state: PainScreenState
     @State private var step = 0
     @State private var didStartRecord = false
+    @State private var showsRecordAgainError = false
     @Environment(\.dismiss) private var dismiss
     var onClose: (() -> Void)?
     var onShowRecord: (() -> Void)?
@@ -23,7 +24,8 @@ struct PainRecordView: View {
     var body: some View {
         Group {
             if let completion = state.completion {
-                PainCompletionView(record: completion, onShowRecord: onShowRecord, onHome: onHome)
+                PainCompletionView(record: completion, onRecordAgain: recordAgain,
+                                   onShowRecord: onShowRecord, onHome: onHome)
             } else {
                 switch step {
                 case 0:
@@ -44,6 +46,11 @@ struct PainRecordView: View {
         }
         .onAppear { startRecordIfNeeded() }
         .onDisappear { onCancel?() }
+        .alert("다시 기록할 수 없어요", isPresented: $showsRecordAgainError) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("잠시 후 다시 시도해 주세요.")
+        }
     }
 
     private var beforeScoreBinding: Binding<Int?> {
@@ -88,6 +95,17 @@ struct PainRecordView: View {
             state.errorMessage = nil
         } catch {
             state.errorMessage = "통증 기록을 시작하지 못했어요."
+        }
+    }
+
+    private func recordAgain() {
+        do {
+            try viewModel.startRecord()
+            state.completion = nil
+            state.errorMessage = nil
+            step = 0
+        } catch {
+            showsRecordAgainError = true
         }
     }
 
