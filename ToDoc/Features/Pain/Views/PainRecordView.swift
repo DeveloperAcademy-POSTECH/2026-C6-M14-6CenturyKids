@@ -28,17 +28,15 @@ struct PainRecordView: View {
             } else {
                 switch step {
                 case 0:
-                    PainLocationSelectionView(locations: state.input.locations, errorMessage: state.errorMessage,
-                        onToggle: { location in
-                            if state.input.locations.contains(location) { state.input.locations.removeAll { $0 == location } }
-                            else { state.input.locations.append(location) }
-                        }, onRemove: { location in state.input.locations.removeAll { $0 == location } },
+                    PainLocationSelectionView(locations: viewModel.selectedLocations, errorMessage: state.errorMessage,
+                        onToggle: { location in viewModel.selectLocation(location) },
+                        onRemove: { location in viewModel.removeLocation(location) },
                         onNext: { step = 1 }, onClose: close)
                 case 1:
-                    PainBeforeMedicationView(locations: state.input.locations, score: $state.input.before,
+                    PainBeforeMedicationView(locations: viewModel.selectedLocations, score: $state.input.before,
                         onPrevious: { step = 0 }, onNext: { step = 2 }, onClose: close)
                 default:
-                    PainAfterMedicationView(locations: state.input.locations, before: state.input.before ?? 0,
+                    PainAfterMedicationView(locations: viewModel.selectedLocations, before: state.input.before ?? 0,
                         score: $state.input.after, isSaving: state.isSaving,
                         errorMessage: state.errorMessage ?? (onSave == nil ? "저장 기능 연결 전이에요. 입력한 값은 저장되지 않아요." : nil),
                         onPrevious: { step = 1 }, onSave: onSave.map { save in { save(state.input) } }, onClose: close)
