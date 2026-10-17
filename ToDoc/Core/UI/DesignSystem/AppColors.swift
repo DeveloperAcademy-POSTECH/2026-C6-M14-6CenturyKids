@@ -7,17 +7,4 @@ enum AppColors {
     static let secondary = Color("DesignSystem/Secondary")
     static let gray = Color("DesignSystem/Gray")
     static let background = Color("DesignSystem/Background")
-
-    enum Text {
-        static let primary = Color("DesignSystem/TextPrimary")
-        static let secondary = Color("DesignSystem/TextSecondary")
-        static let subAction = Color("DesignSystem/SubAction")
-    }
-
-    enum Button {
-        static let primaryForeground = Color("DesignSystem/OnPrimary")
-        static let disabledForeground = Color("DesignSystem/OnDisabled")
-        static let secondaryForeground = Color("DesignSystem/OnSecondary")
-        static let backBackground = Color("DesignSystem/BackBackground")
-    }
 }
