@@ -21,7 +21,6 @@ struct PainRecordView: View {
         self.onHome = onHome; self.onCancel = onCancel
     }
     var body: some View {
-        @Bindable var state = state
         Group {
             if let completion = state.completion {
                 PainCompletionView(record: completion, onShowRecord: onShowRecord, onHome: onHome)
@@ -33,17 +32,36 @@ struct PainRecordView: View {
                         onRemove: { location in viewModel.removeLocation(location) },
                         onNext: { step = 1 }, onClose: close)
                 case 1:
-                    PainBeforeMedicationView(locations: viewModel.selectedLocations, score: $state.input.before,
+                    PainBeforeMedicationView(locations: viewModel.selectedLocations, score: beforeScoreBinding,
                         onPrevious: { step = 0 }, onNext: { step = 2 }, onClose: close)
                 default:
-                    PainAfterMedicationView(locations: viewModel.selectedLocations, before: state.input.before ?? 0,
-                        score: $state.input.after, isSaving: state.isSaving,
+                    PainAfterMedicationView(locations: viewModel.selectedLocations, before: viewModel.painBefore,
+                        score: afterScoreBinding, isSaving: state.isSaving,
                         errorMessage: state.errorMessage ?? (onSave == nil ? "저장 기능 연결 전이에요. 입력한 값은 저장되지 않아요." : nil),
                         onPrevious: { step = 1 }, onSave: onSave.map { save in { save(state.input) } }, onClose: close)
                 }
             }
         }.onDisappear { onCancel?() }
     }
+
+    private var beforeScoreBinding: Binding<Int?> {
+        Binding(
+            get: { viewModel.painBefore },
+            set: { score in
+                if let score { viewModel.setBeforeScore(score) }
+            }
+        )
+    }
+
+    private var afterScoreBinding: Binding<Int?> {
+        Binding(
+            get: { viewModel.painAfter },
+            set: { score in
+                if let score { viewModel.setAfterScore(score) }
+            }
+        )
+    }
+
     private func close() { if let onClose { onClose() } else { dismiss() } }
 }
 #if DEBUG
