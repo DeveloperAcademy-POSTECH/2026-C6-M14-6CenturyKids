@@ -175,4 +175,22 @@ struct FollowUpCallTests {
         let out = await call.handle(patientText: "설사는 멈췄는데 대신 머리가 좀")
         #expect(out.phase == .opening && out.utterance == config.openingFollowUp)
     }
+
+    @Test func 긴_답은_없어요가_있어도_모델이_먼저_본다() async {
+        mock.script["요즘 입맛이 좀 없어요"] = .mentions(Mention(effectId: "dehydration_nutrition", presence: .present))
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: "요즘 입맛이 좀 없어요")
+        #expect(mock.requests.count >= 1)
+        #expect(call.ledger["dehydration_nutrition"]?.presence == .present)
+        #expect(out.phase != .saved)
+    }
+
+    @Test func 길게_말해도_모델이_찾은_게_없고_달라진_게_없다는_말이면_마친다() async {
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: "음 딱히 달라진 건 없는 것 같아요")
+        #expect(mock.requests.count >= 1) // 짧은 답이 아니라 모델이 먼저 본다
+        #expect(out.phase == .saved && out.utterance == config.followUpCall.unchanged + " " + rules.closingMessage)
+    }
 }

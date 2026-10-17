@@ -460,7 +460,9 @@ final class InterviewEngine {
         case .slot(_, .detail): // 횟수·시작 시점·지속 시간·섭취량: 모델 없이 환자 말 그대로 기록 (아래 switch)
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
                               emergencySignal: false, utterance: "")
-        case .opening where unasked != nil && (yes || isUnchanged(patientText) || isUnclearChange(patientText)):
+        // 달라진 게 없다는 답은 짧을 때만 모델 없이 처리한다 ("똑같아요", "없어요"). 긴 답은 증상이 섞였을 수 있어 모델이 먼저 본다
+        // ("요즘 입맛이 좀 없어요"). 모델이 찾은 게 없고 달라진 게 없다는 말이면 그때 마친다 (handle)
+        case .opening where unasked != nil && (yes || (isUnchanged(patientText) && text.count <= 8) || isUnclearChange(patientText)):
             // 다시 거는 통화: 달라진 게 없음·모르겠음 → 기록할 증상 없음 ("글쎄요"는 아래에서 '모름'으로 남긴다), "네"만 → 아래에서 되묻는다
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
                               emergencySignal: false, utterance: "")
