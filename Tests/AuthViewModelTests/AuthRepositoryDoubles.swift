@@ -60,8 +60,6 @@ final class TestUsers: UserRepository {
             : user
     }
     func findById(_ id: UUID) async throws -> User? { value }
-    func deleteById(_ id: UUID) async throws {}
-    func findByEmail(_ email: String) async throws -> User? { value }
     func findByName(_ name: String) async throws -> [User] { value.map { [$0] } ?? [] }
 }
 final class TestPatients: PatientRepository {
@@ -74,7 +72,6 @@ final class TestPatients: PatientRepository {
         value = patient
     }
     func findById(_ id: UUID) async throws -> Patient? { value }
-    func deleteById(_ id: UUID) async throws {}
     func findByName(_ name: String) async throws -> [Patient] { [] }
     func findByDoctorId(_ doctorId: UUID) async throws -> [Patient] { [] }
 }

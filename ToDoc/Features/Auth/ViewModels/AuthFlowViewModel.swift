@@ -11,7 +11,7 @@ enum AuthEntry { case login, signup, passwordReset }
 @MainActor @Observable final class AuthFlowViewModel {
     let session: AuthSessionState
     let login: LoginViewModel
-    let signup: SignupViewModel
+    private(set) var signup: SignupViewModel
     let reset: PasswordResetViewModel
     let onboarding: OnboardingViewModel
     var screen: AuthEntry = .login
@@ -23,8 +23,11 @@ enum AuthEntry { case login, signup, passwordReset }
     var showsProgress: Bool { isHandlingLink || onboarding.isRestoring }
     @ObservationIgnored private var startupTask: Task<Void, Never>?
 
-    init(repositories: AuthRepositories = .init(), configuration: AuthConfiguration = .init()) {
-        let session = AuthSessionState()
+    @ObservationIgnored private var signupReturnsToLogin = false
+
+    init(repositories: AuthRepositories = .init(), configuration: AuthConfiguration = .init(),
+         loginPreference: AuthLoginPreference? = nil) {
+        let session = AuthSessionState(loginPreference: loginPreference)
         self.session = session
         login = LoginViewModel(repositories: repositories, session: session)
         signup = SignupViewModel(repositories: repositories, session: session, configuration: configuration)
@@ -32,9 +35,27 @@ enum AuthEntry { case login, signup, passwordReset }
         onboarding = OnboardingViewModel(repositories: repositories, session: session)
     }
     func open(_ entry: AuthEntry) {
+        if entry == .signup {
+            signupReturnsToLogin = showsAuth && screen == .login
+            // 완료한 계정의 UUID/저장 체크포인트가 다음 사람의 가입으로 넘어가지 않도록 새 VM을 만듭니다.
+            // 미완료 가입은 재시도 정보를 가진 기존 VM을 그대로 유지합니다.
+            if signup.state.step == .completion {
+                signup = SignupViewModel(repositories: signup.repositories, session: session,
+                                         configuration: signup.configuration)
+            }
+        }
         if entry == .login { login.prepareForLogin() }
         if entry == .passwordReset { reset.prepareEmailRequest() }
         screen = entry; showsAuth = true
+    }
+    /// 소개의 4개 페이지를 순서대로 보여 주고 마지막 페이지에서 가입을 엽니다.
+    func advanceOnboarding() {
+        if onboarding.page < 4 { onboarding.selectPage(onboarding.page + 1) }
+        else { open(.signup) }
+    }
+    func backFromSignup() {
+        if signupReturnsToLogin { open(.login) }
+        else { close() }
     }
     func close() {
         login.cancel(); signup.cancel(); reset.cancel()

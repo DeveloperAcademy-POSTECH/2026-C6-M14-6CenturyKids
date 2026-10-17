@@ -156,6 +156,8 @@ import ToDocDomain
             state.errorMessage = "이전 인증 요청이 끝난 뒤 다시 시도해 주세요."; return
         }
         requestID = token; state.isWorking = true
+        // 가입 확인을 위한 일시적인 세션은 다음 실행의 자동 로그인 대상으로 남기지 않습니다.
+        session.loginPreference.isEnabled = false
         defer { state.isWorking = false; session.finish(token) }
         do {
             if draft == nil { draft = try makeDraft() }

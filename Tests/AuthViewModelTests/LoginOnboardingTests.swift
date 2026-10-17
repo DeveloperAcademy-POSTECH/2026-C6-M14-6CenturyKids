@@ -51,14 +51,14 @@ import XCTest
         XCTAssertFalse(f.auth.signedIn); XCTAssertFalse(f.session.isBusy)
     }
     func testOnboardingRestoresVerifiedPatientOnly() async throws {
-        let f = AuthFixture(); try f.addProfile(); f.auth.signedIn = true
+        let f = AuthFixture(); try f.addProfile(); f.auth.signedIn = true; f.session.loginPreference.isEnabled = true
         let vm = OnboardingViewModel(repositories: f.repositories, session: f.session)
         await vm.restoreSession()
         XCTAssertEqual(f.session.patient?.user.id, f.auth.id)
         XCTAssertFalse(vm.isRestoring)
     }
     func testOnboardingMissingPatientDoesNotOpenHome() async {
-        let f = AuthFixture(); f.auth.signedIn = true
+        let f = AuthFixture(); f.auth.signedIn = true; f.session.loginPreference.isEnabled = true
         let vm = OnboardingViewModel(repositories: f.repositories, session: f.session)
         await vm.restoreSession()
         XCTAssertNil(f.session.patient); XCTAssertNotNil(vm.errorMessage)

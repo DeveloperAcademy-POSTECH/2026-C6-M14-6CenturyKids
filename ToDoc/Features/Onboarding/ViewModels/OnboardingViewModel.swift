@@ -20,15 +20,23 @@ import ToDocDomain
     /// 인증 SDK의 '캐시에 사용자가 있음'만으로 제품 화면에 진입하지 않습니다.
     func restoreSession() async {
         guard !isRestoring, session.patient == nil, let auth = repositories.auth else { return }
-        guard auth.isSignedIn() else { return }
-        guard let users = repositories.users, let patients = repositories.patients else {
-            errorMessage = "저장된 로그인 정보를 확인하려면 사용자·환자 정보 연결이 필요해요."
-            return
-        }
         guard let token = session.begin() else { return }
         isRestoring = true; errorMessage = nil
         defer { isRestoring = false; session.finish(token) }
         do {
+            // 체크하지 않은 로그인은 앱을 종료하고 다시 열면 끝납니다. SDK의 캐시만으로 복원하지 않습니다.
+            guard session.loginPreference.isEnabled else {
+                if auth.isSignedIn() { try await auth.signOut() }
+                return
+            }
+            guard auth.isSignedIn() else {
+                session.loginPreference.isEnabled = false
+                return
+            }
+            guard let users = repositories.users, let patients = repositories.patients else {
+                errorMessage = "저장된 로그인 정보를 확인하려면 사용자·환자 정보 연결이 필요해요."
+                return
+            }
             let id = try await auth.getCurrentUserId()
             guard let user = try await users.findById(id), user.id == id,
                   let patient = try await patients.findById(id), patient.user.id == id else {
@@ -37,6 +45,7 @@ import ToDocDomain
             try Task.checkCancellation()
             session.patient = patient
         } catch {
+            session.loginPreference.isEnabled = false
             session.patient = nil
             errorMessage = (error as? AuthFlowError)?.message ?? "이전 로그인을 확인하지 못했어요. 다시 로그인해 주세요."
             do { try await auth.signOut() }

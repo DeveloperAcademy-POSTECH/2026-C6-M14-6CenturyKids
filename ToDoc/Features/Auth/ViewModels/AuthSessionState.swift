@@ -7,6 +7,10 @@ import ToDocDomain
 /// 화면들이 공유하는 '확인된 환자'와 요청 진행 상태입니다. Repository를 호출하는 Service가 아닙니다.
 /// 로그인/가입/재설정이 같은 인증 SDK를 사용하므로 한 번에 하나의 작업만 세션을 바꿉니다.
 @MainActor @Observable final class AuthSessionState {
+    let loginPreference: AuthLoginPreference
+    init(loginPreference: AuthLoginPreference? = nil) {
+        self.loginPreference = loginPreference ?? AuthLoginPreference()
+    }
     var patient: Patient?
     private(set) var isBusy = false
     @ObservationIgnored private var owner: UUID?

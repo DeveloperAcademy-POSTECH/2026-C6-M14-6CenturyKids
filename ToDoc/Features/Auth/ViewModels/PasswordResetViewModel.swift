@@ -52,6 +52,7 @@ import Foundation
         requestID = token; state.isSubmitting = true
         state.isRecoveryReady = false; recoveryUserID = nil; state.needsSessionCleanup = false
         state.didUpdatePassword = false; session.patient = nil
+        session.loginPreference.isEnabled = false
         defer { state.isSubmitting = false; session.finish(token) }
         do {
             if auth.isSignedIn() { try await auth.signOut() }
@@ -112,16 +113,21 @@ import Foundation
     /// 재설정 화면을 새로 열 때 이전 전송 완료 안내를 지웁니다. 진행 중 요청은 그대로 마무리합니다.
     func prepareEmailRequest() {
         guard !state.isSubmitting, !session.isBusy else { return }
+        guard !state.isRecoveryReady else { return }
+        state.needsSessionCleanup = false
         state.didSend = false; state.didUpdatePassword = false; state.errorMessage = nil
+        state.passwordError = nil; state.emailError = nil
     }
     func cancel() {
         requestID = nil; state.newPassword = ""; state.passwordConfirmation = ""
         let hadRecoverySession = recoveryUserID != nil
-        recoveryUserID = nil; state.isRecoveryReady = false
+        recoveryUserID = nil; state.isRecoveryReady = false; state.needsSessionCleanup = false
         // 진행 중 작업은 자신의 catch/defer에서 정리합니다. 대기 중 복구 세션만 여기서 닫습니다.
         guard hadRecoverySession, !state.isSubmitting, let auth = repositories.auth, let token = session.begin() else { return }
+        // 세션 잠금은 VM이 해제되더라도 반드시 풀려야 하므로 session을 별도로 보관합니다.
+        let session = session
         Task { [weak self] in
-            defer { self?.session.finish(token) }
+            defer { session.finish(token) }
             do { try await auth.signOut() }
             catch { self?.state.errorMessage = "인증 상태를 정리하지 못했어요. 다시 로그인해 주세요." }
         }

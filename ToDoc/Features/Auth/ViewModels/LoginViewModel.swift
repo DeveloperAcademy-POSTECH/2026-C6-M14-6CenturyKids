@@ -9,6 +9,7 @@ import ToDocDomain
     let session: AuthSessionState
     init(repositories: AuthRepositories, session: AuthSessionState) {
         self.repositories = repositories; self.session = session
+        state.remembersLogin = session.loginPreference.isEnabled
         state.onSubmit = { [weak self] in Task { await self?.submit() } }
         state.onCancel = { [weak self] in self?.cancel() }
     }
@@ -34,6 +35,9 @@ import ToDocDomain
         requestID = token; state.isSubmitting = true
         let email = AuthFormValidation.email(state.email)
         let password = state.password
+        let remembersLogin = state.remembersLogin
+        // 성공 전에는 복원 권한을 주지 않습니다. 실패/취소된 SDK 세션이 남아도 홈으로 복원하지 않습니다.
+        session.loginPreference.isEnabled = false
         defer { session.finish(token); state.isSubmitting = false }
         do {
             let id = try await auth.signIn(email: email, password: password)
@@ -43,6 +47,7 @@ import ToDocDomain
                 throw AuthFlowError("가입 정보가 아직 완성되지 않았어요. 회원가입 화면에서 이어서 진행해 주세요.")
             }
             guard isCurrent(token) else { throw CancellationError() }
+            session.loginPreference.isEnabled = remembersLogin
             session.patient = patient
             state.password = ""
             state.didSignIn = true
