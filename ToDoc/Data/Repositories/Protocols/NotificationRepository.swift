@@ -8,7 +8,7 @@ import Foundation
 protocol NotificationRepository: Repository
 where Entity == AppNotification {
     func save(
-        _ notification: AppNotification,
+        notification: AppNotification,
         for patientId: UUID
     ) async throws
 

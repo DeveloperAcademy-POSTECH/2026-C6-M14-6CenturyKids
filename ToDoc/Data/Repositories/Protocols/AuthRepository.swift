@@ -8,23 +8,23 @@
 import Foundation
 
 protocol AuthRepository {
-    func signUp(
-        email: String,
-        password: String
-    ) async throws -> UUID
+    func signUp(email: String, password: String) async throws -> UUID
     
-    func signIn(
-        email: String,
-        password: String
-    ) async throws -> UUID
+    func resendSignUpConfirmationEmail(to email: String, redirectTo url: URL?) async throws
+    
+    func signIn(email: String, password: String) async throws -> UUID
+    
+    func signInWithApple(idToken: String, nonce: String) async throws -> UUID
     
     func signOut() async throws
     
-    func getCurrentUserId() async throws -> UUID?
+    func getCurrentUserId() async throws -> UUID
     
-    func isSignedIn() async throws -> Bool
+    func isSignedIn() -> Bool
     
-    func resetPassword(
-        email: String
-    ) async throws
+    func requestPasswordChangeVerification() async throws
+    
+    func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws
+    
+    func updatePassword(to newPassword: String, nonce: String?) async throws
 }

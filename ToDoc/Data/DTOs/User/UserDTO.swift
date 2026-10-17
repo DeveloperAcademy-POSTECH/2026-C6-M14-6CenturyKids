@@ -20,7 +20,7 @@ struct UserDTO: Codable {
         sex = user.sex.rawValue
     }
     
-    func toDomain(email: String) throws -> User {
+    func toDomain() throws -> User {
         guard let birthdayDate = DateOnlyFormatter.date(from: birthday) else {
             throw MappingError.invalidBirthday(birthday)
         }
@@ -29,7 +29,7 @@ struct UserDTO: Codable {
             throw MappingError.invalidSex(sex)
         }
         
-        return try User(id: id, email: email, name: name, birthday: birthdayDate, sex: domainSex)
+        return try User(id: id, name: name, birthday: birthdayDate, sex: domainSex)
     }
 }
 

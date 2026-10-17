@@ -20,23 +20,13 @@
 		A13BCD29307A10DE00901BFD /* Exceptions for "ToDoc" folder in "ToDoc" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Core/Errors/.gitkeep,
 				Core/Extensions/.gitkeep,
-				Core/UI/Components/.gitkeep,
 				Data/DTOs/Exercise/.gitkeep,
 				Data/DTOs/Intake/.gitkeep,
 				Data/DTOs/Notification/.gitkeep,
-				Data/DTOs/Pain/.gitkeep,
-				Data/Repositories/Supabase/.gitkeep,
 				Data/Supabase/EdgeFunction/.gitkeep,
 				Domain/Exercise/Enums/.gitkeep,
 				Domain/Hospital/Enums/.gitkeep,
-				Domain/Intake/Enums/.gitkeep,
-				Domain/Intake/Models/.gitkeep,
-				Domain/Notification/Enums/.gitkeep,
-				Domain/Notification/Models/.gitkeep,
-				Domain/Pain/Enums/.gitkeep,
-				Domain/Pain/Models/.gitkeep,
 				Features/.gitkeep,
 			);
 			target = A13BCAF93077425800901BFD /* ToDoc */;
@@ -351,7 +341,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.6CenturyKids.ToDoc;
+				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -388,7 +378,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.6CenturyKids.ToDoc;
+				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
