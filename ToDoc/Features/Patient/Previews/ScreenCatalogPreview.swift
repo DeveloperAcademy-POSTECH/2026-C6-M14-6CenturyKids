@@ -39,7 +39,7 @@ struct ScreenCatalogPreview: View {
         case .signup: SignupFormView(state: signup, onBack: {}, onLogin: {})
         case .reset: PasswordResetView()
         case .home: HomeView(state: homeState(), onSelect: { _ in })
-        case .pain: PainRecordView()
+        case .pain: PainRecordView.preview()
         case .incoming: CareCallIncomingView(canAnswer: true, onAnswer: {}, onEnd: {}, onPostpone: {}, onSwitchToText: {})
         case .conversation: SymptomRecordView(state: conversationState())
         case .summary: SymptomSummaryView(state: .init(record: symptomRecord()))

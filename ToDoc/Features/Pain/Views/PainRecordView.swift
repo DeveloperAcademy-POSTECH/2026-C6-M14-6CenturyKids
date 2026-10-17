@@ -2,6 +2,7 @@ import SwiftUI
 
 /// View는 입력과 페이지 이동을 담당하고 저장 요청을 외부로 전달합니다.
 struct PainRecordView: View {
+    let viewModel: PainRecordViewModel
     @State private var state: PainScreenState
     @State private var step = 0
     @Environment(\.dismiss) private var dismiss
@@ -11,9 +12,10 @@ struct PainRecordView: View {
     var onHome: (() -> Void)?
     var onCancel: (() -> Void)?
 
-    init(state: PainScreenState = PainScreenState(), onSave: ((PainFormInput) -> Void)? = nil,
+    init(viewModel: PainRecordViewModel, state: PainScreenState = PainScreenState(), onSave: ((PainFormInput) -> Void)? = nil,
          onClose: (() -> Void)? = nil, onShowRecord: (() -> Void)? = nil,
          onHome: (() -> Void)? = nil, onCancel: (() -> Void)? = nil) {
+        self.viewModel = viewModel
         _state = State(initialValue: state)
         self.onSave = onSave; self.onClose = onClose; self.onShowRecord = onShowRecord
         self.onHome = onHome; self.onCancel = onCancel
@@ -46,10 +48,30 @@ struct PainRecordView: View {
     }
     private func close() { if let onClose { onClose() } else { dismiss() } }
 }
-#Preview("입력 화면 · 저장 미연결") { PainRecordView() }
+#if DEBUG
+private struct PreviewPainRepository: PainRepository {
+    func findById(_ id: UUID) async throws -> PainRecord? { nil }
+    func deleteById(_ id: UUID) async throws {}
+    func save(_ entity: PainRecord, for patientId: UUID) async throws {}
+    func findByPatientId(_ patientId: UUID) async throws -> [PainRecord] { [] }
+    func findByPatientIdAndDate(_ patientId: UUID, _ date: Date) async throws -> [PainRecord] { [] }
+}
+
+extension PainRecordView {
+    @MainActor
+    static func preview(state: PainScreenState = PainScreenState()) -> Self {
+        Self(
+            viewModel: PainRecordViewModel(patientId: UUID(), painRepository: PreviewPainRepository()),
+            state: state
+        )
+    }
+}
+
+#Preview("입력 화면 · 저장 미연결") { PainRecordView.preview() }
 #Preview("완료 화면 · 예시 결과") {
     let state = PainScreenState()
     state.completion = .init(location: [.init(bodyPart: .chest, bodySide: .center, bodyView: .front)],
                              painBefore: 7, painAfter: 0, painChange: 7)
-    return PainRecordView(state: state)
+    return PainRecordView.preview(state: state)
 }
+#endif
