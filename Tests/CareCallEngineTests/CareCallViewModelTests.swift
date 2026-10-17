@@ -25,6 +25,8 @@ final class FakeCareCall: CareCalling {
     private(set) var beginCount = 0
     /// begin에 넘어온 환자
     private(set) var patientIds: [UUID] = []
+    /// begin에 넘어온 오늘 기록 (다시 거는 통화면 있음)
+    private(set) var previousRecords: [SymptomRecord?] = []
     private(set) var endCount = 0
     private(set) var stopCount = 0
     private var held: CheckedContinuation<Void, Never>?
@@ -33,9 +35,10 @@ final class FakeCareCall: CareCalling {
     func loadModel() async throws { try await run(.model) }
     func prepareSpeech() async throws { try await run(.speech) }
 
-    func begin(patientId: UUID) throws -> CareCallTurn {
+    func begin(patientId: UUID, previous: SymptomRecord?) throws -> CareCallTurn {
         beginCount += 1
         patientIds.append(patientId)
+        previousRecords.append(previous)
         current = opening
         return opening
     }
@@ -421,15 +424,33 @@ struct CareCallViewModelTests {
         #expect(repository.saved.first?.symptoms.map(\.symptomType) == [.nauseaVomiting])
     }
 
-    @Test func 같은_날_기록이_있으면_끝까지_마친_통화로_바꾼다() async {
+    @Test func 오늘_기록이_있으면_다시_거는_통화로_시작하고_마치면_그_기록에_더한다() async {
         let old = record([entry(.nauseaVomiting, .present, "아침"), entry(.diarrhea, .absent)])
         repository.existing = old
         let summary = await reachSummary([entry(.diarrhea, .present, "저녁")])
+        #expect(service.previousRecords.first??.id == old.id) // 오늘 기록을 넘겨 다시 거는 통화로 시작
         summary.onAction?(.save)
         for _ in 0..<1_000 where !conversation.didSave { await Task.yield() }
         let saved = repository.saved.first
-        #expect(saved?.id == old.id) // 그날 기록 하나를 바꾼다
-        #expect(saved?.symptoms.map(\.detail) == ["저녁"]) // 이전 답은 남기지 않는다
+        #expect(saved?.id == old.id) // 그날 기록 하나에 더한다
+        #expect(saved?.symptoms.map(\.detail) == ["아침", "저녁"]) // 전에 답한 구토는 그대로, 없음이던 설사는 있음으로
+        #expect(saved?.symptoms.map(\.presence) == [.present, .present])
+    }
+
+    @Test func 오늘_기록이_없으면_처음_통화로_시작한다() async {
+        await enterVoiceCall()
+        await viewModel.startCall()?.value
+        #expect(service.previousRecords.count == 1 && service.previousRecords.first! == nil)
+    }
+
+    @Test func 다시_거는_통화에서_달라진_게_없으면_바로_완료_화면으로() async {
+        repository.existing = record([entry(.diarrhea, .present)])
+        await enterVoiceCall()
+        service.outcome = .completed(record([]))
+        await viewModel.startCall()?.value
+        #expect(conversation.didSave && conversation.summary == nil)
+        #expect(repository.saved.isEmpty) // 더할 것이 없다
+        #expect(viewModel.startCall() == nil)
     }
 
     @Test func 같은_날_기록이_있으면_끊긴_통화는_저장하지_않고_알린다() async {

@@ -59,6 +59,8 @@ struct CareCallConfig: Decodable, Sendable {
     let openingFollowUp: String
     /// 첫 질문 다음, 증상 질문 앞에 붙이는 말
     let openingTransition: OpeningTransition
+    /// 같은 날 다시 거는 케어콜 (오늘 기록이 이미 있을 때)
+    let followUpCall: FollowUpCall
     /// 이 말이 든 첫 답(증상 표현·연결어 없을 때)은 모델 없이 넘어간다 ("좋아요", "보통이에요")
     let openingFine: [String]
     let openingConcerns: [String]
@@ -91,7 +93,8 @@ struct CareCallConfig: Decodable, Sendable {
 
     /// 통화 중 말할 고정 문구 (음성 미리 합성용). 응급 안내는 시스템 음성으로 읽으므로 넣지 않는다
     func spokenPhrases(rules: EmergencyRules) -> [String] {
-        [aiVoiceNotice, openingQuestion, openingFollowUp, openingTransition.fine, openingTransition.noted, openingTransition.afterFollowUp]
+        [aiVoiceNotice, openingQuestion, openingFollowUp, openingTransition.fine, openingTransition.noted, openingTransition.afterFollowUp,
+         followUpCall.question, followUpCall.noted, followUpCall.resume, followUpCall.notedAndResume, followUpCall.unchanged]
             + effects.flatMap { [$0.ask] + $0.details.map(\.question) } + effects.map(returnPrefix(for:))
             + acknowledgements + [repeatPrefix, otherDetail.question, otherDetail.recorded, locationPrompt,
                                   otherQuestion, otherFollowUp, rules.closingMessage]
@@ -104,6 +107,24 @@ struct CareCallConfig: Decodable, Sendable {
         let noted: String
         /// 꼬리질문의 답 뒤
         let afterFollowUp: String
+    }
+
+    struct FollowUpCall: Decodable, Sendable {
+        /// 첫 질문 ("다시 전화하셨네요? 이전과 달라졌거나 새로 불편한 점이 있으신가요?")
+        let question: String
+        /// 달라진 게 없다는 답의 낱말 ("똑같아요", "그대로예요"). "없어요·괜찮아요"는 없음 표현으로 본다
+        let unchangedAnswers: [String]
+        /// "모르겠어요"(unknownAnswers) 말고도 애매하다는 답의 낱말 ("글쎄요"). 처음 통화의 유무 질문에서는 되묻는다
+        let unclearAnswers: [String]
+        /// 첫 답에서 증상을 말함 → 그 증상을 묻기 전에
+        let noted: String
+        /// 지난 통화가 끊겨 못 물은 증상을 이어서 물을 때
+        let resume: String
+        let notedAndResume: String
+        /// 달라진 게 없음 → 마무리 인사 앞에
+        let unchanged: String
+        /// 첫 질문에 "글쎄요"처럼 답하면 이 이름의 기타 항목에 '모름'으로 남긴다
+        let unclearName: String
     }
 
     struct OtherDetail: Decodable, Sendable {

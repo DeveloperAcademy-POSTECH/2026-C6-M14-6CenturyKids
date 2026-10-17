@@ -72,9 +72,10 @@ final class CareCallService: CareCalling {
 
     // MARK: - 대화
 
-    func begin(patientId: UUID) throws -> CareCallTurn {
+    func begin(patientId: UUID, previous: SymptomRecord?) throws -> CareCallTurn {
         guard let analyzer else { throw CareCallServiceError.notPrepared }
-        let conversation = Conversation(engine: InterviewEngine(config: config, rules: rules, analyzer: analyzer), patientId: patientId)
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: analyzer, followUp: previous.map(converter.unasked(in:)))
+        let conversation = Conversation(engine: engine, patientId: patientId)
         self.conversation = conversation
         noticed = false
         return turn(conversation.engine.start(), of: conversation)
