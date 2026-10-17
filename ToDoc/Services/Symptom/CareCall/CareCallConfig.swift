@@ -125,6 +125,9 @@ struct CareCallConfig: Decodable, Sendable {
         let unchanged: String
         /// 첫 질문에 "글쎄요"처럼 답하면 이 이름의 기타 항목에 '모름'으로 남긴다
         let unclearName: String
+        /// 증상이 그쳤다는 낱말 ("멈췄어요"). 첫 답에서 모델이 그 증상을 못 잡으면 '없음'으로 남긴다.
+        /// "없어졌·사라졌"은 넣지 않는다 ("입맛이 없어졌어요"는 식사 증상이 생긴 것)
+        let stoppedAnswers: [String]
     }
 
     struct OtherDetail: Decodable, Sendable {

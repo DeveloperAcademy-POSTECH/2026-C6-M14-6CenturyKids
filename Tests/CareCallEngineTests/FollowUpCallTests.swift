@@ -206,6 +206,27 @@ struct FollowUpCallTests {
         #expect(call.ledger["diarrhea"]?.otherName == nil) // 이름이 ""이면 내용이 ": 세 번이요"로 저장됐다
     }
 
+    @Test(arguments: ["구토는 멈췄어요", "설사가 다 나았어요", "이제 설사는 그쳤어요"])
+    func 모델이_못_잡아도_증상이_멈췄다고만_하면_없음으로_남기고_그_밖에를_묻는다(answer: String) async {
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: answer)
+        #expect(out.phase == .other)
+        let key = answer.contains("구토") ? "nausea_vomiting" : "diarrhea"
+        #expect(call.ledger[key]?.presence == .absent)
+    }
+
+    @Test(arguments: ["구토는 멈췄는데 대신 머리가 좀", "구토는 안 멈췄어요", "구토가 아직 안 나았어요", "구토는 멈추지 않았어요",
+                      "구토가 계속 멈췄다가 또 해요", "설사는 멈췄고 구토는 해요", "구토는 멈춘 것 같아요", "구토는 멈췄고 머리가 아파요",
+                      "구토는 다시 멈췄다가 재발했어요", "입맛이 없어졌어요", "구토는 좀 나았어요", "토는 멈췄어요"])
+    func 멈췄다는_말이_분명하지_않으면_없음으로_넣지_않고_되묻는다(answer: String) async {
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: answer)
+        #expect(out.phase == .opening && out.utterance == config.openingFollowUp)
+        #expect(call.ledger.order.isEmpty)
+    }
+
     @Test func 모델이_고른_증상의_낱말이_없고_다른_증상_낱말만_있으면_그_증상으로_바꾼다() async {
         mock.script["요즘 입맛이 좀 없어요"] = .mentions(Mention(effectId: "stomatitis", presence: .present))
         let call = engine()
