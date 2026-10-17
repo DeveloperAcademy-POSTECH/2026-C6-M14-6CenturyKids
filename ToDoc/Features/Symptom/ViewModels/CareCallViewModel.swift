@@ -531,7 +531,7 @@ final class CareCallViewModel {
                 // 전 통화 내용(검토 필요 메모 등)은 버리지 않고 이번 항목에 "전 통화: …"로 남긴다
                 let previous = sameType.first { $0.detail != nil }
                 symptoms.removeAll { $0.symptomType == entry.symptomType }
-                symptoms.append(previous.map { filled(entry, with: $0, label: "전 통화") } ?? entry)
+                symptoms.append(previous.map { filled(entry, with: $0, label: "전 통화", textOnly: true) } ?? entry)
             } else if let index = symptoms.firstIndex(where: { $0.symptomType == entry.symptomType && $0.presence == .present
                                                                 && sameSpot($0, entry) }) {
                 symptoms[index] = filled(symptoms[index], with: entry)
@@ -560,8 +560,10 @@ final class CareCallViewModel {
 
     /// 전에도 있던 증상: 기존 값(유무 포함)은 두고 빈 칸만 이번 값으로 채운다. 이번 내용은 "다시 통화: …"로 덧붙인다.
     /// 검토 필요 표시는 맨 앞에 하나만. 길면 전 내용을 줄여 이번 답은 남긴다
-    /// note가 있으면 덧붙일 항목의 내용 대신 그 말을 덧붙인다. label은 덧붙이는 말 앞 이름
-    private static func filled(_ old: SymptomEntry, with new: SymptomEntry, note: String? = nil, label: String = "다시 통화") -> SymptomEntry {
+    /// note가 있으면 덧붙일 항목의 내용 대신 그 말을 덧붙인다. label은 덧붙이는 말 앞 이름.
+    /// textOnly면 내용만 덧붙이고 빈 칸(부위·횟수·지속 시간)은 채우지 않는다
+    private static func filled(_ old: SymptomEntry, with new: SymptomEntry, note: String? = nil, label: String = "다시 통화",
+                               textOnly: Bool = false) -> SymptomEntry {
         func stripped(_ text: String?) -> String? { text.map { $0.hasPrefix(review) ? String($0.dropFirst(review.count)) : $0 } }
         func cut(_ text: String, to room: Int) -> String { text.count <= room ? text : String(text.prefix(max(room - 1, 0))) + "…" }
         var oldText = stripped(old.detail)
@@ -577,11 +579,12 @@ final class CareCallViewModel {
         }
         let body = [oldText, added].compactMap(\.self).joined(separator: " / ")
         let detail = body.isEmpty ? nil : String(((flagged ? review : "") + body).prefix(SymptomEntry.detailLimit))
+        let fill = textOnly ? nil : new
         let merged = try? SymptomEntry(id: old.id, symptomType: old.symptomType, presence: old.presence,
-                                       bodyPart: old.bodyPart ?? new.bodyPart, bodySide: old.bodySide ?? new.bodySide,
-                                       rawLocationText: old.rawLocationText ?? new.rawLocationText,
-                                       durationMinutes: old.durationMinutes ?? new.durationMinutes,
-                                       occurrenceCount: old.occurrenceCount ?? new.occurrenceCount, detail: detail)
+                                       bodyPart: old.bodyPart ?? fill?.bodyPart, bodySide: old.bodySide ?? fill?.bodySide,
+                                       rawLocationText: old.rawLocationText ?? fill?.rawLocationText,
+                                       durationMinutes: old.durationMinutes ?? fill?.durationMinutes,
+                                       occurrenceCount: old.occurrenceCount ?? fill?.occurrenceCount, detail: detail)
         return merged ?? old
     }
 

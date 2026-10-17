@@ -136,4 +136,11 @@ struct FollowUpMergeTests {
         let merged = CareCallViewModel.merge(old, with: record([entry(.numbness, .absent)]))
         #expect(merged.symptoms.map(\.detail) == ["손이요 / 다시 통화: 지금은 없다고 함", "발이요 / 다시 통화: 지금은 없다고 함"])
     }
+
+    @Test func 없음을_있음으로_바꿀_때_전_통화의_값은_가져오지_않고_내용만_남긴다() {
+        let old = record([entry(.diarrhea, .unknown, "[검토 필요] 모르겠어요", count: 2, minutes: 30)])
+        let merged = CareCallViewModel.merge(old, with: record([entry(.diarrhea, .present, "많이요")]))
+        #expect(merged.symptoms[0].occurrenceCount == nil && merged.symptoms[0].durationMinutes == nil) // 이번 답의 값만
+        #expect(merged.symptoms[0].detail == "[검토 필요] 많이요 / 전 통화: 모르겠어요")
+    }
 }
