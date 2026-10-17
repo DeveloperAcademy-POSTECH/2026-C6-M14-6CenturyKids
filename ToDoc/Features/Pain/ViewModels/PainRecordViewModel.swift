@@ -14,9 +14,15 @@ final class PainRecordViewModel {
     private let patientId: UUID
     private let painRepository: any PainRepository
     private var preparedRecord: PainRecord?
+    private(set) var isSaving = false
 
     enum PreparationError: Error {
         case missingScores
+    }
+
+    enum SaveError: Error {
+        case recordNotPrepared
+        case alreadySaving
     }
 
     init(patientId: UUID, painRepository: any PainRepository) {
@@ -40,6 +46,24 @@ final class PainRecordViewModel {
             painAfter: after
         )
         preparedRecord = record
+        return record
+    }
+
+    func savePreparedRecord() async throws -> PainRecord {
+        guard !isSaving else {
+            throw SaveError.alreadySaving
+        }
+
+        guard let record = preparedRecord else {
+            throw SaveError.recordNotPrepared
+        }
+
+        isSaving = true
+        defer { isSaving = false }
+
+        try await painRepository.save(record, for: patientId)
+
+        preparedRecord = nil
         return record
     }
 }
