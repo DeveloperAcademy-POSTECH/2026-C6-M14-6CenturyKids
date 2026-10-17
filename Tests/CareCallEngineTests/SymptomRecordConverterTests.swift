@@ -168,4 +168,14 @@ struct SymptomRecordConverterTests {
         #expect(record.conditionText == "그럭저럭이요 / 어제 좀 토했어요")
         #expect(converter.record(from: Ledger(), patientId: patientId, date: date).conditionText == nil) // 첫 질문 전
     }
+
+    @Test func 그날_기록에_없는_항목을_다시_거는_통화에서_이어_묻는다() throws {
+        let answered = try [SymptomType.nauseaVomiting, .diarrhea, .other].map {
+            try SymptomEntry(id: UUID(), symptomType: $0, presence: .absent, bodyPart: nil, bodySide: nil,
+                             durationMinutes: nil, occurrenceCount: nil, detail: nil)
+        }
+        let record = SymptomRecord(id: UUID(), patientId: patientId, recordedDate: date, conditionText: nil, symptoms: answered)
+        #expect(converter.unasked(in: record) == ["constipation", "stomatitis", "neuropathy", "rash_pruritus", "dehydration_nutrition"])
+        #expect(converter.unasked(in: SymptomRecord(id: UUID(), patientId: patientId, recordedDate: date, conditionText: nil, symptoms: [])).count == config.effects.count)
+    }
 }

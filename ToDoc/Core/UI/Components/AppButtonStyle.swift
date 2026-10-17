@@ -2,7 +2,6 @@ import SwiftUI
 
 /// 공통 CTA 스타일. 비활성 조건과 액션은 호출 화면이 전달합니다.
 struct AppButtonStyle: ButtonStyle {
-    enum Kind { case primary, secondary, back }
     var kind: Kind = .primary
     @Environment(\.isEnabled) private var isEnabled
 

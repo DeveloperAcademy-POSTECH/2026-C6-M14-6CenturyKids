@@ -10,8 +10,10 @@ import Foundation
 import ToDocDomain
 #endif
 
-protocol PatientRepository : Repository where Entity == Patient {
+protocol PatientRepository {
     func save(patient: Patient) async throws
+    
+    func findById(_ id: UUID) async throws -> Patient?
 
     func findByName(
         _ name: String

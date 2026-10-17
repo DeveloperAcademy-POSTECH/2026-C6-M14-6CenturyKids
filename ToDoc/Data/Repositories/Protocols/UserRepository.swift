@@ -10,12 +10,10 @@ import Foundation
 import ToDocDomain
 #endif
 
-protocol UserRepository: Repository where Entity == User {
+protocol UserRepository {
     func save(user: User) async throws
-
-    func findByEmail(
-        _ email: String
-    ) async throws -> User?
+    
+    func findById(_ id: UUID) async throws -> User?
 
     func findByName(
         _ name: String

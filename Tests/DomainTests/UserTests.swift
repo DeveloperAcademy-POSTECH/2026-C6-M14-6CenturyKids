@@ -37,29 +37,19 @@ final class UserTests: XCTestCase {
         XCTAssertEqual(value.sex, .male)
         XCTAssertEqual(value.id, id)
     }
-    func testBothPublicInitializersKeepProfileValidation() throws {
-        // email 인자를 받는 기존 생성자도 새 생성자와 같은 이름·생일 검증을 지켜야 합니다.
-        // 이메일 검증 사례는 현재 남아 있는 함수의 테스트인 DomainValidationTests로 옮겼습니다.
+    func testPublicInitializerKeepsProfileValidation() throws {
+        // 최신 develop의 User는 이메일을 받지 않습니다. 인증 정보와 프로필을 분리한 팀 모델을 그대로 검사합니다.
         let birthday = date(2000, 10, 11)
         let id = UUID()
         let profile = try User(id: id, name: " 김하늘 ", birthday: birthday, sex: .female)
-        let legacy = try User(id: id, email: "patient@example.com", name: " 김하늘 ", birthday: birthday, sex: .female)
-        for value in [profile, legacy] {
-            XCTAssertEqual(value.name, "김하늘")
-            XCTAssertEqual(value.id, id)
-            XCTAssertEqual(value.birthday, birthday)
-            XCTAssertEqual(value.sex, .female)
-        }
+        XCTAssertEqual(profile.name, "김하늘")
+        XCTAssertEqual(profile.id, id)
+        XCTAssertEqual(profile.birthday, birthday)
+        XCTAssertEqual(profile.sex, .female)
         XCTAssertThrowsError(try User(id: id, name: " ", birthday: birthday, sex: .female)) {
             XCTAssertEqual($0 as? NameValidationError, .empty)
         }
-        XCTAssertThrowsError(try User(id: id, email: "patient@example.com", name: " ", birthday: birthday, sex: .female)) {
-            XCTAssertEqual($0 as? NameValidationError, .empty)
-        }
         XCTAssertThrowsError(try User(id: id, name: "김하늘", birthday: .distantFuture, sex: .female)) {
-            XCTAssertEqual($0 as? DateValidationError, .futureDate)
-        }
-        XCTAssertThrowsError(try User(id: id, email: "patient@example.com", name: "김하늘", birthday: .distantFuture, sex: .female)) {
             XCTAssertEqual($0 as? DateValidationError, .futureDate)
         }
     }

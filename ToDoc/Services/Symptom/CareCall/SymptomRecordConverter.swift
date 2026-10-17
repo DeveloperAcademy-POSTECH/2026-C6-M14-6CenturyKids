@@ -32,6 +32,12 @@ struct SymptomRecordConverter {
         return SymptomRecord(id: UUID(), patientId: patientId, recordedDate: date, conditionText: ledger.conditionText, symptoms: entries)
     }
 
+    /// 그날 기록에 아직 없는 항목 (지난 통화가 끊겨 못 물음). 다시 거는 통화에서 이어서 묻는다
+    func unasked(in record: SymptomRecord) -> Set<String> {
+        let recorded = Set(record.symptoms.map(\.symptomType))
+        return Set(config.effects.map(\.id).filter { id in Self.types[id].map { !recorded.contains($0) } ?? false })
+    }
+
     /// 한 항목 → 부위별 SymptomEntry (부위가 없으면 하나)
     private func entries(for e: Ledger.Entry) -> [SymptomEntry] {
         let effect = config.effects.first { $0.id == e.effectId }

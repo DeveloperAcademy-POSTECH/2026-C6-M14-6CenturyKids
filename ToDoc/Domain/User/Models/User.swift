@@ -9,14 +9,7 @@ nonisolated public struct User: Sendable {
 
     public var age: Int { age(on: Date(), calendar: DomainDateRules.calendar) }
 
-    /// 이메일은 인증 저장소가 관리합니다. 현재 UserDTO의 호출 형식에 맞춘 생성자입니다.
-    /// 기존 email 인자 생성자는 호환을 위해 유지하며, 두 경로 모두 같은 검증을 거칩니다.
     public init(id: UUID, name: String, birthday: Date, sex: Sex) throws {
-        try self.init(id: id, name: name, birthday: birthday, sex: sex,
-                      now: Date(), calendar: DomainDateRules.calendar)
-    }
-
-    public init(id: UUID, email: String, name: String, birthday: Date, sex: Sex) throws {
         try self.init(id: id, name: name, birthday: birthday, sex: sex,
                       now: Date(), calendar: DomainDateRules.calendar)
     }
