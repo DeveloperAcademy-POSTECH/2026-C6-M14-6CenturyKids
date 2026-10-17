@@ -5,6 +5,7 @@ struct PainRecordView: View {
     let viewModel: PainRecordViewModel
     @State private var state: PainScreenState
     @State private var step = 0
+    @State private var didStartRecord = false
     @Environment(\.dismiss) private var dismiss
     var onClose: (() -> Void)?
     var onShowRecord: (() -> Void)?
@@ -40,7 +41,9 @@ struct PainRecordView: View {
                         onPrevious: { step = 1 }, onNext: prepareSummary, onClose: close)
                 }
             }
-        }.onDisappear { onCancel?() }
+        }
+        .onAppear { startRecordIfNeeded() }
+        .onDisappear { onCancel?() }
     }
 
     private var beforeScoreBinding: Binding<Int?> {
@@ -73,6 +76,18 @@ struct PainRecordView: View {
             state.errorMessage = nil
         } catch {
             state.errorMessage = "통증 기록을 준비하지 못했어요."
+        }
+    }
+
+    private func startRecordIfNeeded() {
+        guard !didStartRecord else { return }
+
+        do {
+            try viewModel.startRecord()
+            didStartRecord = true
+            state.errorMessage = nil
+        } catch {
+            state.errorMessage = "통증 기록을 시작하지 못했어요."
         }
     }
 
