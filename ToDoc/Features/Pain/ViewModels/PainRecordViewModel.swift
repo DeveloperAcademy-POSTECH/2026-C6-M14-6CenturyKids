@@ -15,6 +15,9 @@ final class PainRecordViewModel {
     private let painRepository: any PainRepository
     private var preparedRecord: PainRecord?
     private var recordedDate: Date?
+    private(set) var selectedLocations: [BodyLocation] = []
+    private(set) var painBefore = 0
+    private(set) var painAfter = 0
     private(set) var isSaving = false
 
     enum PreparationError: Error {
@@ -30,6 +33,23 @@ final class PainRecordViewModel {
     init(patientId: UUID, painRepository: any PainRepository) {
         self.patientId = patientId
         self.painRepository = painRepository
+    }
+
+    func selectLocation(_ location: BodyLocation) {
+        guard !selectedLocations.contains(location) else { return }
+        selectedLocations.append(location)
+    }
+
+    func removeLocation(_ location: BodyLocation) {
+        selectedLocations.removeAll { $0 == location }
+    }
+
+    func setBeforeScore(_ score: Int) {
+        painBefore = score
+    }
+
+    func setAfterScore(_ score: Int) {
+        painAfter = score
     }
 
     func startRecord() throws {
