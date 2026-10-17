@@ -22,7 +22,8 @@ import SwiftUI
                 LoginFormView(state: model.login.state, onSignup: { model.open(.signup) },
                               onPasswordReset: { model.open(.passwordReset) }, onBack: close)
             case .signup:
-                SignupFormView(state: model.signup.state, onBack: model.backFromSignup, onLogin: model.loginAfterSignup)
+                SignupFormView(state: model.signup.state, onBack: model.backFromSignup,
+                               onLogin: model.loginAfterSignup, onRestart: model.restartSignupAfterConfirmation)
             case .passwordReset:
                 PasswordResetView(state: model.reset.state, onBack: { model.open(.login) })
             }

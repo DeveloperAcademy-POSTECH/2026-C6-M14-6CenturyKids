@@ -5,6 +5,8 @@
 //  Created by 앤디 on 10/8/26.
 //
 
+import Foundation
+
 @MainActor final class DependencyContainer {
     // SupabaseClient 보관하는 객체
     let supabaseProvider: SupabaseClientProvider

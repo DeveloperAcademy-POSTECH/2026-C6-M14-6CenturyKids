@@ -89,4 +89,36 @@ import XCTest
         XCTAssertFalse(flow.reset.state.needsSessionCleanup); XCTAssertFalse(flow.reset.state.isRecoveryReady)
         XCTAssertFalse(flow.reset.state.didUpdatePassword); XCTAssertFalse(f.auth.signedIn)
     }
+
+    func testFailedAccountCreationCanRestartExplicitlyWithoutBlindRetry() async {
+        let f = AuthFixture()
+        let config = AuthConfiguration(terms: Dictionary(uniqueKeysWithValues: SignupTerm.allCases.map { ($0, "테스트 약관") }),
+                                       termsVersion: "test", redirectURL: URL(string: "todoc-test://auth/callback"))
+        let flow = AuthFlowViewModel(repositories: f.repositories, configuration: config)
+        let old = flow.signup
+        let s = old.state
+        s.step = .review; s.name = "테스트"; s.email = "patient@example.com"
+        s.password = "password123"; s.passwordConfirmation = s.password
+        s.birthday = Date(timeIntervalSince1970: 946684800); s.sex = .female
+        s.cancerType = .lung; s.stage = .known(.stage1)
+        s.acceptedTerms = Set(SignupTerm.allCases.filter(\.isRequired))
+        f.auth.failSignUp = true
+        f.auth.signInError = AuthFlowError("서버에 계정이 없음")
+        await old.submit(); await old.submit()
+        XCTAssertEqual(f.auth.signUpCount, 1); XCTAssertEqual(f.auth.signInCount, 1)
+        XCTAssertTrue(s.isAccountLocked); XCTAssertEqual(s.step, .review)
+        flow.restartSignupAfterConfirmation()
+        XCTAssertFalse(flow.signup === old)
+        XCTAssertEqual(flow.signup.state.step, .role); XCTAssertEqual(flow.signup.state.email, "")
+        XCTAssertFalse(flow.signup.state.isAccountLocked)
+        // 새 VM은 과거 계정 생성 시도/저장 진행률을 물려받지 않습니다.
+        let fresh = flow.signup.state
+        fresh.step = .review; fresh.name = s.name; fresh.email = s.email
+        fresh.password = s.password; fresh.passwordConfirmation = s.passwordConfirmation
+        fresh.birthday = s.birthday; fresh.sex = s.sex
+        fresh.cancerType = s.cancerType; fresh.stage = s.stage; fresh.acceptedTerms = s.acceptedTerms
+        f.auth.failSignUp = false; f.auth.signInError = nil
+        await flow.signup.submit()
+        XCTAssertEqual(f.auth.signUpCount, 2); XCTAssertEqual(fresh.step, .completion)
+    }
 }

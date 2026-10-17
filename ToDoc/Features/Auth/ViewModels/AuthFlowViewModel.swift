@@ -57,6 +57,14 @@ enum AuthEntry { case login, signup, passwordReset }
         if signupReturnsToLogin { open(.login) }
         else { close() }
     }
+    /// 화면의 확인 대화상자에서 사용자가 재작성을 선택한 경우에만 호출합니다.
+    /// 서버의 계정을 삭제/취소하지 않습니다. 로컬 입력과 재시도 체크포인트만 새로 시작합니다.
+    func restartSignupAfterConfirmation() {
+        guard signup.state.isAccountLocked, !signup.state.isWorking, !session.isBusy else { return }
+        signup.cancel()
+        signup = SignupViewModel(repositories: signup.repositories, session: session,
+                                 configuration: signup.configuration)
+    }
     func close() {
         login.cancel(); signup.cancel(); reset.cancel()
         showsAuth = false

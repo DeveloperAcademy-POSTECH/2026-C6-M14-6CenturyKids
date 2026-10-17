@@ -9,6 +9,7 @@ struct SignupFormView: View {
     let state: SignupScreenState
     let onBack: () -> Void
     let onLogin: () -> Void
+    var onRestart: (() -> Void)?
 
     var body: some View {
         Group {
@@ -24,7 +25,7 @@ struct SignupFormView: View {
             case .patientInfo: SignupPatientInfoView(state: state)
             case .cancerType: SignupCancerTypeView(state: state)
             case .cancerStage: SignupCancerStageView(state: state)
-            case .review: SignupReviewView(state: state, onLogin: onLogin)
+            case .review: SignupReviewView(state: state, onLogin: onLogin, onRestart: onRestart)
             case .completion:
                 SignupCompletionView(email: state.email) {
                     onLogin()
