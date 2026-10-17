@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import AuthScreens
+@testable import ToDocFeatures
 
 final class SignupBirthdayDisplayTests: XCTestCase {
     func testBirthdayUsesKoreanLabelAndTheSuppliedCalendarTimeZone() {

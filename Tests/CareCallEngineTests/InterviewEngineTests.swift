@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ToDocCareCall
+@testable import ToDocFeatures
 
 /// 가상 발화만 사용. 실제 환자 정보 없음.
 /// 모델 대신 규칙으로 답하는 Mock. `script`에 발화별 결과를 넣으면 그것을, 없으면 기본 규칙을 쓴다.

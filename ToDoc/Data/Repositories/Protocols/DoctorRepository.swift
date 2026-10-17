@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if SWIFT_PACKAGE
+import ToDocDomain
+#endif
 
 protocol DoctorRepository : Repository where Entity == Doctor {
     func save(doctor: Doctor) async throws

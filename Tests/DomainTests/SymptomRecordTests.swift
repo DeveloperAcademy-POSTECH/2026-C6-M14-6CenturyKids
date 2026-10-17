@@ -3,6 +3,7 @@ import XCTest
 import ToDocDomain
 
 final class SymptomRecordTests: XCTestCase {
+    private let patientId = UUID()
     private func entry(id: UUID = UUID(), detail: String = "처음 답", rawLocationText: String? = nil) throws -> SymptomEntry {
         try SymptomEntry(id: id, symptomType: .numbness, presence: .present, bodyPart: .armHand, bodySide: .left,
                          rawLocationText: rawLocationText,
@@ -11,7 +12,10 @@ final class SymptomRecordTests: XCTestCase {
     func testAddAndRemoveUseIdentityWithoutOverwritingDuplicates() throws {
         let first = try entry(), second = try entry()
         let id = UUID(), date = Date(timeIntervalSince1970: 1_000)
-        var record = SymptomRecord(id: id, recordedDate: date, symptoms: [first])
+        // 증상 항목을 편집해도 환자 ID와 통화 시작 때 받은 컨디션 원문은 보존합니다.
+        let conditionText = "  오늘은 조금 피곤해요  "
+        var record = SymptomRecord(id: id, patientId: patientId, recordedDate: date,
+                                   conditionText: conditionText, symptoms: [first])
         record.addSymptomEntry(try entry(id: first.id, detail: "나중 답"))
         XCTAssertEqual(record.symptoms.count, 1)
         XCTAssertEqual(record.symptoms.first?.detail, "처음 답")
@@ -23,12 +27,14 @@ final class SymptomRecordTests: XCTestCase {
         record.removeSymptomEntry(id: second.id)
         XCTAssertTrue(record.symptoms.isEmpty)
         XCTAssertEqual(record.id, id)
+        XCTAssertEqual(record.patientId, patientId)
+        XCTAssertEqual(record.conditionText, "  오늘은 조금 피곤해요  ")
         XCTAssertEqual(record.recordedDate, date)
     }
     func testRecordPreservesOriginalLocationText() throws {
         let first = try entry(detail: "어제부터요", rawLocationText: "  왼쪽 손끝이 저려요  ")
-        var record = SymptomRecord(id: UUID(), recordedDate: Date(timeIntervalSince1970: 1_000),
-                                   symptoms: [first])
+        var record = SymptomRecord(id: UUID(), patientId: patientId, recordedDate: Date(timeIntervalSince1970: 1_000),
+                                   conditionText: nil, symptoms: [first])
         record.addSymptomEntry(try entry(id: first.id, detail: "다른 답", rawLocationText: "다른 표현"))
         let second = try entry(detail: "사흘 전부터요")
         record.addSymptomEntry(second)
@@ -38,11 +44,13 @@ final class SymptomRecordTests: XCTestCase {
         XCTAssertEqual(record.symptoms.first?.id, second.id)
         XCTAssertEqual(record.symptoms.first?.detail, "사흘 전부터요")
         XCTAssertNil(record.symptoms.first?.rawLocationText)
+        // 컨디션을 말하지 않았다면 항목을 수정해도 임의의 문장을 채우지 않습니다.
+        XCTAssertNil(record.conditionText)
     }
     func testCreationKeepsFirstEntryForDuplicateId() throws {
         let first = try entry()
-        let record = SymptomRecord(id: UUID(), recordedDate: Date(timeIntervalSince1970: 1_000),
-                                   symptoms: [first, try entry(id: first.id, detail: "나중 답")])
+        let record = SymptomRecord(id: UUID(), patientId: patientId, recordedDate: Date(timeIntervalSince1970: 1_000),
+                                   conditionText: nil, symptoms: [first, try entry(id: first.id, detail: "나중 답")])
         XCTAssertEqual(record.symptoms.count, 1)
         XCTAssertEqual(record.symptoms.first?.detail, "처음 답")
     }
@@ -55,8 +63,8 @@ final class SymptomRecordTests: XCTestCase {
             id: UUID(), symptomType: XCTUnwrap(SymptomType(rawValue: "diarrhea")),
             presence: .present, bodyPart: nil, bodySide: nil, durationMinutes: nil, occurrenceCount: 3,
             detail: "하루 세 번이요")
-        var record = SymptomRecord(id: UUID(), recordedDate: Date(timeIntervalSince1970: 1_000),
-                                   symptoms: [constipation])
+        var record = SymptomRecord(id: UUID(), patientId: patientId, recordedDate: Date(timeIntervalSince1970: 1_000),
+                                   conditionText: nil, symptoms: [constipation])
         record.addSymptomEntry(diarrhea)
         XCTAssertEqual(record.symptoms.map(\.symptomType.rawValue), ["constipation", "diarrhea"])
         XCTAssertEqual(record.symptoms.map(\.occurrenceCount), [nil, 3])
@@ -72,8 +80,8 @@ final class SymptomRecordTests: XCTestCase {
                              rawLocationText: rawText, durationMinutes: 30, occurrenceCount: nil,
                              detail: "삼십 분 동안 저렸어요")
         }
-        let record = SymptomRecord(id: UUID(), recordedDate: Date(timeIntervalSince1970: 1_000),
-                                   symptoms: entries)
+        let record = SymptomRecord(id: UUID(), patientId: patientId, recordedDate: Date(timeIntervalSince1970: 1_000),
+                                   conditionText: nil, symptoms: entries)
         XCTAssertEqual(record.symptoms.map(\.symptomType), [.numbness, .numbness, .numbness])
         XCTAssertEqual(record.symptoms.map(\.bodyPart), [.armHand, .legFoot, .armHand])
         XCTAssertEqual(record.symptoms.map(\.bodySide), [.left, .right, .both])
@@ -87,8 +95,8 @@ final class SymptomRecordTests: XCTestCase {
             id: UUID(), symptomType: XCTUnwrap(SymptomType(rawValue: "rashItching")),
             presence: .present, bodyPart: nil, bodySide: nil, rawLocationText: "겨드랑이",
             durationMinutes: nil, occurrenceCount: nil, detail: "가려워요")
-        let record = SymptomRecord(id: UUID(), recordedDate: Date(timeIntervalSince1970: 1_000),
-                                   symptoms: [entry])
+        let record = SymptomRecord(id: UUID(), patientId: patientId, recordedDate: Date(timeIntervalSince1970: 1_000),
+                                   conditionText: nil, symptoms: [entry])
         let saved = try XCTUnwrap(record.symptoms.first)
         XCTAssertNil(saved.bodyPart)
         XCTAssertNil(saved.bodySide)

@@ -12,8 +12,9 @@ final class UserTests: XCTestCase {
     private func date(_ year: Int, _ month: Int, _ day: Int, hour: Int = 0) -> Date {
         calendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour))!
     }
-    private func user(name: String = "김하늘", email: String = "patient@example.com") throws -> User {
-        try User(id: UUID(), email: email, name: name, birthday: date(2000, 10, 11), sex: .female,
+    private func user(name: String = "김하늘") throws -> User {
+        // User는 프로필만 보관합니다. 날짜를 고정해 실행 시점에 따라 결과가 변하지 않게 합니다.
+        try User(id: UUID(), name: name, birthday: date(2000, 10, 11), sex: .female,
                  now: date(2026, 10, 11), calendar: calendar)
     }
 
@@ -35,13 +36,31 @@ final class UserTests: XCTestCase {
         XCTAssertEqual(value.name, "김가을")
         XCTAssertEqual(value.sex, .male)
         XCTAssertEqual(value.id, id)
-        XCTAssertEqual(value.email, "patient@example.com")
     }
-    func testEmailRejectsMalformedAddressesAndTrimsEdges() throws {
-        XCTAssertEqual(try user(email: "  p+tag@example.com\n").email, "p+tag@example.com")
-        XCTAssertThrowsError(try user(email: "  ")) { XCTAssertEqual($0 as? EmailValidationError, .empty) }
-        for email in ["p", "@example.com", "p@", "p a@example.com", "p@example..com", ".p@example.com", "p.@example.com"] {
-            XCTAssertThrowsError(try user(email: email)) { XCTAssertEqual($0 as? EmailValidationError, .invalidFormat) }
+    func testBothPublicInitializersKeepProfileValidation() throws {
+        // email 인자를 받는 기존 생성자도 새 생성자와 같은 이름·생일 검증을 지켜야 합니다.
+        // 이메일 검증 사례는 현재 남아 있는 함수의 테스트인 DomainValidationTests로 옮겼습니다.
+        let birthday = date(2000, 10, 11)
+        let id = UUID()
+        let profile = try User(id: id, name: " 김하늘 ", birthday: birthday, sex: .female)
+        let legacy = try User(id: id, email: "patient@example.com", name: " 김하늘 ", birthday: birthday, sex: .female)
+        for value in [profile, legacy] {
+            XCTAssertEqual(value.name, "김하늘")
+            XCTAssertEqual(value.id, id)
+            XCTAssertEqual(value.birthday, birthday)
+            XCTAssertEqual(value.sex, .female)
+        }
+        XCTAssertThrowsError(try User(id: id, name: " ", birthday: birthday, sex: .female)) {
+            XCTAssertEqual($0 as? NameValidationError, .empty)
+        }
+        XCTAssertThrowsError(try User(id: id, email: "patient@example.com", name: " ", birthday: birthday, sex: .female)) {
+            XCTAssertEqual($0 as? NameValidationError, .empty)
+        }
+        XCTAssertThrowsError(try User(id: id, name: "김하늘", birthday: .distantFuture, sex: .female)) {
+            XCTAssertEqual($0 as? DateValidationError, .futureDate)
+        }
+        XCTAssertThrowsError(try User(id: id, email: "patient@example.com", name: "김하늘", birthday: .distantFuture, sex: .female)) {
+            XCTAssertEqual($0 as? DateValidationError, .futureDate)
         }
     }
     func testBirthdayUsesDayBoundaryAndRejectedUpdateIsAtomic() throws {
@@ -52,7 +71,7 @@ final class UserTests: XCTestCase {
             XCTAssertEqual($0 as? DateValidationError, .futureDate)
         }
         XCTAssertEqual(value.birthday, original)
-        XCTAssertThrowsError(try User(id: UUID(), email: "p@example.com", name: "김하늘",
+        XCTAssertThrowsError(try User(id: UUID(), name: "김하늘",
             birthday: date(2026, 10, 12), sex: .female, now: today, calendar: calendar)) {
             XCTAssertEqual($0 as? DateValidationError, .futureDate)
         }
@@ -70,7 +89,7 @@ final class UserTests: XCTestCase {
         XCTAssertEqual(value.age(on: date(2027, 1, 1), calendar: calendar), 26)
     }
     func testLeapBirthdayInNonLeapYear() throws {
-        let value = try User(id: UUID(), email: "p@example.com", name: "김하늘", birthday: date(2000, 2, 29),
+        let value = try User(id: UUID(), name: "김하늘", birthday: date(2000, 2, 29),
                              sex: .female, now: date(2026, 10, 11), calendar: calendar)
         XCTAssertEqual(value.age(on: date(2025, 2, 28), calendar: calendar), 24)
         XCTAssertEqual(value.age(on: date(2025, 3, 1), calendar: calendar), 25)
@@ -80,9 +99,9 @@ final class UserTests: XCTestCase {
         seoul.timeZone = TimeZone(secondsFromGMT: 9 * 3600)!
         let now = date(2026, 10, 11, hour: 16)
         let birthday = date(2026, 10, 12, hour: 1)
-        XCTAssertNoThrow(try User(id: UUID(), email: "p@example.com", name: "김하늘", birthday: birthday,
+        XCTAssertNoThrow(try User(id: UUID(), name: "김하늘", birthday: birthday,
                                  sex: .male, now: now, calendar: seoul))
-        XCTAssertThrowsError(try User(id: UUID(), email: "p@example.com", name: "김하늘", birthday: birthday,
+        XCTAssertThrowsError(try User(id: UUID(), name: "김하늘", birthday: birthday,
                                      sex: .male, now: now, calendar: calendar))
     }
 }

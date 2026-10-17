@@ -10,6 +10,7 @@ import SwiftUI
 @main
 struct ToDocApp: App {
     private let container: DependencyContainer
+    private let authFlow: AuthFlowViewModel
     
     init() {
         let configuration = SupabaseConfiguration(
@@ -17,12 +18,14 @@ struct ToDocApp: App {
                      publishableKey: "sb_publishable_R6znWnBZPpAjeKFx29gWtg_93oUMsHf"
         )
         
-        container = DependencyContainer(configuration: configuration)
+        let container = DependencyContainer(configuration: configuration)
+        self.container = container
+        authFlow = container.makeAuthFlow()
     }
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(authFlow: authFlow)
         }
     }
 }

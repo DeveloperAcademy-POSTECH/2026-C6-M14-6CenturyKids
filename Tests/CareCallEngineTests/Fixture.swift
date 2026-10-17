@@ -1,5 +1,5 @@
 import Foundation
-@testable import ToDocCareCall
+@testable import ToDocFeatures
 
 /// 앱과 같은 설정 파일(ToDoc/Resources/Config)을 읽는다
 func fixture<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {

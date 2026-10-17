@@ -3,10 +3,11 @@ import XCTest
 import ToDocDomain
 
 final class PainRecordTests: XCTestCase {
+    private let patientId = UUID()
     private var front: BodyLocation { .init(bodyPart: .neck, bodySide: .center, bodyView: .front) }
     private var back: BodyLocation { .init(bodyPart: .neck, bodySide: .center, bodyView: .back) }
     private func record(before: Int = 7, after: Int = 3, locations: [BodyLocation]? = nil) throws -> PainRecord {
-        try PainRecord(id: UUID(), recordedDate: Date(timeIntervalSince1970: 1_000),
+        try PainRecord(id: UUID(), patientId: patientId, recordedDate: Date(timeIntervalSince1970: 1_000),
                        location: locations ?? [front], painBefore: before, painAfter: after)
     }
     func testBothPainValuesAcceptZeroAndTenAndRejectOutside() throws {
@@ -36,7 +37,7 @@ final class PainRecordTests: XCTestCase {
         value.removeLocation(front)
         XCTAssertEqual(value.location, [front])
     }
-    func testLocationMutationPreservesIdentityDateAndScores() throws {
+    func testLocationMutationPreservesPatientIdentityDateAndScores() throws {
         var value = try record()
         let id = value.id, date = value.recordedDate
         value.addLocation(back)
@@ -48,6 +49,8 @@ final class PainRecordTests: XCTestCase {
         value.removeLocation(back)
         XCTAssertEqual(value.location, [back])
         XCTAssertEqual(value.id, id)
+        // 부위를 편집하는 동작은 기록의 소유 환자를 변경하지 않습니다.
+        XCTAssertEqual(value.patientId, patientId)
         XCTAssertEqual(value.recordedDate, date)
         XCTAssertEqual(value.painBefore, 7)
         XCTAssertEqual(value.painAfter, 3)
