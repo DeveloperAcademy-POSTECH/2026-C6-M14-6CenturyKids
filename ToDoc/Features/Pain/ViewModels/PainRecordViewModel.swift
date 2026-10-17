@@ -14,9 +14,11 @@ final class PainRecordViewModel {
     private let patientId: UUID
     private let painRepository: any PainRepository
     private var preparedRecord: PainRecord?
+    private var recordedDate: Date?
     private(set) var isSaving = false
 
     enum PreparationError: Error {
+        case recordNotStarted
         case missingScores
     }
 
@@ -30,8 +32,17 @@ final class PainRecordViewModel {
         self.painRepository = painRepository
     }
 
-    func prepareRecord(from input: PainFormInput, recordedDate: Date) throws -> PainRecord {
+    func startRecord() throws {
+        try discardPreparedRecord()
+        recordedDate = Date()
+    }
+
+    func prepareRecord(from input: PainFormInput) throws -> PainRecord {
         preparedRecord = nil
+
+        guard let recordedDate else {
+            throw PreparationError.recordNotStarted
+        }
 
         guard let before = input.before, let after = input.after else {
             throw PreparationError.missingScores
@@ -40,7 +51,7 @@ final class PainRecordViewModel {
         let record = try PainRecord(
             id: UUID(),
             patientId: patientId,
-            recordedDate: recordedDate,
+            recordedDate: recordedDate, // -> view에서 따로 선어하는겥x
             location: input.locations,
             painBefore: before,
             painAfter: after
@@ -64,6 +75,7 @@ final class PainRecordViewModel {
         try await painRepository.save(record, for: patientId)
 
         preparedRecord = nil
+        recordedDate = nil
         return record
     }
 
@@ -73,5 +85,6 @@ final class PainRecordViewModel {
         }
 
         preparedRecord = nil
+        recordedDate = nil
     }
 }
