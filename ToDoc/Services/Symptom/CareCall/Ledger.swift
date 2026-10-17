@@ -55,12 +55,14 @@ struct Ledger: Sendable {
     mutating func apply(_ mention: Mention, patientText: String, knownEffectIds: Set<String>, mayChangeRecorded: Bool = true) {
         guard Self.grounded(mention.quote, in: patientText) else { return }
         var effectId = mention.effectId
-        let otherName = mention.otherName?.trimmingCharacters(in: .whitespaces)
+        var otherName = mention.otherName?.trimmingCharacters(in: .whitespaces)
         if effectId != "other", !knownEffectIds.contains(effectId) {
             // 목록 ID를 변형한 것("stomatitis_detail" 등)은 버린다. 그 밖의 목록 밖 ID(모델이 만든 "headache" 등)는 기타로 받는다
             if knownEffectIds.contains(where: { effectId.hasPrefix($0) }) { return }
             effectId = "other"
         }
+        // 이름은 기타 증상에만 둔다. 모델이 목록 증상에도 빈 이름("")을 붙여 내용이 ": 세 번이요"로 저장됐다 (2026-10-17 실기기)
+        if effectId != "other" { otherName = nil }
         // 기타는 이름이 있어야 받는다 (이름 정리는 InterviewEngine.normalizedOthers)
         if effectId == "other", (otherName ?? "").isEmpty { return }
 

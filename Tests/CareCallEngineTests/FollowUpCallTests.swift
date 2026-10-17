@@ -193,4 +193,15 @@ struct FollowUpCallTests {
         #expect(mock.requests.count >= 1) // 짧은 답이 아니라 모델이 먼저 본다
         #expect(out.phase == .saved && out.utterance == config.followUpCall.unchanged + " " + rules.closingMessage)
     }
+
+    // MARK: - 실기기 테스트 (실제 모델)
+
+    @Test func 모델이_목록_증상에_빈_이름을_붙여도_이름_없이_기록한다() async {
+        mock.script["설사를 했어요"] = .mentions(Mention(effectId: "diarrhea", otherName: "", presence: .present))
+        let call = engine()
+        _ = call.start()
+        _ = await call.handle(patientText: "설사를 했어요")
+        #expect(call.ledger["diarrhea"]?.presence == .present)
+        #expect(call.ledger["diarrhea"]?.otherName == nil) // 이름이 ""이면 내용이 ": 세 번이요"로 저장됐다
+    }
 }
