@@ -30,7 +30,7 @@ final class AuthenticationService {
     }
     
     func resetPassword(email: String) async throws {
-        try await authRepository.resetPassword(email: email)
+        try await authRepository.requestPasswordChangeVerification()
     }
     
     /// 현재 로그인된 사용자의 정보를 반환합니다.
