@@ -9,7 +9,7 @@ nonisolated public struct User: Sendable {
 
     public var age: Int { age(on: Date(), calendar: DomainDateRules.calendar) }
 
-    public init(id: UUID, email: String, name: String, birthday: Date, sex: Sex) throws {
+    public init(id: UUID, name: String, birthday: Date, sex: Sex) throws {
         try self.init(id: id, name: name, birthday: birthday, sex: sex,
                       now: Date(), calendar: DomainDateRules.calendar)
     }
