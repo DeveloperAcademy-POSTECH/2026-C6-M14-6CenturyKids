@@ -7,8 +7,10 @@
 
 import Foundation
 
-protocol DoctorRepository : Repository where Entity == Doctor {
+protocol DoctorRepository {
     func save(doctor: Doctor) async throws
+    
+    func findById(_ id: UUID) async throws -> Doctor?
 
     func findByName(
         _ name: String
