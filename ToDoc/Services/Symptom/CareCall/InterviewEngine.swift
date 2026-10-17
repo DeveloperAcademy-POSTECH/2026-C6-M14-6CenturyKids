@@ -214,7 +214,9 @@ final class InterviewEngine {
         if current == .opening, let unasked {
             // 다시 거는 통화: 말한 증상·못 물은 항목을 묻는다고 알리거나, 달라진 게 없으면 그대로 둔다고 말하고 마무리
             let f = config.followUpCall
-            let transition: String? = switch (toldNewSymptom, unasked.isEmpty) {
+            // 기타 증상만 말했으면 곧바로 '그 밖에'로 가므로 "말씀하신 증상에 대해 조금 더 여쭤볼게요"는 붙이지 않는다
+            let toldListedSymptom = ledger.order.contains { knownIds.contains($0) && ledger[$0]?.presence == .present }
+            let transition: String? = switch (toldListedSymptom, unasked.isEmpty) {
             case (true, true): f.noted
             case (true, false): f.notedAndResume
             case (false, false): f.resume
