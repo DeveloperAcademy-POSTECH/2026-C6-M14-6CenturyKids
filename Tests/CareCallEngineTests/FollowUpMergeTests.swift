@@ -38,7 +38,7 @@ struct FollowUpMergeTests {
                                                                entry(.constipation, .present)]))
         #expect(merged.symptoms.map(\.presence) == [.present, .present])
         #expect(merged.symptoms.first { $0.symptomType == .diarrhea }?.occurrenceCount == 3)
-        #expect(merged.symptoms.first { $0.symptomType == .diarrhea }?.detail == "세 번이요")
+        #expect(merged.symptoms.first { $0.symptomType == .diarrhea }?.detail == "[검토 필요] 세 번이요 / 전 통화: 환자가 요약에서 지움")
     }
 
     @Test func 전에도_있던_증상은_기존_값을_두고_빈_칸만_채우고_내용을_덧붙인다() {
@@ -122,5 +122,18 @@ struct FollowUpMergeTests {
         #expect(detail.hasPrefix("[검토 필요] 가"))
         #expect(detail.filter { $0 == "가" }.count >= (SymptomEntry.detailLimit - 20) / 2 - 10)
         #expect(detail.contains("다시 통화: 나"))
+    }
+
+    @Test func 없음을_있음으로_바꿀_때_전_통화의_검토_메모를_남긴다() {
+        let old = record([entry(.diarrhea, .absent, "[검토 필요] 환자가 요약에서 지움: 세 번")])
+        let merged = CareCallViewModel.merge(old, with: record([entry(.diarrhea, .present, "네 번이요", count: 4)]))
+        #expect(merged.symptoms.count == 1 && merged.symptoms[0].presence == .present && merged.symptoms[0].occurrenceCount == 4)
+        #expect(merged.symptoms[0].detail == "[검토 필요] 네 번이요 / 전 통화: 환자가 요약에서 지움: 세 번")
+    }
+
+    @Test func 없어졌다는_말은_그_증상의_모든_부위에_남긴다() {
+        let old = record([entry(.numbness, .present, "손이요", part: .armHand), entry(.numbness, .present, "발이요", part: .legFoot)])
+        let merged = CareCallViewModel.merge(old, with: record([entry(.numbness, .absent)]))
+        #expect(merged.symptoms.map(\.detail) == ["손이요 / 다시 통화: 지금은 없다고 함", "발이요 / 다시 통화: 지금은 없다고 함"])
     }
 }

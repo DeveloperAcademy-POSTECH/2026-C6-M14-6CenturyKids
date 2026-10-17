@@ -519,15 +519,19 @@ final class CareCallViewModel {
                 if entry.detail?.hasPrefix(Self.review) == true,
                    let index = symptoms.firstIndex(where: { $0.symptomType == entry.symptomType }) {
                     symptoms[index] = filled(symptoms[index], with: entry)
-                } else if entry.presence == .absent,
-                          let index = symptoms.firstIndex(where: { $0.symptomType == entry.symptomType && $0.presence == .present }) {
-                    symptoms[index] = filled(symptoms[index], with: entry, note: "지금은 없다고 함")
+                } else if entry.presence == .absent {
+                    // 없어졌다는 말은 그 증상 전체에 대한 말이라 부위별 항목마다 남긴다
+                    for index in symptoms.indices where symptoms[index].symptomType == entry.symptomType && symptoms[index].presence == .present {
+                        symptoms[index] = filled(symptoms[index], with: entry, note: "지금은 없다고 함")
+                    }
                 }
                 continue
             }
             if !sameType.contains(where: { $0.presence == .present }) {
+                // 전 통화 내용(검토 필요 메모 등)은 버리지 않고 이번 항목에 "전 통화: …"로 남긴다
+                let previous = sameType.first { $0.detail != nil }
                 symptoms.removeAll { $0.symptomType == entry.symptomType }
-                symptoms.append(entry)
+                symptoms.append(previous.map { filled(entry, with: $0, label: "전 통화") } ?? entry)
             } else if let index = symptoms.firstIndex(where: { $0.symptomType == entry.symptomType && $0.presence == .present
                                                                 && sameSpot($0, entry) }) {
                 symptoms[index] = filled(symptoms[index], with: entry)
@@ -556,12 +560,12 @@ final class CareCallViewModel {
 
     /// 전에도 있던 증상: 기존 값(유무 포함)은 두고 빈 칸만 이번 값으로 채운다. 이번 내용은 "다시 통화: …"로 덧붙인다.
     /// 검토 필요 표시는 맨 앞에 하나만. 길면 전 내용을 줄여 이번 답은 남긴다
-    /// note가 있으면 이번 내용 대신 그 말을 덧붙인다
-    private static func filled(_ old: SymptomEntry, with new: SymptomEntry, note: String? = nil) -> SymptomEntry {
+    /// note가 있으면 덧붙일 항목의 내용 대신 그 말을 덧붙인다. label은 덧붙이는 말 앞 이름
+    private static func filled(_ old: SymptomEntry, with new: SymptomEntry, note: String? = nil, label: String = "다시 통화") -> SymptomEntry {
         func stripped(_ text: String?) -> String? { text.map { $0.hasPrefix(review) ? String($0.dropFirst(review.count)) : $0 } }
         func cut(_ text: String, to room: Int) -> String { text.count <= room ? text : String(text.prefix(max(room - 1, 0))) + "…" }
         var oldText = stripped(old.detail)
-        var added = (note ?? stripped(new.detail)).map { "다시 통화: " + $0 }
+        var added = (note ?? stripped(new.detail)).map { "\(label): " + $0 }
         var flagged = old.detail?.hasPrefix(review) == true || new.detail?.hasPrefix(review) == true
         // 길면 둘 다 남기도록 나눠 줄인다 (어느 쪽도 반보다 적게 줄이지 않는다). 잘랐으면 의료진이 원문을 보게 검토 필요
         if let o = oldText, let a = added, review.count + o.count + " / ".count + a.count > SymptomEntry.detailLimit {
