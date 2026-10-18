@@ -50,6 +50,18 @@ final class SettingsViewModel {
         personalInfoState.onCancel = { [weak self] in
             self?.discardPersonalInfoChanges()
         }
+
+        carcinomaState.onSave = { [weak self] in
+            Task { [weak self] in
+                await self?.saveDiagnosis(.carcinoma)
+            }
+        }
+
+        stageState.onSave = { [weak self] in
+            Task { [weak self] in
+                await self?.saveDiagnosis(.stage)
+            }
+        }
     }
 
     func loadProfile() async {
@@ -191,6 +203,57 @@ final class SettingsViewModel {
             personalInfoState.didSave = true
         } catch {
             personalInfoState.errorMessage = "개인 정보를 저장하지 못했어요. 다시 시도해 주세요."
+        }
+    }
+
+    func saveDiagnosis(_ field: DiagnosisField) async {
+        let state: DiagnosisScreenState
+        switch field {
+        case .carcinoma: state = carcinomaState
+        case .stage: state = stageState
+        }
+
+        guard state.canSave, !state.isSaving,
+              let selection = state.selection else { return }
+
+        state.isSaving = true
+        state.didSave = false
+        state.errorMessage = nil
+        defer { state.isSaving = false }
+
+        do {
+            guard let patient = try await patientRepository.findById(patientId) else {
+                state.errorMessage = "환자 정보를 찾지 못했어요."
+                return
+            }
+
+            guard var disease = patient.disease else {
+                state.errorMessage = "진단 정보를 찾지 못했어요."
+                return
+            }
+
+            switch (field, selection) {
+            case (.carcinoma, .carcinoma(let type)):
+                disease.updateCarcinomaType(type)
+            case (.stage, .stage(let stage)):
+                disease.updateStage(stage)
+            default:
+                state.errorMessage = "선택한 진단 정보를 확인해 주세요."
+                return
+            }
+
+            let updatedPatient = Patient(
+                user: patient.user,
+                doctorId: patient.doctorId,
+                disease: disease
+            )
+            try await patientRepository.save(patient: updatedPatient)
+
+            screenState.profile?.cancerName = disease.carcinoma.displayName
+            screenState.profile?.stageName = disease.stage.displayName
+            state.didSave = true
+        } catch {
+            state.errorMessage = "진단 정보를 저장하지 못했어요. 다시 시도해 주세요."
         }
     }
 
