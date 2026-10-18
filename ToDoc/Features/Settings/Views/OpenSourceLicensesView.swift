@@ -6,13 +6,13 @@ struct OpenSourceLicensesView: View {
             NavigationLink {
                 OpenSourceLicenseDetailView(license: license)
             } label: {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: AppSpacing.compact) {
                     Text(license.name).appTextStyle(.label)
                         .foregroundStyle(AppColors.Text.primary)
                     Text(license.licenseName).appTextStyle(.caption)
                         .foregroundStyle(AppColors.Text.secondary)
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, AppSpacing.compact)
             }
         }
         .listStyle(.plain)
@@ -33,7 +33,7 @@ struct OpenSourceLicenseDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: AppSpacing.section) {
                 Text(license.licenseName).appTextStyle(.heading)
                     .accessibilityAddTraits(.isHeader)
                 if let text {
@@ -47,7 +47,7 @@ struct OpenSourceLicenseDetailView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 24)
+            .padding(.vertical, AppSpacing.section)
         }
         .appScreenStyle()
         .navigationTitle(license.name)
