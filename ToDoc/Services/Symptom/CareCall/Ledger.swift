@@ -26,6 +26,8 @@ struct Ledger: Sendable {
         var closed = false
         /// 환자가 "모르겠어요"라고 답한 단계. 다시 묻지 않고 '모름'으로 기록한다
         var unknownSteps: Set<CareCallStep> = []
+        /// 모르겠다·애매하다고 한 답, 두 번 다시 물어도 분명하지 않았던 답의 원문. 부위 질문의 답은 "부위: …"
+        var unsureAnswers: [String] = []
     }
 
     /// 꼬리질문 답 (환자 말 그대로)과 그 질문 이름
@@ -55,12 +57,14 @@ struct Ledger: Sendable {
     mutating func apply(_ mention: Mention, patientText: String, knownEffectIds: Set<String>, mayChangeRecorded: Bool = true) {
         guard Self.grounded(mention.quote, in: patientText) else { return }
         var effectId = mention.effectId
-        let otherName = mention.otherName?.trimmingCharacters(in: .whitespaces)
+        var otherName = mention.otherName?.trimmingCharacters(in: .whitespaces)
         if effectId != "other", !knownEffectIds.contains(effectId) {
             // 목록 ID를 변형한 것("stomatitis_detail" 등)은 버린다. 그 밖의 목록 밖 ID(모델이 만든 "headache" 등)는 기타로 받는다
             if knownEffectIds.contains(where: { effectId.hasPrefix($0) }) { return }
             effectId = "other"
         }
+        // 이름은 기타 증상에만 둔다. 모델이 목록 증상에도 빈 이름("")을 붙여 내용이 ": 세 번이요"로 저장됐다 (2026-10-17 실기기)
+        if effectId != "other" { otherName = nil }
         // 기타는 이름이 있어야 받는다 (이름 정리는 InterviewEngine.normalizedOthers)
         if effectId == "other", (otherName ?? "").isEmpty { return }
 
@@ -90,15 +94,22 @@ struct Ledger: Sendable {
         entries[key] = entry
     }
 
-    /// "모르겠어요" 같은 답: 그 단계를 '모름'으로 기록하고 다시 묻지 않는다 (2026-10-08 사용자 결정: 되묻기 대상이 아니라 기록할 답).
-    /// 유무를 모르면 있음/없음 대신 unclear로 둔다. 의료진이 보도록 검토 필요 표시
+    /// "모르겠어요"·"그냥 좀 그래요" 같은 답: 그 단계를 '모름'으로 기록하고 다시 묻지 않는다 (2026-10-08 사용자 결정: 되묻기 대상이 아니라 기록할 답).
+    /// 유무를 모르면 있음/없음 대신 unclear로 둔다. 의료진이 보도록 검토 필요 표시와 환자 말 원문을 남긴다
     mutating func markUnknown(_ key: String, step: CareCallStep, quote: String) {
         guard var entry = entries[key] else { return }
         entry.unknownSteps.insert(step)
         if step == .presence { entry.presence = .unclear }
         entry.needsReview = true
         entry.quotes.append(quote)
+        let said = quote.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        if !said.isEmpty { entry.unsureAnswers.append(step == .location ? "부위: " + said : said) }
         entries[key] = entry
+    }
+
+    /// 두 번 다시 물어도 분명하지 않아 닫은 항목: 그동안 받은 답을 원문으로 남긴다
+    mutating func addUnsure(_ answers: [String], step: CareCallStep, for key: String) {
+        entries[key]?.unsureAnswers += answers.map { step == .location ? "부위: " + $0 : $0 }
     }
 
     mutating func setConditionText(_ text: String) {
