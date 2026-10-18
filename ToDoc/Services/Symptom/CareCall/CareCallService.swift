@@ -85,6 +85,10 @@ final class CareCallService: CareCalling {
         conversation.map { turn(InterviewEngine.Output(utterance: $0.engine.lastQuestion, phase: $0.engine.phase), of: $0) }
     }
 
+    var progress: SymptomRecord? {
+        conversation.flatMap(partialRecord(of:))
+    }
+
     func answer(_ text: String) async throws -> CareCallTurn {
         guard let conversation else { throw CareCallServiceError.notPrepared }
         // 문자 대화에서도 모델을 불러올 때 음성 합성이 고정 문구를 미리 합성하기 시작한다. 분석 중에는 멈춘다 (CPU 경쟁)
