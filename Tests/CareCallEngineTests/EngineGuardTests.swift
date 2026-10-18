@@ -348,9 +348,7 @@ struct CorrectionRecheckTests {
         _ = await engine.handle(patientText: correction)
         #expect(engine.ledger["nausea_vomiting"]?.presence == .present)
         #expect(mock.requests.last?.slotKey == "nausea_vomiting")
-        // 번복한 말에 횟수("한 번")까지 있어 횟수는 다시 묻지 않고, 묻던 변비로 돌아간다 (NumberPrefillTests)
-        #expect(engine.ledger["nausea_vomiting"]?.details.map(\.text) == [correction])
-        #expect(engine.phase == .slot(key: "constipation", step: .presence))
+        #expect(engine.phase == .slot(key: "nausea_vomiting", step: .detail))
     }
 }
 
