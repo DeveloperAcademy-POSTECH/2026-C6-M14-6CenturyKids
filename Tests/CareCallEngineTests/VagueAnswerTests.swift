@@ -104,4 +104,15 @@ struct VagueAnswerTests {
         let entry = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.first
         #expect(entry?.presence == .absent && entry?.detail == nil)
     }
+
+    @Test func 다른_증상을_말한_답은_닫힌_항목의_원문으로_남기지_않는다() async {
+        mock.script["설사를 했어요"] = .mentions(Mention(effectId: "diarrhea", presence: .present))
+        let call = await atFirstSymptom()
+        _ = await call.handle(patientText: "설사를 했어요") // 구토 질문에 설사 답 → 설사 기록, 구토는 다시 물음
+        _ = await call.handle(patientText: "음 그게요")
+        _ = await call.handle(patientText: "그러니까요")
+        let nausea = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.first { $0.symptomType == .nauseaVomiting }
+        #expect(nausea?.detail?.contains("설사") == false)
+        #expect(call.ledger["diarrhea"]?.presence == .present)
+    }
 }

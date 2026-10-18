@@ -222,8 +222,10 @@ final class InterviewEngine {
             break
         }
 
-        // 유무·부위 질문의 답이 분명하지 않으면(다시 묻게 됨) 답을 모아 둔다
-        if case .slot(let key, let step) = current, step != .detail, let entry = ledger[key], !entry.unknownSteps.contains(step),
+        // 유무·부위 질문의 답이 분명하지 않으면(다시 묻게 됨) 답을 모아 둔다. 이 답으로 다른 증상이 기록됐으면 그 증상의 말이라 모으지 않는다
+        if case .slot(let key, let step) = current, step != .detail,
+           ledger.order.allSatisfy({ $0 == key || (ledger[$0]?.presence == before[$0]?.presence && ledger[$0]?.locations == before[$0]?.locations) }),
+           let entry = ledger[key], !entry.unknownSteps.contains(step),
            step == .presence ? (entry.presence == nil || entry.presence == .unclear) : entry.locations.isEmpty {
             let said = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
             if !said.isEmpty { unsettledAnswers["\(key)|\(step)", default: []].append(said) }
