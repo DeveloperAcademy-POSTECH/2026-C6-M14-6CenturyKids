@@ -179,6 +179,8 @@ final class InterviewEngine {
         }
 
         switch current {
+        case .slot(let key, .presence) where isVagueAnswer(patientText):
+            ledger.markVague(key, quote: patientText)
         case .slot(let key, let step) where step != .detail && isUnknownAnswer(patientText):
             ledger.markUnknown(key, step: step, quote: patientText)
         case .slot(let key, .detail):
@@ -429,6 +431,19 @@ final class InterviewEngine {
         return !config.effects.flatMap(\.keywords).contains(where: text.contains) && symptomHints.matches(text) == nil
     }
 
+    /// 유무 질문에 있다고도 없다고도 하지 않은 답 ("그냥 좀 그래요", "글쎄요"). 있다·없다는 말, 숫자, 연결어, 증상 낱말·표현이
+    /// 함께 있으면 아니다 ("그냥 그래요, 없어요", "좀 그래요, 속이 메스꺼워요"는 지금처럼 판단한다)
+    private func isVagueAnswer(_ text: String) -> Bool {
+        let t = Self.withoutFillers(text, fillers: config.shortAnswers.fillers)
+        let compact = Self.normalized(t)
+        guard config.vagueAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
+              NumberParser.numbers(in: t).isEmpty, !soundsNegative(t),
+              !["있", "했"].contains(where: compact.contains),
+              !config.shortAnswers.yes.contains(where: { compact.hasPrefix(Self.normalized($0)) }) else { return false }
+        if ["는데", "지만", "근데", "그런데"].contains(where: t.contains) { return false }
+        return !config.effects.flatMap(\.keywords).contains(where: t.contains) && symptomHints.matches(t) == nil
+    }
+
     /// 없다는 뜻이 담긴 답 ("없어요", "딱히 없는 것 같아요", "괜찮아요", "아니요 그냥 그래요")
     /// "읎"은 사투리 "읎어요·읎심더"
     private func soundsNegative(_ text: String) -> Bool {
@@ -487,7 +502,7 @@ final class InterviewEngine {
         case .other where yes: // "네"만: 무엇이 불편한지 되묻는다 (모델이 "네"를 증상으로 기록하지 않도록)
             return TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
                               emergencySignal: false, utterance: config.otherFollowUp)
-        case .slot(_, .presence) where isUnknownAnswer(patientText),
+        case .slot(_, .presence) where isUnknownAnswer(patientText) || isVagueAnswer(patientText),
              .slot(_, .location) where isUnknownAnswer(patientText),
              .other where isUnknownAnswer(patientText): // "모르겠어요": 모델 없이 '모름'으로 기록 (아래 switch), 그 밖에는 없음
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,

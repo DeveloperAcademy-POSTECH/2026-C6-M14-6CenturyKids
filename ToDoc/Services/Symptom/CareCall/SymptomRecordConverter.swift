@@ -52,7 +52,8 @@ struct SymptomRecordConverter {
         // 기타 증상은 처음 말한 문장도 남긴다. 모델이 이름을 못 뽑아 그 문장이 이름이면 한 번만
         let firstSaid = e.effectId == "other" ? e.quotes.first.map { $0.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) }
             .flatMap { said in said.isEmpty || e.otherName?.contains(said) == true ? nil : said } : nil
-        let answerText = ([firstSaid].compactMap(\.self) + answers.map { questions.count > 1 ? "\($0.label): \($0.text)" : $0.text })
+        // 유무 질문에 애매하게 한 답은 그대로 ("[검토 필요] 그냥 좀 그래요")
+        let answerText = ([firstSaid, e.vagueAnswer].compactMap(\.self) + answers.map { questions.count > 1 ? "\($0.label): \($0.text)" : $0.text })
             .joined(separator: " / ")
         // 검토 필요 → 앞에 표시, 기타 증상 → 앞에 이름 (#84)
         let body = [e.otherName, answerText.isEmpty ? nil : answerText].compactMap(\.self).joined(separator: ": ")

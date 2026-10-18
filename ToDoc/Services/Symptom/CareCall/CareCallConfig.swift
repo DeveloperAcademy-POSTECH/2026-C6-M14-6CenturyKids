@@ -82,6 +82,9 @@ struct CareCallConfig: Decodable, Sendable {
     let reasonSuffixes: [String]
     /// 유무·부위 질문에 이 말이 든 답("잘 모르겠어요", "기억이 안 나요")은 다시 묻지 않고 '모름'으로 기록 (초안)
     let unknownAnswers: [String]
+    /// 유무 질문에 있다고도 없다고도 하지 않은 답("그냥 좀 그래요", "글쎄요")의 낱말. 다시 묻지 않고 '모름' + 검토 필요로,
+    /// 환자 말은 그대로 남긴다 (모델은 이런 답을 대부분 '있음'으로 기록했다, 2026-10-14 평가. 초안)
+    let vagueAnswers: [String]
     /// 모델 없이 처리하는 짧은 답 (공백·문장부호를 뺀 뒤 완전히 같을 때만). 질문이 긍정형("~있으셨나요?")이라는 전제
     let shortAnswers: ShortAnswers
     /// 처음·그 밖에 답에 이 표현이 있는데 모델이 아무것도 기록하지 않으면 한 번 더 분석한다 (초안, 의료진 확인 필요)
@@ -114,7 +117,7 @@ struct CareCallConfig: Decodable, Sendable {
         let question: String
         /// 달라진 게 없다는 답의 낱말 ("똑같아요", "그대로예요"). "없어요·괜찮아요"는 없음 표현으로 본다
         let unchangedAnswers: [String]
-        /// "모르겠어요"(unknownAnswers) 말고도 애매하다는 답의 낱말 ("글쎄요"). 처음 통화의 유무 질문에서는 되묻는다
+        /// "모르겠어요"(unknownAnswers) 말고도 애매하다는 답의 낱말 ("글쎄요"). 유무 질문의 애매한 답은 vagueAnswers
         let unclearAnswers: [String]
         /// 첫 답에서 증상을 말함 → 그 증상을 묻기 전에
         let noted: String

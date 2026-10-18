@@ -26,6 +26,8 @@ struct Ledger: Sendable {
         var closed = false
         /// 환자가 "모르겠어요"라고 답한 단계. 다시 묻지 않고 '모름'으로 기록한다
         var unknownSteps: Set<CareCallStep> = []
+        /// 유무 질문에 애매하게 한 답 ("그냥 좀 그래요"). '모름'으로 기록하고 이 말을 그대로 남긴다
+        var vagueAnswer: String?
     }
 
     /// 꼬리질문 답 (환자 말 그대로)과 그 질문 이름
@@ -101,6 +103,12 @@ struct Ledger: Sendable {
         entry.needsReview = true
         entry.quotes.append(quote)
         entries[key] = entry
+    }
+
+    /// 유무 질문에 애매한 답: '모름' + 검토 필요로 기록하고 답을 그대로 남긴다 (다시 묻지 않는다)
+    mutating func markVague(_ key: String, quote: String) {
+        markUnknown(key, step: .presence, quote: quote)
+        entries[key]?.vagueAnswer = quote.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     mutating func setConditionText(_ text: String) {
