@@ -88,6 +88,12 @@ struct FollowUpMergeTests {
         #expect(bare.symptoms[0].detail == "[검토 필요] 손이요 / 다시 통화: 지금은 없다고 함") // 표시만 있으면 그 말 대신
     }
 
+    @Test func 내용_없이_검토_필요_표시만_있던_항목은_더해도_표시가_남는다() {
+        let flagged = entry(.diarrhea, .present, "[검토 필요]")
+        let merged = CareCallViewModel.merge(record([flagged]), with: record([entry(.diarrhea, .present, count: 3)]))
+        #expect(merged.symptoms[0].detail == "[검토 필요]" && merged.symptoms[0].occurrenceCount == 3)
+    }
+
     @Test func 이번에_모름이거나_전에도_없던_증상은_그대로() {
         let present = entry(.diarrhea, .present, "세 번")
         let absent = entry(.constipation, .absent)

@@ -588,7 +588,8 @@ final class CareCallViewModel {
             added = cut(a, to: room - min(o.count, oldRoom))
         }
         let body = [oldText, added].compactMap(\.self).joined(separator: " / ")
-        let detail = body.isEmpty ? nil : String(((flagged ? review : "") + body).prefix(SymptomEntry.detailLimit))
+        // 내용 없이 검토 필요 표시만 있어도 표시는 남긴다
+        let detail = body.isEmpty ? (flagged ? reviewMark : nil) : String(((flagged ? review : "") + body).prefix(SymptomEntry.detailLimit))
         let fill = textOnly ? nil : new
         let merged = try? SymptomEntry(id: old.id, symptomType: old.symptomType, presence: old.presence,
                                        bodyPart: old.bodyPart ?? fill?.bodyPart, bodySide: old.bodySide ?? fill?.bodySide,
