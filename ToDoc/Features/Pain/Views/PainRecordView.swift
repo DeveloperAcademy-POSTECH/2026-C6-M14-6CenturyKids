@@ -158,7 +158,7 @@ struct PainRecordView: View {
 private struct PreviewPainRepository: PainRepository {
     func findById(_ id: UUID) async throws -> PainRecord? { nil }
     func deleteById(_ id: UUID) async throws {}
-    func save(_ entity: PainRecord, for patientId: UUID) async throws {}
+    func save(_ entity: PainRecord) async throws {}
     func findByPatientId(_ patientId: UUID) async throws -> [PainRecord] { [] }
     func findByPatientIdAndDate(_ patientId: UUID, _ date: Date) async throws -> [PainRecord] { [] }
 }
