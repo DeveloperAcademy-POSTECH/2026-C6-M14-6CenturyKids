@@ -4,7 +4,7 @@ struct SignupCancerStageView: View {
     @Bindable var state: SignupScreenState
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var body: some View {
-        SignupStepScreen(state: state, title: "진단받을 때의\n병기를 알려주세요", buttonTitle: "입력 내용 확인") {
+        SignupStepScreen(state: state, title: "진단받을 때의\n병기를 알려주세요", buttonTitle: "다음") {
             Label("선택한 암 · \(state.cancerTitle)", systemImage: "checkmark.circle")
                 .appTextStyle(.label)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: 12) {

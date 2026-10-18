@@ -16,7 +16,8 @@ import ToDocDomain
     private var requestID: UUID?
     private var verifiedDoctorID: UUID?
     private var verifiedDoctorCode: String?
-    private var editingBasicInfo = false
+    /// 최종 확인에서 연 수정 화면은 입력을 마치거나 돌아갈 때 최종 확인으로 복귀합니다.
+    private var reviewEditStart: SignupStep?
     private var draft: Draft?
     private var accountID: UUID?
     private var attemptedAccountCreation = false
@@ -43,11 +44,11 @@ import ToDocDomain
             case .back: back()
             case .skipDoctorCode:
                 verifiedDoctorID = nil; verifiedDoctorCode = nil
-                state.doctorCode = ""; state.connection = nil; state.step = .patientInfo
+                state.doctorCode = ""; state.connection = nil; state.step = .review
             case .changeDoctorCode:
                 verifiedDoctorID = nil; verifiedDoctorCode = nil; state.connection = nil; state.step = .doctorCode
-            case .editBasicInfo: editingBasicInfo = true; state.step = .patientInfo
-            case .editDiagnosis: editingBasicInfo = false; state.step = .cancerType
+            case .editBasicInfo: reviewEditStart = .patientInfo; state.step = .patientInfo
+            case .editDiagnosis: reviewEditStart = .cancerType; state.step = .cancerType
             default: break
             }
         }
@@ -59,19 +60,22 @@ import ToDocDomain
         guard state.currentValidationError == nil else { return }
         state.hasAttemptedStep = false
         switch state.step {
-        case .terms: state.step = .doctorCode
-        case .doctorConfirmation: state.step = .patientInfo
-        case .patientInfo where editingBasicInfo: editingBasicInfo = false; state.step = .review
+        case .patientInfo where reviewEditStart == .patientInfo,
+             .cancerStage where reviewEditStart == .cancerType:
+            reviewEditStart = nil; state.step = .review
         case .doctorCode: return // 조회와 건너뛰기는 각자의 명시적인 버튼만 처리합니다.
         case .review, .completion: return
         default: state.step = SignupStep(rawValue: state.step.rawValue + 1) ?? state.step
         }
     }
     private func back() {
-        state.hasAttemptedStep = false; editingBasicInfo = false
+        state.hasAttemptedStep = false
+        if state.step == reviewEditStart {
+            reviewEditStart = nil; state.step = .review
+            return
+        }
         switch state.step {
-        case .patientInfo: state.step = state.connection == nil ? .doctorCode : .doctorConfirmation
-        case .doctorConfirmation: state.step = .doctorCode
+        case .review: state.step = state.connection == nil ? .doctorCode : .doctorConfirmation
         case .completion, .role: break
         default: state.step = SignupStep(rawValue: state.step.rawValue - 1) ?? .role
         }

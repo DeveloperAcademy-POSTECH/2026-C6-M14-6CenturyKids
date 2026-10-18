@@ -104,7 +104,7 @@ final class TestCallbacks: AuthCallbackRepository {
         vm.state.step = .doctorCode; vm.state.doctorCode = "ABC123"
         await vm.verifyDoctorCode(); XCTAssertNotNil(vm.state.errorMessage)
         vm.handle(.skipDoctorCode)
-        XCTAssertEqual(vm.state.step, .patientInfo); XCTAssertNil(vm.state.connection)
+        XCTAssertEqual(vm.state.step, .review); XCTAssertNil(vm.state.connection)
     }
     func testResetMissingAddressDoesNotPretendToSendEmail() async {
         let f = AuthFixture(); let vm = PasswordResetViewModel(repositories: f.repositories, session: f.session, configuration: .init())

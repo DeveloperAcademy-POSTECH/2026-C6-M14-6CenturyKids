@@ -20,11 +20,11 @@ struct SignupFormView: View {
             case .password: SignupPasswordView(state: state)
             case .passwordConfirmation: SignupPasswordConfirmationView(state: state)
             case .terms: SignupTermsView(state: state)
-            case .doctorCode: SignupDoctorCodeView(state: state)
-            case .doctorConfirmation: SignupConnectionConfirmationView(state: state)
             case .patientInfo: SignupPatientInfoView(state: state)
             case .cancerType: SignupCancerTypeView(state: state)
             case .cancerStage: SignupCancerStageView(state: state)
+            case .doctorCode: SignupDoctorCodeView(state: state)
+            case .doctorConfirmation: SignupConnectionConfirmationView(state: state)
             case .review: SignupReviewView(state: state, onLogin: onLogin, onRestart: onRestart)
             case .completion:
                 SignupCompletionView(email: state.email) {
