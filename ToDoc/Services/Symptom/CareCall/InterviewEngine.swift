@@ -34,6 +34,8 @@ final class InterviewEngine {
     private var otherAttempts = 0
     /// '그 밖에'에서 말한 기타 증상: 한 번 더 물은 뒤 답을 그대로 기록할 항목
     private var otherDetailKey: String?
+    /// 같은 질문을 다시 묻게 한 답 (불명확·분석 실패). 두 번 다시 물어도 분명하지 않아 항목을 닫으면 원문으로 남긴다. 키: "항목|단계"
+    private var unsettledAnswers: [String: [String]] = [:]
     /// '그 밖에'에 "네"만 답해 무엇인지 이미 되물었음 (그 답에는 또 묻지 않는다)
     private var otherYesFollowedUp = false
     /// 첫 질문에 꼬리질문을 했으면 그 첫 답
@@ -180,8 +182,16 @@ final class InterviewEngine {
         }
 
         switch current {
-        case .slot(let key, let step) where step != .detail && isUnknownAnswer(patientText):
-            ledger.markUnknown(key, step: step, quote: patientText)
+        case .slot(let key, let step) where step != .detail
+            && (isUnknownAnswer(patientText) || (step == .presence && isVagueAnswer(patientText))):
+            ledger.markUnknown(key, step: step, quote: patientText) // '모름' + 원문
+        case .other where otherDetailKey == nil && (isUnknownAnswer(patientText) || isVagueAnswer(patientText)):
+            // '그 밖에'에 "모르겠어요"·"그냥 그래요": 기타 '모름' + 원문으로 남기고 마무리 (증상 '있음'으로는 남기지 않는다)
+            let name = config.otherUnclearName
+            ledger.apply(Mention(effectId: "other", otherName: name, presence: .unclear, quote: patientText),
+                         patientText: patientText, knownEffectIds: knownIds)
+            ledger.markUnknown(Ledger.key(effectId: "other", otherName: name), step: .presence, quote: patientText)
+            otherAsked = true
         case .slot(let key, .detail):
             // 이 답 전에 물은 꼬리질문 (꼬리질문 답은 모델 없이 처리해 그사이 기록이 바뀌지 않는다)
             if let detail = pendingDetail(for: key) {
@@ -213,6 +223,14 @@ final class InterviewEngine {
             break
         }
 
+        // 유무·부위 질문의 답이 분명하지 않으면(다시 묻게 됨) 답을 모아 둔다. 이 답으로 다른 증상이 기록됐으면 그 증상의 말이라 모으지 않는다
+        if case .slot(let key, let step) = current, step != .detail,
+           ledger.order.allSatisfy({ $0 == key || (ledger[$0]?.presence == before[$0]?.presence && ledger[$0]?.locations == before[$0]?.locations) }),
+           let entry = ledger[key], !entry.unknownSteps.contains(step),
+           step == .presence ? (entry.presence == nil || entry.presence == .unclear) : entry.locations.isEmpty {
+            let said = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+            if !said.isEmpty { unsettledAnswers["\(key)|\(step)", default: []].append(said) }
+        }
         let followUp = Self.validFollowUp(result?.utterance, patientText: patientText)
         let recordedThisTurn = !ledger.sameRecords(as: before) // advance()가 '물음' 표시를 남기기 전에 본다
         var utterance = await advance(from: current, followUp: followUp)
@@ -337,7 +355,11 @@ final class InterviewEngine {
             // 다시 거는 통화는 이번에 말한 항목과 지난 통화에서 못 물은 항목만 묻는다
             switch SlotPlanner.next(ledger: ledger, config: config, otherAsked: otherAsked, only: unasked.map { $0.union(ledger.order) }) {
             case .slot(let key, let step):
-                guard ledger.markAsked(key, step: step) else { continue } // 한도 초과 → 다음 항목
+                guard ledger.markAsked(key, step: step) else {
+                    // 두 번 다시 물어도 분명하지 않아 닫음 → 그동안 받은 답을 원문으로 남기고 다음 항목
+                    ledger.addUnsure(unsettledAnswers.removeValue(forKey: "\(key)|\(step)") ?? [], step: step, for: key)
+                    continue
+                }
                 let isRepeat = current == .slot(key: key, step: step)
                 phase = .slot(key: key, step: step)
                 let q = question(key: key, step: step, followUp: isRepeat ? followUp : nil)
@@ -450,7 +472,8 @@ final class InterviewEngine {
         // 낱말 목록에 안 걸려 맞장구만 하고 버려졌다 (2026-10-08 기기). 원문 그대로 두고 검토 필요로 표시한다
         // 다시 거는 통화의 첫 답에서 나빠졌다는 말("좀 안 좋아졌어요")은 컨디션으로 저장하지 않으니 기타로 남긴다
         guard unchanged, result?.needsClarification != true,
-              symptomHints.matches(text) != nil || (phase == .other && !soundsNegative(text) && !isUnknownAnswer(text))
+              symptomHints.matches(text) != nil
+                || (phase == .other && !soundsNegative(text) && !isUnknownAnswer(text) && !isVagueAnswer(text))
                 || (phase == .opening && unasked != nil && openingConcerns.matches(text) != nil) else { return }
         let name = text.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         ledger.apply(Mention(effectId: "other", otherName: name, presence: .present, quote: patientText),
@@ -466,6 +489,19 @@ final class InterviewEngine {
               NumberParser.numbers(in: text).isEmpty, !soundsNegative(text) else { return false }
         if ["는데", "지만", "근데", "그런데"].contains(where: text.contains) { return false }
         return !config.effects.flatMap(\.keywords).contains(where: text.contains) && symptomHints.matches(text) == nil
+    }
+
+    /// 유무 질문에 있다고도 없다고도 하지 않은 답 ("그냥 좀 그래요", "글쎄요"). 있다·없다는 말, 숫자, 연결어, 증상 낱말·표현이
+    /// 함께 있으면 아니다 ("그냥 그래요, 없어요", "좀 그래요, 속이 메스꺼워요"는 지금처럼 판단한다)
+    private func isVagueAnswer(_ text: String) -> Bool {
+        let t = Self.withoutFillers(text, fillers: config.shortAnswers.fillers)
+        let compact = Self.normalized(t)
+        guard config.vagueAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
+              !NumberParser.hasNumber(t), !soundsNegative(t),
+              !["있", "했"].contains(where: compact.contains),
+              !config.shortAnswers.yes.contains(where: { compact.hasPrefix(Self.normalized($0)) }) else { return false }
+        if ["는데", "지만", "근데", "그런데"].contains(where: t.contains) { return false }
+        return !config.effects.flatMap(\.keywords).contains(where: t.contains) && symptomHints.matches(t) == nil
     }
 
     /// 없다는 뜻이 담긴 답 ("없어요", "딱히 없는 것 같아요", "괜찮아요", "아니요 그냥 그래요")
@@ -526,9 +562,10 @@ final class InterviewEngine {
         case .other where yes: // "네"만: 무엇이 불편한지 되묻는다 (모델이 "네"를 증상으로 기록하지 않도록)
             return TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
                               emergencySignal: false, utterance: config.otherFollowUp)
-        case .slot(_, .presence) where isUnknownAnswer(patientText),
+        case .slot(_, .presence) where isUnknownAnswer(patientText) || isVagueAnswer(patientText),
              .slot(_, .location) where isUnknownAnswer(patientText),
-             .other where isUnknownAnswer(patientText): // "모르겠어요": 모델 없이 '모름'으로 기록 (아래 switch), 그 밖에는 없음
+             .other where isUnknownAnswer(patientText) || isVagueAnswer(patientText):
+            // "모르겠어요"·"그냥 그래요": 모델 없이 '모름' + 원문으로 기록 (아래 switch)
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
                               emergencySignal: false, utterance: "")
         case .slot(_, .detail): // 횟수·시작 시점·지속 시간·섭취량: 모델 없이 환자 말 그대로 기록 (아래 switch)
