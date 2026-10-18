@@ -115,7 +115,7 @@ struct CareCallViewModelTests {
     let patientId = UUID()
 
     init() {
-        viewModel = CareCallViewModel(service: service, repository: repository, patientId: patientId)
+        viewModel = CareCallViewModel(service: service, repository: repository, pending: FakePendingCareCalls(), patientId: patientId)
     }
 
     private func waitUntilHolding() async {

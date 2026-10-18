@@ -11,7 +11,8 @@ import ToDocDomain
 import Foundation
 
 /// 케어콜 화면(CareCallFlowView)의 상태를 보관한다: 준비(대기 화면) → 대화(음성 통화·문자 답) → 요약 수정·저장.
-/// 음성과 문자를 오가도 서비스의 같은 대화를 이어 간다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장한다
+/// 음성과 문자를 오가도 서비스의 같은 대화를 이어 간다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장한다.
+/// 받은 답은 답마다 폰에도 남겨, 앱이 꺼지거나 저장이 실패하면 다음에 케어콜에 들어갈 때 조용히 올린다
 @MainActor
 final class CareCallViewModel {
     let preparation = CareCallScreenState()
@@ -22,6 +23,9 @@ final class CareCallViewModel {
     private(set) var record: SymptomRecord?
     private let service: any CareCalling
     private let repository: any SymptomRepository
+    /// 서버에 저장하기 전까지 받은 답을 남겨 두는 곳 (이 케어콜은 pendingId 한 건)
+    private let pending: any PendingCareCallRepository
+    private let pendingId = UUID()
     private let patientId: UUID
     /// 지금 진행 중인 준비 (없으면 준비 중이 아님)
     private var preparing: Task<Void, Never>?
@@ -45,9 +49,10 @@ final class CareCallViewModel {
     private var isSaved = false
 
     /// patientId: 로그인한 환자 (화면에 연결할 때 getCurrentUserId()로 받아 넘긴다)
-    init(service: any CareCalling, repository: any SymptomRepository, patientId: UUID) {
+    init(service: any CareCalling, repository: any SymptomRepository, pending: any PendingCareCallRepository, patientId: UUID) {
         self.service = service
         self.repository = repository
+        self.pending = pending
         self.patientId = patientId
         show(.idle)
         preparation.onAction = { [weak self] action in
@@ -286,6 +291,7 @@ final class CareCallViewModel {
     }
 
     private func show(_ turn: CareCallTurn) {
+        keep(service.progress)
         let input: SymptomConversationQuestion.Input = switch turn.number {
         case .count?: .frequency
         case .minutes?: .duration
@@ -337,6 +343,7 @@ final class CareCallViewModel {
     private func show(_ activity: CareCallActivity) {
         switch activity {
         case .speaking(let text):
+            keep(service.progress) // 답을 분석한 뒤 다음 질문을 말한다
             conversation.question = SymptomConversationQuestion(id: UUID(), text: text, guidance: nil, progress: nil, input: .text)
             conversation.transcript = ""
             conversation.isListening = false
@@ -357,20 +364,23 @@ final class CareCallViewModel {
         switch outcome {
         case .completed(let record) where record.symptoms.isEmpty:
             // 다시 거는 통화에서 달라진 게 없음: 더할 것이 없어 바로 완료 화면 (이때 보여 줄 화면은 화면 담당과 정할 예정)
+            forget()
             isSaved = true
             conversation.didSave = true
         case .completed(let record), .interrupted(let record?):
             self.record = record
+            keep(record)
             let summary = SymptomSummaryScreenState(record: SymptomRecordDisplay(record: record))
             summary.canSave = true
             summary.onAction = { [weak self] action in self?.handle(action) }
             conversation.summary = summary
             if leftCall { save(showingResult: false) }
         case .interrupted(nil):
+            forget()
             conversation.question = nil
             conversation.errorMessage = "통화가 끊겼어요. 다시 시도해 주세요."
         case .emergencyEnded:
-            break // 마지막으로 말한 응급 안내가 화면에 남는다 (응급 화면은 디자인 팀과 정할 예정)
+            forget() // 응급 종료는 저장하지 않는다. 마지막으로 말한 응급 안내가 화면에 남는다 (응급 화면은 디자인 팀과 정할 예정)
         }
     }
 
@@ -451,6 +461,7 @@ final class CareCallViewModel {
         let updated = SymptomRecord(id: record.id, patientId: record.patientId, recordedDate: record.recordedDate,
                                     conditionText: record.conditionText, symptoms: symptoms)
         self.record = updated
+        keep(updated)
         summary.record = SymptomRecordDisplay(record: updated)
     }
 
@@ -470,6 +481,7 @@ final class CareCallViewModel {
         let task = Task {
             do {
                 let stored = try await store(record, complete: complete)
+                forget() // 저장했거나 저장하지 않기로 정함. 실패하면 남겨 두고 다음에 케어콜에 들어갈 때 올린다
                 isSaved = true // 저장하지 않기로 한 기록도 다시 저장하지 않는다
                 if showingResult, stored { conversation.didSave = true }
                 if showingResult, !stored { summary?.errorMessage = "오늘 기록이 이미 있어서, 중간에 끊긴 이번 답은 저장하지 않았어요." }
@@ -484,9 +496,33 @@ final class CareCallViewModel {
         return task
     }
 
-    /// 오늘 이미 저장된 기록 (있으면 다시 거는 통화)
+    /// 오늘 이미 저장된 기록 (있으면 다시 거는 통화). 지난번에 올리지 못한 기록을 먼저 올린다
+    /// (그 기록이 오늘 것이면 이번 통화는 다시 거는 통화가 된다)
     private func today() async throws -> SymptomRecord? {
-        try await repository.findByPatientIdAndDate(patientId, Date())
+        await sendPending()
+        return try await repository.findByPatientIdAndDate(patientId, Date())
+    }
+
+    // MARK: - 폰에 남기기
+
+    /// 지금까지 받은 답을 폰에 남긴다. 남기지 못해도 대화는 이어 간다 (서버 저장은 따로 한다)
+    private func keep(_ record: SymptomRecord?) {
+        guard let record, !isSaved else { return }
+        let complete = if case .completed? = outcome { true } else { false }
+        try? pending.save(PendingCareCall(id: pendingId, record: record, complete: complete))
+    }
+
+    /// 이 케어콜에서 남긴 기록만 지운다 (지난 케어콜에서 올리지 못한 기록은 그대로)
+    private func forget() {
+        try? pending.delete(id: pendingId, patientId: patientId)
+    }
+
+    /// 지난 케어콜에서 앱이 꺼졌거나 저장에 실패해 남은 기록을 저장 규칙대로 조용히 올린다. 실패한 기록은 남겨 두고 다음에
+    private func sendPending() async {
+        for left in (try? pending.findAll(patientId: patientId)) ?? [] where left.id != pendingId {
+            guard (try? await store(left.record, complete: left.complete)) != nil else { continue }
+            try? pending.delete(id: left.id, patientId: patientId)
+        }
     }
 
     /// 그날 기록은 하루 1건. 이미 있으면 끝까지 마친 통화(다시 거는 통화)는 그 기록에 더하고,
