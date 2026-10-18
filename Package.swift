@@ -24,7 +24,7 @@ let package = Package(
                 // 앱의 다른 파일은 빌드하지 않는다 (새 폴더가 생겨도 테스트가 깨지지 않게 sources로 고정, exclude는 경고 방지)
                 exclude: [
                     "Application", "Domain", "Resources", "ToDoc.entitlements",
-                    "Data/DTOs", "Data/Supabase", "Data/Repositories/Supabase",
+                    "Data/DTOs", "Data/Supabase", "Data/Repositories/Supabase", "Data/Repositories/Local",
 
                     "Data/Repositories/Protocols/DeviceTokenRepository.swift",
                      "Data/Repositories/Protocols/ExerciseRepository.swift",
@@ -67,6 +67,7 @@ let package = Package(
                     "Core/AI/LanguageModelError.swift", "Core/Speech/SpeechRecognizerError.swift",
                     "Data/Repositories/Protocols/Repository.swift",
                     "Data/Repositories/Protocols/RecordRepository.swift", "Data/Repositories/Protocols/SymptomRepository.swift",
+                    "Data/Repositories/Protocols/PendingCareCallRepository.swift",
                 ],
                 swiftSettings: [.enableUpcomingFeature("BareSlashRegexLiterals")]),
         .testTarget(name: "CareCallEngineTests", dependencies: ["ToDocFeatures", "ToDocDomain"], path: "Tests/CareCallEngineTests",
