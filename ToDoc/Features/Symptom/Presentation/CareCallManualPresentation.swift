@@ -1,14 +1,13 @@
 import Foundation
 
-/// Presentation-only questions from Figma section 1:5401. Domain/storage mapping is a later integration.
+/// Presentation-only questions. The retired discomfort rating is intentionally excluded; storage mapping is a later integration.
 enum CareCallManualStep: String, CaseIterable, Identifiable {
-    case symptoms, dailyLife, discomfort, frequency, duration, other
+    case symptoms, dailyLife, frequency, duration, other
     var id: String { rawValue }
     var title: String {
         switch self {
         case .symptoms: "증상 선택"
         case .dailyLife: "일상 생활"
-        case .discomfort: "불편함 정도"
         case .frequency: "횟수"
         case .duration: "지속 시간"
         case .other: "그 외의 불편"
@@ -18,7 +17,6 @@ enum CareCallManualStep: String, CaseIterable, Identifiable {
         switch self {
         case .symptoms: "어떤 증상이 있었나요?"
         case .dailyLife: "일상 생활에 어떤 지장이 있었나요?"
-        case .discomfort: "설사 때문에 얼마나 불편했나요?"
         case .frequency: "설사를 몇 번 하셨나요?"
         case .duration: "얼마나 지속 되었나요?"
         case .other: "그 외의 불편에는 어떤 증상이 있었나요?"
@@ -28,7 +26,6 @@ enum CareCallManualStep: String, CaseIterable, Identifiable {
         switch self {
         case .symptoms: "72:3342"
         case .dailyLife: "1:5402"
-        case .discomfort: "1:5428"
         case .frequency: "1:5457"
         case .duration: "1:5486"
         case .other: "72:3411"
@@ -59,7 +56,6 @@ struct CareCallManualDraft {
     var symptoms: Set<CareCallManualSymptom> = []
     var dailyLife = ""
     var other = ""
-    var discomfort = 9
     /// 0...10 are exact counts; 11 is the display-only 10+ choice.
     var frequencyIndex = 10
     var hours = 1

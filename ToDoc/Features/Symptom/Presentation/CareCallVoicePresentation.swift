@@ -37,12 +37,13 @@ enum CareCallVoicePhase: String, CaseIterable, Identifiable {
     }
 }
 
-/// Figma's severity belongs to presentation only, not SymptomEntry or the repository contract.
+/// Patient words remain verbatim and separate from explicitly selected numeric answers.
 struct CareCallVoiceSummaryItem: Identifiable {
     let id: UUID
     var title: String
     var detailLabel: String
     var detail: String
     var location: String? = nil
-    var discomfort: Double
+    var frequency: String? = nil
+    var duration: String? = nil
 }
