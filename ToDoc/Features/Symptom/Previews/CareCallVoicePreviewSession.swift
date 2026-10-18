@@ -12,13 +12,11 @@ struct CareCallVoicePreviewSession {
         phase = initialPhase
         answer = [.answer, .lastAnswer].contains(initialPhase) ? Self.sampleAnswer : ""
         items = [
-            .init(id: UUID(), title: "설사", detailLabel: "횟수", detail: "5회", discomfort: 8),
-            .init(id: UUID(), title: "피로", detailLabel: "지속 시간", detail: "오후 내내", discomfort: 6),
-            .init(id: UUID(), title: "왼쪽 손", detailLabel: "지속 시간", detail: "3시간", discomfort: 7)
+            .init(id: UUID(), title: "설사", detailLabel: "말씀하신 내용", detail: "먹고 나서 저녁부터 설사를 했어요.\n화장실에 자꾸 가게 돼서 밥 먹기가 두려워요.", frequency: "5번"),
+            .init(id: UUID(), title: "피로", detailLabel: "말씀하신 내용", detail: "오후 내내 축 처졌어요. 잠깐 누워 있었어요."),
+            .init(id: UUID(), title: "왼쪽 손", detailLabel: "말씀하신 내용", detail: "왼쪽 손이 찌릿찌릿했어요.\n컵을 들 때도 그랬어요.", duration: "3시간")
         ]
         if initialPhase == .editing {
-            items[0].detailLabel = "지속 시간"
-            items[0].detail = "하루에 5번 이상"
             items[2].title = "통증"
             items[2].location = "왼쪽 손"
             editingItemID = items[0].id

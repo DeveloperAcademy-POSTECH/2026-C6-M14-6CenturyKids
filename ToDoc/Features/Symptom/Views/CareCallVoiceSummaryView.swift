@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Editable presentation values for Figma 1:1870 / 1:1903; save is always an external callback.
+/// Editable patient words and selected facts; save is always an external callback.
 struct CareCallVoiceSummaryView: View {
     @Binding var items: [CareCallVoiceSummaryItem]
     @Binding var editingItemID: UUID?
@@ -13,7 +13,7 @@ struct CareCallVoiceSummaryView: View {
             VStack(spacing: AppSpacing.question) {
                 VStack(spacing: AppSpacing.item) {
                     Text("요약").appFont(.sectionTitle)
-                    Text("저장하기 전에 내용을 확인하고\n잘못된 부분은 수정해 주세요.")
+                    Text("말씀해 주신 내용을 모았어요.\n저장하기 전에 확인하고 수정해 주세요.")
                         .appFont(.bodySmall).lineSpacing(6)
                         .foregroundStyle(AppColors.Text.control)
                 }
@@ -91,31 +91,51 @@ struct CareCallVoiceSummaryView: View {
                     }
                     Divider()
                 }
-                CareCallSummaryRow(title: item.wrappedValue.detailLabel) {
+                if let frequency = item.wrappedValue.frequency {
+                    CareCallSummaryRow(title: "횟수") {
+                        if editing {
+                            TextField("횟수", text: Binding(
+                                get: { item.wrappedValue.frequency ?? "" },
+                                set: { item.wrappedValue.frequency = $0 }), axis: .vertical)
+                                .multilineTextAlignment(.trailing)
+                                .accessibilityLabel("횟수")
+                                .accessibilityIdentifier("carecall.voice.summary.frequency")
+                        } else {
+                            Text(frequency).foregroundStyle(AppColors.CareCall.summarySecondary)
+                        }
+                    }
+                    Divider()
+                }
+                if let duration = item.wrappedValue.duration {
+                    CareCallSummaryRow(title: "지속 시간") {
+                        if editing {
+                            TextField("지속 시간", text: Binding(
+                                get: { item.wrappedValue.duration ?? "" },
+                                set: { item.wrappedValue.duration = $0 }), axis: .vertical)
+                                .multilineTextAlignment(.trailing)
+                                .accessibilityLabel("지속 시간")
+                                .accessibilityIdentifier("carecall.voice.summary.duration")
+                        } else {
+                            Text(duration).foregroundStyle(AppColors.CareCall.summarySecondary)
+                        }
+                    }
+                    Divider()
+                }
+                VStack(alignment: .leading, spacing: AppSpacing.item) {
+                    Text(item.wrappedValue.detailLabel)
                     if editing {
                         TextField(item.wrappedValue.detailLabel, text: item.detail, axis: .vertical)
-                            .multilineTextAlignment(.trailing)
                             .focused($focusedItemID, equals: item.wrappedValue.id)
                             .accessibilityIdentifier("carecall.voice.summary.detail")
                     } else {
-                        Text(item.wrappedValue.detail)
+                        Text(item.wrappedValue.detail.isEmpty ? "입력한 말이 없어요." : item.wrappedValue.detail)
                             .foregroundStyle(AppColors.CareCall.summarySecondary)
-                            .multilineTextAlignment(.trailing)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                Divider()
-                CareCallSummaryRow(title: "불편함 정도", expandsContent: editing) {
-                    HStack(spacing: AppSpacing.content) {
-                        if editing {
-                            Slider(value: item.discomfort, in: 0...10, step: 1)
-                                .tint(AppColors.CareCall.summarySlider)
-                                .accessibilityLabel("불편함 정도")
-                        }
-                        Text("\(Int(item.wrappedValue.discomfort))/10점")
-                            .foregroundStyle(AppColors.CareCall.summarySecondary)
-                            .fixedSize()
-                    }
-                }
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, AppSpacing.section)
             }
             .font(AppTypography.NativeConversation.body)
             .padding(.horizontal, 16)
@@ -129,7 +149,6 @@ private struct CareCallSummaryRow<Content: View>: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let title: String
     var spacing: CGFloat = AppSpacing.content
-    var expandsContent = false
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -142,7 +161,7 @@ private struct CareCallSummaryRow<Content: View>: View {
             } else {
                 HStack(spacing: spacing) {
                     Text(title)
-                    if !expandsContent { Spacer(minLength: AppSpacing.compact) }
+                    Spacer(minLength: AppSpacing.compact)
                     content()
                 }
             }
