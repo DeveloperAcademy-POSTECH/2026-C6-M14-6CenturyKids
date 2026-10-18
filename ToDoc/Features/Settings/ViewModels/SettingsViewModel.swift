@@ -186,6 +186,7 @@ final class SettingsViewModel {
         state.hasLoaded = false
         state.doctor = nil
         state.candidate = nil
+        state.candidateDoctorId = nil
         state.code = ""
         state.canConnect = false
         state.canDisconnect = false
@@ -230,6 +231,7 @@ final class SettingsViewModel {
 
         state.isBusy = true
         state.candidate = nil
+        state.candidateDoctorId = nil
         state.canConnect = false
         state.errorMessage = nil
         state.successMessage = nil
@@ -255,6 +257,7 @@ final class SettingsViewModel {
                 return
             }
 
+            state.candidateDoctorId = doctor.user.id
             state.candidate = DoctorDisplayData(
                 hospitalName: hospital.name,
                 name: doctor.user.name
@@ -262,6 +265,46 @@ final class SettingsViewModel {
             state.canConnect = patient.doctorId != doctor.user.id
         } catch {
             state.errorMessage = "연결 정보를 확인하지 못했어요. 다시 시도해 주세요."
+        }
+    }
+
+    func connectDoctor() async {
+        let state = hospitalConnectionState
+        guard !state.isBusy,
+              state.canConnect,
+              let doctorId = state.candidateDoctorId,
+              let candidate = state.candidate else { return }
+
+        state.isBusy = true
+        state.errorMessage = nil
+        state.successMessage = nil
+        defer { state.isBusy = false }
+
+        do {
+            guard let patient = try await patientRepository.findById(patientId) else {
+                state.errorMessage = "환자 정보를 찾지 못했어요."
+                return
+            }
+
+            let updatedPatient = Patient(
+                user: patient.user,
+                doctorId: doctorId,
+                disease: patient.disease
+            )
+            try await patientRepository.save(patient: updatedPatient)
+
+            state.doctor = candidate
+            state.candidate = nil
+            state.candidateDoctorId = nil
+            state.canConnect = false
+            state.canDisconnect = true
+            state.code = ""
+            state.successMessage = "병원 연결이 완료됐어요."
+
+            screenState.profile?.doctorName = candidate.name
+            screenState.profile?.hospitalName = candidate.hospitalName
+        } catch {
+            state.errorMessage = "병원을 연결하지 못했어요. 다시 시도해 주세요."
         }
     }
 
