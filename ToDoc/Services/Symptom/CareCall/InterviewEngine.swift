@@ -138,6 +138,7 @@ final class InterviewEngine {
             ledger.apply(mention, patientText: patientText, knownEffectIds: knownIds,
                          mayChangeRecorded: mayChangeRecorded(mention, during: current, patientText: patientText))
         }
+        prefillNumber(from: patientText, since: before, during: current)
         // 첫 질문 답은 그대로 남긴다 (꼬리질문의 답이면 첫 답과 이어서). 다시 거는 통화는 컨디션을 묻지 않는다
         if current == .opening, unasked == nil {
             ledger.setConditionText([openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / "))
@@ -258,13 +259,18 @@ final class InterviewEngine {
     }
 
     /// 모델이 고른 목록 증상의 낱말은 환자 말에 없고 다른 목록 증상 하나의 낱말만 있으면 그 증상으로 바꾼다
-    /// ("요즘 입맛이 좀 없어요" → 모델은 구내염, 말한 낱말은 식사의 "입맛", 2026-10-17 실기기). 지금 묻는 항목의 답("네")은 그대로
+    /// ("요즘 입맛이 좀 없어요" → 모델은 구내염, 말한 낱말은 식사의 "입맛", 2026-10-17 실기기). 지금 묻는 항목의 답("네")은 그대로.
+    /// 바꿀 증상을 고를 때는 한 글자 낱말("물", "먹", "토")을 쓰지 않는다 (다른 말 안에 흔히 들어 있다: "물을 마셔도", "토요일").
+    /// 모델이 고른 증상을 지킬 때는 한 글자 낱말도 근거로 본다 ("물도 잘 안 넘어가고 입이 아파요"의 식사를 옮기지 않게)
     private func reassignedByKeywords(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
-        func said(_ id: String) -> Bool { config.effects.first { $0.id == id }?.keywords.contains(where: patientText.contains) == true }
-        let saidIds = config.effects.map(\.id).filter(said)
+        func said(_ id: String, minLength: Int) -> Bool {
+            config.effects.first { $0.id == id }?.keywords.contains { $0.count >= minLength && patientText.contains($0) } == true
+        }
+        let saidIds = config.effects.map(\.id).filter { said($0, minLength: 2) }
         guard saidIds.count == 1, let target = saidIds.first, !mentions.contains(where: { $0.effectId == target }) else { return mentions }
         return mentions.map { mention in
-            guard knownIds.contains(mention.effectId), mention.effectId != phase.slotKey, !said(mention.effectId) else { return mention }
+            guard knownIds.contains(mention.effectId), mention.effectId != phase.slotKey, !said(mention.effectId, minLength: 1)
+            else { return mention }
             var moved = mention
             moved.effectId = target
             return moved
@@ -285,6 +291,39 @@ final class InterviewEngine {
         guard said.count == 1, let effect = said.first, !mentions.contains(where: { $0.effectId == effect.id }) else { return [] }
         return [Mention(effectId: effect.id, presence: .absent, quote: patientText)]
     }
+
+    /// 증상 유무 질문에 횟수·지속 시간까지 답하면 그 꼬리질문의 답으로 채워 다시 묻지 않는다
+    /// ("구토를 하셨나요?" → "네 한 번 토했어요" → 구토 횟수 1. 2026-10-17 실기기에서 횟수를 또 물음).
+    /// 숫자가 다른 일(약·식사)이나 시작 시점일 수 있어 좁게 본다 (아니면 지금처럼 묻는다):
+    /// - 그 증상의 유무 질문에 대한 답이고, 이번 답으로 '있음'이 된 목록 증상이 그것 하나
+    /// - 숫자가 그 꼬리질문 낱말(없으면 증상 낱말)과 같은 절에 있고, 답의 다른 곳에는 숫자가 없을 때
+    /// - 숫자가 분명할 때만 ("두세 번", "열 번 넘게"는 묻는다)
+    /// - 지속 시간은 "씩·동안·정도·가요"처럼 지속을 뜻하는 말이 있고 "전·부터·됐·째" 같은 시작 시점 말이 없을 때만
+    private func prefillNumber(from patientText: String, since before: Ledger, during current: InterviewPhase) {
+        guard case .slot(let key, .presence) = current, let entry = ledger[key], entry.presence == .present,
+              before[key]?.presence != .present, let effect = config.effects.first(where: { $0.id == key }),
+              ledger.order.filter({ knownIds.contains($0) && ledger[$0]?.presence == .present && before[$0]?.presence != .present }) == [key]
+        else { return }
+        for detail in effect.details where !entry.details.contains(where: { $0.label == detail.label }) {
+            let gate = KeywordMatcher(keywords: detail.keywords ?? effect.keywords, prefixNegation: true)
+            let clauses = KeywordMatcher.clauses(patientText)
+            guard let clause = clauses.first(where: { gate.matches($0) != nil }),
+                  clauses.filter({ $0 != clause }).allSatisfy({ NumberParser.count(in: $0) == nil && NumberParser.minutes(in: $0) == nil })
+            else { continue }
+            // 저장할 때는 문장 전체에서 다시 읽는다. 그 절과 같은 값이 읽힐 때만 채운다
+            // ("한 번 토했어요, 그 전날은 두세 번"은 전체가 어림수라 횟수가 비어 저장되므로 묻는다)
+            let found = switch detail.number {
+            case .count?: NumberParser.count(in: clause).map { $0 == NumberParser.count(in: patientText) } ?? false
+            case .minutes?: NumberParser.minutes(in: clause).map { $0 == NumberParser.minutes(in: patientText) } ?? false
+                && Self.durationMarkers.contains(where: clause.contains) && !Self.onsetMarkers.contains(where: patientText.contains)
+            case nil: false
+            }
+            if found { ledger.addDetail(patientText.trimmingCharacters(in: .whitespacesAndNewlines), label: detail.label, for: key) }
+        }
+    }
+
+    private static let durationMarkers = ["씩", "동안", "정도", "가요", "계속", "지속"]
+    private static let onsetMarkers = ["전", "부터", "됐", "지났", "째", "시작"]
 
     /// 다시 거는 통화에서 새로 '있음'으로 말한 증상이 있음 (기타 포함)
     private var toldNewSymptom: Bool {
