@@ -479,7 +479,10 @@ final class InterviewEngine {
         // '그 밖에'는 부정이 아닌 답이면 증상 낱말이 없어도 기록한다: 음성 인식이 뭉갠 답("잠을 잠 못 잡니다")은
         // 낱말 목록에 안 걸려 맞장구만 하고 버려졌다 (2026-10-08 기기). 원문 그대로 두고 검토 필요로 표시한다
         // 다시 거는 통화의 첫 답에서 나빠졌다는 말("좀 안 좋아졌어요")은 컨디션으로 저장하지 않으니 기타로 남긴다
-        guard unchanged, result?.needsClarification != true,
+        // '그 밖에'에서 증상 표현이 있으면 모델이 되물어도 먼저 남긴다: 되물은 답이 "없어요"면 증상이 사라졌다
+        // ("잘 모르겠는데 머리가 아파요", 2026-10-19 실기기). 남기면 "어떤 점이 그러신지"를 물어 내용을 받는다
+        let keepAnyway = phase == .other && symptomHints.matches(text) != nil
+        guard unchanged, result?.needsClarification != true || keepAnyway,
               symptomHints.matches(text) != nil
                 || (phase == .other && !soundsNegative(text) && !soundsUnsure(text))
                 || (phase == .opening && unasked != nil && openingConcerns.matches(text) != nil) else { return }

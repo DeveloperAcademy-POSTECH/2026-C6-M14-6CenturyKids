@@ -689,3 +689,24 @@ struct FeverRuleTests {
         #expect(engine.phase == .emergencyEnded)
     }
 }
+
+
+/// 2026-10-19 실기기: '그 밖에'에 "잘 모르겠는데 머리가 아파요" → 모델이 되묻고, 다음 답 "없어요"로 두통이 사라짐
+@MainActor
+struct OtherClarificationTests {
+    @Test func 그_밖에_증상_표현이_있으면_모델이_되물어도_원문을_남기고_내용을_묻는다() async throws {
+        let config = try fixture(CareCallConfig.self, "side_effects")
+        let mock = MockAnalyzer()
+        mock.script["잘 모르겠는데 머리가 아파요"] = TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
+                                                         emergencySignal: false, utterance: "어디가 아프신지 조금 더 말씀해 주시겠어요?")
+        let engine = InterviewEngine(config: config, rules: try fixture(EmergencyRules.self, "emergency_rules"), analyzer: mock)
+        _ = engine.start()
+        for _ in 0..<10 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
+        let out = await engine.handle(patientText: "잘 모르겠는데 머리가 아파요")
+        let others = engine.ledger.order.compactMap { engine.ledger[$0] }.filter { $0.effectId == "other" }
+        #expect(others.count == 1 && others[0].presence == .present && others[0].needsReview)
+        #expect(out.utterance == config.otherDetail.question)
+        _ = await engine.handle(patientText: "없어요")
+        #expect(engine.ledger.order.compactMap { engine.ledger[$0] }.contains { $0.effectId == "other" && $0.presence == .present })
+    }
+}
