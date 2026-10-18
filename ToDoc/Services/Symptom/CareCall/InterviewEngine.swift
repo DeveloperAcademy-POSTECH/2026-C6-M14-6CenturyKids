@@ -113,11 +113,11 @@ final class InterviewEngine {
             result?.mentions.append(reason)
         }
         if let mentions = result?.mentions {
-            result?.mentions = reassignedByKeywords(normalizedOthers(mentions, during: current, patientText: patientText),
-                                                    during: current, patientText: patientText)
+            result?.mentions = presentByPhrase(reassignedByKeywords(normalizedOthers(mentions, during: current, patientText: patientText),
+                                                                    during: current, patientText: patientText), patientText: patientText)
         }
         if current == .opening, unasked != nil, let mentions = result?.mentions {
-            result?.mentions = mentions + stoppedMentions(mentions, patientText: patientText)
+            result?.mentions = stoppedOverride(mentions, patientText: patientText)
         }
         // 지금 묻지 않은 항목의 '없음'은 환자가 그 항목 낱말을 말했을 때만 받는다. 모델이 상관없는 말("잠은 잘 자요",
         // "음 좀 어지러웠어요")을 근거로 식사를 '없음'으로 채워 식사 질문이 통째로 빠졌다 (2026-10-08 평가).
@@ -285,19 +285,44 @@ final class InterviewEngine {
         }
     }
 
-    /// 다시 거는 통화의 첫 답에서 "구토는 멈췄어요"처럼 목록 증상이 그쳤다고만 말했는데 모델이 그 증상을 못 잡으면 '없음'으로 남긴다.
-    /// 되물은 뒤 "없어요"로 끝나 그쳤다는 말이 사라졌다 (2026-10-17 실기기). 잘못 '없음'으로 남기지 않게, 답 전체가
-    /// "증상 낱말(두 글자 이상, 그대로) + (조사) + 그쳤다는 말 + 끝맺음"일 때만 넣는다.
-    /// 그 밖의 말("안", "아직", "좀", "같아요", 다른 증상)이 있으면 넣지 않는다 (되묻는다)
-    private func stoppedMentions(_ mentions: [Mention], patientText: String) -> [Mention] {
+    /// "입맛이 없어요"처럼 '없다'가 붙어도 증상이 있다는 말(presentPhrases)이면 그 증상을 '있음'으로 한다. 모델이 "없어요"만 보고
+    /// 식사를 '없음'으로 기록해 식사 질문을 건너뛰었다 (2026-10-19 실기기). "입맛 없는 건 아니에요"처럼 부정하면 그대로 둔다
+    private func presentByPhrase(_ mentions: [Mention], patientText: String) -> [Mention] {
+        var result = mentions
+        for effect in config.effects where saysPresent(effect, patientText) {
+            result.removeAll { $0.effectId == effect.id && $0.presence != .present }
+            if !result.contains(where: { $0.effectId == effect.id }) {
+                result.append(Mention(effectId: effect.id, presence: .present, quote: patientText))
+            }
+        }
+        return result
+    }
+
+    private func saysPresent(_ effect: CareCallConfig.Effect, _ patientText: String) -> Bool {
+        (effect.presentPhrases ?? []).contains { phrase in
+            let words = phrase.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }
+            guard let regex = try? Regex(words.joined(separator: ".{0,8}?")) else { return false }
+            // 한 절 안에서 차례로 나오고, 바로 뒤가 부정("입맛 없는 건 아니에요")이 아닐 때
+            return KeywordMatcher.clauses(patientText).contains { clause in
+                guard let match = clause.firstMatch(of: regex) else { return false }
+                return !KeywordMatcher.negated(String(clause[match.range.upperBound...]).replacingOccurrences(of: " ", with: ""))
+            }
+        }
+    }
+
+    /// 다시 거는 통화의 첫 답이 "구토는 멈췄어요"처럼 답 전체가 "증상 낱말(두 글자 이상, 그대로) + (조사) + 그쳤다는 말 + 끝맺음"이면
+    /// 그 증상을 '없음'으로 한다. 모델이 못 잡거나(되물은 뒤 "없어요"로 그쳤다는 말이 사라짐, 2026-10-17) '있음'으로 잡아도
+    /// ("구토가 나아졌어요" → 횟수만 묻고 말이 사라짐, 2026-10-19 실기기) 같다.
+    /// 그 밖의 말("안", "아직", "좀", "같아요", 다른 증상)이 있으면 모델 판단 그대로 둔다
+    private func stoppedOverride(_ mentions: [Mention], patientText: String) -> [Mention] {
         let text = Self.normalized(patientText)
         let stems = config.followUpCall.stoppedAnswers.map(NSRegularExpression.escapedPattern(for:)).joined(separator: "|")
         let pattern = "^(?:이제|지금은)?([가-힣]{2,6}?)(?:은|는|이|가|도)?(?:이제|다)?(?:\(stems))(?:어요|어|요|습니다|네요)?$"
-        guard let regex = try? Regex(pattern), let match = text.firstMatch(of: regex), let range = match.output[1].range else { return [] }
+        guard let regex = try? Regex(pattern), let match = text.firstMatch(of: regex), let range = match.output[1].range else { return mentions }
         let symptom = String(text[range])
         let said = config.effects.filter { $0.keywords.contains(symptom) }
-        guard said.count == 1, let effect = said.first, !mentions.contains(where: { $0.effectId == effect.id }) else { return [] }
-        return [Mention(effectId: effect.id, presence: .absent, quote: patientText)]
+        guard said.count == 1, let effect = said.first else { return mentions }
+        return mentions.filter { $0.effectId != effect.id } + [Mention(effectId: effect.id, presence: .absent, quote: patientText)]
     }
 
     /// 증상 유무 질문에 횟수·지속 시간까지 답하면 그 꼬리질문의 답으로 채워 다시 묻지 않는다
@@ -479,7 +504,10 @@ final class InterviewEngine {
         // '그 밖에'는 부정이 아닌 답이면 증상 낱말이 없어도 기록한다: 음성 인식이 뭉갠 답("잠을 잠 못 잡니다")은
         // 낱말 목록에 안 걸려 맞장구만 하고 버려졌다 (2026-10-08 기기). 원문 그대로 두고 검토 필요로 표시한다
         // 다시 거는 통화의 첫 답에서 나빠졌다는 말("좀 안 좋아졌어요")은 컨디션으로 저장하지 않으니 기타로 남긴다
-        guard unchanged, result?.needsClarification != true,
+        // '그 밖에'에서 증상 표현이 있으면 모델이 되물어도 먼저 남긴다: 되물은 답이 "없어요"면 증상이 사라졌다
+        // ("잘 모르겠는데 머리가 아파요", 2026-10-19 실기기). 남기면 "어떤 점이 그러신지"를 물어 내용을 받는다
+        let keepAnyway = phase == .other && symptomHints.matches(text) != nil
+        guard unchanged, result?.needsClarification != true || keepAnyway,
               symptomHints.matches(text) != nil
                 || (phase == .other && !soundsNegative(text) && !soundsUnsure(text))
                 || (phase == .opening && unasked != nil && openingConcerns.matches(text) != nil) else { return }
@@ -606,6 +634,8 @@ final class InterviewEngine {
     /// 지금 항목 밖의 증상 낱말·증상 표현·숫자·연결어("근데", "는데", "지만")가 없을 때만. 하나라도 있으면 모델이 판단
     private func isClearNo(_ patientText: String, for key: String) -> Bool {
         guard !key.hasPrefix("other:") else { return false }
+        // "입맛이 없어요"는 '없어요'로 끝나도 식사 증상이 있다는 말이다
+        if let effect = config.effects.first(where: { $0.id == key }), saysPresent(effect, patientText) { return false }
         let t = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         let compact = Self.normalized(t)
         // 없음 표현으로 시작만 하면 뒷말이 번복일 수 있어("아니요 설사 맞아요 설사 했어요") 없음 표현 하나뿐일 때만 인정
