@@ -25,7 +25,7 @@ struct NotificationSectionPreview: View {
         }
         state.sections = initialScreen == .filled ? [
             .init(id: "today", title: "오늘", hasUnread: true, items: [
-                .init(id: UUID(), title: "학로 선생님의 메시지가 도착했어요", body: "명란 소금빵은 치료에 도움이 됩니다.", timeLabel: "2시간 전", isRead: false)
+                .init(id: UUID(), title: "오늘의 안부를 남겨주세요", body: "오늘도 함께해요. 파이팅!", timeLabel: "2시간 전", isRead: false)
             ]),
             .init(id: "week", title: "최근 7일", hasUnread: false, items: [
                 .init(id: UUID(), title: "통증 기록", body: "잊고 있던 돌발성 통증이 있나요?", timeLabel: "1일 전", isRead: true, icon: .pain),
