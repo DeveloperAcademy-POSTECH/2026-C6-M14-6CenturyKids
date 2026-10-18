@@ -21,6 +21,8 @@ final class FakeCareCall: CareCalling {
     var replies: [CareCallTurn] = []
     var endOutcome: CareCallOutcome = .interrupted(nil)
     private(set) var current: CareCallTurn?
+    /// 지금까지 받은 답으로 만든 기록 (답마다 폰에 남기는지 볼 때)
+    var progress: SymptomRecord?
     private(set) var answers: [String] = []
     private(set) var beginCount = 0
     /// begin에 넘어온 환자
@@ -113,7 +115,7 @@ struct CareCallViewModelTests {
     let patientId = UUID()
 
     init() {
-        viewModel = CareCallViewModel(service: service, repository: repository, patientId: patientId)
+        viewModel = CareCallViewModel(service: service, repository: repository, pending: FakePendingCareCalls(), patientId: patientId)
     }
 
     private func waitUntilHolding() async {
