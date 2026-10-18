@@ -26,9 +26,14 @@ struct SymptomRecordConverter {
     /// 첫 질문 답(ledger.conditionText)은 컨디션으로 그대로 넣는다 (첫 질문에 답하기 전이면 nil).
     /// 통화가 끊겼으면 끊긴 곳까지. 묻는 중이라 아직 답이 없는 항목은 넣지 않는다
     /// (끝까지 물어도 답이 분명하지 않아 닫힌 항목은 '모름')
-    func record(from ledger: Ledger, patientId: UUID, date: Date) -> SymptomRecord {
-        let answered = ledger.order.compactMap { ledger[$0] }.filter { $0.presence != nil || $0.closed }
-        let entries = answered.flatMap(entries(for:))
+    /// followUp: 같은 날 다시 거는 통화. 묻지 않았는데 없어졌다고 말한 증상은 그 말을 내용으로 남긴다
+    /// ("구토가 나아졌어요" → 그날 기록에 "다시 통화: 구토가 나아졌어요"로 더한다)
+    func record(from ledger: Ledger, patientId: UUID, date: Date, followUp: Bool = false) -> SymptomRecord {
+        let all = ledger.order.compactMap { ledger[$0] }
+        // 한 문장에 여러 증상을 말했으면("구토는 멈췄고 설사를 했어요") 그 문장을 어느 한 증상의 말로 남기지 않는다
+        let shared = Set(Dictionary(all.flatMap { Set($0.quotes) }.map { ($0, 1) }, uniquingKeysWith: +).filter { $0.value > 1 }.keys)
+        let answered = all.filter { $0.presence != nil || $0.closed }
+        let entries = answered.flatMap { entries(for: $0, followUp: followUp, shared: shared) }
         return SymptomRecord(id: UUID(), patientId: patientId, recordedDate: date, conditionText: ledger.conditionText, symptoms: entries)
     }
 
@@ -39,7 +44,7 @@ struct SymptomRecordConverter {
     }
 
     /// 한 항목 → 부위별 SymptomEntry (부위가 없으면 하나)
-    private func entries(for e: Ledger.Entry) -> [SymptomEntry] {
+    private func entries(for e: Ledger.Entry, followUp: Bool, shared: Set<String>) -> [SymptomEntry] {
         let effect = config.effects.first { $0.id == e.effectId }
         let presence: SymptomPresence = switch e.presence {
         case .present: .present
@@ -52,8 +57,16 @@ struct SymptomRecordConverter {
         // 기타 증상은 처음 말한 문장도 남긴다. 모델이 이름을 못 뽑아 그 문장이 이름이면 한 번만
         let firstSaid = e.effectId == "other" ? e.quotes.first.map { $0.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) }
             .flatMap { said in said.isEmpty || e.otherName?.contains(said) == true ? nil : said } : nil
-        let answerText = ([firstSaid].compactMap(\.self) + answers.map { questions.count > 1 ? "\($0.label): \($0.text)" : $0.text })
-            .joined(separator: " / ")
+        // 다시 거는 통화에서 묻지 않았는데 없어졌다고 한 말 ("구토가 나아졌어요"). 물어서 "아니요"라고 한 답과
+        // 다른 증상도 함께 말한 문장은 남기지 않는다 (그날 기록에는 "지금은 없다고 함"으로 더한다)
+        let toldAbsent = followUp && presence == .absent && answers.isEmpty && !e.askedSteps.contains(.presence)
+            ? e.quotes.last.flatMap { shared.contains($0) ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : $0 }
+            : nil
+        // 모르겠다·애매하다고 한 답은 원문 그대로 ("[검토 필요] 잘 모르겠어요", "… / 부위: 모르겠어요"). 같은 말은 한 번만
+        var said: [String] = []
+        for part in [firstSaid, toldAbsent].compactMap(\.self) + answers.map({ questions.count > 1 ? "\($0.label): \($0.text)" : $0.text })
+            + e.unsureAnswers where !said.contains(part) { said.append(part) }
+        let answerText = said.joined(separator: " / ")
         // 검토 필요 → 앞에 표시, 기타 증상 → 앞에 이름 (#84)
         let body = [e.otherName, answerText.isEmpty ? nil : answerText].compactMap(\.self).joined(separator: ": ")
         let text = ([e.needsReview ? "[검토 필요]" : nil, body.isEmpty ? nil : body].compactMap(\.self)).joined(separator: " ")
