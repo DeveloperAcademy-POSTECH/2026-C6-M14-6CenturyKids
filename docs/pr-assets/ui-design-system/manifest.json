@@ -1,0 +1,75 @@
+{
+  "capture": "iPhone 18 Pro, iOS 27.0; actual SwiftUI views rendered from a source-verified QA copy",
+  "fixture": "DEBUG memory data; not server data",
+  "home_excluded": true,
+  "files": [
+    {
+      "file": "shared-controls.png",
+      "sha256": "1b03e1d51012959253b6238dc7a9c5f7333ffe49172fbffa918057a33d0a8d78"
+    },
+    {
+      "file": "previsit-selectedDay.png",
+      "sha256": "137ade2e5efec913141e70b3e2fab8dcb2065860b0c74f145d645bb5592b7d14"
+    },
+    {
+      "file": "previsit-writtenLetter.png",
+      "sha256": "8d61bd1a308b63f87169c43864cb3f6ebaf90afd121177a745ccc6e0dccdda25"
+    },
+    {
+      "file": "previsit-selectedMood.png",
+      "sha256": "8cac101bced7f56ecb1f4347776370273e0a9ec15b1fbf8c7b072797a950cacd"
+    },
+    {
+      "file": "notification-filled.png",
+      "sha256": "45f1336a843bfd52a58aa734187bd4ac59e4a5e828c3a287a8b4b0c43150a339"
+    },
+    {
+      "file": "voice-incoming.png",
+      "sha256": "2073eb2472ee65e59296c18eb879f93f59e5498fc1fa43f3ce268f25a00b7aa0"
+    },
+    {
+      "file": "voice-listening.png",
+      "sha256": "684903d10326018f72a69b3489482d5d55b0d459327b8103c14b8e8bcde332f4"
+    },
+    {
+      "file": "voice-summary.png",
+      "sha256": "3a4e1915f2272695855386e44a50032d83e7764f41f2cff4802482c7b81cac54"
+    },
+    {
+      "file": "manual-symptoms.png",
+      "sha256": "c7584482cf2fa26898c6ec6c9e953d9de099fbaf70f9f2021ae5f0bd8ab68627"
+    },
+    {
+      "file": "manual-frequency.png",
+      "sha256": "6d04e9fff5691fde9b9ff9ca672cc69baaf276acac7ee4fbe860ab0f9ea60ebf"
+    },
+    {
+      "file": "manual-duration.png",
+      "sha256": "38e3b676d5c6be33dfd960300385083f47766ca8f43e815578868762f3ed7008"
+    },
+    {
+      "file": "pain-2.png",
+      "sha256": "e03a205eb3600e1cb650ce2de265530039f5f2344c4c4b4434f2f32a41090848"
+    },
+    {
+      "file": "pain-4.png",
+      "sha256": "0387f8e342d7ad20d66bf702e7accf2a36f6a879168b25af15f816184a861b07"
+    },
+    {
+      "file": "pain-6.png",
+      "sha256": "4f23302f9a9f023bdf73229f514fe5170faea77bb8a1fb653aa9fcfca09c6c87"
+    },
+    {
+      "file": "settings-0.png",
+      "sha256": "6e33ec0cbd608970831a40831f4f33420fab23e3c16cc2355bb50855d5bfd8e6"
+    },
+    {
+      "file": "settings-1.png",
+      "sha256": "7c60eb4e938fb4cafed027a4db3d21059d428ec41dec9d4e35dbad3380ba67cd"
+    },
+    {
+      "file": "voice-editing-large.png",
+      "sha256": "3501499e43e16ab366762fff29a7b9f40d29996d4eff7fe80e0edb920693e14f"
+    }
+  ]
+}

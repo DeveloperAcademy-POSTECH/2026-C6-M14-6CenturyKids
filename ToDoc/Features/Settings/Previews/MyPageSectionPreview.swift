@@ -136,6 +136,7 @@ private struct MyPageHospitalInfoPreviewView: View {
     private var savedSex: Sex = .female
     private var savedCancer: CarcinomaType = .lung
     private var savedStage: CarcinomaStage = .stage3
+    private var savedNotificationValues = ["carecall": true, "pain": true]
 
     init() {
         var calendar = Calendar(identifier: .gregorian)
@@ -194,11 +195,18 @@ private struct MyPageHospitalInfoPreviewView: View {
                 self.notifications.canSave = true
                 self.notifications.didSave = false
             case .save:
+                self.savedNotificationValues = Dictionary(uniqueKeysWithValues: self.notifications.preferences.map { ($0.id, $0.isEnabled) })
                 self.notifications.hasChanges = false
+                self.notifications.canSave = false
                 self.notifications.didSave = true
             case .discardChanges:
-                self.notifications.preferences.indices.forEach { self.notifications.preferences[$0].isEnabled = true }
+                for index in self.notifications.preferences.indices {
+                    let id = self.notifications.preferences[index].id
+                    self.notifications.preferences[index].isEnabled = self.savedNotificationValues[id] ?? true
+                }
                 self.notifications.hasChanges = false
+                self.notifications.canSave = false
+                self.notifications.didSave = false
             case .load, .requestAuthorization, .refreshAuthorization, .cancel: break
             }
         }
