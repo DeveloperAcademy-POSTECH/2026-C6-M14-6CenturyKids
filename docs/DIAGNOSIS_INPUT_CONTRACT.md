@@ -1,6 +1,6 @@
 # 암종 기타 입력·병기 모름 계약 변경
 
-2026-10-18 사용자 요청 반영. 현재 작업 브랜치 ui-design-system-audit의 View·Domain·가입 VM·PatientDTO 변경이다. **실제 Supabase 스키마에는 아직 적용하지 않았다. PR 본문에 아래 서버 선행 작업과 최신 develop 연결 사항을 반드시 포함한다.**
+2026-10-18 사용자 요청 반영. `feat/signup-preview-diagnosis`의 View·Domain·가입 VM·PatientDTO 변경이다. #107 → #121(화면·디자인시스템) → 가입 Preview·암종 Draft 순서로 쌓는다. **실제 Supabase 스키마에는 아직 적용하지 않았다. 아래 서버 선행 작업과 최신 develop 연결을 완료하기 전에는 병합·배포 준비 완료로 전환하지 않는다.**
 
 ## 동작
 
@@ -64,7 +64,7 @@ ALTER TABLE public.patients
 
 ## 최신 develop과 통합할 때 반드시 함께 수정할 곳
 
-이번 작업 트리에는 실제 SupabasePatientRepository와 PatientWithUserDTO가 없다. 로컬 캐시 origin/develop03e5a22에서 다음 구현을 확인했다. PR 작성/통합 시 최신 파일을 보존하면서 아래 변경을 반영해야 서버 조회에서 이름이 유실되지 않는다.
+이번 작업 트리에는 실제 SupabasePatientRepository와 PatientWithUserDTO가 없다. 2026-10-18 원격 조회한 origin/develop `03e5a22`에서 다음 구현을 확인했다. 이 Draft는 #107의 브랜치를 상속하므로 해당 파일을 임의로 복사해 넣지 않았다. #107 병합 후 최신 develop으로 재정렬할 때 최신 파일을 보존하면서 아래 변경을 반영해야 서버 조회에서 이름이 유실되지 않는다.
 
 - `ToDoc/Data/DTOs/User/PatientWithUserDTO.swift`: optional `carcinomaOtherName`, CodingKeys의 `carcinoma_other_name` 추가. `toDomain()`에서 기타 이름 유효성을 확인하고 CarcinomaDetail.otherName으로 전달.
 - `ToDoc/Data/Repositories/Supabase/SupabasePatientRepository.swift`: 공통 `columns`, `findByName`, `findByDoctorId`의 명시적 select 세 곳에 `carcinoma_other_name` 추가. 저장은 이번 PatientDTO의 인코딩 사용.
@@ -86,5 +86,4 @@ ALTER TABLE public.patients
 
 서버 선행 조건은 patients.carcinoma_other_name nullable text 컬럼, carcinoma_type의 other, carcinoma_stage의 unknown 허용입니다. 최신 develop의 joined DTO와 명시적 select에도 새 필드를 연결해야 합니다. 서버 적용과 실제 DB 검증은 별도이며, Preview/단위 테스트 통과로 대체하지 않습니다.
 
-팀 메시지는 아직 전송하지 않았습니다. PR 게시 요청을 받으면 이 계약·선행 작업·검증 상태를 본문에 포함합니다.
-
+이 계약은 Draft PR의 본문과 저장소 문서로 공유합니다. 별도 팀 메시지는 보내지 않습니다.
