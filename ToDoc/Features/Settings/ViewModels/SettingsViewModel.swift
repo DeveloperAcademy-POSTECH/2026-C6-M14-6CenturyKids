@@ -57,10 +57,18 @@ final class SettingsViewModel {
             }
         }
 
+        carcinomaState.onCancel = { [weak self] in
+            self?.discardDiagnosisChanges(.carcinoma)
+        }
+
         stageState.onSave = { [weak self] in
             Task { [weak self] in
                 await self?.saveDiagnosis(.stage)
             }
+        }
+
+        stageState.onCancel = { [weak self] in
+            self?.discardDiagnosisChanges(.stage)
         }
     }
 
@@ -267,5 +275,19 @@ final class SettingsViewModel {
         personalInfoState.canSave = false
         personalInfoState.validationMessage = nil
         personalInfoState.errorMessage = nil
+    }
+
+    func discardDiagnosisChanges(_ field: DiagnosisField) {
+        let state: DiagnosisScreenState
+        switch field {
+        case .carcinoma: state = carcinomaState
+        case .stage: state = stageState
+        }
+
+        guard !state.isSaving, !state.didSave else { return }
+
+        state.selection = nil
+        state.canSave = false
+        state.errorMessage = nil
     }
 }
