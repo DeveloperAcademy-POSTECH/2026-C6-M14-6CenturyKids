@@ -38,6 +38,12 @@ final class SettingsViewModel {
                 await self?.loadProfile()
             }
         }
+
+        personalInfoState.onSave = { [weak self] in
+            Task { [weak self] in
+                await self?.savePersonalInfo()
+            }
+        }
     }
 
     func loadProfile() async {
@@ -108,6 +114,43 @@ final class SettingsViewModel {
             personalInfoState.canSave = true
         } catch {
             personalInfoState.errorMessage = "개인 정보를 불러오지 못했어요."
+        }
+    }
+
+    func savePersonalInfo() async {
+        guard personalInfoState.canSave,
+              !personalInfoState.isSaving else { return }
+
+        personalInfoState.isSaving = true
+        personalInfoState.didSave = false
+        personalInfoState.validationMessage = nil
+        personalInfoState.errorMessage = nil
+        defer { personalInfoState.isSaving = false }
+
+        let name = personalInfoState.name
+        let birthday = personalInfoState.birthday
+        let sex = personalInfoState.sex
+
+        do {
+            guard var user = try await userRepository.findById(patientId) else {
+                personalInfoState.errorMessage = "사용자 정보를 찾지 못했어요."
+                return
+            }
+
+            do {
+                try user.updateName(name)
+                try user.updateBirthday(birthday)
+                user.updateSex(sex)
+            } catch {
+                personalInfoState.validationMessage = "이름과 생년월일을 확인해 주세요."
+                return
+            }
+
+            try await userRepository.save(user: user)
+            screenState.profile?.name = user.name
+            personalInfoState.didSave = true
+        } catch {
+            personalInfoState.errorMessage = "개인 정보를 저장하지 못했어요. 다시 시도해 주세요."
         }
     }
 }
