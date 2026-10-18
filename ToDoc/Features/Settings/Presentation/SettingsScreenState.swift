@@ -35,6 +35,20 @@ struct DoctorDisplayData {
 }
 @Observable final class DiagnosisScreenState {
     var selection: DiagnosisChange?
+    var otherCancerName: String {
+        get {
+            guard case .carcinoma(.other, let name) = selection else { return "" }
+            return name ?? ""
+        }
+        set { selection = .carcinoma(.other, otherName: newValue) }
+    }
+    var hasValidSelection: Bool {
+        guard let selection else { return false }
+        if case .carcinoma(.other, _) = selection {
+            return !otherCancerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return true
+    }
     var isSaving = false
     var canSave = false
     var didSave = false

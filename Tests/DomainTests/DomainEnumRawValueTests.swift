@@ -24,7 +24,7 @@ final class DomainEnumRawValueTests: XCTestCase {
     func testCarcinomaStageContract() {
         assertContract(CarcinomaStage.self, [
             (.stage0, "stage0"), (.stage1, "stage1"), (.stage2, "stage2"),
-            (.stage3, "stage3"), (.stage4, "stage4")
+            (.stage3, "stage3"), (.stage4, "stage4"), (.unknown, "unknown")
         ])
     }
 
@@ -34,7 +34,7 @@ final class DomainEnumRawValueTests: XCTestCase {
             (.colorectal, "colorectal"), (.kidney, "kidney"), (.stomach, "stomach"),
             (.breast, "breast"), (.prostate, "prostate"), (.pancreas, "pancreas"), (.lung, "lung"),
             (.larynx, "larynx"), (.thymus, "thymus"), (.esophagus, "esophagus"),
-            (.smallIntestine, "smallIntestine"), (.anus, "anus")
+            (.smallIntestine, "smallIntestine"), (.anus, "anus"), (.other, "other")
         ])
     }
 
@@ -44,9 +44,9 @@ final class DomainEnumRawValueTests: XCTestCase {
         for (raw, korean) in additions {
             XCTAssertEqual(CarcinomaType(rawValue: raw)?.displayName, korean)
         }
-        XCTAssertEqual(CarcinomaType.allCases.count, 15)
+        XCTAssertEqual(CarcinomaType.allCases.count, 16)
         XCTAssertNil(CarcinomaStage(rawValue: "terminal"))
-        XCTAssertEqual(CarcinomaStage.allCases.map(\.displayName), ["0기", "1기", "2기", "3기", "4기"])
+        XCTAssertEqual(CarcinomaStage.allCases.map(\.displayName), ["0기", "1기", "2기", "3기", "4기", "모르겠어요"])
     }
 
     func testMealTypeContract() {

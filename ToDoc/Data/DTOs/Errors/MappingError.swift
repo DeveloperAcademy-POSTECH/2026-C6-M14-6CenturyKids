@@ -10,6 +10,7 @@ public enum MappingError: Error {
     case invalidSex(String)
     case invalidCarcinomaType(String)
     case invalidCarcinomaStage(String)
+    case missingOtherCarcinomaName
     case incompleteCarcinomaDetail
     case invalidSymptomType(String)
     case invalidBodyPart(String)
