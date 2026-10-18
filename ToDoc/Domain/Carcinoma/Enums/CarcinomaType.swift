@@ -1,4 +1,4 @@
-/// 사용자 확인을 받은 Figma 암종 15개. 영문 case명을 문자열 값으로 사용합니다.
+/// 기존 암종 15개와 기타 직접 입력. 기타의 실제 이름은 CarcinomaDetail.otherName에 보관합니다.
 nonisolated public enum CarcinomaType: String, CaseIterable, Sendable {
     case liver = "liver"
     case thyroid = "thyroid"
@@ -15,6 +15,7 @@ nonisolated public enum CarcinomaType: String, CaseIterable, Sendable {
     case esophagus = "esophagus"
     case smallIntestine = "smallIntestine"
     case anus = "anus"
+    case other = "other"
 
     public var displayName: String {
         switch self {
@@ -33,6 +34,7 @@ nonisolated public enum CarcinomaType: String, CaseIterable, Sendable {
         case .esophagus: "식도암"
         case .smallIntestine: "소장암"
         case .anus: "항문암"
+        case .other: "기타"
         }
     }
 }

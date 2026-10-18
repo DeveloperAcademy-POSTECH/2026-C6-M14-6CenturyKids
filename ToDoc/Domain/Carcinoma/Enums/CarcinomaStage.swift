@@ -4,6 +4,7 @@ nonisolated public enum CarcinomaStage: String, CaseIterable, Sendable {
     case stage2 = "stage2"
     case stage3 = "stage3"
     case stage4 = "stage4"
+    case unknown = "unknown"
 
     public var displayName: String {
         switch self {
@@ -12,6 +13,7 @@ nonisolated public enum CarcinomaStage: String, CaseIterable, Sendable {
         case .stage2: "2기"
         case .stage3: "3기"
         case .stage4: "4기"
+        case .unknown: "모르겠어요"
         }
     }
 }
