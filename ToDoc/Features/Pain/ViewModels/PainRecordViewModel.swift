@@ -92,7 +92,7 @@ final class PainRecordViewModel {
         isSaving = true
         defer { isSaving = false }
 
-        try await painRepository.save(record)
+        try await painRepository.save(entity: record)
 
         preparedRecord = nil
         recordedDate = nil
