@@ -136,6 +136,7 @@ final class InterviewEngine {
             ledger.apply(mention, patientText: patientText, knownEffectIds: knownIds,
                          mayChangeRecorded: mayChangeRecorded(mention, during: current, patientText: patientText))
         }
+        prefillNumber(from: patientText, since: before)
         // 첫 질문 답은 그대로 남긴다 (꼬리질문의 답이면 첫 답과 이어서). 다시 거는 통화는 컨디션을 묻지 않는다
         if current == .opening, unasked == nil {
             ledger.setConditionText([openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / "))
@@ -266,6 +267,23 @@ final class InterviewEngine {
         let said = config.effects.filter { $0.keywords.contains(symptom) }
         guard said.count == 1, let effect = said.first, !mentions.contains(where: { $0.effectId == effect.id }) else { return [] }
         return [Mention(effectId: effect.id, presence: .absent, quote: patientText)]
+    }
+
+    /// 증상이 있다고 한 말에 횟수·지속 시간이 분명히 들어 있으면 그 꼬리질문의 답으로 채워 다시 묻지 않는다
+    /// ("네 한 번 토했어요" → 구토 횟수 1, "손이 저려요, 한 30분씩요" → 지속 시간 30분). 이번 답으로 '있음'이 된 목록 증상이
+    /// 하나일 때만 ("두 번 토하고 설사도 했어요"는 숫자가 어느 증상 것인지 몰라 묻는다). 어림수("두세 번")는 지금처럼 묻는다
+    private func prefillNumber(from patientText: String, since before: Ledger) {
+        let newlyPresent = ledger.order.filter { knownIds.contains($0) && ledger[$0]?.presence == .present && before[$0]?.presence != .present }
+        guard newlyPresent.count == 1, let key = newlyPresent.first, let entry = ledger[key],
+              let effect = config.effects.first(where: { $0.id == key }) else { return }
+        for detail in effect.details(heard: entry.quotes) where !entry.details.contains(where: { $0.label == detail.label }) {
+            let found = switch detail.number {
+            case .count?: NumberParser.count(in: patientText) != nil
+            case .minutes?: NumberParser.minutes(in: patientText) != nil
+            case nil: false
+            }
+            if found { ledger.addDetail(patientText.trimmingCharacters(in: .whitespacesAndNewlines), label: detail.label, for: key) }
+        }
     }
 
     /// 다시 거는 통화에서 새로 '있음'으로 말한 증상이 있음 (기타 포함)
