@@ -12,7 +12,7 @@ struct CareCallTextModeTests {
     var conversation: SymptomScreenState { viewModel.conversation }
 
     init() {
-        viewModel = CareCallViewModel(service: service, repository: repository, patientId: UUID())
+        viewModel = CareCallViewModel(service: service, repository: repository, pending: FakePendingCareCalls(), patientId: UUID())
     }
 
     private func turn(_ text: String, _ number: CareCallConfig.Effect.Detail.Number? = nil,
