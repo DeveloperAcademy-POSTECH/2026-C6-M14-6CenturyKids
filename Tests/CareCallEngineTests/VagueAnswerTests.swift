@@ -84,4 +84,24 @@ struct VagueAnswerTests {
     func 말로_한_횟수_시간도_숫자로_본다(text: String, has: Bool) {
         #expect(NumberParser.hasNumber(text) == has)
     }
+
+    @Test func 두_번_다시_물어도_분명하지_않으면_받은_답을_원문으로_남긴다() async {
+        let call = await atFirstSymptom()
+        _ = await call.handle(patientText: "어떤 거 말씀이세요?")
+        _ = await call.handle(patientText: "음 그게요")
+        #expect(call.phase == .slot(key: "nausea_vomiting", step: .presence)) // 두 번 다시 물음
+        let next = await call.handle(patientText: "그러니까요")
+        #expect(next.phase == .slot(key: "constipation", step: .presence)) // 닫고 다음 항목
+        let entry = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.first
+        #expect(entry?.presence == .unknown)
+        #expect(entry?.detail == "[검토 필요] 어떤 거 말씀이세요 / 음 그게요 / 그러니까요")
+    }
+
+    @Test func 다시_물은_뒤_분명히_답하면_앞의_답은_남기지_않는다() async {
+        let call = await atFirstSymptom()
+        _ = await call.handle(patientText: "어떤 거 말씀이세요?")
+        _ = await call.handle(patientText: "아니요")
+        let entry = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.first
+        #expect(entry?.presence == .absent && entry?.detail == nil)
+    }
 }

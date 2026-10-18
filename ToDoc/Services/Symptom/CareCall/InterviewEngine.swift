@@ -34,6 +34,8 @@ final class InterviewEngine {
     private var otherAttempts = 0
     /// '그 밖에'에서 말한 기타 증상: 한 번 더 물은 뒤 답을 그대로 기록할 항목
     private var otherDetailKey: String?
+    /// 같은 질문을 다시 묻게 한 답 (불명확·분석 실패). 두 번 다시 물어도 분명하지 않아 항목을 닫으면 원문으로 남긴다. 키: "항목|단계"
+    private var unsettledAnswers: [String: [String]] = [:]
     /// '그 밖에'에 "네"만 답해 무엇인지 이미 되물었음 (그 답에는 또 묻지 않는다)
     private var otherYesFollowedUp = false
     /// 첫 질문에 꼬리질문을 했으면 그 첫 답
@@ -220,6 +222,12 @@ final class InterviewEngine {
             break
         }
 
+        // 유무·부위 질문의 답이 분명하지 않으면(다시 묻게 됨) 답을 모아 둔다
+        if case .slot(let key, let step) = current, step != .detail, let entry = ledger[key], !entry.unknownSteps.contains(step),
+           step == .presence ? (entry.presence == nil || entry.presence == .unclear) : entry.locations.isEmpty {
+            let said = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+            if !said.isEmpty { unsettledAnswers["\(key)|\(step)", default: []].append(said) }
+        }
         let followUp = Self.validFollowUp(result?.utterance, patientText: patientText)
         let recordedThisTurn = !ledger.sameRecords(as: before) // advance()가 '물음' 표시를 남기기 전에 본다
         var utterance = await advance(from: current, followUp: followUp)
@@ -306,7 +314,11 @@ final class InterviewEngine {
             // 다시 거는 통화는 이번에 말한 항목과 지난 통화에서 못 물은 항목만 묻는다
             switch SlotPlanner.next(ledger: ledger, config: config, otherAsked: otherAsked, only: unasked.map { $0.union(ledger.order) }) {
             case .slot(let key, let step):
-                guard ledger.markAsked(key, step: step) else { continue } // 한도 초과 → 다음 항목
+                guard ledger.markAsked(key, step: step) else {
+                    // 두 번 다시 물어도 분명하지 않아 닫음 → 그동안 받은 답을 원문으로 남기고 다음 항목
+                    ledger.addUnsure(unsettledAnswers.removeValue(forKey: "\(key)|\(step)") ?? [], step: step, for: key)
+                    continue
+                }
                 let isRepeat = current == .slot(key: key, step: step)
                 phase = .slot(key: key, step: step)
                 let q = question(key: key, step: step, followUp: isRepeat ? followUp : nil)
