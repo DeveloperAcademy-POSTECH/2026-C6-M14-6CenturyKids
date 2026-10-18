@@ -32,7 +32,7 @@ struct SymptomRecordConverterTests {
         #expect(record.recordedDate == date)
         #expect(record.symptoms.map(\.symptomType) == [.nauseaVomiting, .constipation, .diarrhea])
         #expect(record.symptoms.map(\.presence) == [.present, .absent, .unknown])
-        #expect(record.symptoms.map(\.detail) == [nil, nil, "[검토 필요]"])
+        #expect(record.symptoms.map(\.detail) == [nil, nil, "[검토 필요] 잘 모르겠어요"])
     }
 
     @Test func 끊기면_답한_곳까지만() {
