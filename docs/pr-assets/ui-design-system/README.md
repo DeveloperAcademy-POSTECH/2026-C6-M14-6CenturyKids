@@ -80,4 +80,3 @@
 ### 케어콜 · 접근성 큰 글자
 
 <img src="voice-editing-large.png" width="280" alt="케어콜 · 접근성 큰 글자" />
-
