@@ -42,14 +42,15 @@ env -u TODOC_TEST_SCOPE swift test --filter DomainTests
 
 ## 무엇을 확인하나요?
 
-2026-10-19 최신 develop `45475ea` 통합 후 전체 실행 결과는 **310개 통과, 실패 0개**입니다 (XCTest 99 + Swift Testing 211).
+2026-10-19 최신 develop `45475ea` 통합 후 전체 실행 결과는 후속 #154까지 포함한 **330개 통과, 실패 0개**입니다 (XCTest 119 + Swift Testing 211).
 
 | 묶음 | 개수 | 대표 검사 |
 |---|---:|---|
-| DomainTests | 54 | 이름·생일·통증 범위, 값 수정 실패 시 원본 보존, 환자·의사·병원 ID 관계, 증상 원문 보존 |
-| AuthViewModelTests | 41 | 로그인·가입·복구·온보딩, 미연결 오류, 취소·재시도, 잘못된 사용자 ID 차단 |
+| DomainTests | 55 | 이름·생일·통증 범위, 값 수정 실패 시 원본 보존, 환자·의사·병원 ID 관계, 증상 원문 보존 |
+| AuthViewModelTests | 46 | 로그인·가입·복구·온보딩, 미연결 오류, 취소·재시도, 잘못된 사용자 ID 차단 |
 | AuthScreenTests | 2 | 가입 생일 표시 |
-| SymptomScreenTests | 2 | 있음 증상만 표시하고 원본 답변 유지 |
+| SymptomScreenTests | 11 | 있음 증상 표시, 원문·횟수·시간 보존, 질문·요약 왕복 |
+| PatientMappingTests | 5 | PatientDTO 기타 암종·모름·NULL 인코딩 및 디코딩 |
 | CareCallEngineTests | 211 | 케어콜 질문 진행·응답 해석·저장 상태 |
 
 XCTest와 Swift Testing을 함께 사용하므로 실행 결과가 여러 묶음으로 출력됩니다. 어떤 묶음에 `0 tests`가 보여도 그것만으로 전체가 실행되지 않았다는 뜻은 아닙니다. 전체 명령의 종료 상태와 각 타깃 결과를 함께 확인합니다. Swift Testing의 매개변수별 사례 수와 `Test run with 211 tests`의 테스트 수는 구별합니다.

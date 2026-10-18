@@ -64,7 +64,7 @@ ALTER TABLE public.patients
 
 ## 최신 develop과 통합할 때 반드시 함께 수정할 곳
 
-이번 작업 트리에는 실제 SupabasePatientRepository와 PatientWithUserDTO가 없다. 2026-10-19 확인한 origin/develop `cef9e68`에서 다음 구현을 확인했다. 이 Draft는 #107의 브랜치를 상속하므로 해당 파일을 임의로 복사해 넣지 않았다. #107 병합 후 최신 develop으로 재정렬할 때 최신 파일을 보존하면서 아래 변경을 반영해야 서버 조회에서 이름이 유실되지 않는다.
+2026-10-19 #107의 최신 develop `45475ea` 통합을 상속하여 실제 SupabasePatientRepository와 PatientWithUserDTO가 이 작업 트리에도 포함됐다. 다만 joined DTO·조회 select에 새 필드를 연결하는 아래 작업은 아직 반영하지 않았다. 서버 컬럼 선행 적용과 함께 별도 후속에서 완료해야 조회 시 기타 암종 이름이 유실되지 않는다. 이 통합이나 인증 Repository 주입만으로 #154의 서버 연결 조건이 완료되지는 않는다.
 
 - `ToDoc/Data/DTOs/User/PatientWithUserDTO.swift`: optional `carcinomaOtherName`, CodingKeys의 `carcinoma_other_name` 추가. `toDomain()`에서 기타 이름 유효성을 확인하고 CarcinomaDetail.otherName으로 전달.
 - `ToDoc/Data/Repositories/Supabase/SupabasePatientRepository.swift`: `findById`·`findByName`·`findByDoctorId`의 세 조회 메서드가 사용하는 두 select 정의(공통 `columns`와 `findByName`의 별도 목록)에 `carcinoma_other_name` 추가. 저장은 이번 PatientDTO의 인코딩 사용.
