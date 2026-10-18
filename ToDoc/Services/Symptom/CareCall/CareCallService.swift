@@ -30,6 +30,8 @@ final class CareCallService: CareCalling {
     private struct Conversation {
         let engine: InterviewEngine
         let patientId: UUID
+        /// 같은 날 다시 거는 통화
+        let followUp: Bool
     }
     private var conversation: Conversation?
     /// 지금 대화에서 AI 음성 안내를 했음 (문자로 시작해 음성으로 바꿔도 처음 말할 때 한 번은 알린다)
@@ -75,7 +77,7 @@ final class CareCallService: CareCalling {
     func begin(patientId: UUID, previous: SymptomRecord?) throws -> CareCallTurn {
         guard let analyzer else { throw CareCallServiceError.notPrepared }
         let engine = InterviewEngine(config: config, rules: rules, analyzer: analyzer, followUp: previous.map(converter.unasked(in:)))
-        let conversation = Conversation(engine: engine, patientId: patientId)
+        let conversation = Conversation(engine: engine, patientId: patientId, followUp: previous != nil)
         self.conversation = conversation
         noticed = false
         return turn(conversation.engine.start(), of: conversation)
@@ -83,6 +85,10 @@ final class CareCallService: CareCalling {
 
     var current: CareCallTurn? {
         conversation.map { turn(InterviewEngine.Output(utterance: $0.engine.lastQuestion, phase: $0.engine.phase), of: $0) }
+    }
+
+    var progress: SymptomRecord? {
+        conversation.flatMap(partialRecord(of:))
     }
 
     func answer(_ text: String) async throws -> CareCallTurn {
@@ -115,7 +121,7 @@ final class CareCallService: CareCalling {
     }
 
     private func record(of conversation: Conversation) -> SymptomRecord {
-        converter.record(from: conversation.engine.ledger, patientId: conversation.patientId, date: Date())
+        converter.record(from: conversation.engine.ledger, patientId: conversation.patientId, date: Date(), followUp: conversation.followUp)
     }
 
     /// 받은 답이 하나도 없으면 nil (빈 기록으로 그날 기록을 덮지 않게. 첫 질문 답만 있어도 저장하지 않는다)

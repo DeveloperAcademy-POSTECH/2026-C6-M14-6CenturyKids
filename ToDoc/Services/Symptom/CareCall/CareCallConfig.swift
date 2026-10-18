@@ -22,6 +22,9 @@ struct CareCallConfig: Decodable, Sendable {
         let details: [Detail]
         /// 다른 항목을 묻다가 이 항목의 횟수·부위로 돌아갈 때 앞에 말하는 이름 ("입안이 헐거나 아픈 것")
         let spokenName: String
+        /// '없다'가 붙어도 이 증상이 있다는 말 ("입맛 없" = "입맛이 좀 없어요", 식사 증상 있음). 두 낱말이 한 절에서 차례로 가까이
+        /// (사이 8자 이내) 나오면 맞는다. 모델이 '없음'이라 해도 '있음'으로 본다 (초안)
+        let presentPhrases: [String]?
 
         struct Detail: Decodable, Sendable {
             /// 기록에 붙이는 이름 ("횟수", "구토 횟수"). 한 항목 안에서 겹치지 않는다
@@ -82,6 +85,11 @@ struct CareCallConfig: Decodable, Sendable {
     let reasonSuffixes: [String]
     /// 유무·부위 질문에 이 말이 든 답("잘 모르겠어요", "기억이 안 나요")은 다시 묻지 않고 '모름'으로 기록 (초안)
     let unknownAnswers: [String]
+    /// 유무 질문에 있다고도 없다고도 하지 않은 답("그냥 좀 그래요", "글쎄요")의 낱말. 다시 묻지 않고 '모름' + 검토 필요로,
+    /// 환자 말은 그대로 남긴다 (모델은 이런 답을 대부분 '있음'으로 기록했다, 2026-10-14 평가. 초안)
+    let vagueAnswers: [String]
+    /// '그 밖에' 질문에 "모르겠어요"·"그냥 그래요"라고 하면 이 이름의 기타 항목에 '모름'으로 원문을 남긴다
+    let otherUnclearName: String
     /// 모델 없이 처리하는 짧은 답 (공백·문장부호를 뺀 뒤 완전히 같을 때만). 질문이 긍정형("~있으셨나요?")이라는 전제
     let shortAnswers: ShortAnswers
     /// 처음·그 밖에 답에 이 표현이 있는데 모델이 아무것도 기록하지 않으면 한 번 더 분석한다 (초안, 의료진 확인 필요)
@@ -114,7 +122,7 @@ struct CareCallConfig: Decodable, Sendable {
         let question: String
         /// 달라진 게 없다는 답의 낱말 ("똑같아요", "그대로예요"). "없어요·괜찮아요"는 없음 표현으로 본다
         let unchangedAnswers: [String]
-        /// "모르겠어요"(unknownAnswers) 말고도 애매하다는 답의 낱말 ("글쎄요"). 처음 통화의 유무 질문에서는 되묻는다
+        /// "모르겠어요"(unknownAnswers) 말고도 애매하다는 답의 낱말 ("글쎄요"). 유무 질문의 애매한 답은 vagueAnswers
         let unclearAnswers: [String]
         /// 첫 답에서 증상을 말함 → 그 증상을 묻기 전에
         let noted: String
@@ -125,6 +133,9 @@ struct CareCallConfig: Decodable, Sendable {
         let unchanged: String
         /// 첫 질문에 "글쎄요"처럼 답하면 이 이름의 기타 항목에 '모름'으로 남긴다
         let unclearName: String
+        /// 증상이 그쳤다는 낱말 ("멈췄어요"). 첫 답에서 모델이 그 증상을 못 잡으면 '없음'으로 남긴다.
+        /// "없어졌·사라졌"은 넣지 않는다 ("입맛이 없어졌어요"는 식사 증상이 생긴 것)
+        let stoppedAnswers: [String]
     }
 
     struct OtherDetail: Decodable, Sendable {
