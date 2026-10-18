@@ -542,7 +542,8 @@ final class CareCallViewModel {
     /// - 전에 없음·모름이었는데 이번에 있음 → 이번 항목으로 바꾼다
     /// - 전에도 있음 → 같은 부위면 기존 값을 두고 빈 칸만 채우고 내용에 "다시 통화: …"를 덧붙인다, 다른 부위면 추가
     /// - 이번에 없음·모름인데 그날 기록에 이미 있는 증상은 그대로 둔다. 전에 있던 증상을 이번에 없다고 하면(좋아짐)
-    ///   "다시 통화: 지금은 없다고 함"을, 검토가 필요한 답(요약에서 지움 등)이면 그 내용을 덧붙여 의료진이 보게 한다
+    ///   환자가 한 말("다시 통화: 구토가 나아졌어요", 말이 없으면 "지금은 없다고 함")을,
+    ///   검토가 필요한 답(요약에서 지움 등)이면 그 내용을 덧붙여 의료진이 보게 한다
     static func merge(_ old: SymptomRecord, with new: SymptomRecord) -> SymptomRecord {
         var symptoms = old.symptoms
         for entry in new.symptoms {
@@ -552,14 +553,16 @@ final class CareCallViewModel {
                 continue
             }
             guard entry.presence == .present else {
-                if entry.detail?.hasPrefix(Self.review) == true,
-                   let index = symptoms.firstIndex(where: { $0.symptomType == entry.symptomType }) {
-                    symptoms[index] = filled(symptoms[index], with: entry)
-                } else if entry.presence == .absent {
-                    // 없어졌다는 말은 그 증상 전체에 대한 말이라 부위별 항목마다 남긴다
-                    for index in symptoms.indices where symptoms[index].symptomType == entry.symptomType && symptoms[index].presence == .present {
-                        symptoms[index] = filled(symptoms[index], with: entry, note: "지금은 없다고 함")
+                let present = symptoms.indices.filter { symptoms[$0].symptomType == entry.symptomType && symptoms[$0].presence == .present }
+                if entry.presence == .absent, !present.isEmpty {
+                    // 없어졌다는 말은 그 증상 전체에 대한 말이라 부위별 항목마다 남긴다 (검토 필요 표시는 맨 앞에).
+                    // 환자가 한 말이 있으면 그 말 그대로("다시 통화: 구토가 나아졌어요"), 없으면 "지금은 없다고 함"
+                    for index in present {
+                        symptoms[index] = filled(symptoms[index], with: entry, note: text(of: entry.detail) == nil ? "지금은 없다고 함" : nil)
                     }
+                } else if entry.detail?.hasPrefix(Self.reviewMark) == true,
+                          let index = symptoms.firstIndex(where: { $0.symptomType == entry.symptomType }) {
+                    symptoms[index] = filled(symptoms[index], with: entry)
                 }
                 continue
             }
@@ -592,7 +595,15 @@ final class CareCallViewModel {
         return old.rawLocationText == new.rawLocationText
     }
 
-    private static let review = "[검토 필요] "
+    private static let reviewMark = "[검토 필요]"
+    private static let review = reviewMark + " "
+
+    /// 검토 필요 표시를 뗀 내용 (표시만 있으면 nil)
+    private static func text(of detail: String?) -> String? {
+        guard let detail else { return nil }
+        let text = detail.hasPrefix(reviewMark) ? detail.dropFirst(reviewMark.count).trimmingCharacters(in: .whitespaces) : detail
+        return text.isEmpty ? nil : text
+    }
 
     /// 전에도 있던 증상: 기존 값(유무 포함)은 두고 빈 칸만 이번 값으로 채운다. 이번 내용은 "다시 통화: …"로 덧붙인다.
     /// 검토 필요 표시는 맨 앞에 하나만. 길면 전 내용을 줄여 이번 답은 남긴다
@@ -600,11 +611,10 @@ final class CareCallViewModel {
     /// textOnly면 내용만 덧붙이고 빈 칸(부위·횟수·지속 시간)은 채우지 않는다
     private static func filled(_ old: SymptomEntry, with new: SymptomEntry, note: String? = nil, label: String = "다시 통화",
                                textOnly: Bool = false) -> SymptomEntry {
-        func stripped(_ text: String?) -> String? { text.map { $0.hasPrefix(review) ? String($0.dropFirst(review.count)) : $0 } }
         func cut(_ text: String, to room: Int) -> String { text.count <= room ? text : String(text.prefix(max(room - 1, 0))) + "…" }
-        var oldText = stripped(old.detail)
-        var added = (note ?? stripped(new.detail)).map { "\(label): " + $0 }
-        var flagged = old.detail?.hasPrefix(review) == true || new.detail?.hasPrefix(review) == true
+        var oldText = text(of: old.detail)
+        var added = (note ?? text(of: new.detail)).map { "\(label): " + $0 }
+        var flagged = old.detail?.hasPrefix(reviewMark) == true || new.detail?.hasPrefix(reviewMark) == true
         // 길면 둘 다 남기도록 나눠 줄인다 (어느 쪽도 반보다 적게 줄이지 않는다). 잘랐으면 의료진이 원문을 보게 검토 필요
         if let o = oldText, let a = added, review.count + o.count + " / ".count + a.count > SymptomEntry.detailLimit {
             flagged = true
@@ -614,7 +624,8 @@ final class CareCallViewModel {
             added = cut(a, to: room - min(o.count, oldRoom))
         }
         let body = [oldText, added].compactMap(\.self).joined(separator: " / ")
-        let detail = body.isEmpty ? nil : String(((flagged ? review : "") + body).prefix(SymptomEntry.detailLimit))
+        // 내용 없이 검토 필요 표시만 있어도 표시는 남긴다
+        let detail = body.isEmpty ? (flagged ? reviewMark : nil) : String(((flagged ? review : "") + body).prefix(SymptomEntry.detailLimit))
         let fill = textOnly ? nil : new
         let merged = try? SymptomEntry(id: old.id, symptomType: old.symptomType, presence: old.presence,
                                        bodyPart: old.bodyPart ?? fill?.bodyPart, bodySide: old.bodySide ?? fill?.bodySide,
