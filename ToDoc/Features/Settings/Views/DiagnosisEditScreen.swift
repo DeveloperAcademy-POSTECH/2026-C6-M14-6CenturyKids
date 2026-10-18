@@ -9,7 +9,7 @@ struct DiagnosisEditScreen: View {
         _state = State(initialValue: state); self.field = field; self.onSaved = onSaved
     }
     var body: some View {
-        SettingsScreen(title: field == .carcinoma ? "암종" : "병기", canSave: state?.canSave == true && state?.onSave != nil,
+        SettingsScreen(title: field == .carcinoma ? "암종" : "병기", canSave: state?.canSave == true && state?.hasValidSelection == true && state?.onSave != nil,
                        isSaving: state?.isSaving == true, save: save, cancel: { dismiss() }) {
             if let state {
                 if field == .carcinoma {
@@ -18,6 +18,18 @@ struct DiagnosisEditScreen: View {
                     Text("진단받은 내용을 기준으로 선택해 주세요.").appFont(.settingsSectionCaption).foregroundStyle(AppColors.Settings.caption).padding(.horizontal, AppSpacing.content)
                     // 기존 가입 계약의 나머지 암종은 원본에 그룹이 없어 기본 목록으로 보존합니다.
                     cancerSection("그 외 암종", values: [.thyroid, .kidney, .breast, .prostate], state: state)
+                    SettingsSection(title: "직접 입력") {
+                        choice(.carcinoma(.other), title: "기타 직접 입력", state: state)
+                        if case .carcinoma(.other, _) = state.selection {
+                            SettingsDivider()
+                            SettingsInputRow(title: "암 이름") {
+                                TextField("진단받은 암 이름", text: Binding(get: { state.otherCancerName }, set: { state.otherCancerName = $0 }), axis: .vertical)
+                                    .appFont(.settingsRow).foregroundStyle(AppColors.Settings.secondary)
+                                    .lineLimit(1...3).autocorrectionDisabled().disabled(state.isSaving)
+                                    .accessibilityIdentifier("settings.otherCancerName")
+                            }
+                        }
+                    }
                 } else {
                     SettingsSection(title: "진단받은 병기", footer: "진단받은 병기를 선택해 주세요.\n정확한 병기는 담당 의료진에게 확인할 수 있어요.") {
                         ForEach(Array(CarcinomaStage.allCases.enumerated()), id: \.element.rawValue) { index, stage in
@@ -47,14 +59,25 @@ struct DiagnosisEditScreen: View {
         }
     }
     private func choice(_ value: DiagnosisChange, title: String, subtitle: String? = nil, rowHeight: CGFloat = AppMetrics.Settings.rowMinimumHeight, state: DiagnosisScreenState) -> some View {
-        let selected = state.selection == value
-        return Button { state.selection = value } label: {
+        let selected: Bool = {
+            if case .carcinoma(let current, _) = state.selection, case .carcinoma(let candidate, _) = value {
+                return current == candidate
+            }
+            return state.selection == value
+        }()
+        return Button { if !selected { state.selection = value } } label: {
             SettingsRow(title: title, subtitle: subtitle, selected: selected, minimumHeight: rowHeight)
         }.disabled(state.isSaving).accessibilityAddTraits(selected ? .isSelected : [])
             .accessibilityIdentifier("settings.choice.\(identifier(value))")
     }
     private func identifier(_ value: DiagnosisChange) -> String {
-        switch value { case .carcinoma(let cancer): cancer.rawValue; case .stage(let stage): stage.rawValue }
+        switch value { case .carcinoma(let cancer, _): cancer.rawValue; case .stage(let stage): stage.rawValue }
     }
-    private func save() { state?.onSave?() }
+    private func save() {
+        guard let state, state.hasValidSelection else { return }
+        if case .carcinoma(.other, _) = state.selection {
+            state.otherCancerName = state.otherCancerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        state.onSave?()
+    }
 }

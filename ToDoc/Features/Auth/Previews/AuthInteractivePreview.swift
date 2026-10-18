@@ -45,4 +45,25 @@ struct AuthInteractivePreview: View {
 #Preview("온보딩 → 가입 완료 · 서버 없는 체험") {
     AuthInteractivePreview()
 }
+
+/// 이번에 바뀐 진단 입력부터 바로 확인하는 서버 없는 체험입니다.
+private struct SignupDiagnosisPreview: View {
+    @State private var flow: AuthFlowViewModel
+    init(step: SignupStep) {
+        let flow = AuthInteractivePreviewData.makeFlow()
+        flow.open(.signup)
+        flow.signup.state.acceptedTerms = Set(SignupTerm.allCases.filter(\.isRequired))
+        flow.signup.state.cancerType = .other
+        flow.signup.state.otherCancer = "연부조직 육종"
+        if step == .cancerType { flow.signup.state.cancerSearch = "연부조직 육종" }
+        flow.signup.state.stage = .unknown
+        flow.signup.state.doctorCode = ""
+        flow.signup.state.step = step
+        _flow = State(initialValue: flow)
+    }
+    var body: some View { NavigationStack { AuthFlowView(model: flow) } }
+}
+
+#Preview("암종 기타 · 자유 텍스트부터") { SignupDiagnosisPreview(step: .cancerType) }
+#Preview("병기 · 모르겠어요") { SignupDiagnosisPreview(step: .cancerStage) }
 #endif

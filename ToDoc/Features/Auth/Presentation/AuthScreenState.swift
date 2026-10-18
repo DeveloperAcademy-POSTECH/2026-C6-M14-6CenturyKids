@@ -55,11 +55,10 @@ enum SignupAction {
     var birthday: Date?
     var sex: Sex?
     var cancerType: CarcinomaType?
-    var usesOtherCancer = false
+    var usesOtherCancer: Bool { cancerType == .other }
     var otherCancer = ""
     var cancerSearch = ""
     var stage: SignupStageChoice?
-    var otherStage = ""
     /// 계정 생성이 시작되면 당시 입력을 고정합니다. 재시도가 다른 사람의 정보로 이어지지 않게 합니다.
     var isAccountLocked = false
     var isAwaitingEmailConfirmation = false
@@ -88,11 +87,15 @@ enum SignupAction {
         return formatter.string(from: birthday)
     }
     var filteredCancerTypes: [CarcinomaType] {
-        CarcinomaType.allCases.filter { cancerSearch.isEmpty || $0.displayName.localizedCaseInsensitiveContains(cancerSearch) }
+        CarcinomaType.allCases.filter { $0 != .other && (cancerSearch.isEmpty || $0.displayName.localizedCaseInsensitiveContains(cancerSearch)) }
     }
-    var cancerTitle: String { usesOtherCancer ? otherCancer : cancerType?.displayName ?? "선택 전" }
+    var cancerTitle: String {
+        guard usesOtherCancer else { return cancerType?.displayName ?? "선택 전" }
+        let name = otherCancer.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? CarcinomaType.other.displayName : name
+    }
     var stageTitle: String {
-        switch stage { case .known(let value): value.displayName; case .unknown: "잘 모르겠어요"; case .other: otherStage; case nil: "선택 전" }
+        stage?.value.displayName ?? "선택 전"
     }
 }
 extension CarcinomaType { var title: String { displayName } }

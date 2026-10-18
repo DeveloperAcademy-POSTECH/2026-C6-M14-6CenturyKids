@@ -81,8 +81,7 @@ import ToDocDomain
         }
     }
 
-    /// '기타/모름'을 DB가 표현하지 못하는 동안 임의의 암종·병기로 바꾸어 저장하지 않습니다.
-    /// 팀에서 해당 Model/DB 계약을 정하면 이 검증과 Draft 변환만 확장하면 됩니다.
+    /// 기타 암종은 이름을 필수로 받고, 병기 모름은 별도의 unknown 값으로 보존합니다.
     private func validationError(for step: SignupStep) -> String? {
         switch step {
         case .role: return state.isPatient ? nil : "의사 가입은 iPad용 흐름 연결 후 이용할 수 있어요."
@@ -100,10 +99,11 @@ import ToDocDomain
             do { _ = try User(id: UUID(), name: state.name, birthday: birthday, sex: sex); return nil }
             catch { return "생년월일과 이름을 확인해 주세요. 미래 날짜는 선택할 수 없어요." }
         case .cancerType:
-            return state.usesOtherCancer ? "직접 입력한 암 이름은 저장 형식 연결을 준비 중이에요." : (state.cancerType == nil ? "암 종류를 선택해 주세요." : nil)
+            guard state.cancerType != nil else { return "암 종류를 선택해 주세요." }
+            return state.usesOtherCancer && state.otherCancer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? "진단받은 암 이름을 입력해 주세요." : nil
         case .cancerStage:
-            if case .known = state.stage { return nil }
-            return state.stage == nil ? "병기를 선택해 주세요." : "모름·직접 입력 병기는 저장 형식 연결을 준비 중이에요."
+            return state.stage == nil ? "병기를 선택해 주세요." : nil
         default: return nil
         }
     }
@@ -262,12 +262,12 @@ import ToDocDomain
     }
     private func makeDraft() throws -> Draft {
         guard let birthday = state.birthday, let sex = state.sex, let cancer = state.cancerType,
-              case .known(let stage) = state.stage, let version = configuration.termsVersion else {
+              let stage = state.stage?.value, let version = configuration.termsVersion else {
             throw AuthFlowError("가입 정보를 다시 확인해 주세요.")
         }
         return Draft(email: AuthFormValidation.email(state.email), password: state.password,
                      name: state.name.trimmingCharacters(in: .whitespacesAndNewlines), birthday: birthday, sex: sex,
-                     disease: .init(carcinoma: cancer, stage: stage), doctorID: verifiedDoctorID,
+                     disease: .init(carcinoma: cancer, stage: stage, otherName: state.otherCancer), doctorID: verifiedDoctorID,
                      version: version, termIDs: state.acceptedTerms.map(\.consentID).sorted(), acceptedAt: Date())
     }
     /// 재시도를 위한 메모리 스냅샷입니다. 비밀번호는 디스크/UserDefaults/로그에 저장하지 않습니다.
