@@ -58,7 +58,10 @@ struct PainRecordView: View {
                         onNext: { step = 1 }, onClose: close)
                 case 1:
                     PainBeforeMedicationView(locations: viewModel.selectedLocations, score: beforeScoreBinding,
-                        onPrevious: { step = 0 }, onNext: { step = 2 }, onClose: close)
+                        onPrevious: { step = 0 }, onNext: {
+                            guard viewModel.painBefore != nil else { return }
+                            step = 2
+                        }, onClose: close)
                 default:
                     PainAfterMedicationView(locations: viewModel.selectedLocations, before: viewModel.painBefore,
                         score: afterScoreBinding, isSaving: viewModel.isSaving,

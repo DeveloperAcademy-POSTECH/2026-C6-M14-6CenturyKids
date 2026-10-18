@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PainAfterMedicationView: View {
     let locations: [BodyLocation]
-    let before: Int
+    let before: Int?
     @Binding var score: Int?
     var isSaving = false
     var errorMessage: String?

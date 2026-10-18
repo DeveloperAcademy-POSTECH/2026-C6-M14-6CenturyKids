@@ -16,12 +16,13 @@ final class PainRecordViewModel {
     private var preparedRecord: PainRecord?
     private var recordedDate: Date?
     private(set) var selectedLocations: [BodyLocation] = []
-    private(set) var painBefore = 0
-    private(set) var painAfter = 0
+    private(set) var painBefore: Int?
+    private(set) var painAfter: Int?
     private(set) var isSaving = false
 
     enum PreparationError: Error {
         case recordNotStarted
+        case missingScores
     }
 
     enum SaveError: Error {
@@ -63,6 +64,10 @@ final class PainRecordViewModel {
             throw PreparationError.recordNotStarted
         }
 
+        guard let painBefore, let painAfter else {
+            throw PreparationError.missingScores
+        }
+
         let record = try PainRecord(
             id: UUID(),
             patientId: patientId,
@@ -102,7 +107,7 @@ final class PainRecordViewModel {
         preparedRecord = nil
         recordedDate = nil
         selectedLocations = []
-        painBefore = 0
-        painAfter = 0
+        painBefore = nil
+        painAfter = nil
     }
 }
