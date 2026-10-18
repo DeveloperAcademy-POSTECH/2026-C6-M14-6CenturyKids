@@ -11,14 +11,13 @@ struct SymptomVoiceInputView: View {
     var body: some View {
         SymptomQuestionLayout(question: question, switchTitle: "채팅 전환", showsNext: false,
                               onEnd: onEnd, onSwitch: onSwitchToText) {
-            VStack(spacing: 40) {
+            VStack(spacing: AppSpacing.question) {
                 Text(isListening ? "듣고 있어요. 편하게 말씀해 주세요." : isWorking ? "답변을 확인하고 있어요." : "안내를 듣고 답해 주세요.")
-                    .modifier(SymptomTextStyle(size: 16)).multilineTextAlignment(.center)
+                    .appFont(.body).multilineTextAlignment(.center)
                     .accessibilityIdentifier("symptom.voice.status")
                 GeometryReader { geometry in
-                    RoundedRectangle(cornerRadius: 40)
-                        .fill(LinearGradient(colors: [Color(white: 241 / 255), Color(white: 230 / 255)],
-                                             startPoint: .top, endPoint: .bottom))
+                    RoundedRectangle(cornerRadius: AppMetrics.Conversation.inputRadius)
+                        .fill(AppGradients.conversationPortrait)
                         .overlay(alignment: .top) {
                             if !isListening { Image("CareCallHakro")
                                 .resizable()
@@ -26,12 +25,12 @@ struct SymptomVoiceInputView: View {
                                 .offset(x: -1.5, y: 13)
                                 .accessibilityHidden(true) }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 40))
+                        .clipShape(RoundedRectangle(cornerRadius: AppMetrics.Conversation.inputRadius))
                 }
-                .frame(height: 230)
+                .frame(height: AppMetrics.Conversation.inputHeight)
                 Text(transcript.isEmpty ? "말하는 내용이 실시간으로 표시됩니다." : transcript)
-                    .modifier(SymptomTextStyle(size: 16))
-                    .foregroundStyle(isListening ? Color.black : Color(white: 114 / 255))
+                    .appFont(.body)
+                    .foregroundStyle(isListening ? AppColors.Text.primary : AppColors.Text.secondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("symptom.transcript")

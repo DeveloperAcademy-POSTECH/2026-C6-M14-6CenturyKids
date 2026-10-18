@@ -10,12 +10,12 @@ struct AuthFormScreen<Content: View, Footer: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: AppSpacing.Auth.formGap) {
                 HStack {
                     if let onBack {
                         Button(action: onBack) {
                             Image(systemName: "chevron.left")
-                                .frame(width: 44, height: 44)
+                                .frame(width: AppMetrics.Control.minimumHitSize, height: AppMetrics.Control.minimumHitSize)
                         }
                         .accessibilityLabel("이전 단계")
                     }
@@ -28,13 +28,13 @@ struct AuthFormScreen<Content: View, Footer: View>: View {
                     .fixedSize(horizontal: false, vertical: true)
                 content()
             }
-            .padding(.top, 8)
-            .padding(.bottom, 24)
+            .padding(.top, AppSpacing.compact)
+            .padding(.bottom, AppSpacing.section)
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 12) { footer() }
-                .padding(.vertical, 12)
+            VStack(spacing: AppSpacing.item) { footer() }
+                .padding(.vertical, AppSpacing.item)
                 .background(AppColors.background)
         }
         .appScreenStyle()
@@ -50,7 +50,7 @@ struct AuthMessage: View {
     var body: some View {
         Label(text, systemImage: isError ? "exclamationmark.circle" : "checkmark.circle")
             .appTextStyle(.caption)
-            .foregroundStyle(isError ? Color.red : AppColors.Text.secondary)
+            .foregroundStyle(isError ? AppColors.Feedback.error : AppColors.Text.secondary)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityLabel(text)
     }
@@ -60,7 +60,7 @@ struct AuthSubmitLabel: View {
     let title: String
     let isLoading: Bool
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: AppSpacing.compact) {
             if isLoading { ProgressView().tint(AppColors.Text.primary) }
             Text(isLoading ? "처리 중이에요" : title)
         }

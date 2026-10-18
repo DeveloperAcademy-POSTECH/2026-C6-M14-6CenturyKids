@@ -16,20 +16,20 @@ struct SymptomRecordView: View {
                 SymptomSummaryLoadingView(onCancel: close)
             } else if let question = state.question {
                 VStack(spacing: 0) {
-                    if let error = state.errorMessage { Text(error).foregroundStyle(.red).padding(12) }
+                    if let error = state.errorMessage { Text(error).foregroundStyle(AppColors.Feedback.error).padding(12) }
                     SymptomConversationContent(state: state, question: question, onEnd: close,
                         onSwitch: { state.onAction?(.switchMode($0)) }).id(question.id)
                 }
             } else {
-                VStack(spacing: 20) {
-                    Text("대화 기능 연결 전이에요").font(.headline)
+                VStack(spacing: AppSpacing.columnGap) {
+                    Text("대화 기능 연결 전이에요").font(AppTypography.NativeConversation.headline)
                     if state.isWorking { ProgressView("질문을 준비하고 있어요") }
                     if let error = state.errorMessage { Text(error) }
                     Button("다시 시도") { state.onAction?(.start) }.disabled(state.isWorking || state.onAction == nil)
                     Button("종료하기", action: close)
                 }.padding(24).buttonStyle(.bordered)
             }
-        }.background(.white).toolbar(.hidden, for: .navigationBar)
+        }.background(AppColors.surface).toolbar(.hidden, for: .navigationBar)
             .onAppear { state.onAction?(.start) }
             .onDisappear { state.onAction?(.cancel) }
     }
@@ -78,7 +78,6 @@ private struct SymptomConversationContent: View {
             }
         }
     }
-
 }
 
 #Preview("서비스 미연결") { SymptomRecordView() }

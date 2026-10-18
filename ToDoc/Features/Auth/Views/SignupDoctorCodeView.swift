@@ -11,7 +11,7 @@ struct SignupDoctorCodeView: View {
                           error: state.hasAttemptedStep ? state.currentValidationError : nil)
                 .disabled(state.isWorking)
             Button { showsHelp = true } label: {
-                Text("코드는 어디에서 받나요?").underline().appTextStyle(.caption).frame(minHeight: 44)
+                Text("코드는 어디에서 받나요?").underline().appTextStyle(.caption).frame(minHeight: AppMetrics.Control.minimumHitSize)
             }
             if let error = state.errorMessage { AuthMessage(text: error) }
         } footer: {
@@ -20,7 +20,7 @@ struct SignupDoctorCodeView: View {
             } label: { AuthSubmitLabel(title: "코드 확인", isLoading: state.isWorking) }
                 .buttonStyle(AppButtonStyle()).disabled(state.isWorking || state.onAction == nil)
             Button("지금은 건너뛰기") { state.onAction?(.skipDoctorCode) }
-                .appTextStyle(.caption).frame(minHeight: 44)
+                .appTextStyle(.caption).frame(minHeight: AppMetrics.Control.minimumHitSize)
         }
         .alert("의사 연결 코드", isPresented: $showsHelp) {
             Button("확인", role: .cancel) {}

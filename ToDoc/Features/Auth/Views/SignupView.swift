@@ -37,7 +37,7 @@ struct SignupFormView: View {
 
     private var roleSelection: some View {
         AuthFormScreen(title: "어떻게\n이용하시나요?", progress: state.step.progress, onBack: onBack) {
-            VStack(spacing: 16) {
+            VStack(spacing: AppSpacing.content) {
                 roleCard(patient: true)
                 roleCard(patient: false)
             }
@@ -50,14 +50,14 @@ struct SignupFormView: View {
     private func roleCard(patient: Bool) -> some View {
         let selected = state.isPatient == patient
         return Button { state.isPatient = patient } label: {
-            HStack(alignment: .bottom, spacing: 4) {
+            HStack(alignment: .bottom, spacing: AppSpacing.tight) {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(patient ? "환자로\n이용할게요" : "의사로\n이용할게요").appTextStyle(.heading)
                     Text(patient ? "iPhone에서\n기록해요" : "iPad에서\n확인해요")
                         .appTextStyle(.caption).foregroundStyle(AppColors.Text.secondary)
                 }
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.vertical, 24).padding(.leading, 24)
+                .padding(.vertical, AppSpacing.section).padding(.leading, AppSpacing.section)
                 Spacer(minLength: 0)
                 if !dynamicTypeSize.isAccessibilitySize {
                     Image(patient ? "Auth/Patient" : "Auth/Doctor")
@@ -68,10 +68,10 @@ struct SignupFormView: View {
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 176, alignment: .leading)
-            .background(selected ? AppColors.primary : AppColors.secondary, in: RoundedRectangle(cornerRadius: 24))
-            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .appSurface(.authRole(isSelected: selected))
+            .clipShape(RoundedRectangle(cornerRadius: AppMetrics.Auth.roleRadius))
             .overlay(alignment: .topTrailing) {
-                if selected { Image(systemName: "checkmark.circle.fill").padding(16) }
+                if selected { Image(systemName: "checkmark.circle.fill").padding(AppSpacing.content).accessibilityHidden(true) }
             }
         }
         .buttonStyle(.plain)

@@ -7,6 +7,7 @@ struct PainLocationSelectionView: View {
     let onRemove: (BodyLocation) -> Void
     var onNext: (() -> Void)?
     var onClose: (() -> Void)?
+    var showsSelectionHint = true
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -19,20 +20,31 @@ struct PainLocationSelectionView: View {
                     PainBodySelection(locations: locations, onToggle: onToggle)
                         .padding(.top, 81)
                     PainLocationChips(locations: locations, onRemove: onRemove)
-                        .padding(.horizontal, 24).padding(.top, 18)
+                        .padding(.horizontal, AppSpacing.screenHorizontal).padding(.top, 18)
                 }
-                .padding(.bottom, 24)
+                .padding(.bottom, AppSpacing.section)
             }
             if let errorMessage {
-                Text(errorMessage).font(.body).foregroundStyle(.red).padding(16)
+                Text(errorMessage).font(AppTypography.NativeConversation.body).foregroundStyle(AppColors.Feedback.error).padding(16)
+            }
+            if locations.isEmpty && showsSelectionHint {
+                Text("부위를 1개 이상 골라주세요.")
+                    .appTextStyle(.caption)
+                    .foregroundStyle(AppColors.Text.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, AppSpacing.screenHorizontal).padding(.bottom, AppSpacing.section)
             }
             PainInputFooter(isEnabled: !locations.isEmpty, onNext: onNext)
         }
-        .background(.white)
+        .background(AppColors.surface)
         .overlay(alignment: .topLeading) {
             if let onClose {
-                Button(action: onClose) { Image("PainBack").frame(width: 40, height: 40) }
-                    .buttonStyle(.plain).padding(.leading, 24).padding(.top, 5)
+                Button(action: onClose) {
+                    Image("PainBack").frame(width: 40, height: 40)
+                        .frame(width: AppMetrics.Control.minimumHitSize, height: AppMetrics.Control.minimumHitSize)
+                        .contentShape(Rectangle()).offset(x: -2, y: -2)
+                }
+                    .buttonStyle(.plain).padding(.leading, AppSpacing.section).padding(.top, 5)
                     .accessibilityLabel("통증 기록에서 돌아가기")
             }
         }
@@ -55,7 +67,10 @@ private struct PainBodySelection: View {
                     Button { onToggle(region.location) } label: {
                         Color.clear.contentShape(Rectangle())
                             .overlay {
-                                if selected { Image("PainSelectedMarker").frame(width: 25, height: 25) }
+                                if selected {
+                                    Image(region.location.bodyView == .back ? "PainSelectedBackMarker" : "PainSelectedMarker")
+                                        .frame(width: 25, height: 25)
+                                }
                             }
                     }
                     .buttonStyle(.plain)

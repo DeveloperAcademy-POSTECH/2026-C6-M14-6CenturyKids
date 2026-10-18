@@ -1,27 +1,5 @@
 import SwiftUI
 
-/// 설정 하이파이의 그룹형 행 스타일. 공통 디자인 시스템 파일은 변경하지 않습니다.
-enum SettingsPalette {
-    static let background = Color(red: 241 / 255, green: 241 / 255, blue: 247 / 255)
-    static let primary = Color(red: 28 / 255, green: 28 / 255, blue: 30 / 255)
-    static let secondary = Color(red: 142 / 255, green: 142 / 255, blue: 147 / 255)
-    static let caption = Color(red: 109 / 255, green: 109 / 255, blue: 114 / 255)
-    static let action = Color(red: 100 / 255, green: 130 / 255, blue: 56 / 255)
-}
-private struct SettingsTextStyle: ViewModifier {
-    @ScaledMetric private var size: CGFloat
-    let bold: Bool
-    init(size: CGFloat, bold: Bool) { _size = ScaledMetric(wrappedValue: size); self.bold = bold }
-    func body(content: Content) -> some View {
-        content.font(Font((bold ? AppTypography.Style.heading : .caption).font(at: size)))
-    }
-}
-extension View {
-    func settingsText(_ size: CGFloat = 17, bold: Bool = false) -> some View {
-        modifier(SettingsTextStyle(size: size, bold: bold))
-    }
-}
-
 struct SettingsScreen<Content: View>: View {
     let title: String
     var cancelTitle = "이전"
@@ -33,13 +11,13 @@ struct SettingsScreen<Content: View>: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         VStack(spacing: 0) {
-            header.padding(.horizontal, 20).padding(.vertical, 4)
+            header.padding(.horizontal, AppSpacing.Settings.screenHorizontal).padding(.vertical, AppSpacing.tight)
             ScrollView {
-                VStack(alignment: .leading, spacing: 24, content: content)
-                    .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 32)
+                VStack(alignment: .leading, spacing: AppSpacing.section, content: content)
+                    .padding(.horizontal, AppSpacing.Settings.screenHorizontal).padding(.top, AppSpacing.content).padding(.bottom, AppSpacing.large)
             }.scrollDismissesKeyboard(.interactively)
         }
-        .foregroundStyle(SettingsPalette.primary).background(SettingsPalette.background.ignoresSafeArea())
+        .foregroundStyle(AppColors.Settings.primary).background(AppColors.Settings.background.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar).buttonStyle(.plain)
     }
     @ViewBuilder private var header: some View {
@@ -49,29 +27,33 @@ struct SettingsScreen<Content: View>: View {
                 HStack { cancelButton; Spacer(); saveButton }
             }
         } else {
-            HStack(spacing: 10) { cancelButton; Spacer(minLength: 0); titleLabel; Spacer(minLength: 0); saveButton }
+            HStack(spacing: 0) {
+                cancelButton.frame(width: AppMetrics.Settings.headerActionWidth, alignment: .leading)
+                titleLabel.frame(maxWidth: .infinity)
+                saveButton.frame(width: AppMetrics.Settings.headerActionWidth, alignment: .trailing)
+            }
         }
     }
     private var titleLabel: some View {
-        Text(title).settingsText(17, bold: true).multilineTextAlignment(.center).accessibilityAddTraits(.isHeader)
+        Text(title).appFont(.settingsNavigation).multilineTextAlignment(.center).accessibilityAddTraits(.isHeader)
     }
     private var cancelButton: some View {
         Button(action: cancel) {
             HStack(spacing: 6) {
-                if cancelTitle == "이전" { Image("SettingsBack").resizable().frame(width: 10, height: 19).accessibilityHidden(true) }
-                Text(cancelTitle).settingsText()
-            }.frame(minWidth: 44, minHeight: 44)
+                if cancelTitle == "이전" { Image("SettingsBack").resizable().frame(width: 10.4, height: 18.4).accessibilityHidden(true) }
+                Text(cancelTitle).appFont(.settingsRow)
+            }.frame(minWidth: AppMetrics.Control.minimumHitSize, minHeight: AppMetrics.Control.minimumHitSize)
         }.accessibilityIdentifier("settings.cancel")
     }
     @ViewBuilder private var saveButton: some View {
         if let save {
             Button(action: save) {
                 Group { if isSaving { ProgressView().accessibilityLabel("저장 중") }
-                    else { Text("완료").settingsText(17, bold: true) } }
-                    .frame(minWidth: 44, minHeight: 44)
-            }.foregroundStyle(canSave ? SettingsPalette.action : SettingsPalette.secondary)
+                    else { Text("완료").appFont(.settingsNavigation) } }
+                    .frame(minWidth: AppMetrics.Control.minimumHitSize, minHeight: AppMetrics.Control.minimumHitSize)
+            }.foregroundStyle(canSave ? AppColors.Settings.action : AppColors.Settings.secondary)
                 .disabled(!canSave).accessibilityIdentifier("settings.done")
-        } else { Color.clear.frame(width: 44, height: 44).accessibilityHidden(true) }
+        } else { Color.clear.frame(width: AppMetrics.Control.minimumHitSize, height: AppMetrics.Control.minimumHitSize).accessibilityHidden(true) }
     }
 
 }
@@ -80,10 +62,10 @@ struct SettingsSection<Content: View>: View {
     var footer: String?
     @ViewBuilder let content: () -> Content
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if !title.isEmpty { Text(title).settingsText(13).foregroundStyle(SettingsPalette.caption).padding(.horizontal, 16) }
-            VStack(spacing: 0, content: content).background(.white, in: RoundedRectangle(cornerRadius: 14))
-            if let footer { Text(footer).settingsText(13).foregroundStyle(SettingsPalette.caption).padding(.horizontal, 16) }
+        VStack(alignment: .leading, spacing: AppSpacing.compact) {
+            if !title.isEmpty { Text(title).appFont(.settingsSectionCaption).foregroundStyle(AppColors.Settings.caption).padding(.horizontal, AppSpacing.content) }
+            VStack(spacing: 0, content: content).appSurface(.settingsGroup)
+            if let footer { Text(footer).appFont(.settingsSectionCaption).foregroundStyle(AppColors.Settings.caption).padding(.horizontal, AppSpacing.content) }
         }
     }
 }
@@ -92,15 +74,15 @@ struct SettingsInputRow<Content: View>: View {
     @ViewBuilder let content: () -> Content
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
-        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(spacing: 20))
+        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(spacing: AppSpacing.Settings.inputGap))
         layout {
-            Text(title).settingsText().fixedSize()
+            Text(title).appFont(.settingsRow).fixedSize()
             content().frame(maxWidth: .infinity, alignment: typeSize.isAccessibilitySize ? .leading : .trailing)
-        }.padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 54)
+        }.padding(.horizontal, AppSpacing.content).padding(.vertical, AppSpacing.item).frame(minHeight: AppMetrics.Settings.inputMinimumHeight)
     }
 }
 struct SettingsDivider: View {
-    var body: some View { Rectangle().fill(Color.black.opacity(0.06)).frame(height: 0.64).padding(.leading, 16) }
+    var body: some View { Rectangle().fill(AppColors.Settings.separator).frame(height: AppMetrics.Settings.separatorHeight).padding(.leading, AppSpacing.content) }
 }
 struct SettingsRow: View {
     let title: String
@@ -109,15 +91,16 @@ struct SettingsRow: View {
     var chevron = false
     var selected = false
     var connected = false
+    var minimumHeight: CGFloat = AppMetrics.Settings.rowMinimumHeight
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: AppSpacing.item) {
             if typeSize.isAccessibilitySize, let value {
                 VStack(alignment: .leading, spacing: 6) {
                     titleLabel
-                    HStack(spacing: 8) {
+                    HStack(spacing: AppSpacing.compact) {
                         if connected { connectionDot }
-                        Text(value).settingsText().foregroundStyle(SettingsPalette.secondary)
+                        Text(value).appFont(.settingsRow).foregroundStyle(AppColors.Settings.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -126,18 +109,19 @@ struct SettingsRow: View {
                 titleLabel
                 Spacer(minLength: 0)
                 if connected { connectionDot }
-                if let value { Text(value).settingsText().foregroundStyle(SettingsPalette.secondary)
+                if let value { Text(value).appFont(.settingsRow).foregroundStyle(AppColors.Settings.secondary)
                         .multilineTextAlignment(.trailing).fixedSize(horizontal: false, vertical: true) }
             }
             if selected { Image("SettingsCheck").resizable().frame(width: 13.2, height: 11.2).accessibilityHidden(true) }
             if chevron { Image("SettingsChevron").resizable().frame(width: 6.8, height: 11.8).accessibilityHidden(true) }
-        }.padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
+        }.padding(.horizontal, AppSpacing.content).padding(.vertical, AppSpacing.item).frame(minHeight: minimumHeight)
             .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
     }
     private var titleLabel: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(title).settingsText().fixedSize(horizontal: false, vertical: true)
-            if let subtitle { Text(subtitle).settingsText(13).foregroundStyle(SettingsPalette.secondary) }
+            Text(title).appFont(.settingsRow).fixedSize(horizontal: false, vertical: true)
+            if let subtitle { Text(subtitle).appFont(.settingsDetail).foregroundStyle(AppColors.Settings.secondary) }
         }
     }
     private var connectionDot: some View { Circle().fill(AppColors.primary).frame(width: 7, height: 7).accessibilityHidden(true) }
@@ -148,10 +132,10 @@ struct SettingsFeedback: View {
     var error: String?
     var success: String?
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if busy { ProgressView("처리 중").settingsText(14) }
-            if let error { Text(error).settingsText(14).foregroundStyle(.red).accessibilityIdentifier("settings.error") }
-            if let success { Text(success).settingsText(14).foregroundStyle(SettingsPalette.action).accessibilityIdentifier("settings.success") }
+        VStack(alignment: .leading, spacing: AppSpacing.item) {
+            if busy { ProgressView("처리 중").appFont(.settingsCaption) }
+            if let error { Text(error).appFont(.settingsCaption).foregroundStyle(AppColors.Feedback.error).accessibilityIdentifier("settings.error") }
+            if let success { Text(success).appFont(.settingsCaption).foregroundStyle(AppColors.Settings.action).accessibilityIdentifier("settings.success") }
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
 }

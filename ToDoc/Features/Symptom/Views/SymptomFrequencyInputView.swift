@@ -25,7 +25,7 @@ struct SymptomFrequencyInputView: View {
                                    selectedIndex: values.firstIndex(of: frequency ?? .count(0)) ?? 0,
                                    hasSelection: frequency != nil) { frequency = values[$0] }
                     .disabled(isSubmitting)
-                Text("번 했어요").modifier(SymptomTextStyle(size: 20, weight: .semibold))
+                Text("번 했어요").appFont(.sectionTitle)
             }
         }
     }

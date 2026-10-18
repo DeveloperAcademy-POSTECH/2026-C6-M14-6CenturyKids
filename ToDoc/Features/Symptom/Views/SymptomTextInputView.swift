@@ -19,23 +19,7 @@ struct SymptomTextInputView: View {
                               canProceed: hasAnswer && !isSubmitting,
                               showsPrevious: showsPrevious, onPrevious: onPrevious, onNext: onNext,
                               onEnd: onEnd, onSwitch: onSwitchToVoice) {
-            ZStack(alignment: .topLeading) {
-                if text.isEmpty {
-                    Text("답변을 직접 입력해 주세요.")
-                        .modifier(SymptomTextStyle(size: 16)).foregroundStyle(Color(white: 114 / 255))
-                        .padding(.top, 8).padding(.leading, 5)
-                        .allowsHitTesting(false)
-                }
-                TextEditor(text: $text)
-                    .modifier(SymptomTextStyle(size: 16))
-                    .scrollContentBackground(.hidden)
-                    .accessibilityLabel("답변")
-                    .accessibilityIdentifier("symptom.answer")
-                    .disabled(isSubmitting)
-            }
-            .padding(27)
-            .frame(height: 230)
-            .background(Color(white: 243 / 255), in: RoundedRectangle(cornerRadius: 40))
+            AppAnswerEditor(text: $text, accessibilityIdentifier: "symptom.answer", isEnabled: !isSubmitting)
         }
     }
 }

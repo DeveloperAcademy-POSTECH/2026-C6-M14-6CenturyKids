@@ -17,19 +17,19 @@ struct SymptomSummaryEntryEditor: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: AppSpacing.content) {
             HStack {
                 Text(draft.symptomType.displayName)
-                    .modifier(SymptomTextStyle(size: 16, weight: .semibold))
+                    .appFont(.bodyStrong)
                 Spacer()
-                HStack(spacing: 40) {
-                    Button("삭제", role: .destructive, action: onDelete).foregroundStyle(Color(red: 1, green: 33 / 255, blue: 33 / 255))
-                    Button("완료", action: finish).foregroundStyle(Color(red: 33 / 255, green: 118 / 255, blue: 1))
+                HStack(spacing: AppSpacing.question) {
+                    Button("삭제", role: .destructive, action: onDelete).foregroundStyle(AppColors.CareCall.deleteAction)
+                    Button("완료", action: finish).foregroundStyle(AppColors.CareCall.doneAction)
                 }
-                .modifier(SymptomTextStyle(size: 16))
+                .appFont(.body)
             }
             VStack(spacing: 0) {
-                SymptomSummaryRow(title: "증상 유무") { Text(draft.presence.displayName).foregroundStyle(.secondary) }
+                SymptomSummaryRow(title: "증상 유무") { Text(draft.presence.displayName).foregroundStyle(AppColors.CareCall.summarySecondary) }
                 if draft.occurrenceCount != nil {
                     SymptomSummaryRow(title: "횟수") {
                         TextField("1~100회", text: $input.occurrenceText)
@@ -45,7 +45,7 @@ struct SymptomSummaryEntryEditor: View {
                     }
                 }
                 if let location = draft.rawLocationText, !location.isEmpty {
-                    SymptomSummaryRow(title: "부위") { Text(location).foregroundStyle(.secondary) }
+                    SymptomSummaryRow(title: "부위") { Text(location).foregroundStyle(AppColors.CareCall.summarySecondary) }
                 }
                 if draft.detail != nil {
                     SymptomSummaryRow(title: "상세 내용") {
@@ -54,9 +54,9 @@ struct SymptomSummaryEntryEditor: View {
                     }
                 }
             }
-            .background(Color(uiColor: .systemGray5), in: RoundedRectangle(cornerRadius: 26))
+            .appSurface(.conversationSummary)
             if let errorMessage {
-                Text(errorMessage).font(.body).foregroundStyle(.red)
+                Text(errorMessage).font(AppTypography.NativeConversation.body).foregroundStyle(AppColors.Feedback.error)
                     .accessibilityIdentifier("symptom.edit.error")
             }
         }

@@ -9,43 +9,37 @@ struct SymptomCompletionView: View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
                 ScrollView {
-                    VStack(spacing: 40) {
+                    VStack(spacing: AppSpacing.question) {
                         Image("CareSummaryCompleteCircle")
                             .resizable().frame(width: 100, height: 100)
                             .overlay { Image("CareSummaryCompleteCheck") }
                             .accessibilityHidden(true)
-                        VStack(spacing: 24) {
+                        VStack(spacing: AppSpacing.section) {
                             Text("말씀해 주신 내용을 바탕으로\n문진 기록을 정리했어요.")
-                                .modifier(SymptomTextStyle(size: 20, weight: .medium))
+                                .appFont(.question)
                             Text("잠시만 기다려 주세요")
-                                .modifier(SymptomTextStyle(size: 16))
-                                .foregroundStyle(Color(white: 114 / 255))
+                                .appFont(.body)
+                                .foregroundStyle(AppColors.Text.secondary)
                         }
                         .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, AppSpacing.screenHorizontal)
                     .padding(.top, max(24, (geometry.size.height - 180) * 0.35))
-                    .padding(.bottom, 24)
+                    .padding(.bottom, AppSpacing.section)
                 }
-                VStack(spacing: 20) {
+                VStack(spacing: AppSpacing.columnGap) {
                     Button { onShowRecord?() } label: {
-                        HStack {
-                            Color.clear.frame(width: 12, height: 12)
-                            Spacer(minLength: 8)
-                            Text("기록 확인하기")
-                            Spacer(minLength: 8)
-                            Image("CareConversationNext").frame(width: 12, height: 12)
-                        }
+                        AppForwardLabel(title: "기록 확인하기", asset: "CareConversationNext")
                     }
                     .buttonStyle(AppButtonStyle()).disabled(onShowRecord == nil)
                     Button("홈으로 가기") { onHome?() }
                         .buttonStyle(AppButtonStyle(kind: .secondary)).disabled(onHome == nil)
                 }
-                .padding(.horizontal, 24).padding(.bottom, 2)
+                .padding(.horizontal, AppSpacing.screenHorizontal).padding(.bottom, 2)
             }
         }
-        .background(.white)
+        .background(AppColors.surface)
         .toolbar(.hidden, for: .navigationBar)
     }
 }

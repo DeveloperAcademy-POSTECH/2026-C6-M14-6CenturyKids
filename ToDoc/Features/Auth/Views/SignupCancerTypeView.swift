@@ -6,7 +6,7 @@ struct SignupCancerTypeView: View {
     var body: some View {
         SignupStepScreen(state: state, title: "어떤 암을\n진단받으셨나요?") {
             AuthTextField(title: "암 이름 검색", placeholder: "암 이름 검색", text: $state.cancerSearch, keyboard: .default)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: AppSpacing.item), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: AppSpacing.item) {
                 ForEach(state.filteredCancerTypes, id: \.self) { type in
                     AuthChoice(title: type.title, isSelected: !state.usesOtherCancer && state.cancerType == type) {
                         state.cancerType = type
