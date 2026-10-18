@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// 독립 하이파이 디자인 대기. 상태/연결 확인용 기본 컨트롤만 사용합니다.
+/// 시스템 Form의 글꼴·보조색은 네이티브 컨트롤의 현재 외형을 유지합니다.
 struct NotificationSettingsView: View {
     @State private var state: NotificationSettingsScreenState
     @Environment(\.scenePhase) private var scenePhase
@@ -38,7 +39,7 @@ struct NotificationSettingsView: View {
             }
             Section {
                 if state.isBusy { ProgressView("처리 중") }
-                if let error = state.errorMessage { Text(error).foregroundStyle(.red) }
+                if let error = state.errorMessage { Text(error).foregroundStyle(AppColors.Feedback.error) }
                 if state.didSave { Text("설정을 저장했어요.") }
                 if state.hasChanges {
                     Button("설정 저장") { state.onAction?(.save) }.disabled(!state.canSave || state.onAction == nil)

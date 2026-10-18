@@ -1,20 +1,19 @@
 import SwiftUI
 
-struct PainTextStyle: ViewModifier {
-    @ScaledMetric private var size: CGFloat
-    let weight: Font.Weight
-    init(size: CGFloat, weight: Font.Weight = .medium) {
-        _size = ScaledMetric(wrappedValue: size, relativeTo: .body)
-        self.weight = weight
-    }
-    func body(content: Content) -> some View {
-        content.font(Font(AppTypography.Style.caption.font(at: size)).weight(weight))
-    }
-}
-
 func painLocationName(_ location: BodyLocation) -> String {
     let side = location.bodySide == .center ? "" : location.bodySide.displayName + " "
-    return side + location.bodyPart.displayName
+    // Figma의 화면 문구만 적용합니다. 기존 Domain의 등·허리 분류는 보존합니다.
+    let part = location.bodyPart == .backLowerBack ? "등" : location.bodyPart.displayName
+    return side + part
+}
+
+/// 디자인에 명시된 두 예시 문구만 표시하며, 임의의 의료 분류 구간을 만들지 않습니다.
+func painScoreDescription(_ score: Int) -> String? {
+    switch score {
+    case 2: "약한 통증"
+    case 8: "강한 통증"
+    default: nil
+    }
 }
 
 func painLocationName(_ location: BodyLocation, among locations: [BodyLocation]) -> String {
@@ -35,21 +34,23 @@ struct PainLocationChips: View {
     }
 
     private var chips: some View {
-            HStack(spacing: 8) {
+            HStack(spacing: AppSpacing.compact) {
                 ForEach(locations, id: \.self) { location in
-                    HStack(spacing: 8) {
-                        Text(painLocationName(location, among: locations)).appTextStyle(.caption)
+                    HStack(spacing: AppSpacing.compact) {
+                        Text(painLocationName(location, among: locations))
+                            .appFont(onRemove == nil ? .captionRegular : .captionStrong)
                         if let onRemove {
                             Button { onRemove(location) } label: {
-                                Text("×").font(.system(size: 18)).frame(width: 28, height: 28)
+                                Text("×").font(AppTypography.painRemoveSymbol).frame(width: 28, height: 28)
                             }
                             .accessibilityLabel("\(painLocationName(location)) \(location.bodyView.displayName) 선택 삭제")
                         }
                     }
-                    .padding(.leading, 12).padding(.trailing, onRemove == nil ? 12 : 6)
+                    .padding(.leading, AppSpacing.item).padding(.trailing, onRemove == nil ? 12 : 6)
                     .frame(minHeight: 40)
-                    .foregroundStyle(Color(white: 79 / 255))
-                    .background(Color(white: onRemove == nil ? 240 / 255 : 231 / 255), in: Capsule())
+                    .foregroundStyle(onRemove == nil ? AppColors.Text.primary : AppColors.Text.subdued)
+                    .background(onRemove == nil ? AppColors.Pain.locationChip
+                                : AppColors.Pain.removableLocationChip, in: Capsule())
                     .accessibilityElement(children: .contain)
                 }
             }
@@ -64,7 +65,7 @@ struct PainInputFooter: View {
     var onNext: (() -> Void)?
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
-        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 20))
+        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: AppSpacing.item)) : AnyLayout(HStackLayout(spacing: AppSpacing.columnGap))
         layout {
             if let onPrevious {
                 Button("이전", action: onPrevious)
@@ -72,17 +73,11 @@ struct PainInputFooter: View {
                     .disabled(!isPreviousEnabled)
             }
             Button { onNext?() } label: {
-                HStack {
-                    Color.clear.frame(width: 12, height: 12)
-                    Spacer(minLength: 8)
-                    Text(title)
-                    Spacer(minLength: 8)
-                    Image("CareConversationNext").frame(width: 12, height: 12).accessibilityHidden(true)
-                }
+                AppForwardLabel(title: title, asset: "PainNext")
             }
             .buttonStyle(AppButtonStyle()).disabled(!isEnabled || onNext == nil)
             .accessibilityIdentifier("pain.next")
         }
-        .padding(.horizontal, 24).padding(.bottom, 2)
+        .padding(.horizontal, AppSpacing.screenHorizontal).padding(.bottom, 2)
     }
 }

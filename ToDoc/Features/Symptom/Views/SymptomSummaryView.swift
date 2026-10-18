@@ -12,16 +12,16 @@ struct SymptomSummaryView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 40) {
-                VStack(spacing: 12) {
-                    Text("요약").modifier(SymptomTextStyle(size: 20, weight: .semibold))
+            VStack(spacing: AppSpacing.question) {
+                VStack(spacing: AppSpacing.item) {
+                    Text("요약").appFont(.sectionTitle)
                     Text("저장하기 전에 내용을 확인하고\n잘못된 부분은 수정해 주세요.")
-                        .modifier(SymptomTextStyle(size: 15)).lineSpacing(6)
-                        .foregroundStyle(Color(white: 101 / 255))
+                        .appFont(.bodySmall).lineSpacing(6)
+                        .foregroundStyle(AppColors.Text.control)
                 }
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
-                VStack(spacing: 24) {
+                VStack(spacing: AppSpacing.section) {
                     ForEach(state.record.presentSymptoms) { entry in
                         if state.editingEntryID == entry.id {
                             SymptomSummaryEntryEditor(draft: entry, errorMessage: state.editErrorMessage,
@@ -36,47 +36,42 @@ struct SymptomSummaryView: View {
                         }
                     }
                     if state.record.presentSymptoms.isEmpty {
-                        Text("표시할 증상 기록이 없어요.").font(.body).foregroundStyle(.secondary)
+                        Text("표시할 증상 기록이 없어요.").font(AppTypography.NativeConversation.body).foregroundStyle(AppColors.CareCall.summarySecondary)
                     }
                 }
-                VStack(spacing: 16) {
+                VStack(spacing: AppSpacing.content) {
                     if let error = state.errorMessage {
-                        Text(error).font(.body).foregroundStyle(.red)
+                        Text(error).font(AppTypography.NativeConversation.body).foregroundStyle(AppColors.Feedback.error)
                             .accessibilityIdentifier("symptom.summary.error")
                     }
                     Button {
                         state.onAction?(.save)
                     } label: {
-                        HStack {
-                            Color.clear.frame(width: 12, height: 12)
-                            Spacer(minLength: 8)
-                            Text(state.isSaving ? "저장 중" : "저장하기")
-                            Spacer(minLength: 8)
-                            Image("CareConversationNext").frame(width: 12, height: 12)
-                                .accessibilityHidden(true)
-                        }
+                        AppForwardLabel(title: state.isSaving ? "저장 중" : "저장하기", asset: "CareConversationNext")
                     }
                     .buttonStyle(AppButtonStyle())
                     .disabled(!state.canSave || state.onAction == nil)
                     .accessibilityIdentifier("symptom.summary.save")
                 }
-                .padding(.top, 20)
+                .padding(.top, AppSpacing.columnGap)
             }
             .padding(.horizontal, 20)
-            .padding(.top, 40)
+            .padding(.top, AppSpacing.question)
             .padding(.bottom, 2)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(.white)
+        .background(AppColors.surface)
         .overlay(alignment: .topLeading) {
             Button {
                 state.onAction?(.discardEdit)
                 if let onBack { onBack() } else { dismiss() }
             } label: {
                 Image("CareSummaryBack").frame(width: 40, height: 38.23)
+                    .frame(width: AppMetrics.Control.minimumHitSize, height: AppMetrics.Control.minimumHitSize)
+                    .contentShape(Rectangle()).offset(x: -2, y: -2.885)
             }
             .buttonStyle(.plain)
-            .padding(.leading, 24)
+            .padding(.leading, AppSpacing.section)
             .accessibilityLabel("요약에서 돌아가기")
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -90,14 +85,14 @@ private struct SymptomSummaryEntryView: View {
     let onEdit: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: AppSpacing.content) {
             HStack {
                 Text(entry.symptomType.displayName)
-                    .modifier(SymptomTextStyle(size: 16, weight: .semibold))
+                    .appFont(.bodyStrong)
                 Spacer()
                 Button("수정", action: onEdit)
-                    .modifier(SymptomTextStyle(size: 16))
-                    .foregroundStyle(Color(white: 152 / 255))
+                    .appFont(.body)
+                    .foregroundStyle(AppColors.CareCall.editAction)
                     .disabled(!canEdit)
                     .accessibilityLabel("\(entry.symptomType.displayName) 수정")
             }
@@ -115,13 +110,13 @@ private struct SymptomSummaryEntryView: View {
                     row("추가 정보", "입력하지 않음")
                 }
             }
-            .background(Color(uiColor: .systemGray5), in: RoundedRectangle(cornerRadius: 26))
+            .appSurface(.conversationSummary)
         }
     }
 
     private func row(_ title: String, _ value: String) -> some View {
         SymptomSummaryRow(title: title) {
-            Text(value).foregroundStyle(.secondary).multilineTextAlignment(.trailing)
+            Text(value).foregroundStyle(AppColors.CareCall.summarySecondary).multilineTextAlignment(.trailing)
         }
     }
 }
@@ -134,20 +129,20 @@ struct SymptomSummaryRow<Content: View>: View {
     var body: some View {
         Group {
             if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: AppSpacing.item) {
                     Text(title)
                     content().frame(maxWidth: .infinity, alignment: .trailing)
                 }
             } else {
-                HStack(spacing: 16) {
+                HStack(spacing: AppSpacing.content) {
                     Text(title).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     content()
                 }
             }
         }
-        .font(.body)
-        .padding(.vertical, 16)
+        .font(AppTypography.NativeConversation.body)
+        .padding(.vertical, AppSpacing.content)
         .frame(minHeight: 68)
         .overlay(alignment: .bottom) { Divider() }
         .padding(.horizontal, 16)
