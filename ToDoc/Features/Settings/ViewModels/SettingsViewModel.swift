@@ -187,7 +187,6 @@ final class SettingsViewModel {
         state.doctor = nil
         state.candidate = nil
         state.code = ""
-        state.canVerify = false
         state.canConnect = false
         state.canDisconnect = false
         state.errorMessage = nil

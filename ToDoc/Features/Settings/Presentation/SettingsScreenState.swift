@@ -46,10 +46,22 @@ enum HospitalConnectionAction { case load, verify, connect, disconnect, cancel }
 @Observable final class HospitalConnectionScreenState {
     var doctor: DoctorDisplayData?
     var candidate: DoctorDisplayData?
-    var code = ""
+    var code = "" {
+        didSet {
+            guard code != oldValue else { return }
+            candidate = nil
+            canConnect = false
+            errorMessage = nil
+            successMessage = nil
+        }
+    }
     var hasLoaded = false
     var isBusy = false
-    var canVerify = false
+    var canVerify: Bool {
+        hasLoaded &&
+        !isBusy &&
+        !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
     var canConnect = false
     var canDisconnect = false
     var errorMessage: String?
