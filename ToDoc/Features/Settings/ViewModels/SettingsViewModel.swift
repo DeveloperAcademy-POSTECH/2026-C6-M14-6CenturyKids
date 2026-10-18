@@ -222,6 +222,49 @@ final class SettingsViewModel {
         }
     }
 
+    func verifyDoctorCode() async {
+        let state = hospitalConnectionState
+        guard state.canVerify else { return }
+
+        let code = state.code.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        state.isBusy = true
+        state.candidate = nil
+        state.canConnect = false
+        state.errorMessage = nil
+        state.successMessage = nil
+        defer { state.isBusy = false }
+
+        do {
+            guard let patient = try await patientRepository.findById(patientId) else {
+                state.errorMessage = "환자 정보를 찾지 못했어요."
+                return
+            }
+
+            guard let doctor = try await doctorRepository.findByCode(code) else {
+                state.errorMessage = "의사 코드를 확인해 주세요."
+                return
+            }
+
+            guard let hospital = try await hospitalRepository.findById(doctor.hospitalId) else {
+                state.errorMessage = "의사의 병원 정보를 찾지 못했어요."
+                return
+            }
+
+            guard state.code.trimmingCharacters(in: .whitespacesAndNewlines) == code else {
+                return
+            }
+
+            state.candidate = DoctorDisplayData(
+                hospitalName: hospital.name,
+                name: doctor.user.name
+            )
+            state.canConnect = patient.doctorId != doctor.user.id
+        } catch {
+            state.errorMessage = "연결 정보를 확인하지 못했어요. 다시 시도해 주세요."
+        }
+    }
+
     func savePersonalInfo() async {
         guard personalInfoState.canSave,
               !personalInfoState.isSaving else { return }
