@@ -16,6 +16,7 @@ final class SettingsViewModel {
     let personalInfoState = PersonalInfoScreenState()
     let carcinomaState = DiagnosisScreenState()
     let stageState = DiagnosisScreenState()
+    let hospitalConnectionState = HospitalConnectionScreenState()
 
     @ObservationIgnored private let userRepository: any UserRepository
     @ObservationIgnored private let patientRepository: any PatientRepository
@@ -174,6 +175,51 @@ final class SettingsViewModel {
             state.canSave = true
         } catch {
             state.errorMessage = "진단 정보를 불러오지 못했어요."
+        }
+    }
+
+    func loadHospitalConnection() async {
+        let state = hospitalConnectionState
+        guard !state.isBusy else { return }
+
+        state.isBusy = true
+        state.hasLoaded = false
+        state.doctor = nil
+        state.candidate = nil
+        state.code = ""
+        state.canVerify = false
+        state.canConnect = false
+        state.canDisconnect = false
+        state.errorMessage = nil
+        state.successMessage = nil
+        defer { state.isBusy = false }
+
+        do {
+            guard let patient = try await patientRepository.findById(patientId) else {
+                state.errorMessage = "환자 정보를 찾지 못했어요."
+                return
+            }
+
+            guard let doctorId = patient.doctorId else {
+                state.hasLoaded = true
+                return
+            }
+
+            guard let doctor = try await doctorRepository.findById(doctorId),
+                  let hospital = try await hospitalRepository.findById(doctor.hospitalId)
+            else {
+                state.errorMessage = "병원 연결 정보를 찾지 못했어요."
+                return
+            }
+
+            state.doctor = DoctorDisplayData(
+                hospitalName: hospital.name,
+                name: doctor.user.name
+            )
+            state.canDisconnect = true
+            state.hasLoaded = true
+        } catch {
+            state.errorMessage = "병원 연결 정보를 불러오지 못했어요."
         }
     }
 
