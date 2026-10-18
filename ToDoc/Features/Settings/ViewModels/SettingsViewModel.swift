@@ -44,6 +44,10 @@ final class SettingsViewModel {
                 await self?.savePersonalInfo()
             }
         }
+
+        personalInfoState.onCancel = { [weak self] in
+            self?.discardPersonalInfoChanges()
+        }
     }
 
     func loadProfile() async {
@@ -100,6 +104,7 @@ final class SettingsViewModel {
     func loadPersonalInfo() async {
         personalInfoState.canSave = false
         personalInfoState.didSave = false
+        personalInfoState.validationMessage = nil
         personalInfoState.errorMessage = nil
 
         do {
@@ -152,5 +157,17 @@ final class SettingsViewModel {
         } catch {
             personalInfoState.errorMessage = "개인 정보를 저장하지 못했어요. 다시 시도해 주세요."
         }
+    }
+
+    func discardPersonalInfoChanges() {
+        guard !personalInfoState.isSaving,
+              !personalInfoState.didSave else { return }
+
+        personalInfoState.name = ""
+        personalInfoState.birthday = Date()
+        personalInfoState.sex = .female
+        personalInfoState.canSave = false
+        personalInfoState.validationMessage = nil
+        personalInfoState.errorMessage = nil
     }
 }
