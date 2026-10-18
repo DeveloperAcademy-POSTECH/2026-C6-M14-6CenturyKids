@@ -287,9 +287,11 @@ final class InterviewEngine {
             guard let clause = clauses.first(where: { gate.matches($0) != nil }),
                   clauses.filter({ $0 != clause }).allSatisfy({ NumberParser.count(in: $0) == nil && NumberParser.minutes(in: $0) == nil })
             else { continue }
+            // 저장할 때는 문장 전체에서 다시 읽는다. 그 절과 같은 값이 읽힐 때만 채운다
+            // ("한 번 토했어요, 그 전날은 두세 번"은 전체가 어림수라 횟수가 비어 저장되므로 묻는다)
             let found = switch detail.number {
-            case .count?: NumberParser.count(in: clause) != nil
-            case .minutes?: NumberParser.minutes(in: clause) != nil
+            case .count?: NumberParser.count(in: clause).map { $0 == NumberParser.count(in: patientText) } ?? false
+            case .minutes?: NumberParser.minutes(in: clause).map { $0 == NumberParser.minutes(in: patientText) } ?? false
                 && Self.durationMarkers.contains(where: clause.contains) && !Self.onsetMarkers.contains(where: patientText.contains)
             case nil: false
             }

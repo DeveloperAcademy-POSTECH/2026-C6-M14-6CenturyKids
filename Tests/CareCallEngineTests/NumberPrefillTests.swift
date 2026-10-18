@@ -62,6 +62,7 @@ struct NumberPrefillTests {
         ("neuropathy", "네 손이 저려요, 30분"),        // 지속을 뜻하는 말이 없음
         ("diarrhea", "네, 약을 세 번 먹고 나서 그래요"),  // 설사 낱말이 없어 설사 횟수인지 모른다
         ("diarrhea", "네 설사 두 번, 약은 세 번 먹었어요"), // 다른 절에 다른 숫자
+        ("nausea_vomiting", "네 한 번 토했어요, 그 전날은 두세 번"), // 문장 전체로는 어림수라 저장될 횟수가 없다
     ])
     func 숫자가_분명하지_않거나_그_꼬리질문의_답인지_모르면_묻는다(key: String, answer: String) async {
         let call = await ask(key)
