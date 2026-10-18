@@ -14,6 +14,8 @@ final class SettingsViewModel {
     let patientId: UUID
     let screenState = SettingsScreenState()
     let personalInfoState = PersonalInfoScreenState()
+    let carcinomaState = DiagnosisScreenState()
+    let stageState = DiagnosisScreenState()
 
     @ObservationIgnored private let userRepository: any UserRepository
     @ObservationIgnored private let patientRepository: any PatientRepository
@@ -119,6 +121,39 @@ final class SettingsViewModel {
             personalInfoState.canSave = true
         } catch {
             personalInfoState.errorMessage = "개인 정보를 불러오지 못했어요."
+        }
+    }
+
+    func loadDiagnosis(_ field: DiagnosisField) async {
+        let state: DiagnosisScreenState
+        switch field {
+        case .carcinoma: state = carcinomaState
+        case .stage: state = stageState
+        }
+
+        state.selection = nil
+        state.canSave = false
+        state.didSave = false
+        state.errorMessage = nil
+
+        do {
+            guard let patient = try await patientRepository.findById(patientId) else {
+                state.errorMessage = "환자 정보를 찾지 못했어요."
+                return
+            }
+
+            guard let disease = patient.disease else {
+                state.errorMessage = "진단 정보를 찾지 못했어요."
+                return
+            }
+
+            switch field {
+            case .carcinoma: state.selection = .carcinoma(disease.carcinoma)
+            case .stage: state.selection = .stage(disease.stage)
+            }
+            state.canSave = true
+        } catch {
+            state.errorMessage = "진단 정보를 불러오지 못했어요."
         }
     }
 
