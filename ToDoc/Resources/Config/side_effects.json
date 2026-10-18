@@ -246,6 +246,7 @@
   "reasonSuffixes": ["서", "서요", "때문에", "때문에요", "때문이에요", "때문이요", "서 그래요", "서 그렇다고요", "서 그런 거예요", "서 그런 것 같아요"],
   "unknownAnswers": ["모르겠", "잘 모르", "모름", "기억이 안", "기억 안", "기억이 잘 안"],
   "vagueAnswers": ["그냥 그래", "좀 그래", "그저 그래", "그럭저럭", "글쎄", "애매"],
+  "otherUnclearName": "그 밖에 불편한 점",
   "draftNote": "requiresLocation, ask(긍정형 질문), locationPrompt, keywords, shortAnswers는 초안. 의료진 확인 후 수정 (HANDOFF 4-a, 11장). aiVoiceNotice는 디자인 팀 확인 전 초안",
   "shortAnswers": {
     "yes": [

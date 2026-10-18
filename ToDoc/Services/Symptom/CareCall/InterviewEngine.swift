@@ -179,10 +179,16 @@ final class InterviewEngine {
         }
 
         switch current {
-        case .slot(let key, .presence) where isVagueAnswer(patientText):
-            ledger.markVague(key, quote: patientText)
-        case .slot(let key, let step) where step != .detail && isUnknownAnswer(patientText):
-            ledger.markUnknown(key, step: step, quote: patientText)
+        case .slot(let key, let step) where step != .detail
+            && (isUnknownAnswer(patientText) || (step == .presence && isVagueAnswer(patientText))):
+            ledger.markUnknown(key, step: step, quote: patientText) // '모름' + 원문
+        case .other where otherDetailKey == nil && (isUnknownAnswer(patientText) || isVagueAnswer(patientText)):
+            // '그 밖에'에 "모르겠어요"·"그냥 그래요": 기타 '모름' + 원문으로 남기고 마무리 (증상 '있음'으로는 남기지 않는다)
+            let name = config.otherUnclearName
+            ledger.apply(Mention(effectId: "other", otherName: name, presence: .unclear, quote: patientText),
+                         patientText: patientText, knownEffectIds: knownIds)
+            ledger.markUnknown(Ledger.key(effectId: "other", otherName: name), step: .presence, quote: patientText)
+            otherAsked = true
         case .slot(let key, .detail):
             // 이 답 전에 물은 꼬리질문 (꼬리질문 답은 모델 없이 처리해 그사이 기록이 바뀌지 않는다)
             if let detail = pendingDetail(for: key) {
@@ -413,7 +419,8 @@ final class InterviewEngine {
         // 낱말 목록에 안 걸려 맞장구만 하고 버려졌다 (2026-10-08 기기). 원문 그대로 두고 검토 필요로 표시한다
         // 다시 거는 통화의 첫 답에서 나빠졌다는 말("좀 안 좋아졌어요")은 컨디션으로 저장하지 않으니 기타로 남긴다
         guard unchanged, result?.needsClarification != true,
-              symptomHints.matches(text) != nil || (phase == .other && !soundsNegative(text) && !isUnknownAnswer(text))
+              symptomHints.matches(text) != nil
+                || (phase == .other && !soundsNegative(text) && !isUnknownAnswer(text) && !isVagueAnswer(text))
                 || (phase == .opening && unasked != nil && openingConcerns.matches(text) != nil) else { return }
         let name = text.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         ledger.apply(Mention(effectId: "other", otherName: name, presence: .present, quote: patientText),
@@ -437,7 +444,7 @@ final class InterviewEngine {
         let t = Self.withoutFillers(text, fillers: config.shortAnswers.fillers)
         let compact = Self.normalized(t)
         guard config.vagueAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
-              NumberParser.numbers(in: t).isEmpty, !soundsNegative(t),
+              !NumberParser.hasNumber(t), !soundsNegative(t),
               !["있", "했"].contains(where: compact.contains),
               !config.shortAnswers.yes.contains(where: { compact.hasPrefix(Self.normalized($0)) }) else { return false }
         if ["는데", "지만", "근데", "그런데"].contains(where: t.contains) { return false }
@@ -504,7 +511,8 @@ final class InterviewEngine {
                               emergencySignal: false, utterance: config.otherFollowUp)
         case .slot(_, .presence) where isUnknownAnswer(patientText) || isVagueAnswer(patientText),
              .slot(_, .location) where isUnknownAnswer(patientText),
-             .other where isUnknownAnswer(patientText): // "모르겠어요": 모델 없이 '모름'으로 기록 (아래 switch), 그 밖에는 없음
+             .other where isUnknownAnswer(patientText) || isVagueAnswer(patientText):
+            // "모르겠어요"·"그냥 그래요": 모델 없이 '모름' + 원문으로 기록 (아래 switch)
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
                               emergencySignal: false, utterance: "")
         case .slot(_, .detail): // 횟수·시작 시점·지속 시간·섭취량: 모델 없이 환자 말 그대로 기록 (아래 switch)

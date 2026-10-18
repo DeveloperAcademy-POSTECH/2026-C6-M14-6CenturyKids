@@ -107,8 +107,8 @@ struct EngineGuardTests {
     }
 
     /// 2026-10-08 기기: '그 밖에' 답 "뭐 있더라 잠을 잠 못 잡니다."를 모델이 비우고(따라 하기만) 기록 없이 마무리됨
-    @Test(arguments: [("뭐 있더라 잠을 잠 못 잡니다.", true), ("딱히 없는 것 같아요", false), ("아니 괜찮아", false),
-                      ("모르겠어요", false)])
+    /// "모르겠어요"는 기타 '모름' + 원문으로 남긴다 (VagueAnswerTests)
+    @Test(arguments: [("뭐 있더라 잠을 잠 못 잡니다.", true), ("딱히 없는 것 같아요", false), ("아니 괜찮아", false)])
     func 그_밖에_부정이_아닌_답은_원문으로_기록(answer: String, recorded: Bool) async throws {
         let config = try fixture(CareCallConfig.self, "side_effects")
         let engine = InterviewEngine(config: config,
@@ -399,15 +399,16 @@ struct OtherSymptomRetryTests {
 
     @Test func 그_밖에_분석이_실패해도_부정이_아니면_원문으로_기록하고_내용을_묻는다() async throws {
         let mock = MockAnalyzer()
-        mock.failOn = ["그게 좀 그래요", "딱히 없는 것 같아요"]
+        mock.failOn = ["잠을 잠 못 잡니다", "딱히 없는 것 같아요"]
         let engine = InterviewEngine(config: try fixture(CareCallConfig.self, "side_effects"),
                                      rules: try fixture(EmergencyRules.self, "emergency_rules"),
                                      analyzer: mock)
         _ = engine.start()
         for _ in 0..<20 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
-        // 음성 인식이 뭉갠 답처럼 증상 낱말이 없어도 부정이 아니면 원문 그대로 기록 (2026-10-08 기기)
-        let out = await engine.handle(patientText: "그게 좀 그래요")
-        #expect(engine.ledger["other:그게 좀 그래요"]?.presence == .present)
+        // 음성 인식이 뭉갠 답처럼 증상 낱말이 없어도 부정이 아니면 원문 그대로 기록 (2026-10-08 기기).
+        // "그게 좀 그래요" 같은 애매한 답은 기록하지 않는다 (VagueAnswerTests)
+        let out = await engine.handle(patientText: "잠을 잠 못 잡니다")
+        #expect(engine.ledger["other:잠을 잠 못 잡니다"]?.presence == .present)
         #expect(out.utterance == engine.config.otherDetail.question)
     }
 

@@ -38,17 +38,50 @@ struct VagueAnswerTests {
     }
 
     @Test(arguments: ["그냥 그래요, 없어요", "좀 그래요, 속이 메스꺼워요", "글쎄요, 한 번 토했나", "네 그냥 그래요",
-                      "그냥 그런데 어제 좀 있었어요", "아니요 그냥 그래요"])
+                      "그냥 그런데 어제 좀 있었어요", "아니요 그냥 그래요", "그냥 그래요, 하루 두 번", "글쎄요 한 시간쯤"])
     func 다른_말이_함께_있으면_애매한_답으로_보지_않는다(answer: String) async {
         let call = await atFirstSymptom()
         _ = await call.handle(patientText: answer)
-        #expect(call.ledger["nausea_vomiting"]?.vagueAnswer == nil)
+        #expect(call.ledger["nausea_vomiting"]?.unsureAnswers.isEmpty == true)
     }
 
-    @Test func 모르겠어요는_지금처럼_말을_남기지_않고_모름() async {
+    @Test func 모르겠어요도_모름으로_그_말을_남긴다() async {
         let call = await atFirstSymptom()
         _ = await call.handle(patientText: "잘 모르겠어요")
         let entry = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.first
-        #expect(entry?.presence == .unknown && entry?.detail == "[검토 필요]")
+        #expect(entry?.presence == .unknown && entry?.detail == "[검토 필요] 잘 모르겠어요")
+    }
+
+    @Test func 부위를_모르겠다고_하면_부위_답으로_남긴다() async {
+        let call = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = call.start()
+        _ = await call.handle(patientText: "괜찮아요")
+        while call.phase != .slot(key: "neuropathy", step: .presence) { _ = await call.handle(patientText: "아니요") }
+        _ = await call.handle(patientText: "네")
+        _ = await call.handle(patientText: "한 30분이요") // 지속 시간
+        #expect(call.phase == .slot(key: "neuropathy", step: .location))
+        _ = await call.handle(patientText: "잘 모르겠어요")
+        let entry = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.first { $0.symptomType == .numbness }
+        #expect(entry?.presence == .present && entry?.detail == "[검토 필요] 한 30분이요 / 부위: 잘 모르겠어요")
+    }
+
+    @Test(arguments: ["그냥 그래요", "글쎄요", "잘 모르겠어요"])
+    func 그_밖에_질문에_애매하거나_모르겠다는_답은_모름으로_원문을_남기고_마무리한다(answer: String) async {
+        let call = await atFirstSymptom()
+        while call.phase != .other { _ = await call.handle(patientText: "아니요") }
+        let requests = mock.requests.count
+        let out = await call.handle(patientText: answer)
+        #expect(out.phase == .saved)
+        #expect(mock.requests.count == requests) // 모델에 보내지 않는다
+        let others = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.filter { $0.symptomType == .other }
+        #expect(others.count == 1 && others[0].presence == .unknown) // '그냥 그래요'라는 증상 '있음'은 만들지 않는다
+        #expect(others[0].detail == "[검토 필요] \(config.otherUnclearName): \(answer)")
+    }
+
+    @Test(arguments: [("하루 두 번", true), ("두세 번", true), ("한 시간쯤", true), ("삼십 분", true), ("3번", true), ("6점", true),
+                      ("스물 번", true), ("이십 번", true), ("삼 회", true), ("열두 번", true),
+                      ("그냥 그래요", false), ("이번에는 없어요", false), ("괜찮아요", false)])
+    func 말로_한_횟수_시간도_숫자로_본다(text: String, has: Bool) {
+        #expect(NumberParser.hasNumber(text) == has)
     }
 }
