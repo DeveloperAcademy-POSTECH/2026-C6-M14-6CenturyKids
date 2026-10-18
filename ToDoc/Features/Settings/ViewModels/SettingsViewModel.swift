@@ -31,6 +31,12 @@ final class SettingsViewModel {
         self.patientRepository = patientRepository
         self.doctorRepository = doctorRepository
         self.hospitalRepository = hospitalRepository
+
+        screenState.onReload = { [weak self] in
+            Task { [weak self] in
+                await self?.loadProfile()
+            }
+        }
     }
 
     func loadProfile() async {
