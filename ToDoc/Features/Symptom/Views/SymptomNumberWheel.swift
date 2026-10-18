@@ -14,8 +14,8 @@ struct SymptomNumberWheel: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                RoundedRectangle(cornerRadius: 28)
-                    .fill(Color(white: 244 / 255))
+                RoundedRectangle(cornerRadius: AppMetrics.Conversation.wheelSelectionRadius)
+                    .fill(AppColors.Surface.control)
                     .frame(height: 109)
                     .position(x: geometry.size.width / 2, y: 199)
                 ForEach(-2...1, id: \.self) { offset in
@@ -23,9 +23,8 @@ struct SymptomNumberWheel: View {
                     if labels.indices.contains(candidate) {
                         Button { choose(candidate) } label: {
                             Text(labels[candidate])
-                                .font(Font(AppTypography.Style.heading.font(at: offset == 0 ? 100 : 40)))
-                                .foregroundStyle(offset == 0 ? .black : Color(white: offset == -2 ? 235 / 255 : 206 / 255))
-                                .tracking(offset == 0 ? -1 : 0)
+                                .appFont(offset == 0 ? .conversationWheelSelected : .conversationWheelAdjacent)
+                                .foregroundStyle(offset == 0 ? AppColors.Text.primary : (offset == -2 ? AppColors.CareCall.wheelDistant : AppColors.CareCall.wheelAdjacent))
                                 .minimumScaleFactor(0.2)
                                 .lineLimit(1)
                                 .frame(maxWidth: .infinity, minHeight: offset == 0 ? 109 : 52)

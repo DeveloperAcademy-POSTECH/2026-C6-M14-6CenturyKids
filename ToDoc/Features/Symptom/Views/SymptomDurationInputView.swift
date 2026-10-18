@@ -25,13 +25,13 @@ struct SymptomDurationInputView: View {
         SymptomQuestionLayout(question: question, nextTitle: canSubmit ? "다음" : "답변을 입력해 주세요",
                               canProceed: canSubmit, onNext: { if let durationMinutes { onSubmit?(durationMinutes) } },
                               onEnd: onEnd, onSwitch: onSwitchToVoice) {
-            HStack(spacing: 20) {
+            HStack(spacing: AppSpacing.columnGap) {
                 VStack(spacing: 30) {
                     SymptomNumberWheel(title: "지속 시간", labels: (0...24).map(String.init),
                                        selectedIndex: hours, hasSelection: durationMinutes != nil) {
                         durationMinutes = $0 * 60 + ($0 == 24 ? 0 : minutes)
                     }
-                    Text("시간").modifier(SymptomTextStyle(size: 20, weight: .semibold))
+                    Text("시간").appFont(.sectionTitle)
                 }
                 VStack(spacing: 30) {
                     SymptomNumberWheel(title: "지속 시간 분", labels: minuteValues.map(String.init),
@@ -39,7 +39,7 @@ struct SymptomDurationInputView: View {
                                        hasSelection: durationMinutes != nil) {
                         durationMinutes = hours * 60 + minuteValues[$0]
                     }
-                    Text("분").modifier(SymptomTextStyle(size: 20, weight: .semibold))
+                    Text("분").appFont(.sectionTitle)
                 }
             }
             .padding(.horizontal, 5)
@@ -47,7 +47,7 @@ struct SymptomDurationInputView: View {
             if let durationMinutes, !(10...1440).contains(durationMinutes) {
                 // 원본에 없는 검증 오류는 사용자 승인에 따라 기본 텍스트로 표시합니다.
                 Text("지속 시간은 10분~24시간으로 입력해 주세요.")
-                    .font(.footnote).foregroundStyle(.red)
+                    .font(AppTypography.NativeConversation.footnote).foregroundStyle(AppColors.Feedback.error)
             }
         }
     }

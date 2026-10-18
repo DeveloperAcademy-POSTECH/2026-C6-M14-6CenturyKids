@@ -46,8 +46,8 @@ struct SymptomCallWaitingView: View {
     // 하이파이 미제공 상태: 사용자가 승인한 동작 검증용 최소 UI입니다.
     private var preparationPlaceholder: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                Text("케어콜 준비 · 임시 화면").font(.headline)
+            VStack(spacing: AppSpacing.columnGap) {
+                Text("케어콜 준비 · 임시 화면").font(AppTypography.NativeConversation.headline)
                 Text("AI 음성으로 안내합니다")
                 if state.isPreparing { ProgressView() }
                 Text(statusTitle)
@@ -109,6 +109,5 @@ struct SymptomCallWaitingView: View {
         }
     }
 }
-
 
 #Preview("서비스 미연결") { NavigationStack { SymptomCallWaitingView() } }

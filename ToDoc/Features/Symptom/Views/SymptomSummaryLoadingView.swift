@@ -13,12 +13,12 @@ struct SymptomSummaryLoadingView: View {
                     Image("CareSummaryLoading").resizable().frame(width: 100, height: 100)
                         .rotationEffect(.degrees(rotating && !reduceMotion ? 360 : 0))
                         .accessibilityHidden(true)
-                    VStack(spacing: 24) {
+                    VStack(spacing: AppSpacing.section) {
                         Text("말씀해 주신 내용을 바탕으로\n문진 기록을 정리하고 있어요.")
-                            .modifier(SymptomTextStyle(size: 20, weight: .medium))
+                            .appFont(.question)
                         Text("잠시만 기다려 주세요")
-                            .modifier(SymptomTextStyle(size: 16))
-                            .foregroundStyle(Color(white: 114 / 255))
+                            .appFont(.body)
+                            .foregroundStyle(AppColors.Text.secondary)
                     }
                     .multilineTextAlignment(.center)
                     if let onCancel {
@@ -26,13 +26,13 @@ struct SymptomSummaryLoadingView: View {
                         Button("종료하기", action: onCancel).buttonStyle(.bordered)
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, AppSpacing.screenHorizontal)
                 .padding(.top, max(24, geometry.size.height * 0.27))
-                .padding(.bottom, 24)
+                .padding(.bottom, AppSpacing.section)
                 .frame(maxWidth: .infinity)
             }
         }
-        .background(.white)
+        .background(AppColors.surface)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             guard !reduceMotion else { return }
