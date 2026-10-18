@@ -1,0 +1,15 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 1171274889">
+<circle id="Ellipse 2224" cx="12.5" cy="12.5" r="12.5" fill="#C5F276" fill-opacity="0.5"/>
+<g id="Ellipse 2225">
+<circle cx="12.5" cy="12.5" r="6.78571" fill="#CEFF77" style="mix-blend-mode:multiply"/>
+</g>
+<path id="Ellipse 2226" d="M24.5 12.5C24.5 19.1274 19.1274 24.5 12.5 24.5C5.87258 24.5 0.5 19.1274 0.5 12.5C0.5 5.87258 5.87258 0.5 12.5 0.5C19.1274 0.5 24.5 5.87258 24.5 12.5Z" stroke="url(#paint0_linear_0_83)"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_83" x1="12.5" y1="0" x2="12.5" y2="25" gradientUnits="userSpaceOnUse">
+<stop stop-color="#B2FF2A"/>
+<stop offset="1" stop-color="white"/>
+</linearGradient>
+</defs>
+</svg>

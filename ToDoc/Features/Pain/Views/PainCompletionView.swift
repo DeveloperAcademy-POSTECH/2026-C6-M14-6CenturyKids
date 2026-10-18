@@ -15,21 +15,21 @@ struct PainCompletionView: View {
                     Spacer(minLength: 52)
                     actions
                 }
-                .padding(.horizontal, 24).padding(.bottom, 2)
+                .padding(.horizontal, AppSpacing.screenHorizontal).padding(.bottom, 2)
                 .frame(minHeight: geometry.size.height)
             }
         }
-        .background(.white).toolbar(.hidden, for: .navigationBar)
+        .background(AppColors.surface).toolbar(.hidden, for: .navigationBar)
     }
 
     private var summary: some View {
         VStack(spacing: 0) {
             Text("통증 변화가 기록됐어요")
-                .modifier(PainTextStyle(size: 24, weight: .bold))
-                .multilineTextAlignment(.center).padding(.top, 24)
+                .appFont(.completionTitle)
+                .multilineTextAlignment(.center).frame(minHeight: 32).padding(.top, AppSpacing.section)
             Text("약 복용 전후의 통증 정도를 비교해 정리했어요.")
-                .modifier(PainTextStyle(size: 15)).foregroundStyle(Color(white: 114 / 255))
-                .multilineTextAlignment(.center).padding(.top, 8)
+                .appFont(.painBodySmall).foregroundStyle(AppColors.Text.secondary)
+                .multilineTextAlignment(.center).frame(minHeight: 24).padding(.top, AppSpacing.compact)
             VStack(spacing: 0) {
                 row("통증 부위") {
                     ViewThatFits(in: .horizontal) {
@@ -37,32 +37,33 @@ struct PainCompletionView: View {
                         VStack(alignment: .trailing, spacing: 6) { locationTags }
                     }
                 }
-                Divider().overlay(Color(white: 213 / 255))
-                row("약 복용 전") { Text("\(record.painBefore)/10").modifier(PainTextStyle(size: 18, weight: .semibold)) }
-                Divider().overlay(Color(white: 213 / 255))
-                row("약 복용 후") { Text("\(record.painAfter)/10").modifier(PainTextStyle(size: 18, weight: .semibold)) }
+                .overlay(alignment: .bottom) { Divider().overlay(AppColors.Pain.summaryDivider) }
+                row("약 복용 전") { Text("\(record.painBefore)/10").appFont(.value) }
+                    .overlay(alignment: .bottom) { Divider().overlay(AppColors.Pain.summaryDivider) }
+                row("약 복용 후") { Text("\(record.painAfter)/10").appFont(.value) }
             }
             .padding(.horizontal, 20).padding(.top, 28)
             HStack(spacing: 2) {
-                Text(changeDescription).modifier(PainTextStyle(size: 14)).multilineTextAlignment(.center)
+                Text(changeDescription).appFont(.painCaption).multilineTextAlignment(.center)
+                    .frame(minHeight: 21)
                 if record.painChange > 0 {
                     Image("PainChangeDown").frame(width: 13.2, height: 12.54).accessibilityHidden(true)
                 }
             }
-            .foregroundStyle(.white).padding(.horizontal, 16).padding(.vertical, 12)
-            .frame(maxWidth: .infinity).background(Color(red: 104 / 255, green: 100 / 255, blue: 104 / 255), in: RoundedRectangle(cornerRadius: 20))
-            .padding(.top, 20)
+            .foregroundStyle(AppColors.surface).padding(.horizontal, 16).padding(.vertical, AppSpacing.item)
+            .frame(maxWidth: .infinity).appSurface(.painChange)
+            .padding(.top, AppSpacing.columnGap)
         }
         .padding(.horizontal, 28).padding(.vertical, 36)
         .frame(maxWidth: .infinity)
-        .background(Color(white: 244 / 255), in: RoundedRectangle(cornerRadius: 32))
+        .appSurface(.painSummary)
     }
 
     @ViewBuilder private var locationTags: some View {
         ForEach(record.location, id: \.self) { location in
-            Text(painLocationName(location, among: record.location)).modifier(PainTextStyle(size: 14))
-                .foregroundStyle(Color(white: 79 / 255)).padding(.horizontal, 10).padding(.vertical, 4)
-                .background(.white, in: Capsule())
+            Text(painLocationName(location, among: record.location)).appFont(.painCaption)
+                .foregroundStyle(AppColors.Text.subdued).padding(.horizontal, 10).padding(.vertical, AppSpacing.tight)
+                .background(AppColors.surface, in: Capsule())
                 .accessibilityLabel("\(painLocationName(location)) \(location.bodyView.displayName)")
         }
     }
@@ -70,19 +71,19 @@ struct PainCompletionView: View {
     private func row<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         Group {
             if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(title).modifier(PainTextStyle(size: 15))
+                VStack(alignment: .leading, spacing: AppSpacing.item) {
+                    Text(title).appFont(.painBodySmall)
                     content()
                 }.frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                HStack(spacing: 12) {
-                    Text(title).modifier(PainTextStyle(size: 15)).fixedSize()
+                HStack(spacing: AppSpacing.item) {
+                    Text(title).appFont(.painBodySmall).fixedSize()
                     Spacer(minLength: 0)
                     content()
                 }
             }
         }
-        .padding(.vertical, 12).frame(minHeight: 64)
+        .padding(.vertical, AppSpacing.item).frame(minHeight: 64)
     }
 
     private var changeDescription: String {
@@ -92,8 +93,8 @@ struct PainCompletionView: View {
     }
 
     private var actions: some View {
-        VStack(spacing: 20) {
-            let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 20)) : AnyLayout(HStackLayout(spacing: 20))
+        VStack(spacing: AppSpacing.columnGap) {
+            let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: AppSpacing.columnGap)) : AnyLayout(HStackLayout(spacing: AppSpacing.columnGap))
             layout {
                 action("다시 기록하기", onRecordAgain)
                 action("기록 보기", onShowRecord)
@@ -105,10 +106,7 @@ struct PainCompletionView: View {
 
     private func action(_ title: String, _ action: (() -> Void)?) -> some View {
         Button { action?() } label: {
-            HStack(spacing: 4) {
-                Text(title)
-                Image("CareConversationNext").frame(width: 12, height: 12).accessibilityHidden(true)
-            }
+            AppForwardLabel(title: title, asset: "PainNext", placement: .inline)
         }.buttonStyle(AppButtonStyle()).disabled(action == nil)
     }
 }

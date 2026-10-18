@@ -22,7 +22,12 @@ struct PainRecordView: View {
         @Bindable var state = state
         Group {
             if let completion = state.completion {
-                PainCompletionView(record: completion, onShowRecord: onShowRecord, onHome: onHome)
+                PainCompletionView(record: completion, onRecordAgain: {
+                    state.input = PainFormInput()
+                    state.errorMessage = nil
+                    state.completion = nil
+                    step = 0
+                }, onShowRecord: onShowRecord, onHome: onHome)
             } else {
                 switch step {
                 case 0:
