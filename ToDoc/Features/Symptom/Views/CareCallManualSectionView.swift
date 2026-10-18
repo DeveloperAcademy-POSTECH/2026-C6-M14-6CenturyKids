@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Native inputs for all six Figma manual-entry frames. No VM, microphone, or repository dependency.
+/// Native inputs for the current manual-entry questions. No VM, microphone, or repository dependency.
 struct CareCallManualSectionView: View {
     let step: CareCallManualStep
     @Binding var draft: CareCallManualDraft
@@ -51,15 +51,6 @@ struct CareCallManualSectionView: View {
             }
         case .dailyLife, .other:
             textInput
-        case .discomfort:
-            VStack(spacing: 30) {
-                SymptomNumberWheel(title: "불편함 정도", labels: (0...10).map(String.init),
-                    selectedIndex: draft.discomfort, hasSelection: draft.answeredSteps.contains(.discomfort)) {
-                        draft.discomfort = $0
-                        draft.answeredSteps.insert(.discomfort)
-                    }
-                Text("만큼 불편했어요").appFont(.sectionTitle)
-            }
         case .frequency:
             VStack(spacing: 30) {
                 SymptomNumberWheel(title: "횟수", labels: (0...10).map(String.init) + ["10+"],
