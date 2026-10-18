@@ -240,13 +240,18 @@ final class InterviewEngine {
     }
 
     /// 모델이 고른 목록 증상의 낱말은 환자 말에 없고 다른 목록 증상 하나의 낱말만 있으면 그 증상으로 바꾼다
-    /// ("요즘 입맛이 좀 없어요" → 모델은 구내염, 말한 낱말은 식사의 "입맛", 2026-10-17 실기기). 지금 묻는 항목의 답("네")은 그대로
+    /// ("요즘 입맛이 좀 없어요" → 모델은 구내염, 말한 낱말은 식사의 "입맛", 2026-10-17 실기기). 지금 묻는 항목의 답("네")은 그대로.
+    /// 바꿀 증상을 고를 때는 한 글자 낱말("물", "먹", "토")을 쓰지 않는다 (다른 말 안에 흔히 들어 있다: "물을 마셔도", "토요일").
+    /// 모델이 고른 증상을 지킬 때는 한 글자 낱말도 근거로 본다 ("물도 잘 안 넘어가고 입이 아파요"의 식사를 옮기지 않게)
     private func reassignedByKeywords(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
-        func said(_ id: String) -> Bool { config.effects.first { $0.id == id }?.keywords.contains(where: patientText.contains) == true }
-        let saidIds = config.effects.map(\.id).filter(said)
+        func said(_ id: String, minLength: Int) -> Bool {
+            config.effects.first { $0.id == id }?.keywords.contains { $0.count >= minLength && patientText.contains($0) } == true
+        }
+        let saidIds = config.effects.map(\.id).filter { said($0, minLength: 2) }
         guard saidIds.count == 1, let target = saidIds.first, !mentions.contains(where: { $0.effectId == target }) else { return mentions }
         return mentions.map { mention in
-            guard knownIds.contains(mention.effectId), mention.effectId != phase.slotKey, !said(mention.effectId) else { return mention }
+            guard knownIds.contains(mention.effectId), mention.effectId != phase.slotKey, !said(mention.effectId, minLength: 1)
+            else { return mention }
             var moved = mention
             moved.effectId = target
             return moved
