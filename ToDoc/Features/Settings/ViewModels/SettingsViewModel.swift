@@ -13,6 +13,7 @@ import Observation
 final class SettingsViewModel {
     let patientId: UUID
     let screenState = SettingsScreenState()
+    let personalInfoState = PersonalInfoScreenState()
 
     @ObservationIgnored private let userRepository: any UserRepository
     @ObservationIgnored private let patientRepository: any PatientRepository
@@ -87,6 +88,26 @@ final class SettingsViewModel {
         } catch {
             screenState.profile = nil
             screenState.loadState = .failed
+        }
+    }
+
+    func loadPersonalInfo() async {
+        personalInfoState.canSave = false
+        personalInfoState.didSave = false
+        personalInfoState.errorMessage = nil
+
+        do {
+            guard let patient = try await patientRepository.findById(patientId) else {
+                personalInfoState.errorMessage = "환자 정보를 찾지 못했어요."
+                return
+            }
+
+            personalInfoState.name = patient.user.name
+            personalInfoState.birthday = patient.user.birthday
+            personalInfoState.sex = patient.user.sex
+            personalInfoState.canSave = true
+        } catch {
+            personalInfoState.errorMessage = "개인 정보를 불러오지 못했어요."
         }
     }
 }
