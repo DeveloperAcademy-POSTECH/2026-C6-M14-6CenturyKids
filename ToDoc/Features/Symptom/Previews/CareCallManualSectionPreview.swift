@@ -63,7 +63,6 @@ struct CareCallManualSectionPreview: View {
 #Preview("수동 입력 디자인 · 개별 화면 선택") { CareCallManualSectionPreview() }
 #Preview("증상 선택 · 72:3342") { CareCallManualSectionPreview(initialStep: .symptoms, showsControls: false) }
 #Preview("일상 생활 · 1:5402") { CareCallManualSectionPreview(initialStep: .dailyLife, showsControls: false) }
-#Preview("불편함 정도 · 1:5428") { CareCallManualSectionPreview(initialStep: .discomfort, showsControls: false) }
 #Preview("횟수 · 1:5457") { CareCallManualSectionPreview(initialStep: .frequency, showsControls: false) }
 #Preview("지속 시간 · 1:5486") { CareCallManualSectionPreview(initialStep: .duration, showsControls: false) }
 #Preview("그 외의 불편 · 72:3411") { CareCallManualSectionPreview(initialStep: .other, showsControls: false) }

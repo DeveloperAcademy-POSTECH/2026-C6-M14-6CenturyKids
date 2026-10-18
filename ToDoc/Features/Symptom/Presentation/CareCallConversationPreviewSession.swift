@@ -18,7 +18,7 @@ struct CareCallConversationPreviewSession {
     var editingItemID: UUID?
 
     var question: Question { questions[min(questionIndex, questions.count - 1)] }
-    var progress: Double { Double(questionIndex + 1) / Double(max(5, questions.count)) }
+    var progress: Double { Double(questionIndex + 1) / Double(max(4, questions.count)) }
     var canGoPrevious: Bool { stage == .conversation && questionIndex > 0 }
     var draft: CareCallManualDraft {
         get {
@@ -35,7 +35,6 @@ struct CareCallConversationPreviewSession {
         guard let symptom = question.symptom else { return question.step.question }
         let title = symptom.title.replacingOccurrences(of: "\n", with: " ")
         switch question.step {
-        case .discomfort: return "\(title) 때문에 얼마나 불편했나요?"
         case .frequency: return "\(title) 증상을 몇 번 겪으셨나요?"
         case .duration: return "\(title) 증상이 얼마나 지속 되었나요?"
         case .dailyLife: return "\(title) 때문에 일상 생활에 어떤 지장이 있었나요?"
@@ -49,7 +48,7 @@ struct CareCallConversationPreviewSession {
         var result = [Question(step: .symptoms)]
         if introduction.symptoms.contains(.other) { result.append(Question(step: .other)) }
         for symptom in selectedSymptoms {
-            for step: CareCallManualStep in [.discomfort, .frequency, .duration, .dailyLife] {
+            for step: CareCallManualStep in [.frequency, .duration, .dailyLife] {
                 result.append(Question(step: step, symptom: symptom))
             }
         }
@@ -92,13 +91,14 @@ struct CareCallConversationPreviewSession {
             summaryItems = selectedSymptoms.compactMap { symptom in
                 guard let value = answers[symptom] else { return nil }
                 let count = value.frequencyIndex == 11 ? "10+" : String(value.frequencyIndex)
-                var details = ["\(count)번", "\(value.hours)시간 \(value.minutes)분"]
-                if symptom == .other, !introduction.other.isEmpty { details.insert(introduction.other, at: 0) }
+                var details: [String] = []
+                if symptom == .other, !introduction.other.isEmpty { details.append(introduction.other) }
                 if !value.dailyLife.isEmpty { details.append(value.dailyLife) }
                 return CareCallVoiceSummaryItem(id: UUID(),
                     title: symptom.title.replacingOccurrences(of: "\n", with: " "),
-                    detailLabel: "답변", detail: details.joined(separator: "\n"),
-                    discomfort: Double(value.discomfort))
+                    detailLabel: "말씀하신 내용", detail: details.joined(separator: "\n\n"),
+                    frequency: value.answeredSteps.contains(.frequency) ? "\(count)번" : nil,
+                    duration: value.answeredSteps.contains(.duration) ? "\(value.hours)시간 \(value.minutes)분" : nil)
             }
             stage = .loading
         }
@@ -115,7 +115,7 @@ struct CareCallConversationPreviewSession {
             if value.other.isEmpty { value.other = "관절이 아파요" }
         case .dailyLife:
             if value.dailyLife.isEmpty { value.dailyLife = "밥 먹기가 두려워요" }
-        case .discomfort, .frequency, .duration: break
+        case .frequency, .duration: break
         }
         value.answeredSteps.insert(question.step)
         draft = value
