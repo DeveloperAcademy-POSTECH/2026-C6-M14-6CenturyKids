@@ -6,11 +6,12 @@ struct AuthCheckboxToggleStyle: ToggleStyle {
         Button {
             configuration.isOn.toggle()
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: AppSpacing.item) {
                 ZStack {
                     Circle()
                         .fill(configuration.isOn ? AppColors.primary : .clear)
                     if configuration.isOn {
+                        // 고정 원형 체크 안의 SF Symbol 크기를 유지합니다.
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(AppColors.Text.primary)
@@ -25,10 +26,11 @@ struct AuthCheckboxToggleStyle: ToggleStyle {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
-            .frame(minHeight: 44)
+            .frame(minHeight: AppMetrics.Control.minimumHitSize)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityValue(configuration.isOn ? "선택됨" : "선택 안 됨")
+        .accessibilityAddTraits(configuration.isOn ? .isSelected : [])
     }
 }
