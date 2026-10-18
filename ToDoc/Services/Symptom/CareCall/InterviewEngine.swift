@@ -164,15 +164,23 @@ final class InterviewEngine {
             // 증상이 없어졌다고만 말한 답("설사는 멈췄어요" → 이번 답으로 목록 증상 없음)은 알아들은 답이라 되묻지 않는다.
             // 연결어·숫자·나빠졌다는 말이 섞이면("멈췄는데 대신…") 놓친 증상이 있을 수 있어 되묻는다
             let mixed = ["근데", "그런데", "는데", "지만", "한데"].contains(where: Self.normalized(patientText).contains)
-                || !NumberParser.numbers(in: patientText).isEmpty || openingConcerns.matches(patientText) != nil
+                || NumberParser.hasNumber(patientText) || openingConcerns.matches(patientText) != nil
             let toldAbsent = !mixed && ledger.order.contains { key in
                 knownIds.contains(key) && ledger[key]?.presence == .absent && before[key]?.presence != .absent
             }
             let unclear = isUnclearChange(patientText), settled = unclear || isUnchanged(patientText)
+            // 숫자가 섞여 모델이 봤는데 찾은 게 없는 "글쎄요 두 번?": 끝내지 않고 되묻되, 이 말은 '달라진 점' 모름 + 원문으로 남긴다
+            if !unclear, !toldNewSymptom, ledger.sameRecords(as: before), openingConcerns.matches(patientText) == nil,
+               (config.followUpCall.unclearAnswers + config.unknownAnswers).contains(where: { Self.normalized(patientText).contains(Self.normalized($0)) }) {
+                recordUnclearChange(patientText)
+            }
             if !toldNewSymptom, !settled, !toldAbsent, openingFirstAnswer == nil {
                 openingFirstAnswer = patientText
-                // 첫 답에서 생긴 기타 항목: 되물은 답에서 같은 증상을 또 기록하지 않게 (위의 되묻기와 같다)
-                openingOtherName = ledger.order.first { $0.hasPrefix("other:") && before[$0] == nil }.flatMap { ledger[$0]?.otherName }
+                // 첫 답에서 생긴 기타 항목: 되물은 답에서 같은 증상을 또 기록하지 않게 (위의 되묻기와 같다).
+                // 바로 위에서 남긴 '달라진 점' 모름은 증상이 아니라 제외한다 (되물은 답의 증상이 그 이름으로 붙지 않게)
+                let unclearKey = Ledger.key(effectId: "other", otherName: config.followUpCall.unclearName)
+                openingOtherName = ledger.order.first { $0.hasPrefix("other:") && $0 != unclearKey && before[$0] == nil }
+                    .flatMap { ledger[$0]?.otherName }
                 return Output(utterance: say(config.openingFollowUp), phase: phase)
             }
             if unclear { recordUnclearChange(patientText) }
@@ -184,7 +192,7 @@ final class InterviewEngine {
         case .slot(let key, let step) where step != .detail
             && (isUnknownAnswer(patientText) || (step == .presence && isVagueAnswer(patientText))):
             ledger.markUnknown(key, step: step, quote: patientText) // '모름' + 원문
-        case .other where otherDetailKey == nil && (isUnknownAnswer(patientText) || isVagueAnswer(patientText)):
+        case .other where otherDetailKey == nil && soundsUnsure(patientText) && ledger.sameRecords(as: before):
             // '그 밖에'에 "모르겠어요"·"그냥 그래요": 기타 '모름' + 원문으로 남기고 마무리 (증상 '있음'으로는 남기지 않는다)
             let name = config.otherUnclearName
             ledger.apply(Mention(effectId: "other", otherName: name, presence: .unclear, quote: patientText),
@@ -432,7 +440,7 @@ final class InterviewEngine {
         // 다시 거는 통화의 첫 답에서 나빠졌다는 말("좀 안 좋아졌어요")은 컨디션으로 저장하지 않으니 기타로 남긴다
         guard unchanged, result?.needsClarification != true,
               symptomHints.matches(text) != nil
-                || (phase == .other && !soundsNegative(text) && !isUnknownAnswer(text) && !isVagueAnswer(text))
+                || (phase == .other && !soundsNegative(text) && !soundsUnsure(text))
                 || (phase == .opening && unasked != nil && openingConcerns.matches(text) != nil) else { return }
         let name = text.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         ledger.apply(Mention(effectId: "other", otherName: name, presence: .present, quote: patientText),
@@ -445,7 +453,7 @@ final class InterviewEngine {
     private func isUnknownAnswer(_ text: String) -> Bool {
         let compact = Self.normalized(text)
         guard config.unknownAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
-              NumberParser.numbers(in: text).isEmpty, !soundsNegative(text) else { return false }
+              !NumberParser.hasNumber(text), !soundsNegative(text) else { return false }
         if ["는데", "지만", "근데", "그런데"].contains(where: text.contains) { return false }
         return !config.effects.flatMap(\.keywords).contains(where: text.contains) && symptomHints.matches(text) == nil
     }
@@ -461,6 +469,15 @@ final class InterviewEngine {
               !config.shortAnswers.yes.contains(where: { compact.hasPrefix(Self.normalized($0)) }) else { return false }
         if ["는데", "지만", "근데", "그런데"].contains(where: t.contains) { return false }
         return !config.effects.flatMap(\.keywords).contains(where: t.contains) && symptomHints.matches(t) == nil
+    }
+
+    /// 모르겠다·애매하다는 말만 있는 답 (숫자는 섞여도 된다). '그 밖에'에서 이런 답을 증상 '있음'으로 남기지 않고 '모름' + 원문으로 남길 때 쓴다.
+    /// 증상 낱말·표현이나 없다는 말이 있으면 아니다 ("모르겠는데 머리가 아파요"는 증상으로, "모르겠어요 없는 것 같아요"는 없음으로)
+    private func soundsUnsure(_ text: String) -> Bool {
+        let compact = Self.normalized(text)
+        guard (config.unknownAnswers + config.vagueAnswers).contains(where: { compact.contains(Self.normalized($0)) }),
+              !soundsNegative(text), symptomHints.matches(text) == nil else { return false }
+        return !config.effects.flatMap(\.keywords).contains(where: text.contains)
     }
 
     /// 없다는 뜻이 담긴 답 ("없어요", "딱히 없는 것 같아요", "괜찮아요", "아니요 그냥 그래요")
@@ -554,7 +571,7 @@ final class InterviewEngine {
         guard config.noPrefixes.contains(where: { compact == Self.normalized($0) })
                 || config.noSuffixes.contains(where: { compact.hasSuffix(Self.normalized($0)) }) else { return false }
         if ["근데", "그런데", "는데", "지만", "그리고", "대신"].contains(where: { t.contains($0) }) { return false }
-        if !NumberParser.numbers(in: t).isEmpty { return false }
+        if NumberParser.hasNumber(t) { return false }
         let otherKeywords = config.effects.filter { $0.id != key }.flatMap(\.keywords)
         if otherKeywords.contains(where: { t.contains($0) }) { return false }
         return symptomHints.matches(t) == nil
@@ -580,8 +597,9 @@ final class InterviewEngine {
         guard openingConcerns.matches(patientText) == nil else { return false }
         if isUnknownAnswer(patientText) { return true }
         let compact = Self.normalized(patientText)
+        // 숫자가 섞이면 모델이 본다 ("글쎄요 두 번?"). 모델이 찾은 게 없으면 원문은 handle에서 남긴다
         guard config.followUpCall.unclearAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
-              NumberParser.numbers(in: patientText).isEmpty,
+              !NumberParser.hasNumber(patientText),
               !["는데", "지만", "근데", "그런데"].contains(where: patientText.contains) else { return false }
         return !config.effects.flatMap(\.keywords).contains(where: patientText.contains) && symptomHints.matches(patientText) == nil
     }
@@ -596,7 +614,7 @@ final class InterviewEngine {
         if ["근데", "그런데", "는데", "지만", "한데"].contains(where: { compact.contains($0) }) { return false }
         // "똑같지 않아요", "그대로가 아니에요": 달라졌다는 뜻이라 모델이 본다 (띄어쓰기 없이 비교)
         if ["지않", "진않", "가아니", "이아니", "게아니"].contains(where: { compact.contains($0) }) { return false }
-        if !NumberParser.numbers(in: t).isEmpty { return false }
+        if NumberParser.hasNumber(t) { return false }
         if config.effects.flatMap(\.keywords).contains(where: { t.contains($0) }) { return false }
         return symptomHints.matches(t) == nil && openingConcerns.matches(t) == nil
     }
