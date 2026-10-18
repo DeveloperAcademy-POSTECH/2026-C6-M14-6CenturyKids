@@ -1,10 +1,10 @@
 # 인증 View·ViewModel 연결 안내
 
-2026-10-17 기준. 최신 develop의 Model/Repository 계약을 유지하고 인증 화면과 ViewModel을 연결했습니다. 인증 Service는 제거했습니다. 나머지 Service는 각 기능 담당자의 전환 범위이며 이 PR에서 일괄 삭제하지 않습니다.
+2026-10-19 기준. 최신 develop의 Model/Repository 계약을 유지하고 인증 화면과 ViewModel을 연결했습니다. 인증 Service는 제거했습니다. 나머지 Service는 각 기능 담당자의 전환 범위이며 이 PR에서 일괄 삭제하지 않습니다.
 
 ## 앱을 실행하면 어디로 가나요?
 
-**기본 실행은 기존 홈입니다. Debug와 Release 모두 홈·기록·설정 화면을 확인할 수 있습니다.** 아직 실제 PatientRepository가 없는 상태에서 인증을 앱 전체의 필수 입구로 만들면 팀원의 화면 작업까지 막히므로, 인증 흐름은 별도 개발 경로로 분리했습니다.
+**기본 실행은 기존 홈입니다. Debug와 Release 모두 홈·기록·설정 화면을 확인할 수 있습니다.** 아직 실제 PatientRepository가 인증 DI에 연결되지 않은 상태에서 인증을 앱 전체의 필수 입구로 만들면 팀원의 화면 작업까지 막히므로, 인증 흐름은 별도 개발 경로로 분리했습니다.
 
 | 실행 방법 | 처음 열리는 화면 | 인증 ViewModel의 세션 복원/링크 처리 |
 |---|---|---|
@@ -33,8 +33,8 @@ View는 저장이 끝났는지 직접 판단하지 않습니다. 예를 들어 �
 |---|---|---|
 | AuthRepository | 기존 SupabaseAuthRepository 연결 | 테스트 서버의 로그인/메일 정책 |
 | UserRepository | 최신 SupabaseUserRepository 기본 연결 | users 테이블 및 RLS/날짜 매핑 |
-| PatientRepository | 프로토콜 있음, 실제 구현체 미주입 | findById/save, User와 동일 UUID, 저장 후 조회 |
-| DoctorRepository | 프로토콜 있음, 실제 구현체 미주입 | 6자리 의사 코드 확인. 미연결이면 건너뛰기 가능 |
+| PatientRepository | SupabasePatientRepository 구현 있음, 인증 DI 미주입 | findById/save, User와 동일 UUID, 저장 후 조회 |
+| DoctorRepository | SupabaseDoctorRepository 구현 있음, 인증 DI 미주입 | 6자리 의사 코드 확인. 미연결이면 건너뛰기 가능 |
 | HospitalRepository | 최신 develop의 SupabaseHospitalRepository 존재, 인증 DI에는 미주입 | DoctorRepository와 함께 소속 병원 확인을 연결 |
 | SignupConsentRepository | 새 계약만 준비 | userID+version 재시도 중복 방지, 서버 저장 성공 후 반환 |
 | AuthCallbackRepository | 새 계약만 준비 | SDK/서버가 확인한 password recovery 링크만 세션으로 교환 |
@@ -82,7 +82,9 @@ URL이 정해지면 앱의 URL scheme 또는 Universal Links 설정, Supabase �
 
 ## 최신 develop 충돌 처리
 
-`8ce739d`를 병합했습니다. 새 HospitalRepository API와 SupabaseHospitalRepository 구현은 develop 내용을 유지합니다. AuthenticationService 수정/삭제 충돌은 이 PR의 Service 제거 결정을 유지했습니다. develop의 해당 수정은 옛 메서드 호출을 `requestPasswordChangeVerification()`으로 바꾸는 내용입니다. 새 비밀번호 찾기 ViewModel은 이미 `sendPasswordResetEmail(to:redirectTo:)`를 직접 사용하므로 삭제한 Service를 복원하거나 서로 다른 비밀번호 유스케이스를 섞지 않았습니다.
+`45475ea`를 병합했습니다. Package는 인증·Domain·케어콜 전체 `ToDocFeatures` 구성을 유지하고 Local 저장소 제외와 PendingCareCallRepository 소스를 포함합니다. 최신 케어콜 테스트 5파일도 같은 모듈을 import합니다. 공용 DI는 `@MainActor`와 기존 인증 팩토리, develop의 케어콜 팩토리·지연 모델 로딩을 함께 보존합니다.
+
+Patient·Doctor·Hospital 실제 구현체는 이제 develop에 있지만 #107에서는 기본 주입하지 않습니다. #107 병합 직후 최신 develop에서 별도 작은 PR로 연결합니다. UI 후속 PR 전체 병합을 기다릴 필요는 없습니다. 같은 SupabaseClient와 명시적 주입 우선권을 유지하고 기존 계정 로그인·복원 및 가입 전 의사 코드/병원 조회 권한을 확인합니다. Consent·Callback·약관·URL은 별도 미완료 조건이며, 세 Repository 주입만으로 가입·복구 완료나 기본 인증 입구 전환을 뜻하지 않습니다.
 
 ## 인증을 기본 진입점으로 전환하기 전
 
@@ -90,6 +92,6 @@ URL이 정해지면 앱의 URL scheme 또는 Universal Links 설정, Supabase �
 
 ## 아직 필요한 통합 확인
 
-실제 Patient/Consent/Callback 구현체, 약관/URL 설정을 주입한 다음 테스트 서버와 실기기에서 가입→메일 확인→DB 저장→로그인→자동 로그인→복구 메일→비밀번호 변경을 확인해야 합니다. 현재 View/VM의 구현·자동 테스트·시뮬레이터 화면 검증과 이 서버 통합 검증을 구분합니다.
+기존 Patient/Doctor/Hospital 구현체와 Consent/Callback 구현체, 약관/URL 설정을 주입한 다음 테스트 서버와 실기기에서 가입→메일 확인→DB 저장→로그인→자동 로그인→복구 메일→비밀번호 변경을 확인해야 합니다. 현재 View/VM의 구현·자동 테스트·시뮬레이터 화면 검증과 이 서버 통합 검증을 구분합니다.
 
 기존 계정 로그인에는 같은 인증 UUID의 users·patients 행이 있어야 합니다. 회원가입에는 이 행의 저장뿐 아니라 동의 저장·약관 버전·인증 메일 복귀 설정도 필요합니다. 이는 화면 진입 복원과 별개의 팀 연결 작업입니다.
