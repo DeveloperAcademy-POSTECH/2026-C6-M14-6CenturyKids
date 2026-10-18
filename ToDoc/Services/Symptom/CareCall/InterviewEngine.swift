@@ -113,8 +113,8 @@ final class InterviewEngine {
             result?.mentions.append(reason)
         }
         if let mentions = result?.mentions {
-            result?.mentions = reassignedByKeywords(normalizedOthers(mentions, during: current, patientText: patientText),
-                                                    during: current, patientText: patientText)
+            result?.mentions = presentByPhrase(reassignedByKeywords(normalizedOthers(mentions, during: current, patientText: patientText),
+                                                                    during: current, patientText: patientText), patientText: patientText)
         }
         if current == .opening, unasked != nil, let mentions = result?.mentions {
             result?.mentions = mentions + stoppedMentions(mentions, patientText: patientText)
@@ -282,6 +282,31 @@ final class InterviewEngine {
             var moved = mention
             moved.effectId = target
             return moved
+        }
+    }
+
+    /// "입맛이 없어요"처럼 '없다'가 붙어도 증상이 있다는 말(presentPhrases)이면 그 증상을 '있음'으로 한다. 모델이 "없어요"만 보고
+    /// 식사를 '없음'으로 기록해 식사 질문을 건너뛰었다 (2026-10-19 실기기). "입맛 없는 건 아니에요"처럼 부정하면 그대로 둔다
+    private func presentByPhrase(_ mentions: [Mention], patientText: String) -> [Mention] {
+        var result = mentions
+        for effect in config.effects where saysPresent(effect, patientText) {
+            result.removeAll { $0.effectId == effect.id && $0.presence != .present }
+            if !result.contains(where: { $0.effectId == effect.id }) {
+                result.append(Mention(effectId: effect.id, presence: .present, quote: patientText))
+            }
+        }
+        return result
+    }
+
+    private func saysPresent(_ effect: CareCallConfig.Effect, _ patientText: String) -> Bool {
+        (effect.presentPhrases ?? []).contains { phrase in
+            let words = phrase.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }
+            guard let regex = try? Regex(words.joined(separator: ".{0,8}?")) else { return false }
+            // 한 절 안에서 차례로 나오고, 바로 뒤가 부정("입맛 없는 건 아니에요")이 아닐 때
+            return KeywordMatcher.clauses(patientText).contains { clause in
+                guard let match = clause.firstMatch(of: regex) else { return false }
+                return !KeywordMatcher.negated(String(clause[match.range.upperBound...]).replacingOccurrences(of: " ", with: ""))
+            }
         }
     }
 
@@ -609,6 +634,8 @@ final class InterviewEngine {
     /// 지금 항목 밖의 증상 낱말·증상 표현·숫자·연결어("근데", "는데", "지만")가 없을 때만. 하나라도 있으면 모델이 판단
     private func isClearNo(_ patientText: String, for key: String) -> Bool {
         guard !key.hasPrefix("other:") else { return false }
+        // "입맛이 없어요"는 '없어요'로 끝나도 식사 증상이 있다는 말이다
+        if let effect = config.effects.first(where: { $0.id == key }), saysPresent(effect, patientText) { return false }
         let t = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         let compact = Self.normalized(t)
         // 없음 표현으로 시작만 하면 뒷말이 번복일 수 있어("아니요 설사 맞아요 설사 했어요") 없음 표현 하나뿐일 때만 인정

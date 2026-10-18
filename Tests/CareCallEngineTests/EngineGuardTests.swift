@@ -710,3 +710,40 @@ struct OtherClarificationTests {
         #expect(engine.ledger.order.compactMap { engine.ledger[$0] }.contains { $0.effectId == "other" && $0.presence == .present })
     }
 }
+
+/// 2026-10-19 실기기: 첫 답 "요즘 입맛이 좀 없어요" → 모델이 식사를 '없음'으로 기록하고 식사 질문을 건너뜀
+@MainActor
+struct PresentPhraseTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    @Test(arguments: ["요즘 입맛이 좀 없어요", "입맛이 없어졌어요"])
+    func 첫_답의_입맛이_없어요는_모델이_없음이라_해도_식사_있음(answer: String) async {
+        let mock = MockAnalyzer()
+        mock.script[answer] = .mentions(Mention(effectId: "dehydration_nutrition", presence: .absent))
+        let call = InterviewEngine(config: config, rules: rules, analyzer: mock, followUp: answer.contains("졌") ? [] : nil)
+        _ = call.start()
+        _ = await call.handle(patientText: answer)
+        #expect(call.ledger["dehydration_nutrition"]?.presence == .present)
+    }
+
+    @Test func 약을_못_먹었다는_말은_식사_증상이_아니다() async {
+        let call = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer())
+        _ = call.start()
+        _ = await call.handle(patientText: "약을 못 먹었어요")
+        #expect(call.ledger["dehydration_nutrition"]?.presence != .present)
+    }
+
+    @Test(arguments: [("입맛이 없어요", MentionPresence.present), ("밥이 잘 안 넘어가요", .present), ("요즘 밥을 잘 못 먹어요", .present),
+                      ("입맛 없는 건 아니에요", .absent), ("아니요 잘 먹어요", .absent)])
+    func 식사_질문의_답(answer: String, expected: MentionPresence) async {
+        let mock = MockAnalyzer()
+        mock.script["입맛 없는 건 아니에요"] = .mentions(Mention(effectId: "dehydration_nutrition", presence: .absent))
+        let call = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = call.start()
+        _ = await call.handle(patientText: "괜찮아요")
+        while call.phase != .slot(key: "dehydration_nutrition", step: .presence) { _ = await call.handle(patientText: "아니요") }
+        _ = await call.handle(patientText: answer)
+        #expect(call.ledger["dehydration_nutrition"]?.presence == expected) // "입맛이 없어요"는 '없어요'로 끝나도 바로 '없음'이 아니다
+    }
+}

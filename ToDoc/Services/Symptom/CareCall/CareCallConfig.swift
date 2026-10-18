@@ -22,6 +22,9 @@ struct CareCallConfig: Decodable, Sendable {
         let details: [Detail]
         /// 다른 항목을 묻다가 이 항목의 횟수·부위로 돌아갈 때 앞에 말하는 이름 ("입안이 헐거나 아픈 것")
         let spokenName: String
+        /// '없다'가 붙어도 이 증상이 있다는 말 ("입맛 없" = "입맛이 좀 없어요", 식사 증상 있음). 두 낱말이 한 절에서 차례로 가까이
+        /// (사이 8자 이내) 나오면 맞는다. 모델이 '없음'이라 해도 '있음'으로 본다 (초안)
+        let presentPhrases: [String]?
 
         struct Detail: Decodable, Sendable {
             /// 기록에 붙이는 이름 ("횟수", "구토 횟수"). 한 항목 안에서 겹치지 않는다
