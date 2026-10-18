@@ -261,4 +261,15 @@ struct FollowUpCallTests {
         let record = converter.record(from: call.ledger, patientId: UUID(), date: Date(), followUp: true)
         #expect(record.symptoms.first { $0.symptomType == .nauseaVomiting }.map { $0.presence == .absent && $0.detail == nil } == true)
     }
+
+    @Test func 모델이_있음이라_해도_답_전체가_증상과_그쳤다는_말이면_없음으로_남긴다() async throws {
+        mock.script["구토가 나아졌어요"] = .mentions(Mention(effectId: "nausea_vomiting", presence: .present)) // 2026-10-19 실기기
+        let converter = SymptomRecordConverter(config: config, bodyParts: try fixture(BodyPartDictionary.self, "body_parts"))
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: "구토가 나아졌어요")
+        #expect(out.phase == .other) // 횟수를 묻지 않는다
+        let entry = converter.record(from: call.ledger, patientId: UUID(), date: Date(), followUp: true).symptoms.first
+        #expect(entry?.presence == .absent && entry?.detail == "구토가 나아졌어요")
+    }
 }
