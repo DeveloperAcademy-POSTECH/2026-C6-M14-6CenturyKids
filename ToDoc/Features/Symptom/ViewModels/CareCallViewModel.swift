@@ -11,7 +11,8 @@ import ToDocDomain
 import Foundation
 
 /// 케어콜 화면(CareCallFlowView)의 상태를 보관한다: 준비(대기 화면) → 대화(음성 통화·문자 답) → 요약 수정·저장.
-/// 음성과 문자를 오가도 서비스의 같은 대화를 이어 간다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장한다
+/// 음성과 문자를 오가도 서비스의 같은 대화를 이어 간다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장한다.
+/// 받은 답은 답마다 폰에도 남겨, 앱이 꺼지거나 저장이 실패하면 다음에 케어콜에 들어갈 때 조용히 올린다
 @MainActor
 final class CareCallViewModel {
     let preparation = CareCallScreenState()
@@ -22,6 +23,9 @@ final class CareCallViewModel {
     private(set) var record: SymptomRecord?
     private let service: any CareCalling
     private let repository: any SymptomRepository
+    /// 서버에 저장하기 전까지 받은 답을 남겨 두는 곳 (이 케어콜은 pendingId 한 건)
+    private let pending: any PendingCareCallRepository
+    private let pendingId = UUID()
     private let patientId: UUID
     /// 지금 진행 중인 준비 (없으면 준비 중이 아님)
     private var preparing: Task<Void, Never>?
@@ -45,9 +49,10 @@ final class CareCallViewModel {
     private var isSaved = false
 
     /// patientId: 로그인한 환자 (화면에 연결할 때 getCurrentUserId()로 받아 넘긴다)
-    init(service: any CareCalling, repository: any SymptomRepository, patientId: UUID) {
+    init(service: any CareCalling, repository: any SymptomRepository, pending: any PendingCareCallRepository, patientId: UUID) {
         self.service = service
         self.repository = repository
+        self.pending = pending
         self.patientId = patientId
         show(.idle)
         preparation.onAction = { [weak self] action in
@@ -286,6 +291,7 @@ final class CareCallViewModel {
     }
 
     private func show(_ turn: CareCallTurn) {
+        keep(service.progress)
         let input: SymptomConversationQuestion.Input = switch turn.number {
         case .count?: .frequency
         case .minutes?: .duration
@@ -337,6 +343,7 @@ final class CareCallViewModel {
     private func show(_ activity: CareCallActivity) {
         switch activity {
         case .speaking(let text):
+            keep(service.progress) // 답을 분석한 뒤 다음 질문을 말한다
             conversation.question = SymptomConversationQuestion(id: UUID(), text: text, guidance: nil, progress: nil, input: .text)
             conversation.transcript = ""
             conversation.isListening = false
@@ -357,20 +364,23 @@ final class CareCallViewModel {
         switch outcome {
         case .completed(let record) where record.symptoms.isEmpty:
             // 다시 거는 통화에서 달라진 게 없음: 더할 것이 없어 바로 완료 화면 (이때 보여 줄 화면은 화면 담당과 정할 예정)
+            forget()
             isSaved = true
             conversation.didSave = true
         case .completed(let record), .interrupted(let record?):
             self.record = record
+            keep(record)
             let summary = SymptomSummaryScreenState(record: SymptomRecordDisplay(record: record))
             summary.canSave = true
             summary.onAction = { [weak self] action in self?.handle(action) }
             conversation.summary = summary
             if leftCall { save(showingResult: false) }
         case .interrupted(nil):
+            forget()
             conversation.question = nil
             conversation.errorMessage = "통화가 끊겼어요. 다시 시도해 주세요."
         case .emergencyEnded:
-            break // 마지막으로 말한 응급 안내가 화면에 남는다 (응급 화면은 디자인 팀과 정할 예정)
+            forget() // 응급 종료는 저장하지 않는다. 마지막으로 말한 응급 안내가 화면에 남는다 (응급 화면은 디자인 팀과 정할 예정)
         }
     }
 
@@ -451,6 +461,7 @@ final class CareCallViewModel {
         let updated = SymptomRecord(id: record.id, patientId: record.patientId, recordedDate: record.recordedDate,
                                     conditionText: record.conditionText, symptoms: symptoms)
         self.record = updated
+        keep(updated)
         summary.record = SymptomRecordDisplay(record: updated)
     }
 
@@ -470,6 +481,7 @@ final class CareCallViewModel {
         let task = Task {
             do {
                 let stored = try await store(record, complete: complete)
+                forget() // 저장했거나 저장하지 않기로 정함. 실패하면 남겨 두고 다음에 케어콜에 들어갈 때 올린다
                 isSaved = true // 저장하지 않기로 한 기록도 다시 저장하지 않는다
                 if showingResult, stored { conversation.didSave = true }
                 if showingResult, !stored { summary?.errorMessage = "오늘 기록이 이미 있어서, 중간에 끊긴 이번 답은 저장하지 않았어요." }
@@ -484,9 +496,33 @@ final class CareCallViewModel {
         return task
     }
 
-    /// 오늘 이미 저장된 기록 (있으면 다시 거는 통화)
+    /// 오늘 이미 저장된 기록 (있으면 다시 거는 통화). 지난번에 올리지 못한 기록을 먼저 올린다
+    /// (그 기록이 오늘 것이면 이번 통화는 다시 거는 통화가 된다)
     private func today() async throws -> SymptomRecord? {
-        try await repository.findByPatientIdAndDate(patientId, Date())
+        await sendPending()
+        return try await repository.findByPatientIdAndDate(patientId, Date())
+    }
+
+    // MARK: - 폰에 남기기
+
+    /// 지금까지 받은 답을 폰에 남긴다. 남기지 못해도 대화는 이어 간다 (서버 저장은 따로 한다)
+    private func keep(_ record: SymptomRecord?) {
+        guard let record, !isSaved else { return }
+        let complete = if case .completed? = outcome { true } else { false }
+        try? pending.save(PendingCareCall(id: pendingId, record: record, complete: complete))
+    }
+
+    /// 이 케어콜에서 남긴 기록만 지운다 (지난 케어콜에서 올리지 못한 기록은 그대로)
+    private func forget() {
+        try? pending.delete(id: pendingId, patientId: patientId)
+    }
+
+    /// 지난 케어콜에서 앱이 꺼졌거나 저장에 실패해 남은 기록을 저장 규칙대로 조용히 올린다. 실패한 기록은 남겨 두고 다음에
+    private func sendPending() async {
+        for left in (try? pending.findAll(patientId: patientId)) ?? [] where left.id != pendingId {
+            guard (try? await store(left.record, complete: left.complete)) != nil else { continue }
+            try? pending.delete(id: left.id, patientId: patientId)
+        }
     }
 
     /// 그날 기록은 하루 1건. 이미 있으면 끝까지 마친 통화(다시 거는 통화)는 그 기록에 더하고,
@@ -506,7 +542,8 @@ final class CareCallViewModel {
     /// - 전에 없음·모름이었는데 이번에 있음 → 이번 항목으로 바꾼다
     /// - 전에도 있음 → 같은 부위면 기존 값을 두고 빈 칸만 채우고 내용에 "다시 통화: …"를 덧붙인다, 다른 부위면 추가
     /// - 이번에 없음·모름인데 그날 기록에 이미 있는 증상은 그대로 둔다. 전에 있던 증상을 이번에 없다고 하면(좋아짐)
-    ///   "다시 통화: 지금은 없다고 함"을, 검토가 필요한 답(요약에서 지움 등)이면 그 내용을 덧붙여 의료진이 보게 한다
+    ///   환자가 한 말("다시 통화: 구토가 나아졌어요", 말이 없으면 "지금은 없다고 함")을,
+    ///   검토가 필요한 답(요약에서 지움 등)이면 그 내용을 덧붙여 의료진이 보게 한다
     static func merge(_ old: SymptomRecord, with new: SymptomRecord) -> SymptomRecord {
         var symptoms = old.symptoms
         for entry in new.symptoms {
@@ -516,14 +553,16 @@ final class CareCallViewModel {
                 continue
             }
             guard entry.presence == .present else {
-                if entry.detail?.hasPrefix(Self.review) == true,
-                   let index = symptoms.firstIndex(where: { $0.symptomType == entry.symptomType }) {
-                    symptoms[index] = filled(symptoms[index], with: entry)
-                } else if entry.presence == .absent {
-                    // 없어졌다는 말은 그 증상 전체에 대한 말이라 부위별 항목마다 남긴다
-                    for index in symptoms.indices where symptoms[index].symptomType == entry.symptomType && symptoms[index].presence == .present {
-                        symptoms[index] = filled(symptoms[index], with: entry, note: "지금은 없다고 함")
+                let present = symptoms.indices.filter { symptoms[$0].symptomType == entry.symptomType && symptoms[$0].presence == .present }
+                if entry.presence == .absent, !present.isEmpty {
+                    // 없어졌다는 말은 그 증상 전체에 대한 말이라 부위별 항목마다 남긴다 (검토 필요 표시는 맨 앞에).
+                    // 환자가 한 말이 있으면 그 말 그대로("다시 통화: 구토가 나아졌어요"), 없으면 "지금은 없다고 함"
+                    for index in present {
+                        symptoms[index] = filled(symptoms[index], with: entry, note: text(of: entry.detail) == nil ? "지금은 없다고 함" : nil)
                     }
+                } else if entry.detail?.hasPrefix(Self.reviewMark) == true,
+                          let index = symptoms.firstIndex(where: { $0.symptomType == entry.symptomType }) {
+                    symptoms[index] = filled(symptoms[index], with: entry)
                 }
                 continue
             }
@@ -556,7 +595,15 @@ final class CareCallViewModel {
         return old.rawLocationText == new.rawLocationText
     }
 
-    private static let review = "[검토 필요] "
+    private static let reviewMark = "[검토 필요]"
+    private static let review = reviewMark + " "
+
+    /// 검토 필요 표시를 뗀 내용 (표시만 있으면 nil)
+    private static func text(of detail: String?) -> String? {
+        guard let detail else { return nil }
+        let text = detail.hasPrefix(reviewMark) ? detail.dropFirst(reviewMark.count).trimmingCharacters(in: .whitespaces) : detail
+        return text.isEmpty ? nil : text
+    }
 
     /// 전에도 있던 증상: 기존 값(유무 포함)은 두고 빈 칸만 이번 값으로 채운다. 이번 내용은 "다시 통화: …"로 덧붙인다.
     /// 검토 필요 표시는 맨 앞에 하나만. 길면 전 내용을 줄여 이번 답은 남긴다
@@ -564,11 +611,10 @@ final class CareCallViewModel {
     /// textOnly면 내용만 덧붙이고 빈 칸(부위·횟수·지속 시간)은 채우지 않는다
     private static func filled(_ old: SymptomEntry, with new: SymptomEntry, note: String? = nil, label: String = "다시 통화",
                                textOnly: Bool = false) -> SymptomEntry {
-        func stripped(_ text: String?) -> String? { text.map { $0.hasPrefix(review) ? String($0.dropFirst(review.count)) : $0 } }
         func cut(_ text: String, to room: Int) -> String { text.count <= room ? text : String(text.prefix(max(room - 1, 0))) + "…" }
-        var oldText = stripped(old.detail)
-        var added = (note ?? stripped(new.detail)).map { "\(label): " + $0 }
-        var flagged = old.detail?.hasPrefix(review) == true || new.detail?.hasPrefix(review) == true
+        var oldText = text(of: old.detail)
+        var added = (note ?? text(of: new.detail)).map { "\(label): " + $0 }
+        var flagged = old.detail?.hasPrefix(reviewMark) == true || new.detail?.hasPrefix(reviewMark) == true
         // 길면 둘 다 남기도록 나눠 줄인다 (어느 쪽도 반보다 적게 줄이지 않는다). 잘랐으면 의료진이 원문을 보게 검토 필요
         if let o = oldText, let a = added, review.count + o.count + " / ".count + a.count > SymptomEntry.detailLimit {
             flagged = true
@@ -578,7 +624,8 @@ final class CareCallViewModel {
             added = cut(a, to: room - min(o.count, oldRoom))
         }
         let body = [oldText, added].compactMap(\.self).joined(separator: " / ")
-        let detail = body.isEmpty ? nil : String(((flagged ? review : "") + body).prefix(SymptomEntry.detailLimit))
+        // 내용 없이 검토 필요 표시만 있어도 표시는 남긴다
+        let detail = body.isEmpty ? (flagged ? reviewMark : nil) : String(((flagged ? review : "") + body).prefix(SymptomEntry.detailLimit))
         let fill = textOnly ? nil : new
         let merged = try? SymptomEntry(id: old.id, symptomType: old.symptomType, presence: old.presence,
                                        bodyPart: old.bodyPart ?? fill?.bodyPart, bodySide: old.bodySide ?? fill?.bodySide,
