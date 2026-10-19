@@ -6,8 +6,7 @@ import Foundation
     static func makeFlow() -> AuthFlowViewModel {
         let directory = PreviewDoctorDirectory()
         let repositories = AuthRepositories(
-            auth: PreviewSignupAuth(), users: PreviewSignupUsers(), patients: PreviewSignupPatients(),
-            doctors: directory, hospitals: directory, consents: PreviewSignupConsents()
+            doctors: directory, hospitals: directory
         )
         let terms = Dictionary(uniqueKeysWithValues: SignupTerm.allCases.map { term in
             (term, """
@@ -45,52 +44,6 @@ import Foundation
         state.stage = .known(.stage1)
         // 코드의 확인 여부는 실제 SignupVM이 관리하므로 입력값만 제공합니다.
         if state.connection == nil { state.doctorCode = "PRE123" }
-    }
-}
-
-private final class PreviewSignupAuth: AuthRepository {
-    private var currentID: UUID?
-    func signUp(email: String, password: String) async throws -> UUID {
-        let id = UUID()
-        currentID = id
-        return id
-    }
-    func signOut() async throws { currentID = nil }
-    func getCurrentUserId() async throws -> UUID {
-        guard let currentID else { throw AuthFlowError("Preview 가입 세션이 없어요.") }
-        return currentID
-    }
-    func isSignedIn() -> Bool { currentID != nil }
-
-    // 가입 이후 로그인/재설정은 이번 체험 범위 밖이며 성공을 흉내 내지 않습니다.
-    private var unsupported: AuthFlowError { AuthFlowError("가입 화면 체험용 Preview예요. 위의 ‘처음부터’로 다시 확인할 수 있어요.") }
-    func signIn(email: String, password: String) async throws -> UUID { throw unsupported }
-    func signInWithApple(idToken: String, nonce: String) async throws -> UUID { throw unsupported }
-    func resendSignUpConfirmationEmail(to email: String, redirectTo url: URL?) async throws { throw unsupported }
-    func requestPasswordChangeVerification() async throws { throw unsupported }
-    func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws { throw unsupported }
-    func updatePassword(to newPassword: String, nonce: String?) async throws { throw unsupported }
-}
-
-private final class PreviewSignupUsers: UserRepository {
-    private var values: [UUID: User] = [:]
-    func save(user: User) async throws { values[user.id] = user }
-    func findById(_ id: UUID) async throws -> User? { values[id] }
-    func findByName(_ name: String) async throws -> [User] { values.values.filter { $0.name == name } }
-}
-
-private final class PreviewSignupPatients: PatientRepository {
-    private var values: [UUID: Patient] = [:]
-    func save(patient: Patient) async throws { values[patient.user.id] = patient }
-    func findById(_ id: UUID) async throws -> Patient? { values[id] }
-    func findByName(_ name: String) async throws -> [Patient] { values.values.filter { $0.user.name == name } }
-    func findByDoctorId(_ doctorId: UUID) async throws -> [Patient] { values.values.filter { $0.doctorId == doctorId } }
-}
-
-private final class PreviewSignupConsents: SignupConsentRepository {
-    private var values: [UUID: (version: String, terms: [String], date: Date)] = [:]
-    func saveConsent(userID: UUID, version: String, acceptedTermIDs: [String], acceptedAt: Date) async throws {
-        values[userID] = (version, acceptedTermIDs, acceptedAt)
     }
 }
 

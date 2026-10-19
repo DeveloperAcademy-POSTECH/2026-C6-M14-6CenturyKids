@@ -42,7 +42,7 @@ struct AuthInteractivePreview: View {
     }
 }
 
-#Preview("온보딩 → 가입 완료 · 서버 없는 체험") {
+#Preview("온보딩 → 가입 입력 · 저장 연결 대기") {
     AuthInteractivePreview()
 }
 #endif
