@@ -727,18 +727,32 @@ struct PresentPhraseTests {
         #expect(call.ledger["dehydration_nutrition"]?.presence == .present)
     }
 
-    @Test func 약을_못_먹었다는_말은_식사_증상이_아니다() async {
+    @Test(arguments: ["약을 못 먹었어요", "약을 잘 못 먹어요", "식사 후에 약을 못 먹었어요", "약을 밥이랑 같이 못 먹었어요", "밥 먹고 못 걸었어요"])
+    func 약을_못_먹었다는_말은_식사_증상이_아니다(answer: String) async {
         let call = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer())
         _ = call.start()
-        _ = await call.handle(patientText: "약을 못 먹었어요")
+        _ = await call.handle(patientText: answer)
         #expect(call.ledger["dehydration_nutrition"]?.presence != .present)
     }
 
+    @Test(arguments: ["입맛이 떨어졌어요", "식욕이 떨어졌어요", "먹기가 싫어요", "먹고 싶지 않아요", "반도 못 먹었어요",
+                      "조금밖에 못 먹어요", "물도 못 마셔요", "물을 잘 안 마셔요", "약을 먹고 나서 입맛이 없어요", "약간 입맛이 없어요"])
+    func 첫_답의_식사_증상_말은_모델이_없음이라_해도_식사_있음(answer: String) async {
+        let mock = MockAnalyzer()
+        mock.script[answer] = .mentions(Mention(effectId: "dehydration_nutrition", presence: .absent))
+        let call = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = call.start()
+        _ = await call.handle(patientText: answer)
+        #expect(call.ledger["dehydration_nutrition"]?.presence == .present)
+    }
+
     @Test(arguments: [("입맛이 없어요", MentionPresence.present), ("밥이 잘 안 넘어가요", .present), ("요즘 밥을 잘 못 먹어요", .present),
-                      ("입맛 없는 건 아니에요", .absent), ("아니요 잘 먹어요", .absent)])
+                      ("입맛 없는 건 아니에요", .absent), ("밥을 못 먹은 건 아니에요", .absent), ("아니요 잘 먹어요", .absent)])
     func 식사_질문의_답(answer: String, expected: MentionPresence) async {
         let mock = MockAnalyzer()
-        mock.script["입맛 없는 건 아니에요"] = .mentions(Mention(effectId: "dehydration_nutrition", presence: .absent))
+        for negative in ["입맛 없는 건 아니에요", "밥을 못 먹은 건 아니에요"] {
+            mock.script[negative] = .mentions(Mention(effectId: "dehydration_nutrition", presence: .absent))
+        }
         let call = InterviewEngine(config: config, rules: rules, analyzer: mock)
         _ = call.start()
         _ = await call.handle(patientText: "괜찮아요")

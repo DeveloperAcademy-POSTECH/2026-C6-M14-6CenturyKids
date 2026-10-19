@@ -27,7 +27,7 @@ struct FollowUpCallTests {
         #expect(call.lastQuestion == config.followUpCall.question)
     }
 
-    @Test(arguments: ["똑같아요", "그대로예요", "아니요 없어요", "괜찮아요", "비슷해요"])
+    @Test(arguments: ["똑같아요", "그대로예요", "아니요 없어요", "괜찮아요", "비슷해요", "아까랑 같아요", "전이랑 같아요", "여전해요"])
     func 달라진_게_없으면_그대로_둔다고_하고_바로_마친다(answer: String) async {
         let call = engine()
         _ = call.start()
@@ -213,6 +213,16 @@ struct FollowUpCallTests {
         let out = await call.handle(patientText: answer)
         #expect(out.phase == .other)
         let key = answer.contains("구토") ? "nausea_vomiting" : "diarrhea"
+        #expect(call.ledger[key]?.presence == .absent)
+    }
+
+    @Test(arguments: [("메스꺼움이 멈췄어요", "nausea_vomiting"), ("메스꺼움이 가라앉았어요", "nausea_vomiting"),
+                      ("울렁거림이 그쳤어요", "nausea_vomiting"), ("가려움이 나아졌어요", "rash_pruritus")])
+    func 증상_이름이_키워드에_끝말이_붙은_말이어도_그쳤다는_말로_본다(answer: String, key: String) async {
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: answer)
+        #expect(out.phase == .other)
         #expect(call.ledger[key]?.presence == .absent)
     }
 
