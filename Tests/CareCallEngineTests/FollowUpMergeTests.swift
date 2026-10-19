@@ -73,6 +73,27 @@ struct FollowUpMergeTests {
         #expect(merged.symptoms[0].detail == "세 번 / 다시 통화: 지금은 없다고 함")
     }
 
+    @Test func 없어졌다고_한_환자_말이_있으면_그_말을_그대로_덧붙인다() {
+        let present = entry(.nauseaVomiting, .present, "구토 횟수: 두 번이요", count: 2)
+        let merged = CareCallViewModel.merge(record([present]), with: record([entry(.nauseaVomiting, .absent, "구토가 나아졌어요")]))
+        #expect(merged.symptoms[0].presence == .present && merged.symptoms[0].occurrenceCount == 2)
+        #expect(merged.symptoms[0].detail == "구토 횟수: 두 번이요 / 다시 통화: 구토가 나아졌어요")
+    }
+
+    @Test func 검토가_필요한_없어졌다는_말도_부위별_항목마다_덧붙인다() {
+        let hand = entry(.numbness, .present, "손이요", part: .armHand), foot = entry(.numbness, .present, "발이요", part: .legFoot)
+        let merged = CareCallViewModel.merge(record([hand, foot]), with: record([entry(.numbness, .absent, "[검토 필요] 저림이 나았어요")]))
+        #expect(merged.symptoms.map(\.detail) == ["[검토 필요] 손이요 / 다시 통화: 저림이 나았어요", "[검토 필요] 발이요 / 다시 통화: 저림이 나았어요"])
+        let bare = CareCallViewModel.merge(record([hand]), with: record([entry(.numbness, .absent, "[검토 필요]")]))
+        #expect(bare.symptoms[0].detail == "[검토 필요] 손이요 / 다시 통화: 지금은 없다고 함") // 표시만 있으면 그 말 대신
+    }
+
+    @Test func 내용_없이_검토_필요_표시만_있던_항목은_더해도_표시가_남는다() {
+        let flagged = entry(.diarrhea, .present, "[검토 필요]")
+        let merged = CareCallViewModel.merge(record([flagged]), with: record([entry(.diarrhea, .present, count: 3)]))
+        #expect(merged.symptoms[0].detail == "[검토 필요]" && merged.symptoms[0].occurrenceCount == 3)
+    }
+
     @Test func 이번에_모름이거나_전에도_없던_증상은_그대로() {
         let present = entry(.diarrhea, .present, "세 번")
         let absent = entry(.constipation, .absent)

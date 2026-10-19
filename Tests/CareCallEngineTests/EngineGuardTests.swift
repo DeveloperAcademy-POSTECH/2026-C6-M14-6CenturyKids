@@ -107,8 +107,8 @@ struct EngineGuardTests {
     }
 
     /// 2026-10-08 기기: '그 밖에' 답 "뭐 있더라 잠을 잠 못 잡니다."를 모델이 비우고(따라 하기만) 기록 없이 마무리됨
-    @Test(arguments: [("뭐 있더라 잠을 잠 못 잡니다.", true), ("딱히 없는 것 같아요", false), ("아니 괜찮아", false),
-                      ("모르겠어요", false)])
+    /// "모르겠어요"는 기타 '모름' + 원문으로 남긴다 (VagueAnswerTests)
+    @Test(arguments: [("뭐 있더라 잠을 잠 못 잡니다.", true), ("딱히 없는 것 같아요", false), ("아니 괜찮아", false)])
     func 그_밖에_부정이_아닌_답은_원문으로_기록(answer: String, recorded: Bool) async throws {
         let config = try fixture(CareCallConfig.self, "side_effects")
         let engine = InterviewEngine(config: config,
@@ -399,15 +399,16 @@ struct OtherSymptomRetryTests {
 
     @Test func 그_밖에_분석이_실패해도_부정이_아니면_원문으로_기록하고_내용을_묻는다() async throws {
         let mock = MockAnalyzer()
-        mock.failOn = ["그게 좀 그래요", "딱히 없는 것 같아요"]
+        mock.failOn = ["잠을 잠 못 잡니다", "딱히 없는 것 같아요"]
         let engine = InterviewEngine(config: try fixture(CareCallConfig.self, "side_effects"),
                                      rules: try fixture(EmergencyRules.self, "emergency_rules"),
                                      analyzer: mock)
         _ = engine.start()
         for _ in 0..<20 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
-        // 음성 인식이 뭉갠 답처럼 증상 낱말이 없어도 부정이 아니면 원문 그대로 기록 (2026-10-08 기기)
-        let out = await engine.handle(patientText: "그게 좀 그래요")
-        #expect(engine.ledger["other:그게 좀 그래요"]?.presence == .present)
+        // 음성 인식이 뭉갠 답처럼 증상 낱말이 없어도 부정이 아니면 원문 그대로 기록 (2026-10-08 기기).
+        // "그게 좀 그래요" 같은 애매한 답은 기록하지 않는다 (VagueAnswerTests)
+        let out = await engine.handle(patientText: "잠을 잠 못 잡니다")
+        #expect(engine.ledger["other:잠을 잠 못 잡니다"]?.presence == .present)
         #expect(out.utterance == engine.config.otherDetail.question)
     }
 
@@ -686,5 +687,63 @@ struct FeverRuleTests {
         #expect(engine.phase != .emergencyEnded)
         _ = await engine.handle(patientText: "재 보니까 38.2도예요")
         #expect(engine.phase == .emergencyEnded)
+    }
+}
+
+
+/// 2026-10-19 실기기: '그 밖에'에 "잘 모르겠는데 머리가 아파요" → 모델이 되묻고, 다음 답 "없어요"로 두통이 사라짐
+@MainActor
+struct OtherClarificationTests {
+    @Test func 그_밖에_증상_표현이_있으면_모델이_되물어도_원문을_남기고_내용을_묻는다() async throws {
+        let config = try fixture(CareCallConfig.self, "side_effects")
+        let mock = MockAnalyzer()
+        mock.script["잘 모르겠는데 머리가 아파요"] = TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
+                                                         emergencySignal: false, utterance: "어디가 아프신지 조금 더 말씀해 주시겠어요?")
+        let engine = InterviewEngine(config: config, rules: try fixture(EmergencyRules.self, "emergency_rules"), analyzer: mock)
+        _ = engine.start()
+        for _ in 0..<10 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
+        let out = await engine.handle(patientText: "잘 모르겠는데 머리가 아파요")
+        let others = engine.ledger.order.compactMap { engine.ledger[$0] }.filter { $0.effectId == "other" }
+        #expect(others.count == 1 && others[0].presence == .present && others[0].needsReview)
+        #expect(out.utterance == config.otherDetail.question)
+        _ = await engine.handle(patientText: "없어요")
+        #expect(engine.ledger.order.compactMap { engine.ledger[$0] }.contains { $0.effectId == "other" && $0.presence == .present })
+    }
+}
+
+/// 2026-10-19 실기기: 첫 답 "요즘 입맛이 좀 없어요" → 모델이 식사를 '없음'으로 기록하고 식사 질문을 건너뜀
+@MainActor
+struct PresentPhraseTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    @Test(arguments: ["요즘 입맛이 좀 없어요", "입맛이 없어졌어요"])
+    func 첫_답의_입맛이_없어요는_모델이_없음이라_해도_식사_있음(answer: String) async {
+        let mock = MockAnalyzer()
+        mock.script[answer] = .mentions(Mention(effectId: "dehydration_nutrition", presence: .absent))
+        let call = InterviewEngine(config: config, rules: rules, analyzer: mock, followUp: answer.contains("졌") ? [] : nil)
+        _ = call.start()
+        _ = await call.handle(patientText: answer)
+        #expect(call.ledger["dehydration_nutrition"]?.presence == .present)
+    }
+
+    @Test func 약을_못_먹었다는_말은_식사_증상이_아니다() async {
+        let call = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer())
+        _ = call.start()
+        _ = await call.handle(patientText: "약을 못 먹었어요")
+        #expect(call.ledger["dehydration_nutrition"]?.presence != .present)
+    }
+
+    @Test(arguments: [("입맛이 없어요", MentionPresence.present), ("밥이 잘 안 넘어가요", .present), ("요즘 밥을 잘 못 먹어요", .present),
+                      ("입맛 없는 건 아니에요", .absent), ("아니요 잘 먹어요", .absent)])
+    func 식사_질문의_답(answer: String, expected: MentionPresence) async {
+        let mock = MockAnalyzer()
+        mock.script["입맛 없는 건 아니에요"] = .mentions(Mention(effectId: "dehydration_nutrition", presence: .absent))
+        let call = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = call.start()
+        _ = await call.handle(patientText: "괜찮아요")
+        while call.phase != .slot(key: "dehydration_nutrition", step: .presence) { _ = await call.handle(patientText: "아니요") }
+        _ = await call.handle(patientText: answer)
+        #expect(call.ledger["dehydration_nutrition"]?.presence == expected) // "입맛이 없어요"는 '없어요'로 끝나도 바로 '없음'이 아니다
     }
 }

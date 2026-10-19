@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PainCompletionView: View {
     let record: PainCompletionData
+    var isSaving = false
     var onRecordAgain: (() -> Void)?
     var onShowRecord: (() -> Void)?
     var onHome: (() -> Void)?
@@ -24,7 +25,7 @@ struct PainCompletionView: View {
 
     private var summary: some View {
         VStack(spacing: 0) {
-            Text("통증 변화가 기록됐어요")
+            Text("통증 변화를 확인해 주세요")
                 .modifier(PainTextStyle(size: 24, weight: .bold))
                 .multilineTextAlignment(.center).padding(.top, 24)
             Text("약 복용 전후의 통증 정도를 비교해 정리했어요.")
@@ -99,7 +100,7 @@ struct PainCompletionView: View {
                 action("기록 보기", onShowRecord)
             }
             Button("홈으로") { onHome?() }
-                .buttonStyle(AppButtonStyle(kind: .secondary)).disabled(onHome == nil)
+                .buttonStyle(AppButtonStyle(kind: .secondary)).disabled(onHome == nil || isSaving)
         }
     }
 
@@ -109,6 +110,6 @@ struct PainCompletionView: View {
                 Text(title)
                 Image("CareConversationNext").frame(width: 12, height: 12).accessibilityHidden(true)
             }
-        }.buttonStyle(AppButtonStyle()).disabled(action == nil)
+        }.buttonStyle(AppButtonStyle()).disabled(action == nil || isSaving)
     }
 }
