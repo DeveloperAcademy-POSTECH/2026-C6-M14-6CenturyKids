@@ -10,16 +10,13 @@ import Supabase
 
 final class SupabaseAuthRepository: AuthRepository {
     private let client: SupabaseClient
-    // AuthRepository 계약은 유지하면서 최초 가입 메일에도 DI에서 정한 복귀 주소를 적용합니다.
-    private let signupRedirectURL: URL?
     
-    init(client: SupabaseClient, signupRedirectURL: URL? = nil) {
+    init(client: SupabaseClient) {
         self.client = client
-        self.signupRedirectURL = signupRedirectURL
     }
     
     func signUp(email: String, password: String) async throws -> UUID {
-        let response = try await client.auth.signUp(email: email, password: password, redirectTo: signupRedirectURL)
+        let response = try await client.auth.signUp(email: email, password: password)
         
         return response.user.id
     }

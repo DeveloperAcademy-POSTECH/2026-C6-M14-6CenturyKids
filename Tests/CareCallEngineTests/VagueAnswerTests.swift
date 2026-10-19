@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// 유무 질문에 있다고도 없다고도 하지 않은 답("그냥 좀 그래요")은 다시 묻지 않고 '모름' + 검토 필요로, 환자 말은 그대로 남긴다. 가상 발화만
 @MainActor
