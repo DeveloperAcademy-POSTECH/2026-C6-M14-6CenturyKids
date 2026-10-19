@@ -30,6 +30,7 @@ struct DoctorDisplayData {
     var didSave = false
     var validationMessage: String?
     var errorMessage: String?
+    @ObservationIgnored var onLoad: (() -> Void)?
     @ObservationIgnored var onSave: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }
@@ -39,6 +40,7 @@ struct DoctorDisplayData {
     var canSave = false
     var didSave = false
     var errorMessage: String?
+    @ObservationIgnored var onLoad: (() -> Void)?
     @ObservationIgnored var onSave: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }

@@ -36,6 +36,10 @@ final class SettingsViewModel {
         self.doctorRepository = doctorRepository
         self.hospitalRepository = hospitalRepository
 
+        personalInfoState.onLoad = { [weak self] in
+            Task { await self?.loadPersonalInfo() }
+        }
+
         screenState.onReload = { [weak self] in
             Task { [weak self] in
                 await self?.loadProfile()
@@ -52,6 +56,10 @@ final class SettingsViewModel {
             self?.discardPersonalInfoChanges()
         }
 
+        carcinomaState.onLoad = { [weak self] in
+            Task { await self?.loadDiagnosis(.carcinoma) }
+        }
+
         carcinomaState.onSave = { [weak self] in
             Task { [weak self] in
                 await self?.saveDiagnosis(.carcinoma)
@@ -60,6 +68,10 @@ final class SettingsViewModel {
 
         carcinomaState.onCancel = { [weak self] in
             self?.discardDiagnosisChanges(.carcinoma)
+        }
+
+        stageState.onLoad = { [weak self] in
+            Task { await self?.loadDiagnosis(.stage) }
         }
 
         stageState.onSave = { [weak self] in
