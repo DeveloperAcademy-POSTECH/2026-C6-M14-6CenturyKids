@@ -28,7 +28,7 @@ final class DependencyContainer {
         let auth = SupabaseAuthRepository(client: supabaseProvider.client)
         return AuthFlowViewModel(
             repositories: .init(auth: auth, users: users ?? SupabaseUserRepository(client: supabaseProvider.client), patients: patients,
-                                doctors: doctors, hospitals: hospitals, consents: consents, callbacks: callbacks),
+                                doctors: doctors, hospitals: hospitals),
             configuration: configuration,
             loginPreference: AuthLoginPreference(defaults: .standard)
         )
