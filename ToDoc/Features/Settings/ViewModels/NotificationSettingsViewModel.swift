@@ -11,6 +11,9 @@ import Observation
 @MainActor
 @Observable
 final class NotificationSettingsViewModel {
+    @ObservationIgnored private let defaults: UserDefaults
+    private static let timeKey = "notification.liveActivityTimeMinutes"
+
     private(set) var savedTime = DateComponents(hour: 20, minute: 0)
     private(set) var selectedTime = DateComponents(hour: 20, minute: 0)
     private(set) var hasLoaded = false
@@ -21,4 +24,8 @@ final class NotificationSettingsViewModel {
 
     var hasChanges: Bool { selectedTime != savedTime }
     var canSave: Bool { hasLoaded && hasChanges && !isLoading && !isSaving }
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
 }
