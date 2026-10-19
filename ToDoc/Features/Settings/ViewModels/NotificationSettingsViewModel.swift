@@ -67,4 +67,36 @@ final class NotificationSettingsViewModel {
         hasStoredTime = true
         hasLoaded = true
     }
+
+    func selectTime(_ time: DateComponents) {
+        guard hasLoaded, !isLoading, !isSaving else { return }
+
+        guard let hour = time.hour, (0..<24).contains(hour),
+              let minute = time.minute, (0..<60).contains(minute) else {
+            errorMessage = "알림 시간을 다시 선택해 주세요."
+            return
+        }
+
+        selectedTime = DateComponents(hour: hour, minute: minute)
+        didSave = false
+        errorMessage = nil
+    }
+
+    func saveTime() {
+        guard canSave,
+              let hour = selectedTime.hour,
+              let minute = selectedTime.minute else { return }
+
+        isSaving = true
+        didSave = false
+        errorMessage = nil
+        defer { isSaving = false }
+
+        let minutesSinceMidnight = hour * 60 + minute
+        defaults.set(minutesSinceMidnight, forKey: Self.timeKey)
+
+        savedTime = selectedTime
+        hasStoredTime = true
+        didSave = true
+    }
 }
