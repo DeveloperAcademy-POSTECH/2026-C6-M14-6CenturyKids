@@ -21,8 +21,17 @@ RESOLVED = os.path.join(ROOT, "ToDoc.xcodeproj/project.xcworkspace/xcshareddata/
 OUTPUT = os.path.join(ROOT, "ToDoc/Resources/Licenses/ThirdPartyNotices-Packages.txt")
 LICENSE_FILE = re.compile(r"^(LICEN[CS]E|NOTICE|COPYING)", re.IGNORECASE)
 
+# 고지하지 않는 패키지와 이유. 새 패키지는 기본으로 고지에 들어간다
+EXCLUDED = {
+    "swift-asn1": "iOS 앱에는 빌드되지 않는다 (swift-crypto가 Apple 플랫폼에서는 CryptoKit을 쓴다)",
+    "swift-collections": "Apache 2.0 Runtime Library Exception: 바이너리에 들어간 부분은 고지 의무가 없다",
+}
+
 # 패키지 맨 위 LICENSE 말고, 패키지 안에 함께 빌드되는 코드의 고지 (패키지 identity → [(이름, 경로)])
 BUNDLED_INSIDE = {
+    "supabase-swift": [
+        ("SwiftPhoenixClient (supabase-swift Realtime)", "Sources/Realtime/Deprecated/Delegated.swift"),  # 라이선스는 파일 맨 위 주석
+    ],
     "xgrammar": [
         ("dlpack (xgrammar 3rdparty/dlpack)", "3rdparty/dlpack/LICENSE"),
         ("picojson (xgrammar 3rdparty/picojson)", "3rdparty/picojson/picojson.h"),  # 라이선스는 헤더 맨 위 주석
@@ -36,6 +45,13 @@ def read_notice(path):
     if path.endswith(".h"):  # 맨 위 /* ... */ 주석만
         comment = text[: text.index("*/")].removeprefix("/*")
         text = "\n".join(re.sub(r"^ ?\* ?", "", line) for line in comment.splitlines())
+    elif path.endswith(".swift"):  # 맨 위 // 주석만
+        lines = []
+        for line in text.splitlines():
+            if not line.startswith("//"):
+                break
+            lines.append(line.removeprefix("//").removeprefix(" "))
+        text = "\n".join(lines)
     return text.strip()
 
 
@@ -68,6 +84,8 @@ def render(pins, dirs):
     components = []
     for pin in sorted(pins, key=lambda p: p["identity"]):
         identity, state = pin["identity"], pin["state"]
+        if identity in EXCLUDED:
+            continue
         version = state.get("version") or state["revision"][:7]
         components.append(f"- {identity} {version} — {pin['location'].removesuffix('.git')}")
         folder = dirs[identity]
@@ -88,8 +106,12 @@ def render(pins, dirs):
         "----------",
         *components,
     ]
+    # 같은 원문(예: 저작권 줄까지 같은 Apache 2.0)은 한 번만 싣고 제목에 함께 쓰는 패키지를 모두 적는다
+    merged = {}
     for title, text in sections:
-        lines += ["", "", "=" * 72, title, "=" * 72, "", text]
+        merged.setdefault(" ".join(text.split()), ([], text))[0].append(title)
+    for titles, text in merged.values():
+        lines += ["", "", "=" * 72, *titles, "=" * 72, "", text]
     return "\n".join(lines) + "\n"
 
 
@@ -111,7 +133,8 @@ def main():
         return
     with open(OUTPUT, "w", encoding="utf-8") as f:
         f.write(text)
-    print(f"{os.path.relpath(OUTPUT, ROOT)}: 패키지 {len(pins)}개")
+    included = [p for p in pins if p["identity"] not in EXCLUDED]
+    print(f"{os.path.relpath(OUTPUT, ROOT)}: 패키지 {len(included)}개 (제외: {', '.join(EXCLUDED)})")
 
 
 if __name__ == "__main__":
