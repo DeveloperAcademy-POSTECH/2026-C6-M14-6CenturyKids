@@ -71,6 +71,21 @@ final class SettingsViewModel {
         stageState.onCancel = { [weak self] in
             self?.discardDiagnosisChanges(.stage)
         }
+
+        hospitalConnectionState.onAction = { [weak self] action in
+            switch action {
+            case .load:
+                Task { [weak self] in await self?.loadHospitalConnection() }
+            case .verify:
+                Task { [weak self] in await self?.verifyDoctorCode() }
+            case .connect:
+                Task { [weak self] in await self?.connectDoctor() }
+            case .disconnect:
+                Task { [weak self] in await self?.disconnectDoctor() }
+            case .cancel:
+                self?.discardHospitalConnectionChanges()
+            }
+        }
     }
 
     func loadProfile() async {
@@ -348,6 +363,18 @@ final class SettingsViewModel {
         } catch {
             state.errorMessage = "병원 연결을 해제하지 못했어요. 다시 시도해 주세요."
         }
+    }
+
+    func discardHospitalConnectionChanges() {
+        let state = hospitalConnectionState
+        guard !state.isBusy else { return }
+
+        state.code = ""
+        state.candidate = nil
+        state.candidateDoctorId = nil
+        state.canConnect = false
+        state.errorMessage = nil
+        state.successMessage = nil
     }
 
     func savePersonalInfo() async {
