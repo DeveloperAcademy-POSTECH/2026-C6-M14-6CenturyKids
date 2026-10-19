@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// 숫자가 섞인 답은 짧은 답 규칙('없음'·'모름'·'달라진 게 없음')으로 처리하지 않고 모델이 본다.
 /// 강도 점수를 묻던 때의 숫자 확인(0~10, "N점")은 "한 번", "두 시간"을 못 봐서 숫자가 사라졌다. 가상 발화만

@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// P3 실기기에서 본 모델 출력 문제를 엔진이 막는지
 @MainActor

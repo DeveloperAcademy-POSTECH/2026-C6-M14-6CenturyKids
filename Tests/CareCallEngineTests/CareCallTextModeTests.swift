@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// 문자 대화: 질문 하나에 입력 칸 하나. 음성 통화와 같은 서비스 대화를 이어 간다. 가상 발화만
 @MainActor

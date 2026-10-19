@@ -1,5 +1,5 @@
 import XCTest
-@testable import ToDocFeatures
+@testable import ToDocAuth
 
 @MainActor final class LoginOnboardingTests: XCTestCase {
     func testValidCredentialsNeedBothProfilesBeforeEnteringApp() async throws {
