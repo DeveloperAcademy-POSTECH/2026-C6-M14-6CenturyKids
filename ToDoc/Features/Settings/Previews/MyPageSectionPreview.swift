@@ -135,7 +135,6 @@ private struct MyPageHospitalInfoPreviewView: View {
     private var savedBirthday: Date
     private var savedSex: Sex = .female
     private var savedCancer: CarcinomaType = .lung
-    private var savedOtherCancerName: String?
     private var savedStage: CarcinomaStage = .stage3
     private var savedNotificationValues = ["carecall": true, "pain": true]
 
@@ -169,11 +168,9 @@ private struct MyPageHospitalInfoPreviewView: View {
             self.personal.didSave = true
         }
         cancer.onSave = { [weak self] in
-            guard let self, self.cancer.hasValidSelection, case .carcinoma(let value, let otherName) = self.cancer.selection else { return }
-            let disease = CarcinomaDetail(carcinoma: value, stage: self.savedStage, otherName: otherName)
+            guard let self, case .carcinoma(let value) = self.cancer.selection else { return }
             self.savedCancer = value
-            self.savedOtherCancerName = disease.otherName
-            self.settings.profile?.cancerName = disease.carcinomaDisplayName
+            self.settings.profile?.cancerName = value.displayName
             self.cancer.didSave = true
         }
         stage.onSave = { [weak self] in
@@ -227,7 +224,7 @@ private struct MyPageHospitalInfoPreviewView: View {
             personal.didSave = false
             personal.validationMessage = nil
         case .cancer:
-            cancer.selection = .carcinoma(savedCancer, otherName: savedOtherCancerName)
+            cancer.selection = .carcinoma(savedCancer)
             cancer.didSave = false
         case .stage:
             stage.selection = .stage(savedStage)

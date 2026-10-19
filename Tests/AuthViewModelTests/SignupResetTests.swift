@@ -89,9 +89,9 @@ final class TestCallbacks: AuthCallbackRepository {
         await vm.submit()
         XCTAssertEqual(f.auth.signUpCount, 1); XCTAssertEqual(vm.state.step, .completion)
     }
-    func testMissingStageNeverInventsDatabaseValue() async {
+    func testUnsupportedDiagnosisNeverInventsDatabaseValue() async {
         let f = AuthFixture(); let vm = SignupViewModel(repositories: f.repositories, session: f.session, configuration: configuration)
-        ready(vm); vm.state.stage = nil; await vm.submit()
+        ready(vm); vm.state.stage = .unknown; await vm.submit()
         XCTAssertEqual(f.auth.signUpCount, 0); XCTAssertNotNil(vm.state.errorMessage)
     }
     func testDoctorRoleCannotProceedIntoPatientSignup() {

@@ -10,13 +10,14 @@ struct SignupCancerTypeView: View {
                 ForEach(state.filteredCancerTypes, id: \.self) { type in
                     AuthChoice(title: type.title, isSelected: !state.usesOtherCancer && state.cancerType == type) {
                         state.cancerType = type
+                        state.usesOtherCancer = false
                     }
                 }
             }
             if state.filteredCancerTypes.isEmpty {
                 Text("검색 결과가 없어요. 기타 직접 입력을 선택해 주세요.").appTextStyle(.caption)
             }
-            AuthChoice(title: "기타 직접 입력", isSelected: state.usesOtherCancer) { state.cancerType = .other }
+            AuthChoice(title: "기타 직접 입력", isSelected: state.usesOtherCancer) { state.usesOtherCancer = true }
             if state.usesOtherCancer {
                 AuthTextField(title: "암 이름", placeholder: "진단받은 암 이름을 입력해 주세요", text: $state.otherCancer)
             }

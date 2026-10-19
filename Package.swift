@@ -10,10 +10,6 @@ let package = Package(
     targets: [
         .target(name: "ToDocCoreErrors", path: "ToDoc/Core/Errors"),
         .target(name: "ToDocDomain", dependencies: ["ToDocCoreErrors"], path: "ToDoc/Domain"),
-        .target(name: "ToDocPatientMapping", dependencies: ["ToDocDomain"], path: "ToDoc/Data/DTOs",
-                exclude: ["DeviceToken", "Exercise", "Hospital", "Intake", "Notification", "Pain", "Symptom", "Helpers", "User/DoctorDTO.swift", "User/UserDTO.swift"],
-                sources: ["User/PatientDTO.swift", "Errors/MappingError.swift"]),
-        .testTarget(name: "PatientMappingTests", dependencies: ["ToDocPatientMapping", "ToDocDomain"], path: "Tests/PatientMappingTests"),
         .testTarget(name: "AuthViewModelTests", dependencies: ["ToDocFeatures", "ToDocDomain"], path: "Tests/AuthViewModelTests"),
         .testTarget(name: "AuthScreenTests", dependencies: ["ToDocFeatures"], path: "Tests/AuthScreenTests"),
         // 증상 화면 상태는 케어콜 ViewModel과 같은 대상(ToDocFeatures)에 있다 (소스가 두 대상에 겹치면 빌드 오류)

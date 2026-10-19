@@ -41,7 +41,7 @@ import Foundation
         state.birthday = Calendar.current.date(from: DateComponents(year: 1990, month: 1, day: 15))
         state.sex = .female
         state.cancerType = .lung
-        state.otherCancer = ""
+        state.usesOtherCancer = false
         state.stage = .known(.stage1)
         // 코드의 확인 여부는 실제 SignupVM이 관리하므로 입력값만 제공합니다.
         if state.connection == nil { state.doctorCode = "PRE123" }

@@ -2,5 +2,5 @@ import Foundation
 import Observation
 
 nonisolated enum DiagnosisChange: Equatable, Sendable {
-    case carcinoma(CarcinomaType, otherName: String? = nil), stage(CarcinomaStage)
+    case carcinoma(CarcinomaType), stage(CarcinomaStage)
 }
