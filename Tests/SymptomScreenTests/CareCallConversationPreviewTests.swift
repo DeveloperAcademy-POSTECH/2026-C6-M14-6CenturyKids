@@ -1,5 +1,5 @@
 import XCTest
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 final class CareCallConversationPreviewTests: XCTestCase {
     func testChatEntryStartsAtSymptomSelection() {
