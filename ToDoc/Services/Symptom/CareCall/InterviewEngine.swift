@@ -172,7 +172,7 @@ final class InterviewEngine {
             let unclear = isUnclearChange(patientText), settled = unclear || isUnchanged(patientText)
             // 숫자가 섞여 모델이 봤는데 찾은 게 없는 "글쎄요 두 번?": 끝내지 않고 되묻되, 이 말은 '달라진 점' 모름 + 원문으로 남긴다
             if !unclear, !toldNewSymptom, ledger.sameRecords(as: before), openingConcerns.matches(patientText) == nil,
-               (config.followUpCall.unclearAnswers + config.unknownAnswers).contains(where: { Self.normalized(patientText).contains(Self.normalized($0)) }) {
+               (config.vagueAnswers + config.unknownAnswers).contains(where: { Self.normalized(patientText).contains(Self.normalized($0)) }) {
                 recordUnclearChange(patientText)
             }
             if !toldNewSymptom, !settled, !toldAbsent, openingFirstAnswer == nil {
@@ -677,7 +677,7 @@ final class InterviewEngine {
         if isUnknownAnswer(patientText) { return true }
         let compact = Self.normalized(patientText)
         // 숫자가 섞이면 모델이 본다 ("글쎄요 두 번?"). 모델이 찾은 게 없으면 원문은 handle에서 남긴다
-        guard config.followUpCall.unclearAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
+        guard config.vagueAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
               !NumberParser.hasNumber(patientText),
               !["는데", "지만", "근데", "그런데"].contains(where: patientText.contains) else { return false }
         return !config.effects.flatMap(\.keywords).contains(where: patientText.contains) && symptomHints.matches(patientText) == nil

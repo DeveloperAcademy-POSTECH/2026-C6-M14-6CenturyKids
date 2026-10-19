@@ -226,6 +226,15 @@ struct FollowUpCallTests {
         #expect(call.ledger[key]?.presence == .absent)
     }
 
+    @Test(arguments: ["그럭저럭이요", "그런 것 같기도 하고요", "긴가민가해요", "헷갈려요"])
+    func 애매한_답_목록의_말이면_달라진_점을_모름으로_남기고_마친다(answer: String) async {
+        let call = engine()
+        _ = call.start()
+        let out = await call.handle(patientText: answer)
+        #expect(out.phase == .saved)
+        #expect(call.ledger[Ledger.key(effectId: "other", otherName: config.followUpCall.unclearName)]?.presence == .unclear)
+    }
+
     @Test(arguments: ["구토는 멈췄는데 대신 머리가 좀", "구토는 안 멈췄어요", "구토가 아직 안 나았어요", "구토는 멈추지 않았어요",
                       "구토가 계속 멈췄다가 또 해요", "설사는 멈췄고 구토는 해요", "구토는 멈춘 것 같아요", "구토는 멈췄고 머리가 아파요",
                       "구토는 다시 멈췄다가 재발했어요", "구토는 좀 나았어요", "구토는 좀 나아졌어요", "토는 멈췄어요"])

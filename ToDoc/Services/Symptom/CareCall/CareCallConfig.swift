@@ -86,7 +86,8 @@ struct CareCallConfig: Decodable, Sendable {
     /// 유무·부위 질문에 이 말이 든 답("잘 모르겠어요", "기억이 안 나요")은 다시 묻지 않고 '모름'으로 기록 (초안)
     let unknownAnswers: [String]
     /// 유무 질문에 있다고도 없다고도 하지 않은 답("그냥 좀 그래요", "글쎄요")의 낱말. 다시 묻지 않고 '모름' + 검토 필요로,
-    /// 환자 말은 그대로 남긴다 (모델은 이런 답을 대부분 '있음'으로 기록했다, 2026-10-14 평가. 초안)
+    /// 환자 말은 그대로 남긴다 (모델은 이런 답을 대부분 '있음'으로 기록했다, 2026-10-14 평가. 초안).
+    /// 다시 거는 통화의 첫 질문에 이런 답이면 '달라진 점'을 '모름'으로 남긴다
     let vagueAnswers: [String]
     /// '그 밖에' 질문에 "모르겠어요"·"그냥 그래요"라고 하면 이 이름의 기타 항목에 '모름'으로 원문을 남긴다
     let otherUnclearName: String
@@ -118,12 +119,10 @@ struct CareCallConfig: Decodable, Sendable {
     }
 
     struct FollowUpCall: Decodable, Sendable {
-        /// 첫 질문 ("다시 전화하셨네요? 이전과 달라졌거나 새로 불편한 점이 있으신가요?")
+        /// 첫 질문 ("다시 연결됐어요. 아까 통화 뒤로 달라졌거나 새로 불편해진 점이 있으세요?")
         let question: String
         /// 달라진 게 없다는 답의 낱말 ("똑같아요", "그대로예요"). "없어요·괜찮아요"는 없음 표현으로 본다
         let unchangedAnswers: [String]
-        /// "모르겠어요"(unknownAnswers) 말고도 애매하다는 답의 낱말 ("글쎄요"). 유무 질문의 애매한 답은 vagueAnswers
-        let unclearAnswers: [String]
         /// 첫 답에서 증상을 말함 → 그 증상을 묻기 전에
         let noted: String
         /// 지난 통화가 끊겨 못 물은 증상을 이어서 물을 때
