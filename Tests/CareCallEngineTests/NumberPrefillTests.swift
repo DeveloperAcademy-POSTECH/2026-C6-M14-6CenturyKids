@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// 증상 유무 질문에 횟수·지속 시간까지 답하면 그 꼬리질문을 다시 묻지 않는다 (2026-10-17 실기기: "네 한 번 토했어요" 뒤
 /// "구토는 하루에 몇 번…"을 또 물음). 숫자가 다른 일일 수 있으면 지금처럼 묻는다. 가상 발화만
