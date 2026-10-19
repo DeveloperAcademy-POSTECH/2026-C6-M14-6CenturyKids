@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// 폰에 남긴 케어콜 기록 가짜 (메모리). failSave면 남기기가 실패한다
 final class FakePendingCareCalls: PendingCareCallRepository {
