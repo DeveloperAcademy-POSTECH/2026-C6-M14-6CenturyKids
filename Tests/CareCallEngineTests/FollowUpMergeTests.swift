@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// 다시 거는 통화의 기록을 그날 기록에 더하는 규칙 (덮어쓰지 않는다). 가상 기록만
 @MainActor

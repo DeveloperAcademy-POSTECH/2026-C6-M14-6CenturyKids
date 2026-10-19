@@ -1,6 +1,6 @@
 import Foundation
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocAuth
 
 /// 테스트 전용 저장소입니다. 제품 DI에는 들어가지 않으며 실제 서버 계정을 만들지 않습니다.
 final class TestAuthRepository: AuthRepository {
@@ -75,20 +75,12 @@ final class TestPatients: PatientRepository {
     func findByName(_ name: String) async throws -> [Patient] { [] }
     func findByDoctorId(_ doctorId: UUID) async throws -> [Patient] { [] }
 }
-final class TestConsents: SignupConsentRepository {
-    var saved: [String] = []
-    var saves = 0
-    func saveConsent(userID: UUID, version: String, acceptedTermIDs: [String], acceptedAt: Date) async throws {
-        saves += 1; saved = acceptedTermIDs
-    }
-}
 @MainActor final class AuthFixture {
     let auth = TestAuthRepository()
     let users = TestUsers()
     let patients = TestPatients()
-    let consents = TestConsents()
     let session = AuthSessionState()
-    var repositories: AuthRepositories { .init(auth: auth, users: users, patients: patients, consents: consents) }
+    var repositories: AuthRepositories { .init(auth: auth, users: users, patients: patients) }
     func addProfile(id: UUID? = nil) throws {
         let user = try User(id: id ?? auth.id, name: "테스트", birthday: Date(timeIntervalSince1970: 946684800), sex: .female)
         users.value = user; patients.value = Patient(user: user, doctorId: nil, disease: nil)

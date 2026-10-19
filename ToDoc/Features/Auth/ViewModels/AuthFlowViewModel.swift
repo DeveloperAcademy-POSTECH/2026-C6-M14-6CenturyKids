@@ -88,8 +88,6 @@ enum AuthEntry { case login, signup, passwordReset }
         guard !isHandlingLink else { return }
         isHandlingLink = true
         defer { isHandlingLink = false }
-        // 앱 시작과 동시에 링크가 들어와도 세션 복원과 복구 교환이 충돌하지 않도록 순서를 보장합니다.
-        await restoreSessionOnce()
         if await reset.acceptRecoveryURL(url) {
             screen = .passwordReset; showsAuth = true
         } else {
