@@ -308,6 +308,48 @@ final class SettingsViewModel {
         }
     }
 
+    func disconnectDoctor() async {
+        let state = hospitalConnectionState
+        guard !state.isBusy, state.canDisconnect else { return }
+
+        state.isBusy = true
+        state.errorMessage = nil
+        state.successMessage = nil
+        defer { state.isBusy = false }
+
+        do {
+            guard let patient = try await patientRepository.findById(patientId) else {
+                state.errorMessage = "환자 정보를 찾지 못했어요."
+                return
+            }
+
+            guard patient.doctorId != nil else {
+                state.errorMessage = "연결된 의료진이 없어요."
+                return
+            }
+
+            let updatedPatient = Patient(
+                user: patient.user,
+                doctorId: nil,
+                disease: patient.disease
+            )
+            try await patientRepository.save(patient: updatedPatient)
+
+            state.doctor = nil
+            state.candidate = nil
+            state.candidateDoctorId = nil
+            state.canConnect = false
+            state.canDisconnect = false
+            state.code = ""
+            state.successMessage = "병원 연결이 해제됐어요."
+
+            screenState.profile?.doctorName = nil
+            screenState.profile?.hospitalName = nil
+        } catch {
+            state.errorMessage = "병원 연결을 해제하지 못했어요. 다시 시도해 주세요."
+        }
+    }
+
     func savePersonalInfo() async {
         guard personalInfoState.canSave,
               !personalInfoState.isSaving else { return }
