@@ -19,6 +19,9 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RESOLVED = os.path.join(ROOT, "ToDoc.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved")
 OUTPUT = os.path.join(ROOT, "ToDoc/Resources/Licenses/ThirdPartyNotices-Packages.txt")
+# ONNX Runtime 바이너리 안에 든 라이브러리 고지는 패키지 원본에 없어 Microsoft 파일을 받아 둔다. ONNX Runtime을 올리면 그 버전 태그의
+# ThirdPartyNotices.txt로 ONNXRuntime-ThirdPartyNotices.txt를 바꾸고 이 값을 맞춘다
+ONNX_RUNTIME_NOTICES_VERSION = "1.24.2"
 LICENSE_FILE = re.compile(r"^(LICEN[CS]E|NOTICE|COPYING)", re.IGNORECASE)
 
 # 고지하지 않는 패키지와 이유. 새 패키지는 기본으로 고지에 들어간다
@@ -123,6 +126,10 @@ def main():
 
     with open(RESOLVED, encoding="utf-8") as f:
         pins = json.load(f)["pins"]
+    onnx = next((p["state"].get("version") for p in pins if p["identity"] == "onnxruntime-swift-package-manager"), None)
+    if onnx and onnx != ONNX_RUNTIME_NOTICES_VERSION:
+        sys.exit(f"ONNX Runtime이 {onnx}로 바뀌었어요. ONNXRuntime-ThirdPartyNotices.txt를 v{onnx} 파일로 바꾸고 "
+                 "ONNX_RUNTIME_NOTICES_VERSION을 맞춰 주세요.")
     text = render(pins, find_checkouts(pins, args.checkouts))
 
     if args.check:
