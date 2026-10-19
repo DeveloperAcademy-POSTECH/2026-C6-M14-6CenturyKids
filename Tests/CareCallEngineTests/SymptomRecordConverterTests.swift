@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// 통화 기록(Ledger) → 저장할 증상 기록 (#84 저장 규칙). 가상 발화만
 struct SymptomRecordConverterTests {

@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// 같은 날 다시 거는 케어콜: "달라졌거나 새로 불편한 점"을 묻고, 말한 증상과 지난 통화에서 못 물은 항목만 묻는다. 가상 발화만
 @MainActor
