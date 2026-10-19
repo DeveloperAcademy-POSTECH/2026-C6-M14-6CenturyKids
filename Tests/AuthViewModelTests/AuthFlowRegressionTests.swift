@@ -1,67 +1,36 @@
 import XCTest
-@testable import ToDocFeatures
+@testable import ToDocAuth
 
 @MainActor final class AuthFlowRegressionTests: XCTestCase {
-    private let config = AuthConfiguration(redirectURL: URL(string: "todoc-test://auth/callback"))
-
-    func testRecoveryKeepsAuthenticationRouteWhileCallbackIsPending() async {
-        let f = AuthFixture(); let callback = TestCallbacks(auth: f.auth)
-        var repositories = f.repositories; repositories.callbacks = callback
-        let flow = AuthFlowViewModel(repositories: repositories, configuration: config)
-        flow.open(.passwordReset)
-        flow.reset.state.didSend = true
-        callback.beforeRecovery = {
-            // 화면을 교체하는 progress 경로로 바뀌면 onDisappear가 복구 요청을 취소합니다.
-            // 진행 표시는 현재 인증 화면 위에 겹쳐 표시해야 합니다.
-            await Task.yield()
-            XCTAssertTrue(flow.isHandlingLink)
-            XCTAssertEqual(flow.rootRoute, .authentication)
-            XCTAssertEqual(flow.screen, .passwordReset)
-        }
-        await flow.handleURL(config.redirectURL!)
-        XCTAssertTrue(flow.reset.state.isRecoveryReady)
-        XCTAssertNil(flow.linkMessage)
-    }
-
-    func testSameFlowCanLoginAgainAfterPasswordRecovery() async throws {
+    func testUnsupportedLinkCannotChangeRouteOrDestroyExistingLogin() async throws {
         let f = AuthFixture(); try f.addProfile()
-        var repositories = f.repositories; repositories.callbacks = TestCallbacks(auth: f.auth)
-        let flow = AuthFlowViewModel(repositories: repositories, configuration: config)
-        flow.login.state.email = "patient@example.com"; flow.login.state.password = "oldPass123"
+        let flow = AuthFlowViewModel(repositories: f.repositories)
+        flow.login.state.email = "patient@example.com"; flow.login.state.password = "password123"
         await flow.login.submit()
-        XCTAssertNotNil(flow.session.patient)
-        await flow.handleURL(config.redirectURL!)
-        flow.reset.state.newPassword = "newPass123"; flow.reset.state.passwordConfirmation = "newPass123"
-        await flow.reset.submit()
-        XCTAssertTrue(flow.reset.state.didUpdatePassword)
-        flow.open(.login)
-        XCTAssertFalse(flow.login.state.didSignIn)
-        flow.login.state.password = "newPass123"
-        await flow.login.submit()
-        XCTAssertEqual(f.auth.signInCount, 2)
-        XCTAssertNotNil(flow.session.patient)
+        XCTAssertEqual(flow.rootRoute, .patient)
+        await flow.handleURL(URL(string: "todoc-test://auth/callback?type=recovery&code=unverified")!)
+        XCTAssertEqual(flow.rootRoute, .patient)
+        XCTAssertTrue(f.auth.signedIn)
+        XCTAssertEqual(f.auth.signOutCount, 0)
+        XCTAssertFalse(flow.reset.state.isRecoveryReady)
+        XCTAssertNotNil(flow.linkMessage)
     }
-
-    func testPasswordChangedButSignOutFailedRetriesOnlySignOut() async {
-        let f = AuthFixture(); var repositories = f.repositories; repositories.callbacks = TestCallbacks(auth: f.auth)
-        let vm = PasswordResetViewModel(repositories: repositories, session: f.session, configuration: config)
-        _ = await vm.acceptRecoveryURL(config.redirectURL!)
-        vm.state.newPassword = "newPass123"; vm.state.passwordConfirmation = "newPass123"
-        f.auth.failSignOut = true
-        await vm.submit()
-        XCTAssertTrue(vm.state.needsSessionCleanup); XCTAssertFalse(vm.state.didUpdatePassword)
-        XCTAssertEqual(f.auth.updateCount, 1)
-        f.auth.failSignOut = false
-        await vm.submit()
-        XCTAssertTrue(vm.state.didUpdatePassword); XCTAssertEqual(f.auth.updateCount, 1)
+    func testUnrecognizedSignupLinkCannotCreateAccountOrEnterHome() async {
+        let f = AuthFixture(); let flow = AuthFlowViewModel(repositories: f.repositories)
+        await flow.handleURL(URL(string: "todoc-test://auth/signup?code=unverified")!)
+        XCTAssertEqual(flow.rootRoute, .authentication)
+        XCTAssertNil(flow.session.patient)
+        XCTAssertEqual(f.auth.signInCount, 0); XCTAssertEqual(f.auth.signUpCount, 0)
+        XCTAssertFalse(flow.reset.state.isRecoveryReady)
+        XCTAssertNotNil(flow.linkMessage)
     }
-
-    func testRecoveryCallbackFailureDoesNotAuthorizePasswordChange() async {
-        let f = AuthFixture(); let callback = TestCallbacks(auth: f.auth); callback.shouldFail = true
-        var repositories = f.repositories; repositories.callbacks = callback
-        let vm = PasswordResetViewModel(repositories: repositories, session: f.session, configuration: config)
-        let result = await vm.acceptRecoveryURL(config.redirectURL!)
-        XCTAssertFalse(result); XCTAssertFalse(vm.state.isRecoveryReady)
-        XCTAssertFalse(f.auth.signedIn); XCTAssertNotNil(vm.state.errorMessage)
+    func testConfiguredResetStillCannotSendEmailWithoutVerifiedRecoverySupport() async {
+        let f = AuthFixture()
+        let vm = PasswordResetViewModel(repositories: f.repositories, session: f.session,
+            configuration: .init(redirectURL: URL(string: "todoc-test://auth/recovery")))
+        vm.state.email = "patient@example.com"
+        await vm.submit()
+        XCTAssertEqual(f.auth.resetCount, 0); XCTAssertFalse(vm.state.didSend)
+        XCTAssertFalse(vm.state.didUpdatePassword); XCTAssertNotNil(vm.state.errorMessage)
     }
 }

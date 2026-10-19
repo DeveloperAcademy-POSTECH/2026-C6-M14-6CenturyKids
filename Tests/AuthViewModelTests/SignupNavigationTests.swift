@@ -1,6 +1,6 @@
 import XCTest
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocAuth
 
 @MainActor final class SignupNavigationTests: XCTestCase {
     private let configuration = AuthConfiguration(
@@ -51,7 +51,7 @@ import ToDocDomain
         XCTAssertEqual(state.step, .doctorCode)
     }
 
-    func testSkipDoctorCodeReachesReviewAndSavesRequiredInputs() async {
+    func testSkipDoctorCodeReachesReviewAndPreservesInputsWhileSavingIsUnavailable() async {
         let fixture = AuthFixture(); let vm = makeViewModel(fixture); let state = vm.state
         fillRequiredProfile(state)
         state.step = .doctorCode; state.doctorCode = "ABC123"
@@ -60,11 +60,13 @@ import ToDocDomain
         XCTAssertTrue(state.doctorCode.isEmpty)
         XCTAssertNil(state.connection)
         await vm.submit()
-        XCTAssertEqual(state.step, .completion)
-        XCTAssertEqual(fixture.patients.value?.user.name, "테스트")
-        XCTAssertEqual(fixture.patients.value?.user.sex, .female)
-        XCTAssertNotNil(fixture.patients.value?.disease)
-        XCTAssertNil(fixture.patients.value?.doctorId)
+        XCTAssertEqual(state.step, .review)
+        XCTAssertEqual(state.name, "테스트")
+        XCTAssertEqual(state.sex, .female)
+        XCTAssertEqual(state.cancerType, .lung)
+        XCTAssertEqual(fixture.auth.signUpCount, 0)
+        XCTAssertEqual(fixture.patients.saves, 0)
+        XCTAssertNotNil(state.errorMessage)
     }
 
     func testConfirmedDoctorAdvancesToReviewAndBackRetracesDoctorThenDiagnosis() {
