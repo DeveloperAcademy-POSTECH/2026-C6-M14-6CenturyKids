@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 final class DependencyContainer {
     // SupabaseClient 보관하는 객체
@@ -14,6 +15,14 @@ final class DependencyContainer {
     init(configuration: SupabaseConfiguration) {
         supabaseProvider = SupabaseClientProvider(
             configuration: configuration
+        )
+    }
+
+    @MainActor
+    func makePainRecordViewModel(patientId: UUID) -> PainRecordViewModel {
+        PainRecordViewModel(
+            patientId: patientId,
+            painRepository: SupabasePainRepository(client: supabaseProvider.client)
         )
     }
 
@@ -33,5 +42,16 @@ final class DependencyContainer {
             loadAnalyzer: { try CoreAICareCallAdapter(model: try await LanguageModelProvider.loadKanana()) },
             makeVoice: { SupertonicAdapter(fallback: systemVoice) }
         )
+    }
+}
+
+private struct DependencyContainerKey: EnvironmentKey {
+    static let defaultValue: DependencyContainer? = nil
+}
+
+extension EnvironmentValues {
+    var dependencyContainer: DependencyContainer? {
+        get { self[DependencyContainerKey.self] }
+        set { self[DependencyContainerKey.self] = newValue }
     }
 }
