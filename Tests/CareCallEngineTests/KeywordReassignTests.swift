@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// 모델이 고른 증상의 낱말은 없고 다른 증상 낱말만 있으면 그 증상으로 바꾸되, 한 글자 낱말("물", "먹", "토")은 근거로 쓰지 않는다.
 /// "물을 마셔도 속이 안 좋아요"가 탈수·영양으로 바뀌었다 (2026-10-19 검토). 가상 발화만
