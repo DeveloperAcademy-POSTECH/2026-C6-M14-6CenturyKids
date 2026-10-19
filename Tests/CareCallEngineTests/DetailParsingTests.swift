@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// 증상 기록 저장용 변환 (#84): 부위 낱말 → BodyPart·BodySide, 횟수·기간 답 → 숫자. 가상 발화만
 struct BodyPartDictionaryTests {

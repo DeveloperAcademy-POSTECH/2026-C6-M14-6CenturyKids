@@ -40,7 +40,7 @@ import ToDocDomain
             let id = try await auth.getCurrentUserId()
             guard let user = try await users.findById(id), user.id == id,
                   let patient = try await patients.findById(id), patient.user.id == id else {
-                throw AuthFlowError("가입 정보가 아직 완성되지 않았어요. 회원가입을 이어서 진행해 주세요.")
+                throw AuthFlowError("가입 정보가 아직 완성되지 않았어요. 가입 정보 확인이 필요해요.")
             }
             try Task.checkCancellation()
             session.patient = patient
