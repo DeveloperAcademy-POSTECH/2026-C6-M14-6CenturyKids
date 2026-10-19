@@ -172,7 +172,7 @@ final class InterviewEngine {
             let unclear = isUnclearChange(patientText), settled = unclear || isUnchanged(patientText)
             // 숫자가 섞여 모델이 봤는데 찾은 게 없는 "글쎄요 두 번?": 끝내지 않고 되묻되, 이 말은 '달라진 점' 모름 + 원문으로 남긴다
             if !unclear, !toldNewSymptom, ledger.sameRecords(as: before), openingConcerns.matches(patientText) == nil,
-               (config.followUpCall.unclearAnswers + config.unknownAnswers).contains(where: { Self.normalized(patientText).contains(Self.normalized($0)) }) {
+               (config.vagueAnswers + config.unknownAnswers).contains(where: { Self.normalized(patientText).contains(Self.normalized($0)) }) {
                 recordUnclearChange(patientText)
             }
             if !toldNewSymptom, !settled, !toldAbsent, openingFirstAnswer == nil {
@@ -302,15 +302,19 @@ final class InterviewEngine {
         (effect.presentPhrases ?? []).contains { phrase in
             let words = phrase.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }
             guard let regex = try? Regex(words.joined(separator: ".{0,8}?")) else { return false }
-            // 한 절 안에서 차례로 나오고, 바로 뒤가 부정("입맛 없는 건 아니에요")이 아닐 때
+            // 한 절 안에서 차례로 나오고, 바로 뒤가 부정("입맛 없는 건 아니에요")이 아닐 때.
+            // 약을 먹는 이야기("약을 잘 못 먹어요", "식사 후에 약을 못 먹었어요")는 아니다: 맞은 말 안이나 바로 앞에 약이 있을 때.
+            // "약을 먹고 나서 입맛이 없어요"는 식사 증상이다. "약간"은 약이 아니다
             return KeywordMatcher.clauses(patientText).contains { clause in
-                guard let match = clause.firstMatch(of: regex) else { return false }
+                guard let match = clause.firstMatch(of: regex),
+                      clause[match.range].firstMatch(of: /약(?:을|은|이|도|만|\s)/) == nil,
+                      clause[..<match.range.lowerBound].firstMatch(of: /약(?:을|은|이|도|만)?\s*$/) == nil else { return false }
                 return !KeywordMatcher.negated(String(clause[match.range.upperBound...]).replacingOccurrences(of: " ", with: ""))
             }
         }
     }
 
-    /// 다시 거는 통화의 첫 답이 "구토는 멈췄어요"처럼 답 전체가 "증상 낱말(두 글자 이상, 그대로) + (조사) + 그쳤다는 말 + 끝맺음"이면
+    /// 다시 거는 통화의 첫 답이 "구토는 멈췄어요"처럼 답 전체가 "증상 낱말 + (조사) + 그쳤다는 말 + 끝맺음"이면
     /// 그 증상을 '없음'으로 한다. 모델이 못 잡거나(되물은 뒤 "없어요"로 그쳤다는 말이 사라짐, 2026-10-17) '있음'으로 잡아도
     /// ("구토가 나아졌어요" → 횟수만 묻고 말이 사라짐, 2026-10-19 실기기) 같다.
     /// 그 밖의 말("안", "아직", "좀", "같아요", 다른 증상)이 있으면 모델 판단 그대로 둔다
@@ -319,8 +323,12 @@ final class InterviewEngine {
         let stems = config.followUpCall.stoppedAnswers.map(NSRegularExpression.escapedPattern(for:)).joined(separator: "|")
         let pattern = "^(?:이제|지금은)?([가-힣]{2,6}?)(?:은|는|이|가|도)?(?:이제|다)?(?:\(stems))(?:어요|어|요|습니다|네요)?$"
         guard let regex = try? Regex(pattern), let match = text.firstMatch(of: regex), let range = match.output[1].range else { return mentions }
+        // 증상 낱말이 두 글자 이상 키워드 그대로이거나 키워드 + 이름 끝말이면 그 증상 ("메스꺼움" = "메스" + "꺼움", "가려움" = "가려" + "움").
+        // 다른 말이 붙으면("구토는좀") 아니다
         let symptom = String(text[range])
-        let said = config.effects.filter { $0.keywords.contains(symptom) }
+        let said = config.effects.filter { effect in
+            effect.keywords.contains { $0.count >= 2 && symptom.hasPrefix($0) && ["", "꺼움", "거림", "움"].contains(String(symptom.dropFirst($0.count))) }
+        }
         guard said.count == 1, let effect = said.first else { return mentions }
         return mentions.filter { $0.effectId != effect.id } + [Mention(effectId: effect.id, presence: .absent, quote: patientText)]
     }
@@ -669,7 +677,7 @@ final class InterviewEngine {
         if isUnknownAnswer(patientText) { return true }
         let compact = Self.normalized(patientText)
         // 숫자가 섞이면 모델이 본다 ("글쎄요 두 번?"). 모델이 찾은 게 없으면 원문은 handle에서 남긴다
-        guard config.followUpCall.unclearAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
+        guard config.vagueAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
               !NumberParser.hasNumber(patientText),
               !["는데", "지만", "근데", "그런데"].contains(where: patientText.contains) else { return false }
         return !config.effects.flatMap(\.keywords).contains(where: patientText.contains) && symptomHints.matches(patientText) == nil
