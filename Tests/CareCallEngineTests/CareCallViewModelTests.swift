@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import ToDocDomain
-@testable import ToDocFeatures
+@testable import ToDocCareCall
 
 /// 케어콜 서비스를 흉내 내는 가짜. 단계마다 오류를 낼 수 있고, hold 단계에서 release()(통화는 stop())까지 붙잡는다
 @MainActor
