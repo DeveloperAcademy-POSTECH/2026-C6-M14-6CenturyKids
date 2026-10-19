@@ -11,10 +11,28 @@ final class DependencyContainer {
     // SupabaseClient 보관하는 객체
     let supabaseProvider: SupabaseClientProvider
     
+    let authRepository: AuthRepository
+    let userRepository: UserRepository
+    let hospitalRepository: HospitalRepository
+    let doctorRepository: DoctorRepository
+    let patientRepository: PatientRepository
+    let symptomRepository: any SymptomRepository
+    let painRepository: any PainRepository
+    
     init(configuration: SupabaseConfiguration) {
         supabaseProvider = SupabaseClientProvider(
             configuration: configuration
         )
+        
+        let client = supabaseProvider.client
+        
+        self.authRepository = SupabaseAuthRepository(client: client)
+        self.userRepository = SupabaseUserRepository(client: client)
+        self.hospitalRepository = SupabaseHospitalRepository(client: client)
+        self.doctorRepository = SupabaseDoctorRepository(client: client)
+        self.patientRepository = SupabasePatientRepository(client: client)
+        self.symptomRepository = SupabaseSymptomRepository(client: client)
+        self.painRepository = SupabasePainRepository(client: client)
     }
 
     /// 케어콜 서비스 (설정 파일·마이크·음성 인식·음성 합성·AI 모델). 부를 때마다 새로 만들고 컨테이너는 들고 있지 않는다:
