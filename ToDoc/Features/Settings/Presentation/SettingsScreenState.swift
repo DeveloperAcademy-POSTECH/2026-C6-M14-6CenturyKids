@@ -72,26 +72,3 @@ enum HospitalConnectionAction { case load, verify, connect, disconnect, cancel }
     var successMessage: String?
     @ObservationIgnored var onAction: ((HospitalConnectionAction) -> Void)?
 }
-struct NotificationPreference: Identifiable {
-    let id: String
-    let title: String
-    var isEnabled: Bool
-}
-enum NotificationSettingsAction {
-    case load, save, discardChanges, requestAuthorization, refreshAuthorization, cancel
-    case setEnabled(String, Bool)
-}
-@Observable final class NotificationSettingsScreenState {
-    var authorization: NotificationAuthorization?
-    var preferences: [NotificationPreference] = []
-    var hasLoaded = false
-    var didSave = false
-    var errorMessage: String?
-    var isBusy = false
-    var hasChanges = false
-    var canEdit = false
-    var canSave = false
-    var canRequestAuthorization = false
-    var canOpenSettings = false
-    @ObservationIgnored var onAction: ((NotificationSettingsAction) -> Void)?
-}
