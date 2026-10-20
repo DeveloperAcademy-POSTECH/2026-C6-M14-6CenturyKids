@@ -34,14 +34,6 @@ final class DependencyContainer {
         painRepository = SupabasePainRepository(client: client)
     }
 
-    @MainActor
-    func makePatientFlowViewModel() -> PatientFlowViewModel {
-        PatientFlowViewModel(
-            authRepository: authRepository,
-            patientRepository: patientRepository
-        )
-    }
-
     func makePainRecordViewModel() -> PainRecordViewModel {
         PainRecordViewModel(
             authRepository: authRepository,
@@ -61,17 +53,16 @@ final class DependencyContainer {
         )
     }
 
-    /// 팀원이 Repository를 완성하면 이 함수의 인자로 전달합니다. VM/화면을 다시 만들 필요가 없습니다.
-    /// 구현된 인증/사용자 저장소는 같은 client로 연결합니다. 나머지 nil은 의도적인 미연결입니다.
-    /// 실제 DB 저장 성공을 흉내 내는 객체를 제품에 넣지 않습니다.
+    /// 인증과 가입에 필요한 실제 저장소를 연결하고, 전달된 저장소가 있으면 우선 사용합니다.
     @MainActor func makeAuthFlow(configuration: AuthConfiguration = .init(),
                       users: (any UserRepository)? = nil,
                       patients: (any PatientRepository)? = nil,
                       doctors: (any DoctorRepository)? = nil,
                       hospitals: (any HospitalRepository)? = nil) -> AuthFlowViewModel {
         return AuthFlowViewModel(
-            repositories: .init(auth: authRepository, users: users ?? userRepository, patients: patients,
-                                doctors: doctors, hospitals: hospitals),
+            repositories: .init(auth: authRepository, users: users ?? userRepository,
+                                patients: patients ?? patientRepository,
+                                doctors: doctors ?? doctorRepository, hospitals: hospitals ?? hospitalRepository),
             configuration: configuration,
             loginPreference: AuthLoginPreference(defaults: .standard)
         )
