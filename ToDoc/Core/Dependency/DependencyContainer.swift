@@ -22,8 +22,9 @@ final class DependencyContainer {
         let provider = SupabaseClientProvider(
             configuration: configuration
         )
-      
-        let client = supabaseProvider.client
+
+        supabaseProvider = provider
+        let client = provider.client
         authRepository = SupabaseAuthRepository(client: client)
         userRepository = SupabaseUserRepository(client: client)
         hospitalRepository = SupabaseHospitalRepository(client: client)
@@ -51,12 +52,14 @@ final class DependencyContainer {
 
     @MainActor
     func makeSettingsViewModel(patientId: UUID) -> SettingsViewModel {
-        return SettingsViewModel(
+        SettingsViewModel(
             patientId: patientId,
-            userRepository: SupabaseUserRepository(client: client),
+            userRepository: userRepository,
             patientRepository: patientRepository,
-            doctorRepository: SupabaseDoctorRepository(client: client),
-            hospitalRepository: SupabaseHospitalRepository(client: client)
+            doctorRepository: doctorRepository,
+            hospitalRepository: hospitalRepository
+        )
+    }
 
     /// 팀원이 Repository를 완성하면 이 함수의 인자로 전달합니다. VM/화면을 다시 만들 필요가 없습니다.
     /// 구현된 인증/사용자 저장소는 같은 client로 연결합니다. 나머지 nil은 의도적인 미연결입니다.
@@ -66,9 +69,8 @@ final class DependencyContainer {
                       patients: (any PatientRepository)? = nil,
                       doctors: (any DoctorRepository)? = nil,
                       hospitals: (any HospitalRepository)? = nil) -> AuthFlowViewModel {
-        let auth = SupabaseAuthRepository(client: supabaseProvider.client)
         return AuthFlowViewModel(
-            repositories: .init(auth: auth, users: users ?? SupabaseUserRepository(client: supabaseProvider.client), patients: patients,
+            repositories: .init(auth: authRepository, users: users ?? userRepository, patients: patients,
                                 doctors: doctors, hospitals: hospitals),
             configuration: configuration,
             loginPreference: AuthLoginPreference(defaults: .standard)
