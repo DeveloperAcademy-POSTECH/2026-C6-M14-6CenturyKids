@@ -15,7 +15,7 @@ import ToDocDomain
     }
     private var requestID: UUID?
 
-    /// 버튼 → 입력 검사 → 인증 → 사용자/환자 조회 → 화면 성공의 순서입니다.
+    /// 버튼 → 입력 검사 → 인증 → 기본 사용자를 포함한 환자 조회 → 화면 성공의 순서입니다.
     /// Auth의 UUID만 받았다는 이유로 앱에 들어가지 않습니다. DB 프로필도 같은 사람이어야 합니다.
     func submit() async {
         guard !state.isSubmitting, !state.didSignIn else { return }
@@ -24,8 +24,8 @@ import ToDocDomain
         // 로그인은 기존 비밀번호 정책이 다를 수 있어 가입용 새 비밀번호 규칙을 강제하지 않습니다.
         state.passwordError = state.password.isEmpty ? "비밀번호를 입력해 주세요." : nil
         guard state.emailError == nil, state.passwordError == nil else { return }
-        guard let auth = repositories.auth, let users = repositories.users, let patients = repositories.patients else {
-            state.errorMessage = "로그인 연결을 준비 중이에요. 사용자·환자 정보 연결 후 이용할 수 있어요."
+        guard let auth = repositories.auth, let patients = repositories.patients else {
+            state.errorMessage = "로그인 연결을 준비 중이에요. 환자 정보 연결 후 이용할 수 있어요."
             return
         }
         guard let token = session.begin() else {
@@ -42,8 +42,7 @@ import ToDocDomain
         do {
             let id = try await auth.signIn(email: email, password: password)
             guard isCurrent(token) else { throw CancellationError() }
-            guard let user = try await users.findById(id), user.id == id,
-                  let patient = try await patients.findById(id), patient.user.id == id else {
+            guard let patient = try await patients.findById(id), patient.user.id == id else {
                 throw AuthFlowError("가입 정보가 아직 완성되지 않았어요. 가입 정보 확인이 필요해요.")
             }
             guard isCurrent(token) else { throw CancellationError() }

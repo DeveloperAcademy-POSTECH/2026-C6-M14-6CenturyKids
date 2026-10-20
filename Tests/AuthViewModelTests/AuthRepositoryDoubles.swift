@@ -53,25 +53,32 @@ final class TestUsers: UserRepository {
     var normalizeBirthday = false
     var value: User?
     var saves = 0
+    var finds = 0
     func save(user: User) async throws {
         saves += 1
         value = normalizeBirthday
             ? try User(id: user.id, name: user.name, birthday: Calendar.current.startOfDay(for: user.birthday), sex: user.sex)
             : user
     }
-    func findById(_ id: UUID) async throws -> User? { value }
+    func findById(_ id: UUID) async throws -> User? { finds += 1; return value }
     func findByName(_ name: String) async throws -> [User] { value.map { [$0] } ?? [] }
 }
 final class TestPatients: PatientRepository {
+    var findError: Error?
     var value: Patient?
     var saves = 0
+    var finds = 0
     var failNextSave = false
     func save(patient: Patient) async throws {
         saves += 1
         if failNextSave { failNextSave = false; throw AuthFlowError("저장 실패") }
         value = patient
     }
-    func findById(_ id: UUID) async throws -> Patient? { value }
+    func findById(_ id: UUID) async throws -> Patient? {
+        finds += 1
+        if let findError { throw findError }
+        return value
+    }
     func findByName(_ name: String) async throws -> [Patient] { [] }
     func findByDoctorId(_ doctorId: UUID) async throws -> [Patient] { [] }
 }

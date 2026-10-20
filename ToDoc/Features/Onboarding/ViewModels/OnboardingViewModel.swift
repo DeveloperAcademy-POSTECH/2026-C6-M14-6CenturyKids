@@ -16,7 +16,7 @@ import ToDocDomain
     /// View는 페이지를 표시하고, 이동 가능한 범위는 ViewModel이 결정합니다.
     func selectPage(_ page: Int) { self.page = min(max(page, 0), 4) }
 
-    /// 저장된 인증 정보가 있더라도 서버 사용자와 DB 환자 정보를 다시 확인합니다.
+    /// 저장된 인증 정보가 있더라도 서버 인증과 기본 사용자를 포함한 DB 환자 정보를 다시 확인합니다.
     /// 인증 SDK의 '캐시에 사용자가 있음'만으로 제품 화면에 진입하지 않습니다.
     func restoreSession() async {
         guard !isRestoring, session.patient == nil, let auth = repositories.auth else { return }
@@ -33,13 +33,12 @@ import ToDocDomain
                 session.loginPreference.isEnabled = false
                 return
             }
-            guard let users = repositories.users, let patients = repositories.patients else {
-                errorMessage = "저장된 로그인 정보를 확인하려면 사용자·환자 정보 연결이 필요해요."
+            guard let patients = repositories.patients else {
+                errorMessage = "저장된 로그인 정보를 확인하려면 환자 정보 연결이 필요해요."
                 return
             }
             let id = try await auth.getCurrentUserId()
-            guard let user = try await users.findById(id), user.id == id,
-                  let patient = try await patients.findById(id), patient.user.id == id else {
+            guard let patient = try await patients.findById(id), patient.user.id == id else {
                 throw AuthFlowError("가입 정보가 아직 완성되지 않았어요. 가입 정보 확인이 필요해요.")
             }
             try Task.checkCancellation()
