@@ -1,15 +1,18 @@
 import SwiftUI
 
-struct OnboardingView: View {
-    @State private var authEntry: AuthFlowView.Screen = .login
-    @State private var page = 0
-    @State private var path: [Destination] = []
+@MainActor struct OnboardingView: View {
+    @State private var model: AuthFlowViewModel
+    init(model: AuthFlowViewModel? = nil) {
+        _model = State(initialValue: model ?? AuthFlowViewModel())
+    }
+    private var page: Int { model.onboarding.page }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        NavigationStack(path: $path) {
+        @Bindable var model = model
+        NavigationStack {
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
                     ScrollView {
@@ -24,7 +27,7 @@ struct OnboardingView: View {
                 } else {
                     VStack(spacing: AppSpacing.ButtonGroup.captionToButtons) {
                         header
-                        TabView(selection: $page) {
+                        TabView(selection: Binding(get: { page }, set: { model.onboarding.selectPage($0) })) {
                             welcome.tag(0)
                             OnboardingDailyCareView().tag(1)
                             OnboardingConversationView().tag(2)
@@ -39,10 +42,8 @@ struct OnboardingView: View {
             .padding(.vertical, 8)
             .appScreenStyle()
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: Destination.self) { _ in
-                AuthFlowView(entry: authEntry, onClose: {
-                    path.removeAll()
-                })
+            .navigationDestination(isPresented: $model.showsAuth) {
+                AuthFlowView(model: model, onClose: model.close)
             }
         }
     }
@@ -58,18 +59,13 @@ struct OnboardingView: View {
     }
 
     private var header: some View {
-        HStack {
-            if page == 0 {
-                Text("C6")
-                    .appTextStyle(.heading)
-                    .foregroundStyle(AppColors.Button.primaryForeground)
-                Spacer()
-            } else {
+        VStack(spacing: 0) {
+            if page > 0 {
+                // 건너뛰기 글자 길이가 달라져도 페이지 표시의 중심은 화면 중앙에 고정합니다.
+                // 별도 행을 사용하여 320pt/큰 글자에서 버튼과 점이 겹치지 않게 합니다.
                 HStack(spacing: 0) {
                     ForEach(1...4, id: \.self) { index in
-                        Button {
-                            selectPage(index)
-                        } label: {
+                        Button { selectPage(index) } label: {
                             Circle()
                                 .fill(page == index ? AppColors.gray : AppColors.secondary)
                                 .frame(width: 12, height: 12)
@@ -81,11 +77,12 @@ struct OnboardingView: View {
                         .accessibilityAddTraits(page == index ? .isSelected : [])
                     }
                 }
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity)
                 Button("건너뛰기", action: openSignup)
                     .appTextStyle(.caption)
                     .foregroundStyle(AppColors.Text.secondary)
                     .frame(minWidth: 44, minHeight: 44)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .frame(minHeight: 44)
@@ -98,20 +95,22 @@ struct OnboardingView: View {
         ) {
             Image("HakroDoctor")
                 .resizable().scaledToFit().frame(maxWidth: 230)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                .frame(maxWidth: .infinity)
                 .accessibilityHidden(true)
         }
     }
 
     private var footer: some View {
         VStack(spacing: AppSpacing.ButtonGroup.verticalGap) {
-            Button(page == 4 ? "회원가입" : "시작하기") {
-                if page == 0 { selectPage(1) }
-                else { openSignup() }
+            if let error = model.onboarding.errorMessage { AuthMessage(text: error) }
+            Button(page == 0 ? "시작하기" : (page == 4 ? "회원가입" : "다음")) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                    model.advanceOnboarding()
+                }
             }
             .buttonStyle(AppButtonStyle())
             if page == 4 {
-                // Apple 인증 Service 계약이 연결되기 전에는 요청을 보내지 않습니다.
+                // Apple 인증 Repository 연결이 연결되기 전에는 요청을 보내지 않습니다.
                 Button {} label: {
                     HStack {
                         Image("OnboardingApple")
@@ -138,17 +137,15 @@ struct OnboardingView: View {
     }
 
     private func openSignup() {
-        authEntry = .signup
-        path = [.auth]
+        model.open(.signup)
     }
 
     private func openLogin() {
-        authEntry = .login
-        path = [.auth]
+        model.open(.login)
     }
 
     private func selectPage(_ index: Int) {
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { page = index }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { model.onboarding.selectPage(index) }
     }
 }
 

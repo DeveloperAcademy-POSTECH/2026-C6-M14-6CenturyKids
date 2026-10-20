@@ -10,6 +10,21 @@ struct PatientFlowView: View {
     var notifications: () -> NotificationView = { .init() }
     var records: () -> RecordsFlowView = { .init() }
     var settings: () -> SettingsFlowView = { .init() }
+
+    init(
+        pain: @escaping () -> PainRecordView,
+        careCall: @escaping () -> CareCallFlowView = { .init() },
+        notifications: @escaping () -> NotificationView = { .init() },
+        records: @escaping () -> RecordsFlowView = { .init() },
+        settings: @escaping () -> SettingsFlowView = { .init() }
+    ) {
+        self.pain = pain
+        self.careCall = careCall
+        self.notifications = notifications
+        self.records = records
+        self.settings = settings
+    }
+
     var body: some View {
         TabView(selection: $tab) {
             NavigationStack(path: $path) {
@@ -29,4 +44,7 @@ struct PatientFlowView: View {
         }
     }
 }
+
+#if DEBUG
 #Preview { PatientFlowView(pain: { .preview() }) }
+#endif

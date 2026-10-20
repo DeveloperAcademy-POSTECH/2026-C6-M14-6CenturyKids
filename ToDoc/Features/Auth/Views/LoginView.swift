@@ -53,12 +53,12 @@ struct LoginFormView: View {
                 }
                 .disabled(state.isSubmitting)
 
-                Toggle("자동 로그인", isOn: .constant(false))
+                Toggle("자동 로그인", isOn: $state.remembersLogin)
                     .appTextStyle(.caption)
                     .foregroundStyle(AppColors.Text.secondary)
                     .toggleStyle(AuthCheckboxToggleStyle())
-                    .disabled(true)
-                    .accessibilityHint("자동 로그인은 준비 중입니다.")
+                    .disabled(state.isSubmitting)
+                    .accessibilityHint("선택하면 다음 앱 실행에서도 로그인을 유지합니다.")
                     .padding(.top, 12)
                     .padding(.bottom, 24)
 

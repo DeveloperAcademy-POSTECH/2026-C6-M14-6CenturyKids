@@ -4,6 +4,9 @@
 //
 
 import Foundation
+#if SWIFT_PACKAGE
+import ToDocDomain
+#endif
 
 protocol HospitalRepository {
     func findById(_ id: UUID) async throws -> Hospital?
