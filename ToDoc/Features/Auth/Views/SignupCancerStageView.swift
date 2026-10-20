@@ -7,7 +7,7 @@ struct SignupCancerStageView: View {
         SignupStepScreen(state: state, title: "진단받을 때의\n병기를 알려주세요", buttonTitle: "다음") {
             Label("선택한 암 · \(state.cancerTitle)", systemImage: "checkmark.circle")
                 .appTextStyle(.label)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: AppSpacing.item), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), spacing: AppSpacing.item) {
                 ForEach(CarcinomaStage.allCases, id: \.self) { stage in
                     AuthChoice(title: stage.title, isSelected: state.stage == .known(stage)) { state.stage = .known(stage) }
                 }
