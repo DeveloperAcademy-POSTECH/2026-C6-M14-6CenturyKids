@@ -727,6 +727,23 @@ struct PresentPhraseTests {
         #expect(call.ledger["dehydration_nutrition"]?.presence == .present)
     }
 
+    /// 2026-10-20 Mac 평가 H16: 구토 답에 지난 식사 이야기가 섞이면 식사를 '있음'으로 넣어 식사 질문을 건너뛰었다
+    @Test func 다른_항목_답의_식사_말은_식사_질문을_건너뛰게_하지_않는다() async {
+        let answer = "이틀 동안은 계속 메슥거려서 밥을 거의 못 먹었는데 지금은 좀 나아졌어요"
+        let mock = MockAnalyzer()
+        mock.script[answer] = .mentions(Mention(effectId: "nausea_vomiting", presence: .present))
+        let call = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = call.start()
+        _ = await call.handle(patientText: "괜찮아요")
+        #expect(call.phase == .slot(key: "nausea_vomiting", step: .presence))
+        _ = await call.handle(patientText: answer)
+        #expect(call.ledger["dehydration_nutrition"] == nil)
+        while call.phase != .other, call.phase != .slot(key: "dehydration_nutrition", step: .presence) {
+            _ = await call.handle(patientText: call.phase.slotKey == "nausea_vomiting" ? "어제부터요" : "아니요")
+        }
+        #expect(call.phase == .slot(key: "dehydration_nutrition", step: .presence))
+    }
+
     @Test(arguments: ["약을 못 먹었어요", "약을 잘 못 먹어요", "식사 후에 약을 못 먹었어요", "약을 밥이랑 같이 못 먹었어요", "밥 먹고 못 걸었어요"])
     func 약을_못_먹었다는_말은_식사_증상이_아니다(answer: String) async {
         let call = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer())

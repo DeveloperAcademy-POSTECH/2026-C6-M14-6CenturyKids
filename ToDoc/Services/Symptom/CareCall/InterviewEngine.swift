@@ -114,7 +114,8 @@ final class InterviewEngine {
         }
         if let mentions = result?.mentions {
             result?.mentions = presentByPhrase(reassignedByKeywords(normalizedOthers(mentions, during: current, patientText: patientText),
-                                                                    during: current, patientText: patientText), patientText: patientText)
+                                                                    during: current, patientText: patientText),
+                                                during: current, patientText: patientText)
         }
         if current == .opening, unasked != nil, let mentions = result?.mentions {
             result?.mentions = stoppedOverride(mentions, patientText: patientText)
@@ -286,10 +287,13 @@ final class InterviewEngine {
     }
 
     /// "입맛이 없어요"처럼 '없다'가 붙어도 증상이 있다는 말(presentPhrases)이면 그 증상을 '있음'으로 한다. 모델이 "없어요"만 보고
-    /// 식사를 '없음'으로 기록해 식사 질문을 건너뛰었다 (2026-10-19 실기기). "입맛 없는 건 아니에요"처럼 부정하면 그대로 둔다
-    private func presentByPhrase(_ mentions: [Mention], patientText: String) -> [Mention] {
+    /// 식사를 '없음'으로 기록해 식사 질문을 건너뛰었다 (2026-10-19 실기기). "입맛 없는 건 아니에요"처럼 부정하면 그대로 둔다.
+    /// 다른 항목을 묻는 중에는 아직 묻지 않은 항목을 '있음'으로 만들지 않는다: 구토 답 "이틀 동안은 밥을 거의 못 먹었는데 지금은 나아져서"로
+    /// 식사가 '있음'이 돼 식사 질문을 건너뛰고, 지금 상태("지금은 평소만큼 먹어요")를 묻지 못했다 (2026-10-20 Mac 평가 H16). 그 항목 차례에 직접 묻는다
+    private func presentByPhrase(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
         var result = mentions
         for effect in config.effects where saysPresent(effect, patientText) {
+            if let key = phase.slotKey, key != effect.id, ledger[effect.id]?.presence == nil { continue }
             result.removeAll { $0.effectId == effect.id && $0.presence != .present }
             if !result.contains(where: { $0.effectId == effect.id }) {
                 result.append(Mention(effectId: effect.id, presence: .present, quote: patientText))
