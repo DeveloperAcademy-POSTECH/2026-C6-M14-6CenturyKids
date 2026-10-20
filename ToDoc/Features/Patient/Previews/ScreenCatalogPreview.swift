@@ -4,11 +4,11 @@ import SwiftUI
 /// Xcode Canvas에서만 사용하는 화면 모음. 앱 실행 경로에서는 생성하지 않습니다.
 struct ScreenCatalogPreview: View {
     enum Screen: String, CaseIterable {
-        case voice = "증상 자동 음성", noPresent = "증상 0건 · 표시 항목 없음", missingCount = "증상 집계 미제공"
+        case voice = "증상 자동 음성", noPresent = "증상 0건 · 표시 항목 없음"
         case summary = "증상 요약", noPresentSummary = "증상 요약 · 표시 항목 없음"
         case onboarding = "온보딩", login = "로그인", signup = "회원가입", reset = "비밀번호 재설정"
         case home = "홈", pain = "통증 입력", incoming = "케어콜 수신", conversation = "증상 입력"
-        case records = "기록 목록", painDetail = "통증 상세", symptomDetail = "증상 상세"
+        case records = "기록 목록", painDetail = "통증 상세", painWeekDetail = "통증 상세 · 주", symptomDetail = "증상 상세", symptomWeekDetail = "증상 상세 · 주"
         case settings = "설정", personal = "개인정보", cancer = "암종", stage = "병기", hospital = "의사 연결"
         case notifications = "알림", notificationSettings = "알림 설정"
     }
@@ -46,10 +46,11 @@ struct ScreenCatalogPreview: View {
         case .noPresentSummary: SymptomSummaryView(state: .init(record: symptomRecord(includesPresent: false)))
         case .records: RecordsView(snapshot: .init(pain: .init(averageBefore: 7, averageAfter: 0, difference: 7, previousDayDifference: nil), symptom: .init(presentCount: 1, types: [.constipation])), state: .loaded)
         case .voice: SymptomRecordView(state: voiceState())
-        case .noPresent: SymptomRecordDetailView(state: symptomDetailState(presentCount: 0, includesPresent: false))
-        case .missingCount: SymptomRecordDetailView(state: symptomDetailState(presentCount: nil, includesPresent: false))
+        case .noPresent: SymptomRecordDetailView(state: symptomDetailState(includesPresent: false))
         case .painDetail: PainRecordDetailView(state: detailState(.pain))
+        case .painWeekDetail: PainRecordDetailView(state: weekState(.pain))
         case .symptomDetail: SymptomRecordDetailView(state: detailState(.symptom))
+        case .symptomWeekDetail: SymptomRecordDetailView(state: weekState(.symptom))
         case .settings: SettingsView(state: settingsState())
         case .personal: PersonalInfoEditView(state: personal)
         case .cancer: CancerTypeEditView(state: cancer)
@@ -92,15 +93,33 @@ struct ScreenCatalogPreview: View {
             state.content = .pain(.init(averageDifference: 7, days: [], records: [
                 .init(id: UUID(), recordedDate: date, painBefore: 7, painAfter: 0)
             ]))
-        } else { state.content = .symptom(.init(presentCount: 1, days: [.init(date: date, presentCount: 1, record: symptomRecord())])) }
+        } else {
+            state.content = .symptom(.init(symptoms: [.init(type: .constipation, weight: 1, label: "2회"), .init(type: .diarrhea, weight: 1, label: nil)],
+                                           records: [symptomRecord()]))
+        }
         return state
     }
-    private func symptomDetailState(presentCount: Int?, includesPresent: Bool) -> RecordDetailScreenState {
+    private func weekState(_ kind: RecordOverviewKind) -> RecordDetailScreenState {
+        let state = detailState(kind)
+        let calendar = state.calendar
+        let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: .now)) ?? .now
+        state.period = .week; state.periodLabel = "이번 주 · 예시"
+        state.days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+        if kind == .pain {
+            let scores: [(Double, Double)?] = [(10, 0), (7, 4), (8, 3), nil, (7, 4), (8, 1), (7, 4)]
+            state.content = .pain(.init(averageDifference: 3, days: zip(state.days, scores).compactMap { date, score in
+                score.map { .init(date: date, averageBefore: $0.0, averageAfter: $0.1) }
+            }, records: nil))
+        } else {
+            let weights: [(SymptomType, Double)] = [(.constipation, 6), (.oralPain, 1.2), (.nauseaVomiting, 2.5), (.diarrhea, 1), (.numbness, 1.2), (.rashItching, 0.6), (.dehydrationNutrition, 0.8)]
+            state.content = .symptom(.init(symptoms: weights.map { .init(type: $0.0, weight: $0.1, label: "\(Int($0.1))회") }, records: [symptomRecord()]))
+        }
+        return state
+    }
+    private func symptomDetailState(includesPresent: Bool) -> RecordDetailScreenState {
         let state = detailState(.symptom)
         let record = symptomRecord(includesPresent: includesPresent)
-        state.content = .symptom(.init(presentCount: presentCount, days: [
-            .init(date: record.recordedDate, presentCount: presentCount, record: record)
-        ]))
+        state.content = .symptom(.init(symptoms: [], records: [record]))
         return state
     }
     private func settingsState() -> SettingsScreenState {
