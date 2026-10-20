@@ -11,14 +11,10 @@ final class DependencyContainer {
     // SupabaseClient 보관하는 객체
     let supabaseProvider: SupabaseClientProvider
     let authRepository: any AuthRepository
+    let userRepository: any UserRepository
+    let hospitalRepository: any HospitalRepository
+    let doctorRepository: any DoctorRepository
     let patientRepository: any PatientRepository
-    let painRepository: any PainRepository
-    
-    let authRepository: AuthRepository
-    let userRepository: UserRepository
-    let hospitalRepository: HospitalRepository
-    let doctorRepository: DoctorRepository
-    let patientRepository: PatientRepository
     let symptomRepository: any SymptomRepository
     let painRepository: any PainRepository
     
@@ -26,6 +22,15 @@ final class DependencyContainer {
         supabaseProvider = SupabaseClientProvider(
             configuration: configuration
         )
+        let client = supabaseProvider.client
+        authRepository = SupabaseAuthRepository(client: client)
+        userRepository = SupabaseUserRepository(client: client)
+        hospitalRepository = SupabaseHospitalRepository(client: client)
+        doctorRepository = SupabaseDoctorRepository(client: client)
+        patientRepository = SupabasePatientRepository(client: client)
+        symptomRepository = SupabaseSymptomRepository(client: client)
+        painRepository = SupabasePainRepository(client: client)
+    }
 
     @MainActor
     func makePainRecordViewModel() -> PainRecordViewModel {
@@ -34,16 +39,6 @@ final class DependencyContainer {
             patientRepository: patientRepository,
             painRepository: painRepository
         )
-        
-        let client = supabaseProvider.client
-        
-        self.authRepository = SupabaseAuthRepository(client: client)
-        self.userRepository = SupabaseUserRepository(client: client)
-        self.hospitalRepository = SupabaseHospitalRepository(client: client)
-        self.doctorRepository = SupabaseDoctorRepository(client: client)
-        self.patientRepository = SupabasePatientRepository(client: client)
-        self.symptomRepository = SupabaseSymptomRepository(client: client)
-        self.painRepository = SupabasePainRepository(client: client)
     }
 
     /// 케어콜 서비스 (설정 파일·마이크·음성 인식·음성 합성·AI 모델). 부를 때마다 새로 만들고 컨테이너는 들고 있지 않는다:
@@ -63,4 +58,28 @@ final class DependencyContainer {
             makeVoice: { SupertonicAdapter(fallback: systemVoice) }
         )
     }
+
+    /// 케어콜 화면에 들어갈 때마다 새로 만든다 (서비스와 같은 이유). 로그인 환자는 ViewModel이 찾는다
+    @MainActor
+    func makeCareCallViewModel() throws -> CareCallViewModel {
+        CareCallViewModel(
+            service: try makeCareCallService(),
+            repository: UnconnectedSymptomRepository(),
+            pending: FilePendingCareCallRepository(),
+            authRepository: authRepository,
+            patientRepository: patientRepository
+        )
+    }
+}
+
+/// SupabaseSymptomRepository가 생기면 바꿀 자리. 오늘 기록은 없는 것으로 보고 저장은 실패시킨다:
+/// 받은 답은 폰(FilePendingCareCallRepository)에 남아 있다가, 실제 저장소로 바꾼 뒤 다음 케어콜에 들어갈 때 올라간다
+private struct UnconnectedSymptomRepository: SymptomRepository {
+    struct NotConnected: Error {}
+
+    func findByPatientIdAndDate(patientId: UUID, from startDate: Date, to endDate: Date) async throws -> [SymptomRecord] { [] }
+    func save(entity: SymptomRecord) async throws { throw NotConnected() }
+    func findByPatientId(_ patientId: UUID) async throws -> [SymptomRecord] { [] }
+    func findById(_ id: UUID) async throws -> SymptomRecord? { nil }
+    func deleteById(_ id: UUID) async throws { throw NotConnected() }
 }

@@ -5,6 +5,9 @@
 //  Created by 허지우 on 10/10/26.
 //
 
+#if SWIFT_PACKAGE
+import ToDocDomain
+#endif
 import Foundation
 
 protocol PatientRepository {

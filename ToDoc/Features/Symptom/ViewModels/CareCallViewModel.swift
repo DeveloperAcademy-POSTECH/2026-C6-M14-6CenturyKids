@@ -9,12 +9,33 @@
 import ToDocDomain
 #endif
 import Foundation
+import Observation
 
 /// 케어콜 화면(CareCallFlowView)의 상태를 보관한다: 준비(대기 화면) → 대화(음성 통화·문자 답) → 요약 수정·저장.
 /// 음성과 문자를 오가도 서비스의 같은 대화를 이어 간다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장한다.
-/// 받은 답은 답마다 폰에도 남겨, 앱이 꺼지거나 저장이 실패하면 다음에 케어콜에 들어갈 때 조용히 올린다
+/// 받은 답은 답마다 폰에도 남겨, 앱이 꺼지거나 저장이 실패하면 다음에 케어콜에 들어갈 때 조용히 올린다.
+/// 화면에 들어오면 loadPatient()로 로그인 환자를 찾는다 (PainRecordViewModel과 같은 방식)
 @MainActor
+@Observable
 final class CareCallViewModel {
+    enum ConnectionState {
+        case loading
+        case ready
+        case signedOut
+        case patientUnavailable
+        case failed
+    }
+
+    enum PatientError: Error {
+        /// 로그인 환자를 아직 찾지 못함 (화면은 ready일 때만 통화를 보여 준다)
+        case notLoaded
+    }
+
+    private enum PatientSource {
+        case repositories(auth: any AuthRepository, patient: any PatientRepository)
+        case knownPatient(UUID)
+    }
+
     let preparation = CareCallScreenState()
     let conversation = SymptomScreenState()
     /// 마지막 통화 결과
@@ -26,7 +47,10 @@ final class CareCallViewModel {
     /// 서버에 저장하기 전까지 받은 답을 남겨 두는 곳 (이 케어콜은 pendingId 한 건)
     private let pending: any PendingCareCallRepository
     private let pendingId = UUID()
-    private let patientId: UUID
+    @ObservationIgnored private let patientSource: PatientSource
+    private var patientId: UUID?
+    private var isLoadingPatient = false
+    private(set) var connectionState: ConnectionState = .loading
     /// 지금 진행 중인 준비 (없으면 준비 중이 아님)
     private var preparing: Task<Void, Never>?
     /// 마지막으로 시작한 준비. 취소해도 서비스 작업(모델 불러오기 등)은 끝까지 돌기 때문에 다음 준비는 이게 끝난 뒤 시작한다
@@ -48,12 +72,29 @@ final class CareCallViewModel {
     private var saving: Task<Void, Never>?
     private var isSaved = false
 
-    /// patientId: 로그인한 환자 (화면에 연결할 때 getCurrentUserId()로 받아 넘긴다)
+    init(service: any CareCalling, repository: any SymptomRepository, pending: any PendingCareCallRepository,
+         authRepository: any AuthRepository, patientRepository: any PatientRepository) {
+        self.service = service
+        self.repository = repository
+        self.pending = pending
+        patientSource = .repositories(auth: authRepository, patient: patientRepository)
+        bind()
+    }
+
+    #if DEBUG
+    /// 환자를 이미 아는 경우 (테스트·Preview)
     init(service: any CareCalling, repository: any SymptomRepository, pending: any PendingCareCallRepository, patientId: UUID) {
         self.service = service
         self.repository = repository
         self.pending = pending
+        patientSource = .knownPatient(patientId)
         self.patientId = patientId
+        connectionState = .ready
+        bind()
+    }
+    #endif
+
+    private func bind() {
         show(.idle)
         preparation.onAction = { [weak self] action in
             switch action {
@@ -62,6 +103,44 @@ final class CareCallViewModel {
             }
         }
         conversation.onAction = { [weak self] action in self?.handle(action) }
+    }
+
+    // MARK: - 로그인 환자
+
+    /// 로그인한 사용자의 환자 정보를 찾는다. 환자 계정이 없으면 patientUnavailable, 실패하면 로그인 여부로 signedOut·failed
+    func loadPatient() async {
+        guard patientId == nil, !isLoadingPatient else { return }
+        guard case let .repositories(authRepository, patientRepository) = patientSource else { return }
+
+        isLoadingPatient = true
+        connectionState = .loading
+        defer { isLoadingPatient = false }
+
+        do {
+            let userId = try await authRepository.getCurrentUserId()
+            guard !Task.isCancelled else { return }
+
+            let patient = try await patientRepository.findById(userId)
+            guard !Task.isCancelled else { return }
+
+            guard let patient else {
+                connectionState = .patientUnavailable
+                return
+            }
+
+            patientId = patient.user.id
+            connectionState = .ready
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled else { return }
+            connectionState = authRepository.isSignedIn() ? .failed : .signedOut
+        }
+    }
+
+    private func loadedPatientId() throws -> UUID {
+        guard let patientId else { throw PatientError.notLoaded }
+        return patientId
     }
 
     // MARK: - 준비 (대기 화면)
@@ -194,7 +273,7 @@ final class CareCallViewModel {
                 hasCalled = true
                 try Task.checkCancellation()
                 if !began {
-                    _ = try service.begin(patientId: patientId, previous: try await today())
+                    _ = try service.begin(patientId: try loadedPatientId(), previous: try await today())
                     began = true
                 }
                 outcome = try await service.run { activity in self.show(activity) } // 통화하는 동안만 잡는다
@@ -243,7 +322,7 @@ final class CareCallViewModel {
             await self.last?.value
             try await self.service.loadModel()
             try Task.checkCancellation()
-            let turn = try self.service.begin(patientId: self.patientId, previous: try await self.today())
+            let turn = try self.service.begin(patientId: try self.loadedPatientId(), previous: try await self.today())
             self.began = true
             return turn
         } failed: { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
@@ -500,11 +579,11 @@ final class CareCallViewModel {
     /// (그 기록이 오늘 것이면 이번 통화는 다시 거는 통화가 된다)
     private func today() async throws -> SymptomRecord? {
         await sendPending()
-        return try await savedRecord(on: Date())
+        return try await savedRecord(of: try loadedPatientId(), on: Date())
     }
 
     /// 그날 기록 (하루 1건). 저장소는 기간으로 찾아서(시작일 포함, 끝 날짜 제외) 그날 0시부터 다음 날 0시까지 본다
-    private func savedRecord(on day: Date) async throws -> SymptomRecord? {
+    private func savedRecord(of patientId: UUID, on day: Date) async throws -> SymptomRecord? {
         let start = Calendar.current.startOfDay(for: day)
         guard let end = Calendar.current.date(byAdding: .day, value: 1, to: start) else { return nil }
         return try await repository.findByPatientIdAndDate(patientId: patientId, from: start, to: end).first
@@ -521,11 +600,13 @@ final class CareCallViewModel {
 
     /// 이 케어콜에서 남긴 기록만 지운다 (지난 케어콜에서 올리지 못한 기록은 그대로)
     private func forget() {
+        guard let patientId else { return }
         try? pending.delete(id: pendingId, patientId: patientId)
     }
 
     /// 지난 케어콜에서 앱이 꺼졌거나 저장에 실패해 남은 기록을 저장 규칙대로 조용히 올린다. 실패한 기록은 남겨 두고 다음에
     private func sendPending() async {
+        guard let patientId else { return }
         for left in (try? pending.findAll(patientId: patientId)) ?? [] where left.id != pendingId {
             guard (try? await store(left.record, complete: left.complete)) != nil else { continue }
             try? pending.delete(id: left.id, patientId: patientId)
@@ -535,7 +616,7 @@ final class CareCallViewModel {
     /// 그날 기록은 하루 1건. 이미 있으면 끝까지 마친 통화(다시 거는 통화)는 그 기록에 더하고,
     /// 끊긴 통화는 저장하지 않는다 (일부만 답한 기록으로 그날 기록을 바꾸지 않게). 저장했으면 true
     private func store(_ record: SymptomRecord, complete: Bool) async throws -> Bool {
-        guard let existing = try await savedRecord(on: record.recordedDate) else {
+        guard let existing = try await savedRecord(of: record.patientId, on: record.recordedDate) else {
             try await repository.save(entity: record)
             return true
         }
