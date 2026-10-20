@@ -53,6 +53,15 @@ final class DependencyContainer {
         )
     }
 
+    @MainActor
+    func makeRecordDetailViewModel(patientId: UUID) -> RecordDetailViewModel {
+        RecordDetailViewModel(
+            patientId: patientId,
+            painRepository: painRepository,
+            symptomRepository: symptomRepository
+        )
+    }
+
     /// 인증과 가입에 필요한 실제 저장소를 연결하고, 전달된 저장소가 있으면 우선 사용합니다.
     @MainActor func makeAuthFlow(configuration: AuthConfiguration = .init(),
                       users: (any UserRepository)? = nil,
