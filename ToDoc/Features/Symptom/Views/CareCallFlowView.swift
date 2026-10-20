@@ -70,17 +70,22 @@ struct CareCallFlowView: View {
         }
 
         connectionState = .loading
+        let client = container.supabaseProvider.client
+        let authRepository = SupabaseAuthRepository(client: client)
+
         do {
-            guard let patientId = try await container.currentPatientId() else {
+            let userId = try await authRepository.getCurrentUserId()
+            guard !Task.isCancelled else { return }
+            guard let patient = try await SupabasePatientRepository(client: client).findById(userId) else {
                 connectionState = .patientUnavailable
                 return
             }
-            try Task.checkCancellation()
-            viewModel = try container.makeCareCallViewModel(patientId: patientId)
+            guard !Task.isCancelled else { return }
+            viewModel = try container.makeCareCallViewModel(patientId: patient.user.id)
         } catch is CancellationError {
             return
         } catch {
-            connectionState = container.isSignedIn ? .failed : .signedOut
+            connectionState = authRepository.isSignedIn() ? .failed : .signedOut
         }
     }
 }

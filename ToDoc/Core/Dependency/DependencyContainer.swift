@@ -24,18 +24,6 @@ final class DependencyContainer {
         painRepository = SupabasePainRepository(client: client)
     }
 
-    /// 로그인한 환자 ID (환자 화면들이 같이 쓴다). 환자 계정이 없으면 nil, 로그인하지 않았거나 조회에 실패하면 오류
-    func currentPatientId() async throws -> UUID? {
-        let client = supabaseProvider.client
-        let userId = try await SupabaseAuthRepository(client: client).getCurrentUserId()
-        return try await SupabasePatientRepository(client: client).findById(userId)?.user.id
-    }
-
-    /// 로그인 세션이 있는지 (환자 ID 조회가 실패했을 때 로그인 문제인지 가린다)
-    var isSignedIn: Bool {
-        SupabaseAuthRepository(client: supabaseProvider.client).isSignedIn()
-    }
-
     @MainActor
     func makePainRecordViewModel() -> PainRecordViewModel {
         PainRecordViewModel(
