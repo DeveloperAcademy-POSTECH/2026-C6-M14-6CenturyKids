@@ -13,9 +13,9 @@ struct AuthTextField: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AppSpacing.Auth.fieldLabelGap) {
             if appearance == .standard { Text(title).appTextStyle(.label) }
-            HStack(spacing: 8) {
+            HStack(spacing: AppSpacing.compact) {
                 Group {
                     if isSecure && !showsPassword {
                         SecureField(title, text: $text, prompt: prompt)
@@ -29,28 +29,23 @@ struct AuthTextField: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .accessibilityLabel(title)
+                .accessibilityHint(error ?? "")
                 if isSecure && appearance == .standard {
                     Button {
                         showsPassword.toggle()
                         isFocused = true
                     } label: {
                         Image(systemName: showsPassword ? "eye.slash" : "eye")
-                            .frame(minWidth: 44, minHeight: 44)
+                            .frame(minWidth: AppMetrics.Control.minimumHitSize, minHeight: AppMetrics.Control.minimumHitSize)
                     }
                     .accessibilityLabel(showsPassword ? "비밀번호 숨기기" : "비밀번호 보기")
                 }
             }
             .appTextStyle(.label)
-            .padding(.horizontal, 18)
-            .padding(.vertical, isSecure && appearance == .standard ? 8 : 18)
-            .frame(minHeight: 60)
-            .background(AppColors.secondary, in: RoundedRectangle(cornerRadius: 16))
-            .overlay {
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(error != nil ? Color.red : (isFocused ? focusColor : .clear),
-                            lineWidth: appearance == .login && isFocused ? 3 : 1)
-                    .allowsHitTesting(false)
-            }
+            .padding(.horizontal, AppSpacing.Auth.inputPadding)
+            .padding(.vertical, isSecure && appearance == .standard ? AppSpacing.compact : AppSpacing.Auth.inputPadding)
+            .frame(minHeight: AppMetrics.Auth.inputMinimumHeight)
+            .appSurface(inputSurface)
             if let error { AuthMessage(text: error) }
         }
     }
@@ -58,7 +53,15 @@ struct AuthTextField: View {
         Text(placeholder).foregroundStyle(AppColors.Text.secondary)
     }
 
-    private var focusColor: Color { appearance == .login ? .blue : AppColors.gray }
+    private var focusColor: Color { appearance == .login ? AppColors.Auth.loginFocus : AppColors.Auth.inputFocus }
+
+    private var inputSurface: AppSurfaceToken {
+        var token = AppSurfaceToken.authInput
+        token.border = error != nil ? AppColors.Feedback.error : (isFocused ? focusColor : .clear)
+        token.borderWidth = appearance == .login && isFocused
+            ? AppMetrics.Auth.loginFocusBorderWidth : AppMetrics.Auth.inputBorderWidth
+        return token
+    }
 }
 
 struct AuthChoice: View {
@@ -70,14 +73,13 @@ struct AuthChoice: View {
         Button(action: action) {
             HStack {
                 Text(title).fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 4)
-                if isSelected { Image(systemName: "checkmark") }
+                Spacer(minLength: AppSpacing.tight)
+                if isSelected { Image(systemName: "checkmark").accessibilityHidden(true) }
             }
             .appTextStyle(.label)
-            .padding(18)
-            .frame(maxWidth: .infinity, minHeight: 60)
-            .background(isSelected ? AppColors.primary : AppColors.secondary,
-                        in: RoundedRectangle(cornerRadius: 16))
+            .padding(AppSpacing.Auth.inputPadding)
+            .frame(maxWidth: .infinity, minHeight: AppMetrics.Auth.inputMinimumHeight)
+            .appSurface(.authChoice(isSelected: isSelected))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])

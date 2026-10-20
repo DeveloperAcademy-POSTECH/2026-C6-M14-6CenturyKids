@@ -91,22 +91,10 @@ final class DependencyContainer {
     func makeCareCallViewModel() throws -> CareCallViewModel {
         CareCallViewModel(
             service: try makeCareCallService(),
-            repository: UnconnectedSymptomRepository(),
+            repository: symptomRepository,
             pending: FilePendingCareCallRepository(),
             authRepository: authRepository,
             patientRepository: patientRepository
         )
     }
-}
-
-/// SupabaseSymptomRepository가 생기면 바꿀 자리. 오늘 기록은 없는 것으로 보고 저장은 실패시킨다:
-/// 받은 답은 폰(FilePendingCareCallRepository)에 남아 있다가, 실제 저장소로 바꾼 뒤 다음 케어콜에 들어갈 때 올라간다
-private struct UnconnectedSymptomRepository: SymptomRepository {
-    struct NotConnected: Error {}
-
-    func findByPatientIdAndDate(patientId: UUID, from startDate: Date, to endDate: Date) async throws -> [SymptomRecord] { [] }
-    func save(entity: SymptomRecord) async throws { throw NotConnected() }
-    func findByPatientId(_ patientId: UUID) async throws -> [SymptomRecord] { [] }
-    func findById(_ id: UUID) async throws -> SymptomRecord? { nil }
-    func deleteById(_ id: UUID) async throws { throw NotConnected() }
 }

@@ -25,11 +25,11 @@ struct SignupReviewView: View {
             .buttonStyle(AppButtonStyle()).disabled(state.isWorking || state.onAction == nil)
             if state.isAccountLocked, let onLogin {
                 Button("로그인으로 돌아가기", action: onLogin)
-                    .appTextStyle(.caption).frame(minHeight: 44).disabled(state.isWorking)
+                    .appTextStyle(.caption).frame(minHeight: AppMetrics.Control.minimumHitSize).disabled(state.isWorking)
             }
             if state.isAccountLocked, onRestart != nil {
                 Button("처음부터 다시 작성") { confirmsRestart = true }
-                    .appTextStyle(.caption).frame(minHeight: 44).disabled(state.isWorking)
+                    .appTextStyle(.caption).frame(minHeight: AppMetrics.Control.minimumHitSize).disabled(state.isWorking)
             }
         }
         .alert("가입 정보를 다시 작성할까요?", isPresented: $confirmsRestart) {
