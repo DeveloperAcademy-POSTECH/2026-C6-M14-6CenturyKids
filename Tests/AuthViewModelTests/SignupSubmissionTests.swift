@@ -12,7 +12,7 @@ import ToDocDomain
         return vm
     }
 
-    func testCompletesOnlyAfterProfilesAreReadBackAndSessionIsClosed() async {
+    func testCompletesAfterPatientReadBackAndKeepsSession() async {
         let f = AuthFixture(), vm = ready(f)
         await vm.submit()
         XCTAssertEqual(vm.state.step, .completion)
@@ -20,8 +20,11 @@ import ToDocDomain
         XCTAssertEqual(f.patients.value?.user.id, f.auth.id)
         XCTAssertEqual(f.patients.value?.disease?.carcinoma, .lung)
         XCTAssertEqual(f.patients.value?.disease?.stage, .stage1)
-        XCTAssertFalse(f.auth.signedIn)
+        XCTAssertTrue(f.auth.signedIn)
         XCTAssertNil(f.session.patient)
+        XCTAssertEqual(vm.completedPatient?.user.id, f.auth.id)
+        XCTAssertEqual(f.auth.signOutCount, 0)
+        XCTAssertEqual(f.users.finds, 1)
         XCTAssertFalse(f.session.loginPreference.isEnabled)
         XCTAssertTrue(vm.state.password.isEmpty)
     }
@@ -99,7 +102,7 @@ import ToDocDomain
         await vm.submit()
         XCTAssertEqual(f.users.saves, 0)
         XCTAssertNotEqual(vm.state.step, .completion)
-        XCTAssertFalse(f.auth.signedIn)
+        XCTAssertTrue(f.auth.signedIn)
     }
 
     func testConfirmationSignInCannotAttachProfileToAnotherAccount() async {
@@ -135,7 +138,7 @@ import ToDocDomain
         await vm.submit()
         XCTAssertEqual(f.users.saves, 0)
         XCTAssertNotEqual(vm.state.step, .completion)
-        XCTAssertFalse(f.auth.signedIn)
+        XCTAssertTrue(f.auth.signedIn)
         XCTAssertFalse(f.session.isBusy)
         f.auth.beforeSignUp = nil
         await vm.submit()
@@ -143,18 +146,43 @@ import ToDocDomain
         XCTAssertEqual(f.auth.signUpCount, 1)
     }
 
-    func testSignOutFailureDoesNotReportCompletionOrRepeatWrites() async {
-        let f = AuthFixture(), vm = ready(f)
+    func testCompletionDoesNotDependOnLogoutAndStartsAppWithVerifiedPatient() async {
+        let f = AuthFixture()
+        var configuration = SignupResetTests().configuration
+        configuration.allowsSignupRequests = true
+        let flow = AuthFlowViewModel(repositories: f.repositories, configuration: configuration)
+        SignupResetTests().ready(flow.signup)
         f.auth.failSignOut = true
-        await vm.submit()
-        XCTAssertNotEqual(vm.state.step, .completion)
-        f.auth.failSignOut = false
-        await vm.submit()
-        XCTAssertEqual(vm.state.step, .completion)
-        XCTAssertEqual(f.auth.signUpCount, 1)
-        XCTAssertEqual(f.users.saves, 1)
-        XCTAssertEqual(f.patients.saves, 1)
+        await flow.signup.submit()
+        XCTAssertEqual(flow.signup.state.step, .completion)
+        XCTAssertEqual(flow.rootRoute, .authentication)
+        flow.loginAfterSignup()
+        XCTAssertEqual(flow.rootRoute, .patient)
+        XCTAssertEqual(flow.session.patient?.user.id, f.auth.id)
+        XCTAssertEqual(f.auth.signOutCount, 0)
+        XCTAssertEqual(f.auth.signInCount, 0)
     }
+
+#if DEBUG
+    func testLocalServerTestSkipsTermsWithoutInventingConsentAndUsesSameRepositories() async {
+        let f = AuthFixture(), flow = AuthFlowViewModel(repositories: f.repositories)
+        flow.startLocalSignupTest()
+        XCTAssertTrue(flow.signup.configuration.isLocalSignupTest)
+        XCTAssertTrue(flow.signup.configuration.terms.isEmpty)
+        let s = flow.signup.state
+        SignupResetTests().ready(flow.signup)
+        s.acceptedTerms = []; s.step = .passwordConfirmation
+        flow.signup.handle(.next)
+        XCTAssertEqual(s.step, .patientInfo)
+        flow.signup.handle(.back)
+        XCTAssertEqual(s.step, .passwordConfirmation)
+        s.step = .review
+        await flow.signup.submit()
+        XCTAssertEqual(s.step, .completion)
+        XCTAssertEqual(f.auth.signUpCount, 1)
+        XCTAssertTrue(s.acceptedTerms.isEmpty)
+    }
+#endif
 
     func testExistingLoginIsNotChangedByStartingAnotherSignup() async throws {
         let f = AuthFixture(), vm = ready(f)

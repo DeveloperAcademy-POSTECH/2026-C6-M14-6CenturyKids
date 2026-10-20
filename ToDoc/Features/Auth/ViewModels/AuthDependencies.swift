@@ -12,6 +12,18 @@ nonisolated struct AuthConfiguration {
     /// 기본 제품 경로는 확인 전까지 요청하지 않으며, 로컬 검사는 별도로 활성화합니다.
     var allowsSignupRequests = false
 
+    /// 승인 약관을 대신하지 않는, 사용자가 명시적으로 선택한 Debug 실서버 검사입니다.
+    var isLocalSignupTest: Bool {
+#if DEBUG
+        localSignupTest
+#else
+        false
+#endif
+    }
+#if DEBUG
+    var localSignupTest = false
+#endif
+
     var hasRequiredTerms: Bool {
         guard let termsVersion, !termsVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
         return SignupTerm.allCases.filter(\.isRequired).allSatisfy { hasContent(for: $0) }

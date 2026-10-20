@@ -8,7 +8,7 @@ struct SignupCompletionView: View {
             VStack(spacing: 24) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 72)).foregroundStyle(AppColors.primary).accessibilityHidden(true)
-                Text("로그인하고 기록을 시작해 보세요.").appTextStyle(.label)
+                Text("가입한 계정으로 기록을 시작해 보세요.").appTextStyle(.label)
                 VStack(spacing: 8) {
                     Text("환자").appTextStyle(.caption)
                     Text(email).appTextStyle(.label).textSelection(.enabled)
@@ -18,7 +18,7 @@ struct SignupCompletionView: View {
             }
             .frame(maxWidth: .infinity).padding(.top, 32)
         } footer: {
-            Button("로그인하기", action: onLogin).buttonStyle(AppButtonStyle())
+            Button("시작하기", action: onLogin).buttonStyle(AppButtonStyle())
         }
     }
 }

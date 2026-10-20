@@ -19,6 +19,7 @@ import ToDocDomain
     private var accountID: UUID?
     private var creationAttempted = false
     private var draft: Draft?
+    private(set) var completedPatient: Patient?
     private struct Draft {
         let email: String
         let password: String
@@ -63,6 +64,8 @@ import ToDocDomain
         guard state.currentValidationError == nil else { return }
         state.hasAttemptedStep = false
         switch state.step {
+        case .passwordConfirmation where configuration.isLocalSignupTest:
+            state.step = .patientInfo
         case .patientInfo where reviewEditStart == .patientInfo,
              .cancerStage where reviewEditStart == .cancerType:
             reviewEditStart = nil; state.step = .review
@@ -78,6 +81,7 @@ import ToDocDomain
             return
         }
         switch state.step {
+        case .patientInfo where configuration.isLocalSignupTest: state.step = .passwordConfirmation
         case .review: state.step = state.connection == nil ? .doctorCode : .doctorConfirmation
         case .completion, .role: break
         default: state.step = SignupStep(rawValue: state.step.rawValue - 1) ?? .role
@@ -94,6 +98,7 @@ import ToDocDomain
         case .password: return AuthFormValidation.passwordError(state.password)
         case .passwordConfirmation: return state.passwordMatches ? nil : "비밀번호가 일치하지 않아요."
         case .terms:
+            if configuration.isLocalSignupTest { return nil }
             guard configuration.hasRequiredTerms else { return "약관 본문과 버전을 준비 중이에요. 준비 후 가입할 수 있어요." }
             guard SignupTerm.allCases.filter(\.isRequired).allSatisfy(state.acceptedTerms.contains) else { return "필수 약관에 동의해 주세요." }
             return state.acceptedTerms.allSatisfy(configuration.hasContent(for:)) ? nil : "선택한 약관의 본문을 준비 중이에요."
@@ -139,7 +144,7 @@ import ToDocDomain
         }
     }
 
-    /// 기존 Repository만 호출합니다. 서버·약관 정책 확인 전에는 설정의 기본값으로 차단합니다.
+    /// 계정 생성 → 기존 정보 확인·저장 → Patient 조회로 완료를 확인합니다. 성공 세션은 유지합니다.
     func submit() async {
         guard !state.isWorking, state.step == .review else { return }
         state.errorMessage = nil
@@ -181,12 +186,10 @@ import ToDocDomain
         requestID = token; state.isWorking = true; state.isAccountLocked = true
         defer { session.finish(token); state.isWorking = false }
         let isContinuation = accountID != nil
-        var ownsSession = false
-        var profilesVerified = false
         do {
             if accountID == nil {
                 // 응답 유실도 계정 생성 가능성이 있으므로 같은 요청을 자동 반복하지 않습니다.
-                creationAttempted = true; ownsSession = true
+                creationAttempted = true
                 session.loginPreference.isEnabled = false
                 accountID = try await auth.signUp(email: draft.email, password: draft.password)
             }
@@ -197,7 +200,6 @@ import ToDocDomain
                 guard isContinuation else {
                     throw AuthFlowError("이메일의 가입 확인을 마친 뒤 ‘확인 후 가입 이어가기’를 눌러 주세요.")
                 }
-                ownsSession = true; session.loginPreference.isEnabled = false
                 let signedInID = try await auth.signIn(email: draft.email, password: draft.password)
                 try checkCurrent(token)
                 guard signedInID == id else { throw AuthFlowError("가입한 계정과 로그인한 계정이 달라요.") }
@@ -205,7 +207,6 @@ import ToDocDomain
             let currentID = try await auth.getCurrentUserId()
             try checkCurrent(token)
             guard currentID == id else { throw AuthFlowError("가입한 계정의 인증을 확인하지 못했어요.") }
-            ownsSession = true; session.loginPreference.isEnabled = false
             state.isAwaitingEmailConfirmation = false
             let user = try User(id: id, name: draft.user.name, birthday: draft.user.birthday, sex: draft.user.sex)
             let patient = Patient(user: user, doctorId: draft.doctorID, disease: draft.disease)
@@ -218,10 +219,6 @@ import ToDocDomain
                 try await users.save(user: user)
                 try checkCurrent(token)
             }
-            let storedUser = try await users.findById(id)
-            try checkCurrent(token)
-            guard let storedUser, matches(storedUser, user) else { throw profileConflict() }
-
             let existingPatient = try await patients.findById(id)
             try checkCurrent(token)
             if let existingPatient {
@@ -233,23 +230,17 @@ import ToDocDomain
             let storedPatient = try await patients.findById(id)
             try checkCurrent(token)
             guard let storedPatient, matches(storedPatient, patient) else { throw profileConflict() }
-            profilesVerified = true
+            // Patient.findById가 User를 함께 반환하므로 별도의 User 재조회는 필요하지 않습니다.
+            completedPatient = storedPatient
+            state.email = draft.email
+            state.password = ""; state.passwordConfirmation = ""
+            self.draft = nil
+            state.step = .completion
         } catch {
             if isCurrent(token) {
                 state.errorMessage = (error as? AuthFlowError)?.message ?? "가입을 마치지 못했어요. 입력한 정보를 유지했으니 연결을 확인한 뒤 다시 시도해 주세요."
             }
         }
-        // 가입이 로그인/자동 복원 권한이 되지 않도록, 취소·실패 응답까지 정리 후 잠금을 풉니다.
-        do { if ownsSession && auth.isSignedIn() { try await auth.signOut() } }
-        catch {
-            state.errorMessage = "인증 상태를 정리하지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요."
-            return
-        }
-        guard isCurrent(token), profilesVerified else { return }
-        state.email = draft.email
-        state.password = ""; state.passwordConfirmation = ""
-        self.draft = nil
-        state.step = .completion
     }
 
     private func matches(_ actual: User, _ expected: User) -> Bool {
@@ -260,7 +251,7 @@ import ToDocDomain
         matches(actual.user, expected.user) && actual.doctorId == expected.doctorId && actual.disease == expected.disease
     }
     private func profileConflict() -> AuthFlowError {
-        AuthFlowError("저장된 가입 정보를 확인하지 못했어요. 기존 정보를 바꾸지 않았으니 로그인으로 계정을 확인해 주세요.")
+        AuthFlowError("저장된 가입 정보를 확인하지 못했어요. 가입을 반복하지 말고 저장 상태를 확인해 주세요.")
     }
     private func checkCurrent(_ token: UUID) throws {
         guard isCurrent(token) else { throw CancellationError() }
