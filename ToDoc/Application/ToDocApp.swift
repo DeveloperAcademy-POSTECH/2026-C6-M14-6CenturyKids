@@ -28,7 +28,9 @@ struct ToDocApp: App {
         // 화면 캡처 인자가 함께 있으면 서버 연결 없는 캡처 경로를 우선합니다.
         if ProcessInfo.processInfo.arguments.contains("--auth-flow"),
            AuthScreenCaptureView.requestedScreen == nil {
-            authFlow = container.makeAuthFlow()
+            authFlow = container.makeAuthFlow(patients: container.patientRepository,
+                                              doctors: container.doctorRepository,
+                                              hospitals: container.hospitalRepository)
         } else {
             authFlow = nil
         }
