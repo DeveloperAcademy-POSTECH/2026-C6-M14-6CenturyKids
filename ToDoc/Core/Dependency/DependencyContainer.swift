@@ -10,10 +10,26 @@ import Foundation
 final class DependencyContainer {
     // SupabaseClient 보관하는 객체
     let supabaseProvider: SupabaseClientProvider
+    let authRepository: any AuthRepository
+    let patientRepository: any PatientRepository
+    let painRepository: any PainRepository
     
     init(configuration: SupabaseConfiguration) {
         supabaseProvider = SupabaseClientProvider(
             configuration: configuration
+        )
+        let client = supabaseProvider.client
+        authRepository = SupabaseAuthRepository(client: client)
+        patientRepository = SupabasePatientRepository(client: client)
+        painRepository = SupabasePainRepository(client: client)
+    }
+
+    @MainActor
+    func makePainRecordViewModel() -> PainRecordViewModel {
+        PainRecordViewModel(
+            authRepository: authRepository,
+            patientRepository: patientRepository,
+            painRepository: painRepository
         )
     }
 

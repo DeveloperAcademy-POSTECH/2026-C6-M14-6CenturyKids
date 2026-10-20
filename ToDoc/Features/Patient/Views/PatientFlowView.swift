@@ -5,11 +5,26 @@ struct PatientFlowView: View {
     @State private var tab = Tab.home
     @State private var path: [HomeDestination] = []
     @State var home = HomeScreenState()
-    var pain: () -> PainRecordView = { .init() }
+    var pain: () -> PainRecordView
     var careCall: () -> CareCallFlowView = { .init() }
     var notifications: () -> NotificationView = { .init() }
     var records: () -> RecordsFlowView = { .init() }
     var settings: () -> SettingsFlowView = { .init() }
+
+    init(
+        pain: @escaping () -> PainRecordView,
+        careCall: @escaping () -> CareCallFlowView = { .init() },
+        notifications: @escaping () -> NotificationView = { .init() },
+        records: @escaping () -> RecordsFlowView = { .init() },
+        settings: @escaping () -> SettingsFlowView = { .init() }
+    ) {
+        self.pain = pain
+        self.careCall = careCall
+        self.notifications = notifications
+        self.records = records
+        self.settings = settings
+    }
+
     var body: some View {
         TabView(selection: $tab) {
             NavigationStack(path: $path) {
@@ -29,4 +44,6 @@ struct PatientFlowView: View {
         }
     }
 }
-#Preview { PatientFlowView() }
+#if DEBUG
+#Preview { PatientFlowView(pain: { .preview() }) }
+#endif

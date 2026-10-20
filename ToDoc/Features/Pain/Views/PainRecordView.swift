@@ -37,6 +37,49 @@ struct PainRecordView: View {
     }
     var body: some View {
         Group {
+            switch viewModel.connectionState {
+            case .ready:
+                recordContent(viewModel: viewModel)
+            case .loading:
+                ProgressView("통증 기록을 준비하고 있어요")
+            case .signedOut:
+                ContentUnavailableView("로그인이 필요해요", systemImage: "person.crop.circle",
+                                       description: Text("통증 기록을 이용하려면 로그인해 주세요."))
+            case .patientUnavailable:
+                ContentUnavailableView("환자 계정을 찾지 못했어요", systemImage: "person.crop.circle.badge.questionmark")
+            case .failed:
+                ContentUnavailableView {
+                    Label("통증 기록을 열 수 없어요", systemImage: "exclamationmark.circle")
+                } description: {
+                    Text("잠시 후 다시 시도해 주세요.")
+                } actions: {
+                    Button("다시 시도") {
+                        Task { await loadPatientAndStartRecord() }
+                    }
+                }
+            }
+        }
+        .task { await loadPatientAndStartRecord() }
+        .onDisappear { onCancel?() }
+        .alert(item: $activeAlert) { alert in
+            Alert(
+                title: Text(alert.title),
+                message: Text("잠시 후 다시 시도해 주세요."),
+                dismissButton: .default(Text("확인"))
+            )
+        }
+    }
+
+    private func loadPatientAndStartRecord() async {
+        await viewModel.loadPatient()
+        guard !Task.isCancelled else { return }
+        if case .ready = viewModel.connectionState {
+            startRecordIfNeeded()
+        }
+    }
+
+    private func recordContent(viewModel: PainRecordViewModel) -> some View {
+        Group {
             if let completion = state.completion {
                 PainCompletionView(
                     record: completion,
@@ -69,15 +112,6 @@ struct PainRecordView: View {
                         onPrevious: { step = 1 }, onNext: prepareSummary, onClose: close)
                 }
             }
-        }
-        .onAppear { startRecordIfNeeded() }
-        .onDisappear { onCancel?() }
-        .alert(item: $activeAlert) { alert in
-            Alert(
-                title: Text(alert.title),
-                message: Text("잠시 후 다시 시도해 주세요."),
-                dismissButton: .default(Text("확인"))
-            )
         }
     }
 
