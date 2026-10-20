@@ -5,10 +5,10 @@
 //  Created by 허지우 on 10/10/26.
 //
 
-import Foundation
 #if SWIFT_PACKAGE
 import ToDocDomain
 #endif
+import Foundation
 
 protocol PatientRepository {
     func save(patient: Patient) async throws

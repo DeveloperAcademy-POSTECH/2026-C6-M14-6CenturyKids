@@ -17,9 +17,8 @@ final class CoreAICareCallAdapter: CareCallAI {
 
     private let model: any LanguageModel
     private let template: PromptTemplate
-    private let missingFieldNames: [CareCallStep: String] = [
-        .presence: "유무", .detail: "횟수·시작 시점·지속 시간·섭취량", .location: "부위",
-    ]
+    /// 횟수·시작 시점 단계(detail)는 엔진이 모델 없이 기록하므로 없다
+    private let missingFieldNames: [CareCallStep: String] = [.presence: "유무", .location: "부위"]
 
     init(model: any LanguageModel, bundle: Bundle = .main) throws {
         self.model = model

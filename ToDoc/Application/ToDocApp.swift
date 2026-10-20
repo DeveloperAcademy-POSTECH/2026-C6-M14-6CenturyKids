@@ -41,13 +41,15 @@ struct ToDocApp: App {
             if let screen = AuthScreenCaptureView.requestedScreen {
                 AuthScreenCaptureView(screen: screen)
             } else if let authFlow {
-                AuthDevelopmentRootView(authFlow: authFlow)
+                AuthDevelopmentRootView(authFlow: authFlow) {
+                    ContentView(container: container)
+                }
             } else {
-                ContentView()
+                ContentView(container: container)
             }
             #else
             // Release는 개발 인자와 관계없이 기존 홈 진입을 유지합니다.
-            ContentView()
+            ContentView(container: container)
             #endif
         }
     }

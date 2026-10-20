@@ -20,12 +20,11 @@ let package = Package(
                 exclude: [
                     "Application", "Domain", "Resources", "ToDoc.entitlements",
                     "Data/DTOs", "Data/Supabase", "Data/Repositories/Supabase", "Data/Repositories/Local",
-                    "Data/Repositories/Protocols/AuthRepository.swift",
                     "Data/Repositories/Protocols/DeviceTokenRepository.swift",
                     "Data/Repositories/Protocols/DoctorRepository.swift", "Data/Repositories/Protocols/ExerciseRepository.swift",
                     "Data/Repositories/Protocols/HospitalRepository.swift", "Data/Repositories/Protocols/IntakeRepository.swift",
                     "Data/Repositories/Protocols/NotificationRepository.swift",
-                    "Data/Repositories/Protocols/PainRepository.swift", "Data/Repositories/Protocols/PatientRepository.swift",
+                    "Data/Repositories/Protocols/PainRepository.swift",
                     "Data/Repositories/Protocols/UserRepository.swift",
                     "Features/Auth", "Features/Home", "Features/Notification", "Features/Onboarding", "Features/Pain",
                     "Features/Patient", "Features/Records", "Features/Settings", "Features/Symptom/Views",
@@ -58,6 +57,8 @@ let package = Package(
                     "Data/Repositories/Protocols/Repository.swift",
                     "Data/Repositories/Protocols/RecordRepository.swift", "Data/Repositories/Protocols/SymptomRepository.swift",
                     "Data/Repositories/Protocols/PendingCareCallRepository.swift",
+                    // 케어콜 ViewModel이 로그인 환자를 찾는다
+                    "Data/Repositories/Protocols/AuthRepository.swift", "Data/Repositories/Protocols/PatientRepository.swift",
                 ],
                 swiftSettings: [.enableUpcomingFeature("BareSlashRegexLiterals")]),
         .testTarget(name: "CareCallEngineTests", dependencies: ["ToDocCareCall", "ToDocDomain"], path: "Tests/CareCallEngineTests",

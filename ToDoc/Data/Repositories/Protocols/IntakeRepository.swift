@@ -8,7 +8,8 @@ import Foundation
 protocol IntakeRepository: RecordRepository
 where Entity == IntakeRecord {
     func findByPatientIdAndDate(
-        _ patientId: UUID,
-        _ date: Date
+        patientId: UUID,
+        from startDate: Date,
+        to endDate: Date
     ) async throws -> [IntakeRecord]
 }

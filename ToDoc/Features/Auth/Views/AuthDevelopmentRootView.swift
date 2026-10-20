@@ -4,15 +4,16 @@ import SwiftUI
 /// `--auth-flow`로 실행했을 때만 사용하는 인증 개발 진입점입니다.
 /// 화면 캡처용 예시와 달리 DependencyContainer가 조립한 실제 Repository 연결 상태로 동작합니다.
 /// 이전 ContentView의 인증 흐름을 옮겨 보존합니다. 준비되지 않은 저장소를 우회하지 않습니다.
-@MainActor struct AuthDevelopmentRootView: View {
+@MainActor struct AuthDevelopmentRootView<PatientContent: View>: View {
     @State var authFlow: AuthFlowViewModel
+    let patientContent: () -> PatientContent
 
     var body: some View {
         @Bindable var flow = authFlow
         ZStack {
             Group {
                 switch authFlow.rootRoute {
-                case .patient: PatientFlowView()
+                case .patient: patientContent()
                 case .authentication: OnboardingView(model: authFlow)
                 }
             }
@@ -35,5 +36,9 @@ import SwiftUI
 }
 
 // Canvas는 실제 서버 대신 기본 미연결 VM을 사용합니다. 앱 실행의 실제 DI와 구분합니다.
-#Preview { AuthDevelopmentRootView(authFlow: AuthFlowViewModel()) }
+#Preview {
+    AuthDevelopmentRootView(authFlow: AuthFlowViewModel()) {
+        PatientFlowView(pain: { .preview() })
+    }
+}
 #endif

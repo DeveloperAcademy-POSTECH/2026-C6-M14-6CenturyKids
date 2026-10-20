@@ -1,55 +1,221 @@
 import SwiftUI
 
-/// View는 입력과 페이지 이동을 담당하고 저장 요청을 외부로 전달합니다.
+/// View는 입력과 페이지 이동을 담당하고, ViewModel에서 기록을 준비합니다.
 struct PainRecordView: View {
+    let viewModel: PainRecordViewModel
     @State private var state: PainScreenState
     @State private var step = 0
+    @State private var didStartRecord = false
+    @State private var activeAlert: PainRecordAlert?
     @Environment(\.dismiss) private var dismiss
-    var onSave: ((PainFormInput) -> Void)?
     var onClose: (() -> Void)?
     var onShowRecord: (() -> Void)?
     var onHome: (() -> Void)?
     var onCancel: (() -> Void)?
 
-    init(state: PainScreenState = PainScreenState(), onSave: ((PainFormInput) -> Void)? = nil,
+    private enum PainRecordAlert: String, Identifiable {
+        case recordAgainFailed
+        case saveFailed
+
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .recordAgainFailed: "다시 기록할 수 없어요"
+            case .saveFailed: "기록을 저장하지 못했어요"
+            }
+        }
+    }
+
+    init(viewModel: PainRecordViewModel, state: PainScreenState = PainScreenState(),
          onClose: (() -> Void)? = nil, onShowRecord: (() -> Void)? = nil,
          onHome: (() -> Void)? = nil, onCancel: (() -> Void)? = nil) {
+        self.viewModel = viewModel
         _state = State(initialValue: state)
-        self.onSave = onSave; self.onClose = onClose; self.onShowRecord = onShowRecord
+        self.onClose = onClose; self.onShowRecord = onShowRecord
         self.onHome = onHome; self.onCancel = onCancel
     }
     var body: some View {
-        @Bindable var state = state
+        Group {
+            switch viewModel.connectionState {
+            case .ready:
+                recordContent(viewModel: viewModel)
+            case .loading:
+                ProgressView("통증 기록을 준비하고 있어요")
+            case .signedOut:
+                ContentUnavailableView("로그인이 필요해요", systemImage: "person.crop.circle",
+                                       description: Text("통증 기록을 이용하려면 로그인해 주세요."))
+            case .patientUnavailable:
+                ContentUnavailableView("환자 계정을 찾지 못했어요", systemImage: "person.crop.circle.badge.questionmark")
+            case .failed:
+                ContentUnavailableView {
+                    Label("통증 기록을 열 수 없어요", systemImage: "exclamationmark.circle")
+                } description: {
+                    Text("잠시 후 다시 시도해 주세요.")
+                } actions: {
+                    Button("다시 시도") {
+                        Task { await loadPatientAndStartRecord() }
+                    }
+                }
+            }
+        }
+        .task { await loadPatientAndStartRecord() }
+        .onDisappear { onCancel?() }
+        .alert(item: $activeAlert) { alert in
+            Alert(
+                title: Text(alert.title),
+                message: Text("잠시 후 다시 시도해 주세요."),
+                dismissButton: .default(Text("확인"))
+            )
+        }
+    }
+
+    private func loadPatientAndStartRecord() async {
+        await viewModel.loadPatient()
+        guard !Task.isCancelled else { return }
+        if case .ready = viewModel.connectionState {
+            startRecordIfNeeded()
+        }
+    }
+
+    private func recordContent(viewModel: PainRecordViewModel) -> some View {
         Group {
             if let completion = state.completion {
-                PainCompletionView(record: completion, onShowRecord: onShowRecord, onHome: onHome)
+                PainCompletionView(
+                    record: completion,
+                    isSaving: viewModel.isSaving,
+                    onRecordAgain: recordAgain,
+                    onShowRecord: onShowRecord.map { destination in
+                        { saveAndMove(to: destination) }
+                    },
+                    onHome: onHome.map { destination in
+                        { saveAndMove(to: destination) }
+                    }
+                )
             } else {
                 switch step {
                 case 0:
-                    PainLocationSelectionView(locations: state.input.locations, errorMessage: state.errorMessage,
-                        onToggle: { location in
-                            if state.input.locations.contains(location) { state.input.locations.removeAll { $0 == location } }
-                            else { state.input.locations.append(location) }
-                        }, onRemove: { location in state.input.locations.removeAll { $0 == location } },
+                    PainLocationSelectionView(locations: viewModel.selectedLocations, errorMessage: state.errorMessage,
+                        onToggle: { location in viewModel.selectLocation(location) },
+                        onRemove: { location in viewModel.removeLocation(location) },
                         onNext: { step = 1 }, onClose: close)
                 case 1:
-                    PainBeforeMedicationView(locations: state.input.locations, score: $state.input.before,
-                        onPrevious: { step = 0 }, onNext: { step = 2 }, onClose: close)
+                    PainBeforeMedicationView(locations: viewModel.selectedLocations, score: beforeScoreBinding,
+                        onPrevious: { step = 0 }, onNext: {
+                            guard viewModel.painBefore != nil else { return }
+                            step = 2
+                        }, onClose: close)
                 default:
-                    PainAfterMedicationView(locations: state.input.locations, before: state.input.before ?? 0,
-                        score: $state.input.after, isSaving: state.isSaving,
-                        errorMessage: state.errorMessage ?? (onSave == nil ? "저장 기능 연결 전이에요. 입력한 값은 저장되지 않아요." : nil),
-                        onPrevious: { step = 1 }, onSave: onSave.map { save in { save(state.input) } }, onClose: close)
+                    PainAfterMedicationView(locations: viewModel.selectedLocations, before: viewModel.painBefore,
+                        score: afterScoreBinding, isSaving: viewModel.isSaving,
+                        errorMessage: state.errorMessage,
+                        onPrevious: { step = 1 }, onNext: prepareSummary, onClose: close)
                 }
             }
-        }.onDisappear { onCancel?() }
+        }
     }
+
+    private var beforeScoreBinding: Binding<Int?> {
+        Binding(
+            get: { viewModel.painBefore },
+            set: { score in
+                if let score { viewModel.setBeforeScore(score) }
+            }
+        )
+    }
+
+    private var afterScoreBinding: Binding<Int?> {
+        Binding(
+            get: { viewModel.painAfter },
+            set: { score in
+                if let score { viewModel.setAfterScore(score) }
+            }
+        )
+    }
+
+    private func prepareSummary() {
+        do {
+            let record = try viewModel.prepareRecord()
+            state.completion = PainCompletionData(
+                location: record.location,
+                painBefore: record.painBefore,
+                painAfter: record.painAfter,
+                painChange: record.painChange
+            )
+            state.errorMessage = nil
+        } catch {
+            state.errorMessage = "통증 기록을 준비하지 못했어요."
+        }
+    }
+
+    private func startRecordIfNeeded() {
+        guard !didStartRecord else { return }
+
+        do {
+            try viewModel.startRecord()
+            didStartRecord = true
+            state.errorMessage = nil
+        } catch {
+            state.errorMessage = "통증 기록을 시작하지 못했어요."
+        }
+    }
+
+    private func recordAgain() {
+        do {
+            try viewModel.startRecord()
+            state.completion = nil
+            state.errorMessage = nil
+            step = 0
+        } catch {
+            activeAlert = .recordAgainFailed
+        }
+    }
+
+    private func saveAndMove(to destination: @escaping () -> Void) {
+        guard !viewModel.isSaving else { return }
+
+        Task { @MainActor in
+            do {
+                _ = try await viewModel.savePreparedRecord()
+                destination()
+            } catch PainRecordViewModel.SaveError.alreadySaving {
+                return
+            } catch {
+                activeAlert = .saveFailed
+            }
+        }
+    }
+
     private func close() { if let onClose { onClose() } else { dismiss() } }
 }
-#Preview("입력 화면 · 저장 미연결") { PainRecordView() }
+#if DEBUG
+private struct PreviewPainRepository: PainRepository {
+    func findById(_ id: UUID) async throws -> PainRecord? { nil }
+    func deleteById(_ id: UUID) async throws {}
+    func save(entity: PainRecord) async throws {}
+    func findByPatientId(_ patientId: UUID) async throws -> [PainRecord] { [] }
+    func findByPatientIdAndDate(
+        patientId: UUID,
+        from startDate: Date,
+        to endDate: Date
+    ) async throws -> [PainRecord] { [] }
+}
+
+extension PainRecordView {
+    @MainActor
+    static func preview(state: PainScreenState = PainScreenState()) -> Self {
+        Self(
+            viewModel: PainRecordViewModel(patientId: UUID(), painRepository: PreviewPainRepository()),
+            state: state
+        )
+    }
+}
+
+#Preview("입력 화면 · 저장 미연결") { PainRecordView.preview() }
 #Preview("완료 화면 · 예시 결과") {
     let state = PainScreenState()
     state.completion = .init(location: [.init(bodyPart: .chest, bodySide: .center, bodyView: .front)],
                              painBefore: 7, painAfter: 0, painChange: 7)
-    return PainRecordView(state: state)
+    return PainRecordView.preview(state: state)
 }
+#endif
