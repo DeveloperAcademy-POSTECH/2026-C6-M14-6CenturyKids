@@ -500,7 +500,14 @@ final class CareCallViewModel {
     /// (그 기록이 오늘 것이면 이번 통화는 다시 거는 통화가 된다)
     private func today() async throws -> SymptomRecord? {
         await sendPending()
-        return try await repository.findByPatientIdAndDate(patientId, Date())
+        return try await savedRecord(on: Date())
+    }
+
+    /// 그날 기록 (하루 1건). 저장소는 기간으로 찾아서(시작일 포함, 끝 날짜 제외) 그날 0시부터 다음 날 0시까지 본다
+    private func savedRecord(on day: Date) async throws -> SymptomRecord? {
+        let start = Calendar.current.startOfDay(for: day)
+        guard let end = Calendar.current.date(byAdding: .day, value: 1, to: start) else { return nil }
+        return try await repository.findByPatientIdAndDate(patientId: patientId, from: start, to: end).first
     }
 
     // MARK: - 폰에 남기기
@@ -528,7 +535,7 @@ final class CareCallViewModel {
     /// 그날 기록은 하루 1건. 이미 있으면 끝까지 마친 통화(다시 거는 통화)는 그 기록에 더하고,
     /// 끊긴 통화는 저장하지 않는다 (일부만 답한 기록으로 그날 기록을 바꾸지 않게). 저장했으면 true
     private func store(_ record: SymptomRecord, complete: Bool) async throws -> Bool {
-        guard let existing = try await repository.findByPatientIdAndDate(patientId, record.recordedDate) else {
+        guard let existing = try await savedRecord(on: record.recordedDate) else {
             try await repository.save(entity: record)
             return true
         }
