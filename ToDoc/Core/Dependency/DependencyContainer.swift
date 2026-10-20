@@ -6,16 +6,22 @@
 //
 
 import Foundation
-import SwiftUI
 
 final class DependencyContainer {
     // SupabaseClient 보관하는 객체
     let supabaseProvider: SupabaseClientProvider
+    let authRepository: any AuthRepository
+    let patientRepository: any PatientRepository
+    let painRepository: any PainRepository
     
     init(configuration: SupabaseConfiguration) {
         supabaseProvider = SupabaseClientProvider(
             configuration: configuration
         )
+        let client = supabaseProvider.client
+        authRepository = SupabaseAuthRepository(client: client)
+        patientRepository = SupabasePatientRepository(client: client)
+        painRepository = SupabasePainRepository(client: client)
     }
 
     /// 로그인한 환자 ID (환자 화면들이 같이 쓴다). 환자 계정이 없으면 nil, 로그인하지 않았거나 조회에 실패하면 오류
@@ -31,10 +37,11 @@ final class DependencyContainer {
     }
 
     @MainActor
-    func makePainRecordViewModel(patientId: UUID) -> PainRecordViewModel {
+    func makePainRecordViewModel() -> PainRecordViewModel {
         PainRecordViewModel(
-            patientId: patientId,
-            painRepository: SupabasePainRepository(client: supabaseProvider.client)
+            authRepository: authRepository,
+            patientRepository: patientRepository,
+            painRepository: painRepository
         )
     }
 
@@ -78,15 +85,4 @@ private struct UnconnectedSymptomRepository: SymptomRepository {
     func findByPatientId(_ patientId: UUID) async throws -> [SymptomRecord] { [] }
     func findById(_ id: UUID) async throws -> SymptomRecord? { nil }
     func deleteById(_ id: UUID) async throws { throw NotConnected() }
-}
-
-private struct DependencyContainerKey: EnvironmentKey {
-    static let defaultValue: DependencyContainer? = nil
-}
-
-extension EnvironmentValues {
-    var dependencyContainer: DependencyContainer? {
-        get { self[DependencyContainerKey.self] }
-        set { self[DependencyContainerKey.self] = newValue }
-    }
 }
