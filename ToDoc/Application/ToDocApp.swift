@@ -22,7 +22,7 @@ struct ToDocApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(container: container)
         }
     }
 }
