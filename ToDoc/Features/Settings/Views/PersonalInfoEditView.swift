@@ -48,6 +48,7 @@ struct PersonalInfoEditView: View {
                 }.presentationDetents([.medium, .large])
             }
         }
+        .onAppear { state?.onLoad?() }
         .onDisappear { state?.onCancel?() }
         .onChange(of: state?.didSave) { _, saved in if saved == true { onSaved(); dismiss() } }
     }
