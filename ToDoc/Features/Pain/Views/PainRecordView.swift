@@ -2,30 +2,16 @@ import SwiftUI
 
 /// View는 입력과 페이지 이동을 담당하고, ViewModel에서 기록을 준비합니다.
 struct PainRecordView: View {
-    let viewModel: PainRecordViewModel?
-    @State private var loadedViewModel: PainRecordViewModel? = nil
-    @State private var connectionState = ConnectionState.loading
+    let viewModel: PainRecordViewModel
     @State private var state: PainScreenState
     @State private var step = 0
     @State private var didStartRecord = false
     @State private var activeAlert: PainRecordAlert?
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.dependencyContainer) private var container
     var onClose: (() -> Void)?
     var onShowRecord: (() -> Void)?
     var onHome: (() -> Void)?
     var onCancel: (() -> Void)?
-
-    private enum ConnectionState {
-        case loading
-        case signedOut
-        case patientUnavailable
-        case failed
-    }
-
-    private var activeViewModel: PainRecordViewModel? {
-        viewModel ?? loadedViewModel
-    }
 
     private enum PainRecordAlert: String, Identifiable {
         case recordAgainFailed
@@ -41,16 +27,6 @@ struct PainRecordView: View {
         }
     }
 
-    /// 기존 호출을 유지하고 화면이 나타난 뒤 로그인 환자의 ViewModel을 준비합니다.
-    init() {
-        self.viewModel = nil
-        _state = State(initialValue: PainScreenState())
-        self.onClose = nil
-        self.onShowRecord = nil
-        self.onHome = nil
-        self.onCancel = nil
-    }
-
     init(viewModel: PainRecordViewModel, state: PainScreenState = PainScreenState(),
          onClose: (() -> Void)? = nil, onShowRecord: (() -> Void)? = nil,
          onHome: (() -> Void)? = nil, onCancel: (() -> Void)? = nil) {
@@ -61,32 +37,29 @@ struct PainRecordView: View {
     }
     var body: some View {
         Group {
-            if let viewModel = activeViewModel {
+            switch viewModel.connectionState {
+            case .ready:
                 recordContent(viewModel: viewModel)
-            } else {
-                switch connectionState {
-                case .loading:
-                    ProgressView("통증 기록을 준비하고 있어요")
-                case .signedOut:
-                    ContentUnavailableView("로그인이 필요해요", systemImage: "person.crop.circle",
-                                           description: Text("통증 기록을 이용하려면 로그인해 주세요."))
-                case .patientUnavailable:
-                    ContentUnavailableView("환자 계정을 찾지 못했어요", systemImage: "person.crop.circle.badge.questionmark")
-                case .failed:
-                    ContentUnavailableView {
-                        Label("통증 기록을 열 수 없어요", systemImage: "exclamationmark.circle")
-                    } description: {
-                        Text("잠시 후 다시 시도해 주세요.")
-                    } actions: {
-                        Button("다시 시도") {
-                            Task { await loadViewModelIfNeeded() }
-                        }
+            case .loading:
+                ProgressView("통증 기록을 준비하고 있어요")
+            case .signedOut:
+                ContentUnavailableView("로그인이 필요해요", systemImage: "person.crop.circle",
+                                       description: Text("통증 기록을 이용하려면 로그인해 주세요."))
+            case .patientUnavailable:
+                ContentUnavailableView("환자 계정을 찾지 못했어요", systemImage: "person.crop.circle.badge.questionmark")
+            case .failed:
+                ContentUnavailableView {
+                    Label("통증 기록을 열 수 없어요", systemImage: "exclamationmark.circle")
+                } description: {
+                    Text("잠시 후 다시 시도해 주세요.")
+                } actions: {
+                    Button("다시 시도") {
+                        Task { await loadPatientAndStartRecord() }
                     }
                 }
             }
         }
-        .task { await loadViewModelIfNeeded() }
-        .onAppear { startRecordIfNeeded() }
+        .task { await loadPatientAndStartRecord() }
         .onDisappear { onCancel?() }
         .alert(item: $activeAlert) { alert in
             Alert(
@@ -97,32 +70,11 @@ struct PainRecordView: View {
         }
     }
 
-    @MainActor
-    private func loadViewModelIfNeeded() async {
-        guard activeViewModel == nil else { return }
-        guard let container else {
-            connectionState = .failed
-            return
-        }
-
-        connectionState = .loading
-        let client = container.supabaseProvider.client
-        let authRepository = SupabaseAuthRepository(client: client)
-
-        do {
-            let userId = try await authRepository.getCurrentUserId()
-            guard !Task.isCancelled else { return }
-            guard let patient = try await SupabasePatientRepository(client: client).findById(userId) else {
-                connectionState = .patientUnavailable
-                return
-            }
-            guard !Task.isCancelled else { return }
-            loadedViewModel = container.makePainRecordViewModel(patientId: patient.user.id)
+    private func loadPatientAndStartRecord() async {
+        await viewModel.loadPatient()
+        guard !Task.isCancelled else { return }
+        if case .ready = viewModel.connectionState {
             startRecordIfNeeded()
-        } catch is CancellationError {
-            return
-        } catch {
-            connectionState = authRepository.isSignedIn() ? .failed : .signedOut
         }
     }
 
@@ -165,24 +117,23 @@ struct PainRecordView: View {
 
     private var beforeScoreBinding: Binding<Int?> {
         Binding(
-            get: { activeViewModel?.painBefore },
+            get: { viewModel.painBefore },
             set: { score in
-                if let score { activeViewModel?.setBeforeScore(score) }
+                if let score { viewModel.setBeforeScore(score) }
             }
         )
     }
 
     private var afterScoreBinding: Binding<Int?> {
         Binding(
-            get: { activeViewModel?.painAfter },
+            get: { viewModel.painAfter },
             set: { score in
-                if let score { activeViewModel?.setAfterScore(score) }
+                if let score { viewModel.setAfterScore(score) }
             }
         )
     }
 
     private func prepareSummary() {
-        guard let viewModel = activeViewModel else { return }
         do {
             let record = try viewModel.prepareRecord()
             state.completion = PainCompletionData(
@@ -198,7 +149,7 @@ struct PainRecordView: View {
     }
 
     private func startRecordIfNeeded() {
-        guard let viewModel = activeViewModel, !didStartRecord else { return }
+        guard !didStartRecord else { return }
 
         do {
             try viewModel.startRecord()
@@ -210,7 +161,6 @@ struct PainRecordView: View {
     }
 
     private func recordAgain() {
-        guard let viewModel = activeViewModel else { return }
         do {
             try viewModel.startRecord()
             state.completion = nil
@@ -222,7 +172,7 @@ struct PainRecordView: View {
     }
 
     private func saveAndMove(to destination: @escaping () -> Void) {
-        guard let viewModel = activeViewModel, !viewModel.isSaving else { return }
+        guard !viewModel.isSaving else { return }
 
         Task { @MainActor in
             do {

@@ -11,16 +11,33 @@ import Observation
 @MainActor
 @Observable
 final class PainRecordViewModel {
-    private let patientId: UUID
+    enum ConnectionState {
+        case loading
+        case ready
+        case signedOut
+        case patientUnavailable
+        case failed
+    }
+
+    private enum PatientSource {
+        case repositories(auth: any AuthRepository, patient: any PatientRepository)
+        case knownPatient(UUID)
+    }
+
+    @ObservationIgnored private let patientSource: PatientSource
+    private var patientId: UUID?
     private let painRepository: any PainRepository
+    private var isLoadingPatient = false
     private var preparedRecord: PainRecord?
     private var recordedDate: Date?
+    private(set) var connectionState: ConnectionState = .loading
     private(set) var selectedLocations: [BodyLocation] = []
     private(set) var painBefore: Int?
     private(set) var painAfter: Int?
     private(set) var isSaving = false
 
     enum PreparationError: Error {
+        case patientUnavailable
         case recordNotStarted
         case missingScores
     }
@@ -30,9 +47,52 @@ final class PainRecordViewModel {
         case alreadySaving
     }
 
+    init(
+        authRepository: any AuthRepository,
+        patientRepository: any PatientRepository,
+        painRepository: any PainRepository
+    ) {
+        patientSource = .repositories(auth: authRepository, patient: patientRepository)
+        self.painRepository = painRepository
+    }
+
+    #if DEBUG
     init(patientId: UUID, painRepository: any PainRepository) {
+        patientSource = .knownPatient(patientId)
         self.patientId = patientId
         self.painRepository = painRepository
+        connectionState = .ready
+    }
+    #endif
+
+    func loadPatient() async {
+        guard patientId == nil, !isLoadingPatient else { return }
+        guard case let .repositories(authRepository, patientRepository) = patientSource else { return }
+
+        isLoadingPatient = true
+        connectionState = .loading
+        defer { isLoadingPatient = false }
+
+        do {
+            let userId = try await authRepository.getCurrentUserId()
+            guard !Task.isCancelled else { return }
+
+            let patient = try await patientRepository.findById(userId)
+            guard !Task.isCancelled else { return }
+
+            guard let patient else {
+                connectionState = .patientUnavailable
+                return
+            }
+
+            patientId = patient.user.id
+            connectionState = .ready
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled else { return }
+            connectionState = authRepository.isSignedIn() ? .failed : .signedOut
+        }
     }
 
     func selectLocation(_ location: BodyLocation) {
@@ -53,6 +113,9 @@ final class PainRecordViewModel {
     }
 
     func startRecord() throws {
+        guard patientId != nil else {
+            throw PreparationError.patientUnavailable
+        }
         try discardPreparedRecord()
         recordedDate = Date()
     }
@@ -62,6 +125,10 @@ final class PainRecordViewModel {
 
         guard let recordedDate else {
             throw PreparationError.recordNotStarted
+        }
+
+        guard let patientId else {
+            throw PreparationError.patientUnavailable
         }
 
         guard let painBefore, let painAfter else {
