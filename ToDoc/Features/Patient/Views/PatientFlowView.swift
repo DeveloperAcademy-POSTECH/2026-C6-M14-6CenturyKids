@@ -13,12 +13,14 @@ struct PatientFlowView: View {
 
     init(
         pain: @escaping () -> PainRecordView,
+        careCall: @escaping () -> CareCallFlowView = { .init() },
         notifications: @escaping () -> NotificationView = { .init() },
         records: @escaping () -> RecordsFlowView = { .init() },
         settings: @escaping () -> SettingsFlowView = { .init() }
     ) {
         self.pain = pain
         self.careCall = careCall
+        self.notifications = notifications
         self.records = records
         self.settings = settings
     }
