@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(Auth)
+import enum Auth.AuthError
+#endif
 #if SWIFT_PACKAGE
 import ToDocDomain
 #endif
@@ -39,7 +42,7 @@ import ToDocDomain
         case .verifyDoctorCode: Task { await verifyDoctorCode() }
         default:
             guard !state.isAccountLocked else {
-                state.errorMessage = "계정 생성을 시작한 정보로 가입을 이어가고 있어요. 아래 버튼으로 다시 시도해 주세요."
+                state.errorMessage = state.isEmailAlreadyRegistered ? existingEmailMessage : "계정 생성을 시작한 정보로 가입을 이어가고 있어요. 아래 버튼으로 다시 시도해 주세요."
                 return
             }
             state.errorMessage = nil; state.currentValidationError = nil
@@ -144,9 +147,26 @@ import ToDocDomain
         }
     }
 
+    private var existingEmailMessage: String {
+        "이미 가입된 이메일이에요. 기존 계정으로 로그인해 주세요."
+    }
+
+    private func isExistingEmailError(_ error: Error) -> Bool {
+        #if canImport(Auth)
+        guard let error = error as? AuthError else { return false }
+        return error.errorCode == .emailExists || error.errorCode == .userAlreadyExists
+        #else
+        return false
+        #endif
+    }
+
     /// 계정 생성 → 기존 정보 확인·저장 → Patient 조회로 완료를 확인합니다. 성공 세션은 유지합니다.
     func submit() async {
         guard !state.isWorking, state.step == .review else { return }
+        guard !state.isEmailAlreadyRegistered else {
+            state.errorMessage = existingEmailMessage
+            return
+        }
         state.errorMessage = nil
         guard configuration.allowsSignupRequests,
               let auth = repositories.auth, let users = repositories.users, let patients = repositories.patients else {
@@ -191,7 +211,18 @@ import ToDocDomain
                 // 응답 유실도 계정 생성 가능성이 있으므로 같은 요청을 자동 반복하지 않습니다.
                 creationAttempted = true
                 session.loginPreference.isEnabled = false
-                accountID = try await auth.signUp(email: draft.email, password: draft.password)
+                do {
+                    accountID = try await auth.signUp(email: draft.email, password: draft.password)
+                } catch {
+                    // 가입 요청의 명시적 중복 응답만 처리합니다. 이후 조회·저장 오류와 구분합니다.
+                    guard isCurrent(token), isExistingEmailError(error) else { throw error }
+                    state.isEmailAlreadyRegistered = true
+                    state.errorMessage = existingEmailMessage
+                    state.email = draft.email
+                    state.password = ""; state.passwordConfirmation = ""
+                    self.draft = nil
+                    return
+                }
             }
             try checkCurrent(token)
             guard let id = accountID else { throw AuthFlowError("가입한 계정을 확인하지 못했어요.") }
