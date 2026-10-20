@@ -51,14 +51,15 @@ final class DependencyContainer {
         )
     }
 
-    /// 케어콜 화면에 들어갈 때마다 새로 만든다 (서비스와 같은 이유)
+    /// 케어콜 화면에 들어갈 때마다 새로 만든다 (서비스와 같은 이유). 로그인 환자는 ViewModel이 찾는다
     @MainActor
-    func makeCareCallViewModel(patientId: UUID) throws -> CareCallViewModel {
+    func makeCareCallViewModel() throws -> CareCallViewModel {
         CareCallViewModel(
             service: try makeCareCallService(),
             repository: UnconnectedSymptomRepository(),
             pending: FilePendingCareCallRepository(),
-            patientId: patientId
+            authRepository: authRepository,
+            patientRepository: patientRepository
         )
     }
 }
