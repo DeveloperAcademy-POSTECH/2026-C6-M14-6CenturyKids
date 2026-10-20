@@ -44,6 +44,7 @@ struct PatientFlowView: View {
         }
     }
 }
+
 #if DEBUG
 #Preview { PatientFlowView(pain: { .preview() }) }
 #endif

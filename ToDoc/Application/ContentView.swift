@@ -11,6 +11,7 @@ struct ContentView: View {
     }
 
     var body: some View {
+        PatientFlowCompositionView(container: container)
         PatientFlowView(
             pain: { PainRecordView(viewModel: painViewModel) },
             // 케어콜 ViewModel은 화면에 들어갈 때마다 새로 만든다 (나가면 AI 모델이 풀린다)

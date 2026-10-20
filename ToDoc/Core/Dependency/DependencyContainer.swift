@@ -19,9 +19,10 @@ final class DependencyContainer {
     let painRepository: any PainRepository
     
     init(configuration: SupabaseConfiguration) {
-        supabaseProvider = SupabaseClientProvider(
+        let provider = SupabaseClientProvider(
             configuration: configuration
         )
+      
         let client = supabaseProvider.client
         authRepository = SupabaseAuthRepository(client: client)
         userRepository = SupabaseUserRepository(client: client)
@@ -33,6 +34,13 @@ final class DependencyContainer {
     }
 
     @MainActor
+    func makePatientFlowViewModel() -> PatientFlowViewModel {
+        PatientFlowViewModel(
+            authRepository: authRepository,
+            patientRepository: patientRepository
+        )
+    }
+
     func makePainRecordViewModel() -> PainRecordViewModel {
         PainRecordViewModel(
             authRepository: authRepository,
@@ -40,6 +48,15 @@ final class DependencyContainer {
             painRepository: painRepository
         )
     }
+
+    @MainActor
+    func makeSettingsViewModel(patientId: UUID) -> SettingsViewModel {
+        return SettingsViewModel(
+            patientId: patientId,
+            userRepository: SupabaseUserRepository(client: client),
+            patientRepository: patientRepository,
+            doctorRepository: SupabaseDoctorRepository(client: client),
+            hospitalRepository: SupabaseHospitalRepository(client: client)
 
     /// 팀원이 Repository를 완성하면 이 함수의 인자로 전달합니다. VM/화면을 다시 만들 필요가 없습니다.
     /// 구현된 인증/사용자 저장소는 같은 client로 연결합니다. 나머지 nil은 의도적인 미연결입니다.

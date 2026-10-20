@@ -28,7 +28,9 @@ struct DiagnosisEditScreen: View {
                 }
                 SettingsFeedback(error: state.errorMessage)
             } else { Text("환자 정보를 먼저 불러와 주세요.").settingsText() }
-        }.onDisappear { state?.onCancel?() }
+        }
+        .onAppear { state?.onLoad?() }
+        .onDisappear { state?.onCancel?() }
         .onChange(of: state?.didSave) { _, saved in if saved == true { onSaved(); dismiss() } }
     }
     private func cancerSection(_ title: String, values: [CarcinomaType], state: DiagnosisScreenState) -> some View {
