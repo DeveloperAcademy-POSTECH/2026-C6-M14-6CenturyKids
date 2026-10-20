@@ -43,7 +43,7 @@ private struct LoadedPatientFlow: View {
 
     init(container: DependencyContainer, patientId: UUID) {
         _painViewModel = State(
-            initialValue: container.makePainRecordViewModel(patientId: patientId)
+            initialValue: container.makePainRecordViewModel()
         )
         _settingsViewModel = State(
             initialValue: container.makeSettingsViewModel(patientId: patientId)
