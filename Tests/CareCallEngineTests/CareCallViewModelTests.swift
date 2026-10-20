@@ -480,3 +480,79 @@ struct CareCallViewModelTests {
         #expect(repository.saved.count == 1)
     }
 }
+
+/// 로그인 저장소 가짜. 로그인 확인(getCurrentUserId)만 쓴다
+final class FakeAuth: AuthRepository {
+    struct Failure: Error {}
+    var userId: UUID?
+    var signedIn = true
+    func getCurrentUserId() async throws -> UUID {
+        guard let userId else { throw Failure() }
+        return userId
+    }
+    func isSignedIn() -> Bool { signedIn }
+    func signUp(email: String, password: String) async throws -> UUID { throw Failure() }
+    func resendSignUpConfirmationEmail(to email: String, redirectTo url: URL?) async throws {}
+    func signIn(email: String, password: String) async throws -> UUID { throw Failure() }
+    func signInWithApple(idToken: String, nonce: String) async throws -> UUID { throw Failure() }
+    func signOut() async throws {}
+    func requestPasswordChangeVerification() async throws {}
+    func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws {}
+    func updatePassword(to newPassword: String, nonce: String?) async throws {}
+}
+
+/// 환자 저장소 가짜. findById만 쓴다
+final class FakePatients: PatientRepository {
+    var patient: Patient?
+    func findById(_ id: UUID) async throws -> Patient? { patient?.user.id == id ? patient : nil }
+    func save(patient: Patient) async throws {}
+    func findByName(_ name: String) async throws -> [Patient] { [] }
+    func findByDoctorId(_ doctorId: UUID) async throws -> [Patient] { [] }
+}
+
+/// 화면에 들어오면 ViewModel이 로그인 환자를 찾는다 (PainRecordViewModel과 같은 방식)
+@MainActor
+struct CareCallPatientTests {
+    let service = FakeCareCall()
+    let auth = FakeAuth()
+    let patients = FakePatients()
+    let viewModel: CareCallViewModel
+
+    init() {
+        viewModel = CareCallViewModel(service: service, repository: FakeSymptomRecords(), pending: FakePendingCareCalls(),
+                                      authRepository: auth, patientRepository: patients)
+    }
+
+    private func patient(_ id: UUID) throws -> Patient {
+        Patient(user: try User(id: id, name: "홍길동", birthday: Date(timeIntervalSince1970: 0), sex: .male), doctorId: nil, disease: nil)
+    }
+
+    @Test func 환자를_찾으면_준비되고_그_환자로_통화한다() async throws {
+        let id = UUID()
+        auth.userId = id
+        patients.patient = try patient(id)
+        #expect(viewModel.connectionState == .loading)
+        await viewModel.loadPatient()
+        #expect(viewModel.connectionState == .ready)
+        await viewModel.startText()?.value
+        #expect(service.patientIds == [id])
+    }
+
+    @Test func 환자_계정이_없으면_알린다() async {
+        auth.userId = UUID()
+        await viewModel.loadPatient()
+        #expect(viewModel.connectionState == .patientUnavailable)
+    }
+
+    @Test(arguments: [(true, CareCallViewModel.ConnectionState.failed), (false, .signedOut)])
+    func 조회에_실패하면_로그인_여부로_가린다(signedIn: Bool, expected: CareCallViewModel.ConnectionState) async {
+        auth.signedIn = signedIn
+        await viewModel.loadPatient()
+        #expect(viewModel.connectionState == expected)
+    }
+
+    @Test func 환자를_찾기_전에는_통화를_시작하지_않는다() async {
+        await viewModel.startText()?.value
+        #expect(service.patientIds.isEmpty)
+    }
+}
