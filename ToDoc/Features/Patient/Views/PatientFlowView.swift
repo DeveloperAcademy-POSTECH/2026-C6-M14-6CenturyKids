@@ -5,7 +5,7 @@ struct PatientFlowView: View {
     @State private var tab = Tab.home
     @State private var path: [HomeDestination] = []
     @State var home = HomeScreenState()
-    var pain: () -> PainRecordView = { .init() }
+    var pain: () -> PainRecordView
     var careCall: () -> CareCallFlowView = { .init() }
     var notifications: () -> NotificationView = { .init() }
     var records: () -> RecordsFlowView = { .init() }
@@ -29,4 +29,4 @@ struct PatientFlowView: View {
         }
     }
 }
-#Preview { PatientFlowView() }
+#Preview { PatientFlowView(pain: { .preview() }) }

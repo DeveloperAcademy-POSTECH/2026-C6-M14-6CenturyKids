@@ -9,10 +9,13 @@ struct SettingsFlowView: View {
     var cancer: () -> CancerTypeEditView
     var stage: () -> CancerStageEditView
     var hospital: () -> HospitalConnectionView
-    var notifications: () -> NotificationSettingsView
+    var notifications: @MainActor () -> NotificationSettingsView
     init(state: SettingsScreenState = .init(), personal: @escaping () -> PersonalInfoEditView = { .init() },
          cancer: @escaping () -> CancerTypeEditView = { .init() }, stage: @escaping () -> CancerStageEditView = { .init() },
-         hospital: @escaping () -> HospitalConnectionView = { .init() }, notifications: @escaping () -> NotificationSettingsView = { .init() }) {
+         hospital: @escaping () -> HospitalConnectionView = { .init() },
+         notifications: @escaping @MainActor () -> NotificationSettingsView = {
+             NotificationSettingsView()
+         }) {
         viewModel = nil
         _state = State(initialValue: state); self.personal = personal; self.cancer = cancer
         self.stage = stage; self.hospital = hospital; self.notifications = notifications
@@ -20,7 +23,9 @@ struct SettingsFlowView: View {
 
     init(
         viewModel: SettingsViewModel,
-        notifications: @escaping () -> NotificationSettingsView = { .init() }
+        notifications: @escaping @MainActor () -> NotificationSettingsView = {
+            NotificationSettingsView()
+        }
     ) {
         self.viewModel = viewModel
         _state = State(initialValue: viewModel.screenState)

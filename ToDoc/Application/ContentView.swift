@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct ContentView: View {
-    var body: some View { PatientFlowView() }
-}
+    let container: DependencyContainer
 
-#Preview { ContentView() }
+    var body: some View {
+        PatientFlowCompositionView(container: container)
+    }
+}
