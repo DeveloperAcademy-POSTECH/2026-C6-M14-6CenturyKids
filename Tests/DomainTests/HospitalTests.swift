@@ -5,7 +5,8 @@ import ToDocDomain
 
 final class HospitalTests: XCTestCase {
     private func hospital(name: String = "토닥 병원", address: String = "포항시 남구 중앙로") throws -> Hospital {
-        try Hospital(id: UUID(), name: name, code: "H12345", address: address, doctors: [])
+        // 병원 Model에는 의사 배열을 넣지 않습니다. 의사 쪽 hospitalId로 관계를 연결합니다.
+        try Hospital(id: UUID(), name: name, code: "H12345", address: address)
     }
     func testHospitalNameUsesThirtyCharacterLimitAndSharedError() throws {
         XCTAssertEqual(try hospital(name: "  토닥 병원  ").name, "토닥 병원")

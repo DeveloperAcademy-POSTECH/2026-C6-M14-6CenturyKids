@@ -8,7 +8,7 @@ struct SignupStepScreen<Content: View>: View {
 
     var body: some View {
         AuthFormScreen(title: title, progress: state.step.progress, onBack: { state.onAction?(.back) }) {
-            content()
+            content().disabled(state.isWorking || state.isAccountLocked)
             if state.hasAttemptedStep, let error = state.currentValidationError {
                 AuthMessage(text: error)
             }

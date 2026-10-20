@@ -34,7 +34,7 @@ struct SignupTermsView: View {
                 }
             }
             if !state.hasRequiredTermsContent {
-                Text("약관 본문은 준비 중이에요. 약관이 제공되면 가입을 완료할 수 있어요.")
+                Text("약관 본문은 준비 중이에요. 현재 회원가입 연결을 준비 중이에요.")
                     .appTextStyle(.caption).foregroundStyle(AppColors.Text.secondary)
             }
         }

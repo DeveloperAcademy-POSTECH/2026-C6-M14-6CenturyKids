@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if SWIFT_PACKAGE
+import ToDocDomain
+#endif
 
 protocol DoctorRepository {
     func save(doctor: Doctor) async throws

@@ -4,7 +4,7 @@ import ToDocDomain
 import Foundation
 import Observation
 
-/// 표시 값·입력과 버튼 이벤트만 정의합니다. 인증·검증·요청 취소 정책은 하지의 새 ViewModel에서 구현합니다.
+/// 표시 값·입력과 버튼 이벤트만 정의합니다. 인증·검증·요청 취소는 같은 Auth 폴더의 ViewModel이 담당합니다.
 @Observable final class LoginScreenState {
     var email = ""
     var password = ""
@@ -13,6 +13,7 @@ import Observation
     var errorMessage: String?
     var isSubmitting = false
     var didSignIn = false
+    var remembersLogin = false
     @ObservationIgnored var onSubmit: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }
@@ -22,6 +23,12 @@ import Observation
     var errorMessage: String?
     var isSubmitting = false
     var didSend = false
+    var newPassword = ""
+    var passwordConfirmation = ""
+    var passwordError: String?
+    var isRecoveryReady = false
+    var didUpdatePassword = false
+    var needsSessionCleanup = false
     @ObservationIgnored var onSubmit: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }
@@ -32,7 +39,7 @@ struct SignupDoctorConnection {
 }
 enum SignupAction {
     case next, back, verifyDoctorCode, skipDoctorCode, changeDoctorCode
-    case editBasicInfo, editDiagnosis, submit, cancel
+    case editBasicInfo, editDiagnosis, submit, cancel, resendConfirmation
 }
 @Observable final class SignupScreenState {
     var step: SignupStep = .role
@@ -41,7 +48,7 @@ enum SignupAction {
     var email = ""
     var password = ""
     var passwordConfirmation = ""
-    var passwordMatches = false
+    var passwordMatches: Bool { !password.isEmpty && password == passwordConfirmation }
     var acceptedTerms: Set<SignupTerm> = []
     var doctorCode = ""
     var connection: SignupDoctorConnection?
@@ -53,13 +60,19 @@ enum SignupAction {
     var cancerSearch = ""
     var stage: SignupStageChoice?
     var otherStage = ""
+    /// 계정 생성이 시작되면 당시 입력을 고정합니다. 재시도가 다른 사람의 정보로 이어지지 않게 합니다.
+    var isAccountLocked = false
+    var isAwaitingEmailConfirmation = false
     var isWorking = false
     var errorMessage: String?
     var hasAttemptedStep = false
     var currentValidationError: String?
     var termsContent: [SignupTerm: String] = [:]
     var hasRequiredTermsContent = false
-    var age: Int?
+    var age: Int? {
+        guard let birthday else { return nil }
+        return calendar.dateComponents([.year], from: calendar.startOfDay(for: birthday), to: calendar.startOfDay(for: latestBirthday)).year
+    }
     var latestBirthday = Date()
     var calendar = Calendar.current
     var locale = Locale(identifier: "ko_KR")

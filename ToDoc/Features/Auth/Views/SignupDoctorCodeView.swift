@@ -6,7 +6,7 @@ struct SignupDoctorCodeView: View {
 
     var body: some View {
         AuthFormScreen(title: "의사 연결 코드를\n입력해 주세요", progress: state.step.progress, onBack: { state.onAction?(.back) }) {
-            Text("의사에게 받은 6자리 코드예요.").appTextStyle(.caption)
+            Text("의사에게 받은 6자리 코드예요.\n코드가 없다면 지금은 건너뛸 수 있어요.").appTextStyle(.caption)
             AuthTextField(title: "연결 코드", placeholder: "예: A12B34", text: $state.doctorCode,
                           error: state.hasAttemptedStep ? state.currentValidationError : nil)
                 .disabled(state.isWorking)
