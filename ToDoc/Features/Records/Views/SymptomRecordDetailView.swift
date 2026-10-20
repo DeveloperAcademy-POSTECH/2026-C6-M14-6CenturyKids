@@ -5,74 +5,133 @@ struct SymptomRecordDetailView: View {
     var body: some View {
         RecordDetailLayout(state: state) {
             if case .symptom(let data) = state.content {
-                RecordChartCard(caption: "증상 기록 · 있음으로 답한 항목",
-                    value: data.presentCount.map { "\($0)건" } ?? "집계 미제공", range: state.rangeLabel) {
-                    RecordSymptomChart(state: state, days: data.days)
-                }
-                if state.period == .day {
-                    if let record = data.days.first?.record, !record.presentSymptoms.isEmpty { entries(record) }
-                    else { Text("표시할 증상 기록이 없어요.").foregroundStyle(.secondary) }
+                let entries = data.records.flatMap(\.presentSymptoms)
+                if data.symptoms.isEmpty || entries.isEmpty {
+                    Text("표시할 증상 기록이 없어요.").foregroundStyle(.secondary).padding(.vertical, 40)
+                } else {
+                    bubbles(data.symptoms).padding(.top, 20)
+                    VStack(alignment: .trailing, spacing: 12) {
+                        Button("수정") { state.onAction?(.edit) }
+                            .modifier(RecordTextStyle(size: 14)).foregroundStyle(Color(white: 141/255))
+                            .buttonStyle(.plain).disabled(state.onAction == nil)
+                        ForEach(entries) { RecordSymptomCard(entry: $0) }
+                    }.padding(.top, 20)
                 }
             }
         }
     }
 
-    @ViewBuilder private func entries(_ record: SymptomRecordDisplay) -> some View {
-        ForEach(record.presentSymptoms) { entry in
-            VStack(alignment: .leading, spacing: 10) {
-                Text(entry.symptomType.displayName).modifier(RecordTextStyle(size: 16, weight: .semibold))
-                Text("증상 유무: \(entry.presence.displayName)").modifier(RecordTextStyle(size: 14, weight: .semibold))
-                if let location = entry.rawLocationText, !location.isEmpty {
-                    Text(location).modifier(RecordTextStyle(size: 14))
-                } else if let part = entry.bodyPart {
-                    Text([entry.bodySide?.displayName, part.displayName].compactMap { $0 }.joined(separator: " "))
-                        .modifier(RecordTextStyle(size: 14))
+    private func bubbles(_ symptoms: [RecordSymptomItem]) -> some View {
+        // 가장 큰 항목 위에만 말풍선을 띄웁니다 (일별은 표시하지 않음).
+        let top = state.period == .day ? nil : symptoms.max { $0.weight < $1.weight }
+        return RecordSymptomBubbleLayout {
+            ForEach(symptoms) { item in
+                RecordSymptomBubble(item: item, showsLabel: item.id == top?.id)
+                    .layoutValue(key: RecordSymptomWeight.self, value: item.weight)
+            }
+        }.frame(height: 280)
+    }
+}
+
+private struct RecordSymptomBubble: View {
+    let item: RecordSymptomItem
+    let showsLabel: Bool
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            RoundedRectangle(cornerRadius: min(side / 2, 50)).fill(RecordChartStyle.color(for: item.type))
+                .overlay {
+                    Text(item.type.displayName).font(.system(size: min(max(side * 0.5, 11), 34), weight: .bold))
+                        .foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.3).padding(.horizontal, 6)
                 }
-                if let detail = entry.detail, !detail.isEmpty { Text(detail).modifier(RecordTextStyle(size: 14)) }
-                if let count = entry.occurrenceCount { Text("횟수 \(count)회").modifier(RecordTextStyle(size: 14)).foregroundStyle(.secondary) }
-                if let minutes = entry.durationMinutes { Text("지속 시간 \(minutes)분").modifier(RecordTextStyle(size: 14)).foregroundStyle(.secondary) }
-            }.fixedSize(horizontal: false, vertical: true)
-                .padding(22).frame(maxWidth: .infinity, alignment: .leading)
-                .background(.white, in: RoundedRectangle(cornerRadius: 26))
+                .overlay(alignment: .top) {
+                    if showsLabel, let label = item.label { RecordSymptomTooltip(text: label).offset(y: -18) }
+                }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(item.type.displayName).accessibilityValue(item.label ?? "")
+    }
+}
+
+private struct RecordSymptomTooltip: View {
+    let text: String
+    var body: some View {
+        VStack(spacing: 0) {
+            Text(text).modifier(RecordTextStyle(size: 11)).foregroundStyle(.white)
+                .padding(.horizontal, 12).padding(.vertical, 6).background(Color(white: 60/255), in: Capsule())
+            Triangle().fill(Color(white: 60/255)).frame(width: 8, height: 5)
+        }
+    }
+    private struct Triangle: Shape {
+        func path(in rect: CGRect) -> Path {
+            Path { $0.move(to: .zero); $0.addLine(to: CGPoint(x: rect.maxX, y: 0)); $0.addLine(to: CGPoint(x: rect.midX, y: rect.maxY)); $0.closeSubpath() }
         }
     }
 }
 
-private struct RecordSymptomChart: View {
-    let state: RecordDetailScreenState
-    let days: [RecordSymptomDay]
-    // 표시용 축 범위만 정합니다. 기간 합계와 일별 건수는 ViewModel이 제공합니다.
-    private var maximum: Double { Double(max(days.compactMap(\.presentCount).max() ?? 0, 1)) }
+private struct RecordSymptomCard: View {
+    let entry: SymptomEntryDisplay
+    private var title: String {
+        let location = entry.rawLocationText.flatMap { $0.isEmpty ? nil : $0 }
+            ?? entry.bodyPart.map { [entry.bodySide?.displayName, $0.displayName].compactMap { $0 }.joined(separator: " ") }
+        return [entry.symptomType.displayName, location].compactMap { $0 }.joined(separator: " · ")
+    }
+    private var amount: String? {
+        entry.occurrenceCount.map { "\($0)회" } ?? entry.durationMinutes.map { "\($0)분" }
+    }
     var body: some View {
-        VStack(spacing: 12) {
-            RecordPlot(scoreAxis: false) { size in
-                HStack(alignment: .bottom, spacing: 0) {
-                    ForEach(state.days, id: \.self) { date in
-                        let day = days.first { state.calendar.isDate($0.date, inSameDayAs: date) }
-                        let count = day?.presentCount
-                        let width: CGFloat = state.period == .day ? 60 : state.period == .week ? 20 : 5
-                        let height = (size.height - 24) * RecordDisplay.fraction(count.map(Double.init), maximum: maximum)
-                        VStack(spacing: 6) {
-                            if let count {
-                                if state.period != .month { Text("\(count)건").modifier(RecordTextStyle(size: 14)).fixedSize() }
-                                if count == 0 {
-                                    Circle().strokeBorder(RecordDisplay.green, lineWidth: 2).frame(width: 7, height: 7)
-                                } else {
-                                    UnevenRoundedRectangle(topLeadingRadius: width/2, topTrailingRadius: width/2)
-                                        .fill(RecordChartStyle.symptom).frame(width: width, height: max(height, 1))
-                                }
-                            } else { Capsule().fill(Color(white: 0.85)).frame(width: width, height: 5) }
-                        }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel("\(state.calendar.component(.month, from: date))월 \(state.calendar.component(.day, from: date))일")
-                            .accessibilityValue(count.map { "증상 기록 \($0)건" } ?? (day == nil ? "기록 없음" : "집계 미제공"))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title).modifier(RecordTextStyle(size: 14, weight: .semibold))
+                Spacer(minLength: 8)
+                if let amount {
+                    HStack(spacing: 4) {
+                        Circle().fill(Color(red: 232/255, green: 85/255, blue: 62/255)).frame(width: 6, height: 6)
+                        Text(amount).modifier(RecordTextStyle(size: 12))
                     }
-                }.frame(width: size.width, height: size.height)
+                }
             }
-            RecordDateAxis(state: state)
-            Text("있음으로 답한 항목 수 · 빈 원은 0건, 회색 표시는 기록 또는 집계 미제공")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if let detail = entry.detail, !detail.isEmpty { Text("'\(detail)'").modifier(RecordTextStyle(size: 12)) }
+        }.fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 22).padding(.vertical, 18).frame(maxWidth: .infinity, alignment: .leading)
+            .background(.white, in: RoundedRectangle(cornerRadius: 24))
+            .accessibilityElement(children: .combine)
+    }
+}
+
+private struct RecordSymptomWeight: LayoutValueKey { static let defaultValue: Double = 1 }
+
+/// 큰 항목부터 무게가 반씩 되도록 나누고, 긴 변을 따라 자릅니다. 크기 계산(무게)은 ViewModel이 제공합니다.
+private struct RecordSymptomBubbleLayout: Layout {
+    var spacing: CGFloat = 4
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        proposal.replacingUnspecifiedDimensions(by: CGSize(width: 345, height: 280))
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let weights = subviews.map { max($0[RecordSymptomWeight.self], 0) }
+        let order = subviews.indices.sorted { weights[$0] != weights[$1] ? weights[$0] > weights[$1] : $0 < $1 }
+        place(order, weights: weights, in: bounds) { index, rect in
+            let rect = rect.insetBy(dx: spacing / 2, dy: spacing / 2)
+            subviews[index].place(at: rect.origin, proposal: ProposedViewSize(rect.size))
         }
+    }
+    private func place(_ order: [Int], weights: [Double], in rect: CGRect, _ assign: (Int, CGRect) -> Void) {
+        guard order.count > 1 else { if let index = order.first { assign(index, rect) }; return }
+        let total = order.reduce(0) { $0 + weights[$1] }
+        // 앞쪽 합이 절반에 가장 가까운 지점에서 나눕니다. 무게가 모두 0이면 개수로 나눕니다.
+        var split = 1, prefix = 0.0, best = Double.infinity
+        for count in 1..<order.count {
+            prefix += weights[order[count - 1]]
+            let gap = total > 0 ? abs(prefix - total / 2) : abs(Double(count) - Double(order.count) / 2)
+            if gap < best { best = gap; split = count }
+        }
+        let head = order[..<split].reduce(0) { $0 + weights[$1] }
+        let ratio = total > 0 ? head / total : Double(split) / Double(order.count)
+        let (first, second) = rect.width >= rect.height
+            ? rect.divided(atDistance: rect.width * ratio, from: .minXEdge)
+            : rect.divided(atDistance: rect.height * ratio, from: .minYEdge)
+        place(Array(order[..<split]), weights: weights, in: first, assign)
+        place(Array(order[split...]), weights: weights, in: second, assign)
     }
 }
 
