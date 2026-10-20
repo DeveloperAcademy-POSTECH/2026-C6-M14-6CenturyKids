@@ -92,7 +92,11 @@ final class FakeSymptomRecords: SymptomRepository {
     var existing: SymptomRecord?
     private(set) var saved: [SymptomRecord] = []
     var failNextSave = false
-    func findByPatientIdAndDate(_ patientId: UUID, _ date: Date) async throws -> SymptomRecord? { existing }
+    private(set) var queriedRanges: [ClosedRange<Date>] = []
+    func findByPatientIdAndDate(patientId: UUID, from startDate: Date, to endDate: Date) async throws -> [SymptomRecord] {
+        queriedRanges.append(startDate...endDate)
+        return existing.map { [$0] } ?? []
+    }
     func save(entity: SymptomRecord) async throws {
         if failNextSave {
             failNextSave = false
@@ -443,6 +447,9 @@ struct CareCallViewModelTests {
         await enterVoiceCall()
         await viewModel.startCall()?.value
         #expect(service.previousRecords.count == 1 && service.previousRecords.first! == nil)
+        // 오늘 기록은 오늘 0시부터 다음 날 0시까지(끝 날짜 제외)로 찾는다
+        let today = Calendar.current.startOfDay(for: Date())
+        #expect(repository.queriedRanges.first == today...Calendar.current.date(byAdding: .day, value: 1, to: today)!)
     }
 
     @Test func 다시_거는_통화에서_달라진_게_없으면_바로_완료_화면으로() async {
