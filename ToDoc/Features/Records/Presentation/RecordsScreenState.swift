@@ -1,3 +1,6 @@
+#if SWIFT_PACKAGE
+import ToDocDomain
+#endif
 import Foundation
 import Observation
 
@@ -53,6 +56,8 @@ enum RecordDetailAction {
     var calendar = Calendar.current
     var days: [Date] = []
     var content: RecordDetailContent?
+    /// 하루 기록 '수정' 버튼 표시 (수정 연결 전까지 false)
+    var canEdit = false
     var loadState: RecordOverviewDisplayState = .unavailable
     @ObservationIgnored var onAction: ((RecordDetailAction) -> Void)?
     init(kind: RecordOverviewKind) { self.kind = kind }

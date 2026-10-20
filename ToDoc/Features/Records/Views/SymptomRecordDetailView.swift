@@ -11,9 +11,11 @@ struct SymptomRecordDetailView: View {
                 } else {
                     bubbles(data.symptoms).padding(.top, 20)
                     VStack(alignment: .trailing, spacing: 12) {
-                        Button("수정") { state.onAction?(.edit) }
-                            .modifier(RecordTextStyle(size: 14)).foregroundStyle(Color(white: 141/255))
-                            .buttonStyle(.plain).disabled(state.onAction == nil)
+                        if state.canEdit {
+                            Button("수정") { state.onAction?(.edit) }
+                                .modifier(RecordTextStyle(size: 14)).foregroundStyle(Color(white: 141/255))
+                                .buttonStyle(.plain).disabled(state.onAction == nil)
+                        }
                         ForEach(entries) { RecordSymptomCard(entry: $0) }
                     }.padding(.top, 20)
                 }
