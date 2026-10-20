@@ -429,11 +429,12 @@ struct OtherSymptomRetryTests {
         ("네, 열이 조금 나신다고 하셨습니다.", true),
         ("조금 더 자세히 말씀해 주시겠어요?", false),   // 꼬리질문
         ("", false),
+        ("열이 조금 나요.", false),                     // 환자 말 그대로 따라 씀
     ])
     func 맞장구만_쓴_답(utterance: String, retry: Bool) {
         let r = TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false, emergencySignal: false, utterance: utterance)
-        #expect(InterviewEngine.acknowledgedWithoutRecord(r, during: .other) == retry)
-        #expect(!InterviewEngine.acknowledgedWithoutRecord(r, during: .slot(key: "diarrhea", step: .presence)))
+        #expect(InterviewEngine.acknowledgedWithoutRecord(r, during: .other, patientText: "열이 조금 나요") == retry)
+        #expect(!InterviewEngine.acknowledgedWithoutRecord(r, during: .slot(key: "diarrhea", step: .presence), patientText: "열이 조금 나요"))
     }
 }
 

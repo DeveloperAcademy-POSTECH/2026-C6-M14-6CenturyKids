@@ -97,7 +97,7 @@ final class InterviewEngine {
             // 처음·그 밖에에서 모델이 증상을 기록하지 않고 맞장구만 쓰거나("열이 조금 나신다고 하셨습니다."),
             // 증상 표현("머리가 좀 아파요")이나 목록 증상 낱말("설사", "올렸")이 있는데 아무것도 기록하지 않으면 한 번 더 분석한다
             // (2026-10-13 실기기 평가 102회: 목록 낱말로 다시 분석할 턴 4개 중 3개가 실제로 놓친 증상)
-            if let r = result, Self.acknowledgedWithoutRecord(r, during: current)
+            if let r = result, Self.acknowledgedWithoutRecord(r, during: current, patientText: patientText)
                 || Self.missedSymptomHint(r, during: current, patientText: patientText,
                                           hints: config.symptomHints + config.effects.flatMap(\.keywords)) {
                 result = await analyze(current, patientText: patientText) ?? r
@@ -492,13 +492,17 @@ final class InterviewEngine {
         return nil
     }
 
-    static func acknowledgedWithoutRecord(_ result: TurnResult, during phase: InterviewPhase) -> Bool {
+    /// 환자 말을 그대로 따라 쓴 것("딱히 어디가 불편한 건 아니에요")은 맞장구로 보지 않는다: 다시 분석해도 47번 중 44번이 빈 결과였다
+    /// (2026-10-19 Mac 평가). 놓친 증상 낱말은 missedSymptomHint가, 놓친 목록 증상은 뒤의 항목 질문이 다시 묻는다
+    static func acknowledgedWithoutRecord(_ result: TurnResult, during phase: InterviewPhase, patientText: String) -> Bool {
         switch phase {
         case .opening, .other: break
         default: return false
         }
         let u = result.utterance.trimmingCharacters(in: .whitespacesAndNewlines)
-        return result.mentions.isEmpty && !result.needsClarification && !u.isEmpty && !u.contains("?")
+        guard result.mentions.isEmpty, !result.needsClarification, !u.isEmpty, !u.contains("?") else { return false }
+        let said = normalized(u), heard = normalized(patientText)
+        return said.isEmpty || heard.isEmpty || !(said.contains(heard) || heard.contains(said))
     }
 
     /// 처음·그 밖에에서 이번 답으로 기록이 하나도 바뀌지 않았는데(모델이 비웠거나, 엉뚱한 항목에 붙여 막혔거나)
