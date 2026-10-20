@@ -11,7 +11,11 @@ final class DependencyContainer {
     // SupabaseClient 보관하는 객체
     let supabaseProvider: SupabaseClientProvider
     let authRepository: any AuthRepository
+    let userRepository: any UserRepository
+    let hospitalRepository: any HospitalRepository
+    let doctorRepository: any DoctorRepository
     let patientRepository: any PatientRepository
+    let symptomRepository: any SymptomRepository
     let painRepository: any PainRepository
     
     init(configuration: SupabaseConfiguration) {
@@ -20,7 +24,11 @@ final class DependencyContainer {
         )
         let client = supabaseProvider.client
         authRepository = SupabaseAuthRepository(client: client)
+        userRepository = SupabaseUserRepository(client: client)
+        hospitalRepository = SupabaseHospitalRepository(client: client)
+        doctorRepository = SupabaseDoctorRepository(client: client)
         patientRepository = SupabasePatientRepository(client: client)
+        symptomRepository = SupabaseSymptomRepository(client: client)
         painRepository = SupabasePainRepository(client: client)
     }
 
@@ -69,7 +77,7 @@ final class DependencyContainer {
 private struct UnconnectedSymptomRepository: SymptomRepository {
     struct NotConnected: Error {}
 
-    func findByPatientIdAndDate(_ patientId: UUID, _ date: Date) async throws -> SymptomRecord? { nil }
+    func findByPatientIdAndDate(patientId: UUID, from startDate: Date, to endDate: Date) async throws -> [SymptomRecord] { [] }
     func save(entity: SymptomRecord) async throws { throw NotConnected() }
     func findByPatientId(_ patientId: UUID) async throws -> [SymptomRecord] { [] }
     func findById(_ id: UUID) async throws -> SymptomRecord? { nil }
