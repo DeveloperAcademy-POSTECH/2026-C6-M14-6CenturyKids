@@ -73,13 +73,21 @@ struct RecordQueryStatus: View {
 struct RecordChartCard<Chart: View>: View {
     let caption: String
     let value: String
+    /// 양수면 낮아짐(아래 화살표), 음수면 높아짐. nil·0이면 화살표를 그리지 않습니다.
+    var difference: Double?
     let range: String
     @ViewBuilder var chart: () -> Chart
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(caption).modifier(RecordTextStyle(size: 14)).foregroundStyle(Color(white: 141/255))
-            Text(value).modifier(RecordTextStyle(size: 26, weight: .bold)).foregroundStyle(Color(red: 25/255, green: 28/255, blue: 23/255))
-            Text(range).modifier(RecordTextStyle(size: 10)).foregroundStyle(Color(white: 141/255))
+            Text(caption).modifier(RecordTextStyle(size: 12)).foregroundStyle(Color(white: 141/255))
+            HStack(spacing: 6) {
+                Text(value).modifier(RecordTextStyle(size: 17, weight: .bold)).foregroundStyle(Color(red: 25/255, green: 28/255, blue: 23/255))
+                if let difference, difference != 0 {
+                    Image("RecordsPainChangeArrow").resizable().frame(width: 10, height: 10)
+                        .rotationEffect(.degrees(difference < 0 ? 180 : 0)).accessibilityHidden(true)
+                }
+            }
+            if !range.isEmpty { Text(range).modifier(RecordTextStyle(size: 9)).foregroundStyle(Color(white: 141/255)) }
             chart().padding(.top, 30)
         }.padding(.horizontal, 22).padding(.top, 35).padding(.bottom, 30)
             .frame(maxWidth: .infinity, alignment: .leading).background(.white, in: RoundedRectangle(cornerRadius: 26))
@@ -101,6 +109,8 @@ struct RecordPlot<Marks: View>: View {
                             Text(String(value)).modifier(RecordTextStyle(size: 12)).foregroundStyle(Color(white: 141/255))
                                 .offset(x: -21, y: y - 8)
                         }
+                    } else if scoreAxis {
+                        Rectangle().fill(Color(white: 230/255)).frame(width: 8, height: 1).offset(x: -20, y: y)
                     }
                 }
                 marks(proxy.size)
@@ -110,17 +120,25 @@ struct RecordPlot<Marks: View>: View {
 }
 
 @MainActor enum RecordChartStyle {
-    static let symptom = LinearGradient(colors: [Color(red: 144/255, green: 227/255, blue: 60/255), Color(red: 232/255, green: 251/255, blue: 138/255)], startPoint: .top, endPoint: .bottom)
+    static let green = Color(red: 205/255, green: 238/255, blue: 136/255)
+    static let track = Color(red: 240/255, green: 242/255, blue: 234/255)
     static let pain = LinearGradient(colors: [Color(red: 1, green: 70/255, blue: 70/255), Color(red: 1, green: 150/255, blue: 70/255), Color(red: 1, green: 224/255, blue: 70/255), Color(red: 184/255, green: 234/255, blue: 95/255)], startPoint: .top, endPoint: .bottom)
     static let meals = [Color(red: 156/255, green: 228/255, blue: 46/255), AppColors.primary, Color(red: 229/255, green: 247/255, blue: 196/255)]
+    /// 하루 기록 순위별 색 (임시, 디자인 확정 전): 1~4위는 상위색, 5위부터 하위색. 동률이어도 정렬 순서대로 씁니다.
+    static func rankColor(_ rank: Int) -> Color {
+        let top: [(Double, Double, Double)] = [(130, 246, 239), (165, 246, 176), (197, 242, 118), (244, 225, 116)]
+        let bottom: [(Double, Double, Double)] = [(252, 171, 115), (252, 157, 212), (210, 174, 252), (158, 194, 252), (87, 209, 252)]
+        let palette = top + bottom
+        let (red, green, blue) = palette[min(max(rank, 0), palette.count - 1)]
+        return Color(red: red / 255, green: green / 255, blue: blue / 255)
+    }
     static func label(_ date: Date, state: RecordDetailScreenState) -> String {
-        if state.period == .day { return "\(state.calendar.component(.day, from: date))일" }
         if state.period == .week {
             let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = state.calendar.timeZone; formatter.dateFormat = "EEEEE"
             return formatter.string(from: date)
         }
         let day = state.calendar.component(.day, from: date)
-        return day == 1 || day.isMultiple(of: 5) ? String(day) : ""
+        return day == 1 || day == 15 || date == state.days.last ? "\(day)일" : ""
     }
 }
 

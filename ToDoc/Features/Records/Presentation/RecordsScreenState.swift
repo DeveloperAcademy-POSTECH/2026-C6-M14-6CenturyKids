@@ -17,9 +17,14 @@ struct RecordOverviewSnapshot {
     /// 부위별 항목은 각각 1건입니다. nil은 집계 미제공, 0은 실제 0건입니다.
     struct Symptom { let presentCount: Int?; let types: [SymptomType] }
 }
-/// 선택 기간/날짜의 '있음' 항목 수. occurrenceCount(환자가 말한 횟수)와 구분합니다.
-struct RecordSymptomDetail { let presentCount: Int?; let days: [RecordSymptomDay] }
-struct RecordSymptomDay { let date: Date; let presentCount: Int?; let record: SymptomRecordDisplay? }
+/// 선택 기간의 증상별 크기와 그 기간의 기록. 크기(weight) 기준은 ViewModel이 정합니다.
+/// records는 최신순입니다 (주·월 카드 목록 순서).
+struct RecordSymptomDetail { let symptoms: [RecordSymptomItem]; let records: [SymptomRecordDisplay] }
+struct RecordSymptomItem: Identifiable {
+    let type: SymptomType
+    let weight: Double
+    var id: SymptomType { type }
+}
 struct PainRecordDisplay: Identifiable {
     let id: UUID
     let recordedDate: Date
@@ -37,7 +42,7 @@ enum RecordsAction { case load, moveDay(Int), cancel }
     @ObservationIgnored var onAction: ((RecordsAction) -> Void)?
 }
 enum RecordDetailAction {
-    case load, movePeriod(Int), selectPeriod(RecordPeriod), cancel
+    case load, movePeriod(Int), selectPeriod(RecordPeriod), edit, cancel
 }
 /// 날짜 범위·축과 집계값은 호수의 새 ViewModel이 제공합니다. View는 집계를 계산하지 않습니다.
 @Observable final class RecordDetailScreenState {
@@ -48,6 +53,8 @@ enum RecordDetailAction {
     var calendar = Calendar.current
     var days: [Date] = []
     var content: RecordDetailContent?
+    /// 하루 기록 '수정' 버튼 표시 (수정 연결 전까지 false)
+    var canEdit = false
     var loadState: RecordOverviewDisplayState = .unavailable
     @ObservationIgnored var onAction: ((RecordDetailAction) -> Void)?
     init(kind: RecordOverviewKind) { self.kind = kind }
