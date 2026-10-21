@@ -25,6 +25,9 @@ struct CareCallConfig: Decodable, Sendable {
         /// '없다'가 붙어도 이 증상이 있다는 말 ("입맛 없" = "입맛이 좀 없어요", 식사 증상 있음). 두 낱말이 한 절에서 차례로 가까이
         /// (사이 8자 이내) 나오면 맞는다. 모델이 '없음'이라 해도 '있음'으로 본다. 약 이야기 절("약을 잘 못 먹어요")은 보지 않는다 (초안)
         let presentPhrases: [String]?
+        /// 이 항목을 물을 때 이 말로 끝나는 짧은 답은 모델 없이 '없음' ("잘 나와요" = 변비 없음). 다른 항목을 물을 때는 쓰지 않는다
+        /// ("소변은 잘 나와요"를 식사 '없음'으로 읽지 않게). 모든 항목에 쓰는 말은 noSuffixes (초안)
+        let absentPhrases: [String]?
 
         struct Detail: Decodable, Sendable {
             /// 기록에 붙이는 이름 ("횟수", "구토 횟수"). 한 항목 안에서 겹치지 않는다
@@ -76,7 +79,10 @@ struct CareCallConfig: Decodable, Sendable {
     /// '그 밖에'에서 기타 증상을 말하면 한 번 더 묻고(question) 답을 그대로 기록(label)한 뒤 마무리 인사 앞에 붙이는 말(recorded)
     let otherDetail: OtherDetail
     let locationPrompt: String
-    /// 유무 질문에 이 말로 시작하거나 끝나는 짧은 답은 모델 없이 '없음' (다른 증상·숫자·연결어가 없을 때만, 초안)
+    /// 유무 질문에 이 말로 시작하거나 끝나는 짧은 답은 모델 없이 '없음' (다른 증상·숫자·연결어가 없을 때만, 초안).
+    /// 경상도 말("없심더", "괘안십니더")도 넣는다: Foundation Models가 이런 답을 '있음'으로 뒤집었다 (2026-10-21 Mac 평가).
+    /// 한 항목에만 맞는 정상이라는 말("잘 나와요")은 그 항목의 absentPhrases에 둔다. "멀쩡해요"·"깨끗해요"는 넣지 않는다:
+    /// 부위의 상태라 다른 항목 이야기("입은 멀쩡해요")일 수 있어 모델이 본다
     let noPrefixes: [String]
     let noSuffixes: [String]
     /// 유무 질문에 이 말로 끝나는 답은 이유를 말한 것 → 있음 ("입이 아파서요" = 입이 아파서 많이 못 먹었다, 초안)

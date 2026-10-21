@@ -98,6 +98,11 @@ final class InterviewEngine {
         if let analyzed = result, let recheck = await recheckCorrection(analyzed, during: current, patientText: patientText) {
             result?.mentions += recheck
         }
+        // 유무 질문에 모델이 낸 그 항목의 유무가 답의 말과 어긋나면 기록하지 않고 다시 묻는다 (잘못 남기느니 한 번 더 묻는다).
+        // 이유 답("입이 아파서요")은 아래 reasonAnswer가 다시 채운다
+        if case .slot(let key, .presence) = current {
+            result?.mentions.removeAll { $0.effectId == key && contradicts($0.presence, patientText, for: key) }
+        }
         if let analyzed = result, let reason = reasonAnswer(analyzed, during: current, patientText: patientText) {
             result?.mentions.append(reason)
         }
@@ -514,7 +519,7 @@ final class InterviewEngine {
         let keepAnyway = phase == .other && symptomHints.matches(text) != nil
         guard unchanged, result?.needsClarification != true || keepAnyway,
               symptomHints.matches(text) != nil
-                || (phase == .other && !soundsNegative(text) && !soundsUnsure(text))
+                || (phase == .other && !soundsNegative(text) && !soundsUnsure(text) && !saysNormal(text))
                 || (phase == .opening && unasked != nil && openingConcerns.matches(text) != nil) else { return }
         let name = text.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         ledger.apply(Mention(effectId: "other", otherName: name, presence: .present, quote: patientText),
@@ -560,6 +565,29 @@ final class InterviewEngine {
         let compact = Self.normalized(text)
         return ["없", "읎", "괜찮", "아니", "아뇨"].contains(where: compact.contains)
             || config.noSuffixes.contains(where: { compact.hasSuffix(Self.normalized($0)) })
+    }
+
+    /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다
+    private func saysNormal(_ text: String) -> Bool {
+        let compact = Self.normalized(text)
+        return config.effects.flatMap { $0.absentPhrases ?? [] }.contains { compact.hasSuffix(Self.normalized($0)) }
+    }
+
+    /// 유무 질문의 답과 모델이 낸 그 항목의 유무가 어긋남 (Foundation Models, 2026-10-21 Mac 평가):
+    /// - '없음'인데 없다는 말 없이 잘 안 된다는 말만 있음 ("잘 안 나와요")
+    /// - '있음'인데 그 항목 낱말은 없고 다른 증상 낱말만 있음 (구내염 질문에 "입맛이 없어서 조금밖에 못 먹어요"). "네"로 시작하면 그 항목의 답이다
+    private func contradicts(_ presence: MentionPresence, _ patientText: String, for key: String) -> Bool {
+        switch presence {
+        case .absent:
+            return ["잘안", "잘못", "안좋"].contains(where: Self.normalized(patientText).contains) && !soundsNegative(patientText)
+        case .present:
+            guard let effect = config.effects.first(where: { $0.id == key }), !effect.keywords.contains(where: patientText.contains),
+                  let first = Self.withoutFillers(patientText, fillers: config.shortAnswers.fillers).split(separator: " ").first,
+                  !config.shortAnswers.yes.contains(Self.normalized(String(first))) else { return false }
+            return config.effects.contains { $0.id != key && $0.keywords.contains { $0.count >= 2 && patientText.contains($0) } }
+        default:
+            return false
+        }
     }
 
     static func missedSymptomHint(_ result: TurnResult, during phase: InterviewPhase, patientText: String, hints: [String]) -> Bool {
@@ -640,12 +668,14 @@ final class InterviewEngine {
     private func isClearNo(_ patientText: String, for key: String) -> Bool {
         guard !key.hasPrefix("other:") else { return false }
         // "입맛이 없어요"는 '없어요'로 끝나도 식사 증상이 있다는 말이다
-        if let effect = config.effects.first(where: { $0.id == key }), saysPresent(effect, patientText) { return false }
+        let effect = config.effects.first { $0.id == key }
+        if let effect, saysPresent(effect, patientText) { return false }
         let t = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         let compact = Self.normalized(t)
         // 없음 표현으로 시작만 하면 뒷말이 번복일 수 있어("아니요 설사 맞아요 설사 했어요") 없음 표현 하나뿐일 때만 인정
         guard config.noPrefixes.contains(where: { compact == Self.normalized($0) })
-                || config.noSuffixes.contains(where: { compact.hasSuffix(Self.normalized($0)) }) else { return false }
+                || (config.noSuffixes + (effect?.absentPhrases ?? [])).contains(where: { compact.hasSuffix(Self.normalized($0)) })
+        else { return false }
         if ["근데", "그런데", "는데", "지만", "그리고", "대신"].contains(where: { t.contains($0) }) { return false }
         if NumberParser.hasNumber(t) { return false }
         let otherKeywords = config.effects.filter { $0.id != key }.flatMap(\.keywords)

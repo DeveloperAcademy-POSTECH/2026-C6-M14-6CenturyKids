@@ -149,6 +149,62 @@ struct InterviewEngineTests {
         #expect(out.utterance == rules.message)
     }
 
+    /// 묻는 항목까지 "없어요"로 넘어간다
+    private func reach(_ key: String) async {
+        _ = engine.start()
+        for _ in 0..<20 where engine.phase != .slot(key: key, step: .presence) {
+            _ = await engine.handle(patientText: "없어요")
+        }
+    }
+
+    @Test(arguments: [("constipation", "변은 잘 나와요"), ("dehydration_nutrition", "평소만큼 먹어요"),
+                      ("stomatitis", "입은 괘안십니더"), ("rash_pruritus", "가려운 데는 읎심더")])
+    func 정상이라는_답과_사투리_부정은_모델_없이_없음(key: String, answer: String) async {
+        await reach(key)
+        _ = await engine.handle(patientText: answer)
+        #expect(engine.ledger[key]?.presence == .absent)
+        #expect(!mock.requests.contains { $0.patientText == answer })
+    }
+
+    @Test func 한_항목의_정상이라는_말은_그_항목을_물을_때만_모델_없이_없음() async {
+        await reach("stomatitis")
+        _ = await engine.handle(patientText: "침은 잘 나와요") // "잘 나와요"는 변비의 말
+        #expect(mock.requests.contains { $0.patientText == "침은 잘 나와요" })
+    }
+
+    @Test func 그_밖에_질문에_어느_항목의_정상이라는_말은_기타_증상으로_남기지_않는다() async {
+        _ = engine.start()
+        for _ in 0..<20 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
+        _ = await engine.handle(patientText: "변은 잘 나와요")
+        #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
+    }
+
+    @Test func 부위의_상태만_말하면_다른_항목_이야기일_수_있어_모델이_본다() async {
+        await reach("constipation")
+        _ = await engine.handle(patientText: "입은 멀쩡해요")
+        #expect(mock.requests.contains { $0.patientText == "입은 멀쩡해요" })
+    }
+
+    @Test func 잘_안_된다는_답을_모델이_없음이라_하면_다시_묻는다() async {
+        mock.script["잘 안 나와요"] = .mentions(Mention(effectId: "constipation", presence: .absent))
+        await reach("constipation")
+        let out = await engine.handle(patientText: "잘 안 나와요")
+        #expect(engine.ledger["constipation"]?.presence == nil)
+        #expect(out.phase == .slot(key: "constipation", step: .presence))
+        #expect(out.utterance.hasPrefix(config.repeatPrefix))
+    }
+
+    @Test func 다른_증상_이야기에_지금_항목을_있음이라_하면_다시_묻는다() async {
+        mock.script["입맛이 없어서 조금밖에 못 먹어요"] = .mentions(Mention(effectId: "stomatitis", presence: .present))
+        mock.script["네, 입맛도 없어요"] = .mentions(Mention(effectId: "stomatitis", presence: .present))
+        await reach("stomatitis")
+        let out = await engine.handle(patientText: "입맛이 없어서 조금밖에 못 먹어요")
+        #expect(engine.ledger["stomatitis"]?.presence == nil)
+        #expect(out.utterance.hasPrefix(config.repeatPrefix))
+        _ = await engine.handle(patientText: "네, 입맛도 없어요") // "네"로 시작: 지금 항목의 답
+        #expect(engine.ledger["stomatitis"]?.presence == .present)
+    }
+
     @Test func 모두_없음이면_7개를_한번씩_묻고_기타_요약_저장() async {
         _ = engine.start()
         var asked: [String] = []
