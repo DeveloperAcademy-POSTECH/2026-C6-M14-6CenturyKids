@@ -3,27 +3,15 @@ import Foundation
 import ToDocDomain
 #endif
 
-/// 사용자 확정 약관을 기본 표시합니다. 가입 요청 활성화와 복귀 URL 설정은 별도입니다.
+/// 일반 회원가입에서 사용자 확정 약관과 기존 Repository를 사용합니다.
 nonisolated struct AuthConfiguration {
     var terms: [SignupTerm: String] = SignupTermsContent.provided
     var termsVersion: String? = SignupTermsContent.version
     var termsEffectiveDate: String? = SignupTermsContent.effectiveDate
     var redirectURL: URL?
-    /// 실제 가입 요청은 별도 활성화하며 약관 표시만으로 자동 허용하지 않습니다.
-    /// 기본 제품 경로는 확인 전까지 요청하지 않으며, 로컬 검사는 별도로 활성화합니다.
-    var allowsSignupRequests = false
-
-    /// 승인 약관을 대신하지 않는, 사용자가 명시적으로 선택한 Debug 실서버 검사입니다.
-    var isLocalSignupTest: Bool {
-#if DEBUG
-        localSignupTest
-#else
-        false
-#endif
-    }
-#if DEBUG
-    var localSignupTest = false
-#endif
+    /// 기본 경로에서 가입을 허용하되 필수 약관·Repository·세션 검증은 별도로 유지합니다.
+    /// 명시적으로 false를 주입하면 새 계정 생성만 차단합니다.
+    var allowsSignupRequests = true
 
     var hasRequiredTerms: Bool {
         guard let termsVersion, !termsVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }

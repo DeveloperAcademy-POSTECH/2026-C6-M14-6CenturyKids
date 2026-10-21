@@ -236,32 +236,44 @@ import ToDocDomain
         XCTAssertEqual(f.auth.signInCount, 0)
     }
 
-#if DEBUG
-    func testLocalServerTestRequiresTermsAndUsesSameRepositories() async {
+    func testOrdinarySignupUsesDefaultConfigurationAndVerifiesSavedPatientBeforeOpeningApp() async {
         let f = AuthFixture(), flow = AuthFlowViewModel(repositories: f.repositories)
-        flow.startLocalSignupTest()
-        XCTAssertTrue(flow.signup.configuration.isLocalSignupTest)
+        flow.open(.signup)
+        XCTAssertEqual(flow.screen, .signup)
         XCTAssertEqual(flow.signup.configuration.terms.count, 5)
         let s = flow.signup.state
-        SignupResetTests().ready(flow.signup)
-        s.acceptedTerms = []; s.step = .passwordConfirmation
+        s.email = "patient@example.com"; s.password = "password123"; s.passwordConfirmation = s.password
+        s.step = .passwordConfirmation
         flow.signup.handle(.next)
         XCTAssertEqual(s.step, .terms)
         await flow.signup.continueFromTerms()
         XCTAssertEqual(s.step, .terms)
         XCTAssertNotNil(s.errorMessage)
+        XCTAssertEqual(f.auth.signUpCount, 0)
         s.acceptedTerms = Set(SignupTerm.allCases)
         await flow.signup.continueFromTerms()
         XCTAssertEqual(s.step, .patientInfo)
+        XCTAssertEqual(f.auth.signUpCount, 1)
+        XCTAssertEqual(f.users.saves, 0); XCTAssertEqual(f.patients.saves, 0)
+        XCTAssertTrue(s.password.isEmpty)
         flow.signup.handle(.back)
         XCTAssertEqual(s.step, .terms)
+        await flow.signup.continueFromTerms()
+        XCTAssertEqual(s.step, .patientInfo)
+        s.name = "테스트"; s.birthday = Date(timeIntervalSince1970: 946684800); s.sex = .female
+        s.cancerType = .lung; s.stage = .known(.stage1)
         s.step = .review
         await flow.signup.submit()
         XCTAssertEqual(s.step, .completion)
         XCTAssertEqual(f.auth.signUpCount, 1)
+        XCTAssertEqual(f.users.saves, 1); XCTAssertEqual(f.patients.saves, 1)
         XCTAssertEqual(s.acceptedTerms.count, 5)
+        XCTAssertEqual(flow.signup.completedPatient?.user.id, f.auth.id)
+        XCTAssertEqual(flow.rootRoute, .authentication)
+        flow.loginAfterSignup()
+        XCTAssertEqual(flow.rootRoute, .patient)
+        XCTAssertEqual(flow.session.patient?.user.id, f.auth.id)
     }
-#endif
 
     func testExpiredCreatedAccountNeverSignsInWithClearedPasswordOrCreatesAnotherAccount() async {
         let f = AuthFixture(), vm = ready(f)

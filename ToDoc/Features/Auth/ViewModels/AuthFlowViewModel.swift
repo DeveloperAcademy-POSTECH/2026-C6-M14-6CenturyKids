@@ -79,17 +79,6 @@ enum AuthEntry { case login, signup, passwordReset }
         login.cancel(); signup.cancel(); reset.cancel()
         showsAuth = false
     }
-#if DEBUG
-    /// 실제 Repository와 약관 확인을 사용합니다. 동의 이력의 서버 보관은 이 경로의 범위가 아닙니다.
-    func startLocalSignupTest() {
-        guard !session.isBusy, session.patient == nil, !signup.state.isAccountLocked else { return }
-        var configuration = signup.configuration
-        configuration.allowsSignupRequests = true
-        configuration.localSignupTest = true
-        signup = SignupViewModel(repositories: signup.repositories, session: session, configuration: configuration)
-        open(.signup)
-    }
-#endif
     func loginAfterSignup() {
         if signup.state.step == .completion, let patient = signup.completedPatient {
             session.patient = patient

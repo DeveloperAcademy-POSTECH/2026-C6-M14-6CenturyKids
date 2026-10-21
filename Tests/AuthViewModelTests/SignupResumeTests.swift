@@ -21,10 +21,11 @@ private final class ResumeDoctors: DoctorRepository {
 }
 
 @MainActor final class SignupResumeTests: XCTestCase {
-    private func flow(_ f: AuthFixture, doctors: ResumeDoctors? = ResumeDoctors()) -> AuthFlowViewModel {
+    private func flow(_ f: AuthFixture, doctors: ResumeDoctors? = ResumeDoctors(),
+                      configuration: AuthConfiguration = .init()) -> AuthFlowViewModel {
         var repositories = f.repositories
         repositories.doctors = doctors
-        return AuthFlowViewModel(repositories: repositories)
+        return AuthFlowViewModel(repositories: repositories, configuration: configuration)
     }
     private func login(_ flow: AuthFlowViewModel) async {
         flow.open(.login)
@@ -57,7 +58,8 @@ private final class ResumeDoctors: DoctorRepository {
         XCTAssertEqual(f.auth.signUpCount, 1)
         first = nil
 
-        let resumed = flow(f)
+        var resumeConfiguration = AuthConfiguration(); resumeConfiguration.allowsSignupRequests = false
+        let resumed = flow(f, configuration: resumeConfiguration)
         await resumed.restoreSessionOnce()
         await login(resumed)
         XCTAssertEqual(resumed.screen, .signup)
