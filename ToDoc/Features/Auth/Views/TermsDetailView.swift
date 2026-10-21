@@ -10,7 +10,7 @@ struct TermsDetailView: View {
             ScrollView {
                 Text(content ?? "약관 본문을 준비하고 있어요.")
                     .appTextStyle(.label)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 24)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, AppSpacing.section)
             }
             .appScreenStyle()
             .navigationTitle(title).navigationBarTitleDisplayMode(.inline)

@@ -139,14 +139,109 @@ struct InterviewEngineTests {
         #expect(after.utterance.isEmpty && after.isFinished)
     }
 
-    @Test func 모델_응급신호만_있어도_종료한다() async {
+    /// 모델만 응급이라고 한 첫 답 (응급 키워드·체온에는 안 걸림)
+    private func modelOnlyEmergency() async -> InterviewEngine.Output {
+        var signal = TurnResult.mentions(Mention(effectId: "nausea_vomiting", presence: .present),
+                                         Mention(effectId: "stomatitis", presence: .present),
+                                         Mention(effectId: "neuropathy", presence: .present, locations: ["손"]))
+        signal.emergencySignal = true
+        mock.script["토하고 입안도 아프고 손도 저려요"] = signal
+        _ = engine.start()
+        return await engine.handle(patientText: "토하고 입안도 아프고 손도 저려요")
+    }
+
+    @Test func 모델만_응급이라고_하면_통화를_이어_가고_그_답의_기록은_검토_필요() async {
+        let out = await modelOnlyEmergency()
+        #expect(out.utterance == config.openingTransition.noted + " " + config.effects[0].details[0].question)
+        #expect(out.phase == .slot(key: "nausea_vomiting", step: .detail))
+        for key in ["nausea_vomiting", "stomatitis", "neuropathy"] {
+            #expect(engine.ledger[key]?.needsReview == true, "\(key)")
+        }
+        _ = await engine.handle(patientText: "한 번이요") // 구토 횟수
+        _ = await engine.handle(patientText: "없어요")   // 변비 (그 뒤에 받은 기록은 표시하지 않는다)
+        #expect(engine.ledger["constipation"]?.presence == .absent && engine.ledger["constipation"]?.needsReview == false)
+    }
+
+    @Test func 모델이_응급이라고_본_답은_저장할_기록에_검토_필요로_남는다() async throws {
+        _ = await modelOnlyEmergency()
+        let converter = SymptomRecordConverter(config: config, bodyParts: try fixture(BodyPartDictionary.self, "body_parts"))
+        let record = converter.record(from: engine.ledger, patientId: UUID(), date: Date())
+        #expect(!record.symptoms.isEmpty)
+        #expect(record.symptoms.allSatisfy { $0.detail?.hasPrefix("[검토 필요]") == true })
+    }
+
+    @Test func 모델이_응급이라고_본_답이_기록되지_않았으면_그_말을_모름으로_남긴다() async throws {
         var signal = TurnResult.empty
         signal.emergencySignal = true
-        mock.script["몸이 너무 이상해요"] = signal
+        mock.script["변 볼 때 빨간 피가 묻어 나와요"] = signal
+        await reach("constipation")
+        let out = await engine.handle(patientText: "변 볼 때 빨간 피가 묻어 나와요")
+        #expect(out.phase == .slot(key: "constipation", step: .presence)) // 통화는 이어 간다 (변비는 다시 묻는다)
+        // 모델 판단만으로 '있음' 증상을 만들지 않는다 (유무 모름, 원문은 검토 필요로)
+        let entry = engine.ledger["other:" + rules.reviewName]
+        #expect(entry?.presence == .unclear && entry?.needsReview == true)
+        #expect(entry?.unsureAnswers == ["변 볼 때 빨간 피가 묻어 나와요"])
+        #expect(!engine.ledger.order.contains { engine.ledger[$0]?.presence == .present })
+        let converter = SymptomRecordConverter(config: config, bodyParts: try fixture(BodyPartDictionary.self, "body_parts"))
+        let note = converter.record(from: engine.ledger, patientId: UUID(), date: Date()).symptoms.filter { $0.symptomType == .other }
+        #expect(note.map(\.presence) == [.unknown])
+        #expect(note.first?.detail == "[검토 필요] \(rules.reviewName): 변 볼 때 빨간 피가 묻어 나와요")
+    }
+
+    /// 묻는 항목까지 "없어요"로 넘어간다
+    private func reach(_ key: String) async {
         _ = engine.start()
-        let out = await engine.handle(patientText: "몸이 너무 이상해요")
-        #expect(out.phase == .emergencyEnded)
-        #expect(out.utterance == rules.message)
+        for _ in 0..<20 where engine.phase != .slot(key: key, step: .presence) {
+            _ = await engine.handle(patientText: "없어요")
+        }
+    }
+
+    @Test(arguments: [("constipation", "변은 잘 나와요"), ("dehydration_nutrition", "평소만큼 먹어요"),
+                      ("stomatitis", "입은 괘안십니더"), ("rash_pruritus", "가려운 데는 읎심더")])
+    func 정상이라는_답과_사투리_부정은_모델_없이_없음(key: String, answer: String) async {
+        await reach(key)
+        _ = await engine.handle(patientText: answer)
+        #expect(engine.ledger[key]?.presence == .absent)
+        #expect(!mock.requests.contains { $0.patientText == answer })
+    }
+
+    @Test func 한_항목의_정상이라는_말은_그_항목을_물을_때만_모델_없이_없음() async {
+        await reach("stomatitis")
+        _ = await engine.handle(patientText: "침은 잘 나와요") // "잘 나와요"는 변비의 말
+        #expect(mock.requests.contains { $0.patientText == "침은 잘 나와요" })
+    }
+
+    @Test func 그_밖에_질문에_어느_항목의_정상이라는_말은_기타_증상으로_남기지_않는다() async {
+        _ = engine.start()
+        for _ in 0..<20 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
+        _ = await engine.handle(patientText: "변은 잘 나와요")
+        #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
+    }
+
+    @Test func 부위의_상태만_말하면_다른_항목_이야기일_수_있어_모델이_본다() async {
+        await reach("constipation")
+        _ = await engine.handle(patientText: "입은 멀쩡해요")
+        #expect(mock.requests.contains { $0.patientText == "입은 멀쩡해요" })
+    }
+
+    @Test func 잘_안_된다는_답을_모델이_없음이라_하면_다시_묻는다() async {
+        mock.script["잘 안 나와요"] = .mentions(Mention(effectId: "constipation", presence: .absent))
+        await reach("constipation")
+        let out = await engine.handle(patientText: "잘 안 나와요")
+        #expect(engine.ledger["constipation"]?.presence == nil)
+        #expect(out.phase == .slot(key: "constipation", step: .presence))
+        #expect(out.utterance.hasPrefix(config.repeatPrefix))
+    }
+
+    @Test func 다른_증상_이야기에_지금_항목을_있음이라_하면_다시_묻는다() async {
+        mock.script["입맛이 없어서 조금밖에 못 먹어요"] = .mentions(Mention(effectId: "stomatitis", presence: .present))
+        mock.script["네, 입맛도 없어요"] = .mentions(Mention(effectId: "stomatitis", presence: .present))
+        await reach("stomatitis")
+        let out = await engine.handle(patientText: "입맛이 없어서 조금밖에 못 먹어요")
+        #expect(engine.ledger["stomatitis"]?.presence == nil)
+        #expect(out.utterance.hasPrefix(config.repeatPrefix))
+        _ = await engine.handle(patientText: "네, 입맛도 없어요") // "네"로 시작: 지금 항목의 답
+        #expect(engine.ledger["stomatitis"]?.presence == .present)
     }
 
     @Test func 모두_없음이면_7개를_한번씩_묻고_기타_요약_저장() async {
@@ -228,19 +323,6 @@ struct InterviewEngineTests {
         while engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
         let out = await engine.handle(patientText: "없어요")
         #expect(engine.phase == .saved && out.utterance == rules.closingMessage)
-    }
-
-    @Test func 맞장구는_모델을_부를_답에만_차례로() async {
-        _ = engine.start()
-        #expect(engine.acknowledgement(for: "어제 좀 토했어요") == nil) // 첫 질문 답: 넘어가는 말과 겹침
-        _ = await engine.handle(patientText: "없어요")
-        #expect(engine.phase == .slot(key: "nausea_vomiting", step: .presence))
-        #expect(engine.acknowledgement(for: "없어요") == nil) // 모델 없이 처리
-        #expect(engine.acknowledgement(for: "숨이 차요") == nil) // 응급: 고정 안내
-        let first = engine.acknowledgement(for: "속이 좀 이상했던 것 같기도 해요")
-        let second = engine.acknowledgement(for: "속이 좀 이상했던 것 같기도 해요")
-        #expect(first != nil && second != nil && first != second)
-        #expect(engine.phase == .slot(key: "nausea_vomiting", step: .presence) && engine.ledger["nausea_vomiting"]?.presence == nil)
     }
 
     @Test func 모델_호출_실패는_세고_같은_질문을_다시_묻는다() async {

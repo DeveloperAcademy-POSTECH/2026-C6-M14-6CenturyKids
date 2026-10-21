@@ -10,20 +10,19 @@ struct LoginFormView: View {
     let onSignup: () -> Void
     let onPasswordReset: () -> Void
     var onBack: (() -> Void)? = nil
-    @ScaledMetric(relativeTo: .title2) private var logoSize: CGFloat = 26
 
     var body: some View {
         @Bindable var state = state
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Text("C6")
-                    .font(Font(AppTypography.Style.heading.font(at: logoSize)))
-                    .foregroundStyle(Color(red: 0.21, green: 0.31, blue: 0.04))
+                    .appFont(.authBrand)
+                    .foregroundStyle(AppColors.Auth.brand)
                     .frame(maxWidth: .infinity)
                     .overlay(alignment: .leading) {
                         if let onBack {
                             Button(action: onBack) {
-                                Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                                Image(systemName: "chevron.left").frame(width: AppMetrics.Control.minimumHitSize, height: AppMetrics.Control.minimumHitSize)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("온보딩으로 돌아가기")
@@ -42,7 +41,7 @@ struct LoginFormView: View {
                 }
                 .padding(.bottom, 28)
 
-                VStack(spacing: 12) {
+                VStack(spacing: AppSpacing.item) {
                     AuthTextField(title: "이메일", placeholder: "이메일을 입력해 주세요", text: $state.email,
                                   keyboard: .emailAddress, contentType: .username,
                                   error: state.emailError, appearance: .login)
@@ -59,12 +58,12 @@ struct LoginFormView: View {
                     .toggleStyle(AuthCheckboxToggleStyle())
                     .disabled(state.isSubmitting)
                     .accessibilityHint("선택하면 다음 앱 실행에서도 로그인을 유지합니다.")
-                    .padding(.top, 12)
-                    .padding(.bottom, 24)
+                    .padding(.top, AppSpacing.item)
+                    .padding(.bottom, AppSpacing.section)
 
-                if state.onSubmit == nil { AuthMessage(text: "로그인 기능 연결 전이에요.").padding(.bottom, 16) }
+                if state.onSubmit == nil { AuthMessage(text: "로그인 기능 연결 전이에요.").padding(.bottom, AppSpacing.content) }
                 if let error = state.errorMessage {
-                    AuthMessage(text: error).padding(.bottom, 16)
+                    AuthMessage(text: error).padding(.bottom, AppSpacing.content)
                 }
                 Button(action: submit) {
                     AuthSubmitLabel(title: "로그인", isLoading: state.isSubmitting)
@@ -73,18 +72,18 @@ struct LoginFormView: View {
                 .disabled(state.isSubmitting || state.didSignIn || state.onSubmit == nil)
 
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: AppSpacing.item) {
                         signupLink
                         Text("|").foregroundStyle(AppColors.Text.secondary).accessibilityHidden(true)
                         passwordResetLink
                     }
-                    VStack(spacing: 4) { signupLink; passwordResetLink }
+                    VStack(spacing: AppSpacing.tight) { signupLink; passwordResetLink }
                 }
                 .appTextStyle(.caption)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
 
-                HStack(spacing: 12) {
+                HStack(spacing: AppSpacing.item) {
                     Rectangle().fill(AppColors.secondary).frame(height: 1).accessibilityHidden(true)
                     Text("또는 다음으로 로그인")
                         .appTextStyle(.caption)
@@ -93,13 +92,13 @@ struct LoginFormView: View {
                     Rectangle().fill(AppColors.secondary).frame(height: 1).accessibilityHidden(true)
                 }
                 .multilineTextAlignment(.center)
-                .padding(.vertical, 12)
+                .padding(.vertical, AppSpacing.item)
 
                 Button {} label: {
                     Label("Apple로 로그인", systemImage: "apple.logo")
                         .appTextStyle(.caption)
-                        .frame(maxWidth: .infinity, minHeight: 56)
-                        .background(AppColors.secondary, in: RoundedRectangle(cornerRadius: 14))
+                        .frame(maxWidth: .infinity, minHeight: AppMetrics.Auth.alternateSignInMinimumHeight)
+                        .appSurface(.authAlternateSignIn)
                 }
                 .buttonStyle(.plain)
                 .disabled(true)
@@ -110,7 +109,7 @@ struct LoginFormView: View {
             .padding(.bottom, 28)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Color.white.ignoresSafeArea())
+        .background(AppColors.surface.ignoresSafeArea())
         .foregroundStyle(AppColors.Text.primary)
         .toolbar(.hidden, for: .navigationBar)
         .accessibilityAction(.escape) { if let onBack { onBack() } else { dismiss() } }
@@ -119,13 +118,13 @@ struct LoginFormView: View {
 
     private var signupLink: some View {
         Button(action: onSignup) {
-            Text("회원가입").underline().frame(minHeight: 44)
+            Text("회원가입").underline().frame(minHeight: AppMetrics.Control.minimumHitSize)
         }.disabled(state.isSubmitting)
     }
 
     private var passwordResetLink: some View {
         Button(action: onPasswordReset) {
-            Text("비밀번호 찾기").underline().frame(minHeight: 44)
+            Text("비밀번호 찾기").underline().frame(minHeight: AppMetrics.Control.minimumHitSize)
         }.disabled(state.isSubmitting)
     }
 
