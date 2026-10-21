@@ -182,11 +182,14 @@ import ToDocDomain
         XCTAssertNotEqual(vm.state.step, .completion)
     }
 
-    func testInvalidFinalInputCannotCreateAnAccountEvenWhenEnabled() async {
+    func testFinalSubmitWithoutAuthenticatedAccountCannotWriteProfiles() async {
         let f = AuthFixture(), vm = ready(f)
-        vm.state.stage = .unknown
+        XCTAssertFalse(vm.state.hasAuthenticatedAccount)
         await vm.submit()
         XCTAssertEqual(f.auth.signUpCount, 0)
+        XCTAssertEqual(f.users.saves, 0); XCTAssertEqual(f.patients.saves, 0)
+        XCTAssertEqual(vm.state.step, .review)
+        XCTAssertNil(vm.completedPatient)
         XCTAssertFalse(vm.state.isAccountLocked)
         XCTAssertNotNil(vm.state.errorMessage)
     }
