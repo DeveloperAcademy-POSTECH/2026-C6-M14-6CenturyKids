@@ -58,6 +58,15 @@ final class DependencyContainer {
         NotificationSettingsViewModel(defaults: .standard)
     }
 
+    @MainActor
+    func makeRecordDetailViewModel(patientId: UUID) -> RecordDetailViewModel {
+        RecordDetailViewModel(
+            patientId: patientId,
+            painRepository: painRepository,
+            symptomRepository: symptomRepository
+        )
+    }
+
     /// 인증과 가입에 필요한 저장소는 컨테이너가 연결합니다.
     @MainActor func makeAuthFlow() -> AuthFlowViewModel {
         AuthFlowViewModel(
