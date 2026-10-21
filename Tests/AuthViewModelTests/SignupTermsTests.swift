@@ -3,8 +3,7 @@ import XCTest
 
 @MainActor final class SignupTermsTests: XCTestCase {
     private func ready(_ fixture: AuthFixture, configuration: AuthConfiguration? = nil) -> SignupViewModel {
-        var configuration = configuration ?? SignupResetTests().configuration
-        configuration.allowsSignupRequests = true
+        let configuration = configuration ?? SignupResetTests().configuration
         let vm = SignupViewModel(repositories: fixture.repositories, session: fixture.session, configuration: configuration)
         SignupResetTests().ready(vm)
         return vm
@@ -70,16 +69,29 @@ import XCTest
         XCTAssertEqual(vm.state.acceptedTerms, Set(SignupTerm.allCases))
     }
 
-    func testDefaultTermsDoNotAutomaticallyEnableSignupRequests() async {
+    func testDefaultConfigurationAllowsSignupAfterRequiredAgreements() async {
         let configuration = AuthConfiguration()
         XCTAssertTrue(configuration.hasRequiredTerms)
-        XCTAssertFalse(configuration.allowsSignupRequests)
+        XCTAssertTrue(configuration.allowsSignupRequests)
+        let fixture = AuthFixture(), vm = ready(fixture, configuration: configuration)
+        vm.state.step = .terms
+        await vm.continueFromTerms()
+        XCTAssertEqual(fixture.auth.signUpCount, 1)
+        XCTAssertEqual(vm.state.step, .patientInfo)
+        XCTAssertEqual(fixture.users.saves, 0)
+        XCTAssertEqual(fixture.patients.saves, 0)
+    }
+
+    func testExplicitlyDisabledSignupStillBlocksNewAccountCreation() async {
+        var configuration = AuthConfiguration()
+        configuration.allowsSignupRequests = false
         let fixture = AuthFixture()
-        let vm = SignupViewModel(repositories: fixture.repositories, session: fixture.session, configuration: configuration)
-        SignupResetTests().ready(vm)
+        let vm = ready(fixture, configuration: configuration)
         vm.state.step = .terms
         await vm.continueFromTerms()
         XCTAssertEqual(fixture.auth.signUpCount, 0)
+        XCTAssertEqual(fixture.users.saves, 0)
+        XCTAssertEqual(fixture.patients.saves, 0)
         XCTAssertNotNil(vm.state.errorMessage)
         XCTAssertFalse(vm.state.isAccountLocked)
     }
@@ -112,12 +124,10 @@ import XCTest
         XCTAssertFalse(vm.state.canProceedFromTerms)
     }
 
-#if DEBUG
-    func testLocalTestCannotSubmitWithAnyMissingAgreementOrDocument() async {
+    func testOrdinarySignupCannotSubmitWithAnyMissingAgreementOrDocument() async {
         for missing in SignupTerm.allCases {
             for removesDocument in [false, true] {
                 var configuration = AuthConfiguration()
-                configuration.localSignupTest = true
                 if removesDocument { configuration.terms[missing] = nil }
                 let fixture = AuthFixture(), vm = ready(fixture, configuration: configuration)
                 if !removesDocument { vm.state.acceptedTerms.remove(missing) }
@@ -130,5 +140,4 @@ import XCTest
             }
         }
     }
-#endif
 }
