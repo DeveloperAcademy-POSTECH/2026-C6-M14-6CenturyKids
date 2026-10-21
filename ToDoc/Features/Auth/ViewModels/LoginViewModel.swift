@@ -13,6 +13,7 @@ import ToDocDomain
         state.onSubmit = { [weak self] in Task { await self?.submit() } }
         state.onCancel = { [weak self] in self?.cancel() }
     }
+    var onIncompleteSignup: ((UUID, String) -> Void)?
     private var requestID: UUID?
 
     /// 버튼 → 입력 검사 → 인증 → 기본 사용자를 포함한 환자 조회 → 화면 성공의 순서입니다.
@@ -42,7 +43,14 @@ import ToDocDomain
         do {
             let id = try await auth.signIn(email: email, password: password)
             guard isCurrent(token) else { throw CancellationError() }
-            guard let patient = try await patients.findById(id), patient.user.id == id else {
+            let patient = try await patients.findById(id)
+            guard isCurrent(token) else { throw CancellationError() }
+            if patient == nil, let onIncompleteSignup {
+                state.password = ""
+                onIncompleteSignup(id, email)
+                return
+            }
+            guard let patient, patient.user.id == id else {
                 throw AuthFlowError("가입 정보가 아직 완성되지 않았어요. 가입 정보 확인이 필요해요.")
             }
             guard isCurrent(token) else { throw CancellationError() }
