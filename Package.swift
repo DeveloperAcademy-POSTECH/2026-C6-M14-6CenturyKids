@@ -34,7 +34,7 @@ let package = Package(
                     "Core/Speech/AVSpeechSynthesizerAdapter.swift", "Core/Speech/SpeechAnalyzerAdapter.swift",
                     "Core/Speech/SpeechRecognizer.swift", "Core/Speech/SpeechSynthesizer.swift", "Core/Speech/Supertonic",
                     "Core/Speech/SupertonicAdapter.swift",
-                    "Core/AI/CareCallGenerables.swift", "Core/AI/CoreAICareCallAdapter.swift", "Core/AI/GeneratedPresence.swift",
+                    "Core/AI/CareCallGenerables.swift", "Core/AI/FoundationModelsCareCallAdapter.swift", "Core/AI/GeneratedPresence.swift",
                     "Core/AI/LanguageModelProvider.swift", "Core/AI/PromptTemplate.swift",
                     "Services/Auth", "Services/Exercise", "Services/Hospital", "Services/Intake", "Services/Notification",
                     "Services/Pain", "Services/Records", "Services/User",

@@ -81,7 +81,7 @@ final class DependencyContainer {
             recorder: recorder,
             recognizer: SpeechAnalyzerAdapter(recorder: recorder),
             systemVoice: systemVoice,
-            loadAnalyzer: { try CoreAICareCallAdapter(model: try await LanguageModelProvider.loadKanana()) },
+            loadAnalyzer: { try FoundationModelsCareCallAdapter(model: try LanguageModelProvider.systemModel()) },
             makeVoice: { SupertonicAdapter(fallback: systemVoice) }
         )
     }

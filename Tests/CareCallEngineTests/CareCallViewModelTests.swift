@@ -150,7 +150,7 @@ struct CareCallViewModelTests {
     @Test(arguments: [
         (FakeCareCall.Step.microphone, AudioRecorderError.microphoneDenied as Error, CareCallPreparationState.microphoneDenied),
         (.model, LanguageModelError.modelMissing, .modelMissing),
-        (.model, LanguageModelError.loadFailed(CancellationError()), .modelLoadFailed),
+        (.model, LanguageModelError.modelNotReady, .modelLoadFailed),
         (.speech, SpeechRecognizerError.koreanUnsupported, .speechRecognitionUnsupported),
         (.speech, SpeechRecognizerError.noAudioFormat, .failed),
     ])
@@ -162,7 +162,7 @@ struct CareCallViewModelTests {
     }
 
     @Test func 실패하면_다시_준비할_수_있다() async {
-        service.errors[.model] = LanguageModelError.loadFailed(CancellationError())
+        service.errors[.model] = LanguageModelError.modelNotReady
         await viewModel.prepare()?.value
         #expect(state.preparation == .modelLoadFailed)
         await viewModel.prepare()?.value
