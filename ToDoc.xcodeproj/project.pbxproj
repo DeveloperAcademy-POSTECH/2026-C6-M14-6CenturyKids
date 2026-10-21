@@ -27,7 +27,6 @@
 				Data/Supabase/EdgeFunction/.gitkeep,
 				Domain/Exercise/Enums/.gitkeep,
 				Domain/Hospital/Enums/.gitkeep,
-				Features/.gitkeep,
 			);
 			target = A13BCAF93077425800901BFD /* ToDoc */;
 		};
@@ -324,7 +323,7 @@
 				CODE_SIGN_ENTITLEMENTS = ToDoc/ToDoc.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 53H2JY443C;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -361,7 +360,7 @@
 				CODE_SIGN_ENTITLEMENTS = ToDoc/ToDoc.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 53H2JY443C;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;

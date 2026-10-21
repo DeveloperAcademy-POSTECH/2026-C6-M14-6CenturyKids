@@ -97,7 +97,7 @@ final class InterviewEngine {
             // 처음·그 밖에에서 모델이 증상을 기록하지 않고 맞장구만 쓰거나("열이 조금 나신다고 하셨습니다."),
             // 증상 표현("머리가 좀 아파요")이나 목록 증상 낱말("설사", "올렸")이 있는데 아무것도 기록하지 않으면 한 번 더 분석한다
             // (2026-10-13 실기기 평가 102회: 목록 낱말로 다시 분석할 턴 4개 중 3개가 실제로 놓친 증상)
-            if let r = result, Self.acknowledgedWithoutRecord(r, during: current)
+            if let r = result, Self.acknowledgedWithoutRecord(r, during: current, patientText: patientText)
                 || Self.missedSymptomHint(r, during: current, patientText: patientText,
                                           hints: config.symptomHints + config.effects.flatMap(\.keywords)) {
                 result = await analyze(current, patientText: patientText) ?? r
@@ -114,7 +114,8 @@ final class InterviewEngine {
         }
         if let mentions = result?.mentions {
             result?.mentions = presentByPhrase(reassignedByKeywords(normalizedOthers(mentions, during: current, patientText: patientText),
-                                                                    during: current, patientText: patientText), patientText: patientText)
+                                                                    during: current, patientText: patientText),
+                                                during: current, patientText: patientText)
         }
         if current == .opening, unasked != nil, let mentions = result?.mentions {
             result?.mentions = stoppedOverride(mentions, patientText: patientText)
@@ -286,10 +287,13 @@ final class InterviewEngine {
     }
 
     /// "입맛이 없어요"처럼 '없다'가 붙어도 증상이 있다는 말(presentPhrases)이면 그 증상을 '있음'으로 한다. 모델이 "없어요"만 보고
-    /// 식사를 '없음'으로 기록해 식사 질문을 건너뛰었다 (2026-10-19 실기기). "입맛 없는 건 아니에요"처럼 부정하면 그대로 둔다
-    private func presentByPhrase(_ mentions: [Mention], patientText: String) -> [Mention] {
+    /// 식사를 '없음'으로 기록해 식사 질문을 건너뛰었다 (2026-10-19 실기기). "입맛 없는 건 아니에요"처럼 부정하면 그대로 둔다.
+    /// 다른 항목을 묻는 중에는 아직 묻지 않은 항목을 '있음'으로 만들지 않는다: 구토 답 "이틀 동안은 밥을 거의 못 먹었는데 지금은 나아져서"로
+    /// 식사가 '있음'이 돼 식사 질문을 건너뛰고, 지금 상태("지금은 평소만큼 먹어요")를 묻지 못했다 (2026-10-20 Mac 평가 H16). 그 항목 차례에 직접 묻는다
+    private func presentByPhrase(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
         var result = mentions
         for effect in config.effects where saysPresent(effect, patientText) {
+            if let key = phase.slotKey, key != effect.id, ledger[effect.id]?.presence == nil { continue }
             result.removeAll { $0.effectId == effect.id && $0.presence != .present }
             if !result.contains(where: { $0.effectId == effect.id }) {
                 result.append(Mention(effectId: effect.id, presence: .present, quote: patientText))
@@ -488,13 +492,17 @@ final class InterviewEngine {
         return nil
     }
 
-    static func acknowledgedWithoutRecord(_ result: TurnResult, during phase: InterviewPhase) -> Bool {
+    /// 환자 말을 그대로 따라 쓴 것("딱히 어디가 불편한 건 아니에요")은 맞장구로 보지 않는다: 다시 분석해도 47번 중 44번이 빈 결과였다
+    /// (2026-10-19 Mac 평가). 놓친 증상 낱말은 missedSymptomHint가, 놓친 목록 증상은 뒤의 항목 질문이 다시 묻는다
+    static func acknowledgedWithoutRecord(_ result: TurnResult, during phase: InterviewPhase, patientText: String) -> Bool {
         switch phase {
         case .opening, .other: break
         default: return false
         }
         let u = result.utterance.trimmingCharacters(in: .whitespacesAndNewlines)
-        return result.mentions.isEmpty && !result.needsClarification && !u.isEmpty && !u.contains("?")
+        guard result.mentions.isEmpty, !result.needsClarification, !u.isEmpty, !u.contains("?") else { return false }
+        let said = normalized(u), heard = normalized(patientText)
+        return said.isEmpty || heard.isEmpty || !(said.contains(heard) || heard.contains(said))
     }
 
     /// 처음·그 밖에에서 이번 답으로 기록이 하나도 바뀌지 않았는데(모델이 비웠거나, 엉뚱한 항목에 붙여 막혔거나)

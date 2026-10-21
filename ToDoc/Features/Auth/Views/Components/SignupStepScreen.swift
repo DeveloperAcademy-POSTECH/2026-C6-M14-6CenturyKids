@@ -24,17 +24,17 @@ struct SignupSummaryCard<Content: View>: View {
     let edit: () -> Void
     @ViewBuilder var content: () -> Content
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: AppSpacing.content) {
             HStack {
                 Text(title).appTextStyle(.label)
                 Spacer()
                 Button("수정", action: edit).appTextStyle(.caption)
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: AppMetrics.Control.minimumHitSize, minHeight: AppMetrics.Control.minimumHitSize)
                     .accessibilityLabel("\(title) 수정")
             }
             content().appTextStyle(.label)
         }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppColors.secondary, in: RoundedRectangle(cornerRadius: 20))
+        .padding(AppSpacing.Auth.informationPadding).frame(maxWidth: .infinity, alignment: .leading)
+        .appSurface(.authInformation)
     }
 }
