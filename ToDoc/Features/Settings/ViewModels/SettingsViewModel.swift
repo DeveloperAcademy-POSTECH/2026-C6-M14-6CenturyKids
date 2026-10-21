@@ -316,8 +316,7 @@ final class SettingsViewModel {
             state.code = ""
             state.successMessage = "병원 연결이 완료됐어요."
 
-            screenState.profile?.doctorName = candidate.name
-            screenState.profile?.hospitalName = candidate.hospitalName
+            await loadProfile()
         } catch {
             state.errorMessage = "병원을 연결하지 못했어요. 다시 시도해 주세요."
         }
