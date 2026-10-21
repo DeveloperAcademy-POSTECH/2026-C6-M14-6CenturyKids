@@ -185,7 +185,6 @@
   ],
   "otherQuestion": "그 밖에 더 불편하신 점 있으세요?",
   "otherFollowUp": "어떤 점이 불편하신지 말씀해 주시겠어요?",
-  "acknowledgements": ["네, 잠시만요.", "네, 말씀 잘 들었어요.", "네, 알겠어요.", "말씀해 주셔서 감사해요.", "네, 그러셨군요.", "네, 적어 둘게요."],
   "repeatPrefix": "죄송해요, 다시 한 번 여쭤볼게요.",
   "returnPrefix": "{name}에 대해 여쭤볼게요.",
   "otherDetail": {"question": "어떤 점이 그러신지 조금 더 말씀해 주시겠어요?", "label": "내용", "recorded": "알겠어요, 기록해 둘게요."},

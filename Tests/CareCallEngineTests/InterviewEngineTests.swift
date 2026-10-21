@@ -230,19 +230,6 @@ struct InterviewEngineTests {
         #expect(engine.phase == .saved && out.utterance == rules.closingMessage)
     }
 
-    @Test func 맞장구는_모델을_부를_답에만_차례로() async {
-        _ = engine.start()
-        #expect(engine.acknowledgement(for: "어제 좀 토했어요") == nil) // 첫 질문 답: 넘어가는 말과 겹침
-        _ = await engine.handle(patientText: "없어요")
-        #expect(engine.phase == .slot(key: "nausea_vomiting", step: .presence))
-        #expect(engine.acknowledgement(for: "없어요") == nil) // 모델 없이 처리
-        #expect(engine.acknowledgement(for: "숨이 차요") == nil) // 응급: 고정 안내
-        let first = engine.acknowledgement(for: "속이 좀 이상했던 것 같기도 해요")
-        let second = engine.acknowledgement(for: "속이 좀 이상했던 것 같기도 해요")
-        #expect(first != nil && second != nil && first != second)
-        #expect(engine.phase == .slot(key: "nausea_vomiting", step: .presence) && engine.ledger["nausea_vomiting"]?.presence == nil)
-    }
-
     @Test func 모델_호출_실패는_세고_같은_질문을_다시_묻는다() async {
         mock.failOn = ["???"]
         _ = engine.start()

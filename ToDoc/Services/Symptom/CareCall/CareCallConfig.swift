@@ -69,8 +69,6 @@ struct CareCallConfig: Decodable, Sendable {
     let openingConcerns: [String]
     /// '그 밖에' 질문에 "네"만 답했을 때 되묻는 말
     let otherFollowUp: String
-    /// 모델이 분석하는 동안 먼저 말하는 맞장구 (차례로 돌려 씀). 모델 없이 처리하는 답과 첫 질문 답에는 쓰지 않는다
-    let acknowledgements: [String]
     /// 오류·불분명으로 같은 질문을 다시 할 때 앞에 붙이는 말
     let repeatPrefix: String
     /// 다른 항목으로 돌아가 물을 때 앞에 붙이는 말. {name} = spokenName

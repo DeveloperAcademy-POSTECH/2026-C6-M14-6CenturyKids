@@ -28,8 +28,6 @@ final class InterviewEngine {
 
     private(set) var phase: InterviewPhase = .opening
     private(set) var ledger = Ledger()
-    /// 지금까지 쓴 맞장구 수 (문구를 차례로 돌린다)
-    private var acknowledgementCount = 0
     private var otherAsked = false
     private var otherAttempts = 0
     /// '그 밖에'에서 말한 기타 증상: 한 번 더 물은 뒤 답을 그대로 기록할 항목
@@ -69,15 +67,6 @@ final class InterviewEngine {
     /// start() 뒤, 환자 답을 기다리는 동안 부른다 (첫 모델 턴 단축)
     func prewarm() async {
         await analyzer.prewarm(request(for: phase, patientText: ""))
-    }
-
-    /// 이 답을 handle하는 동안 모델을 부를 거면, 그동안 먼저 말할 맞장구 (음성 대화의 체감 대기 단축). 아니면 nil.
-    /// 첫 질문 답은 넘어가는 말("알겠어요. 이제…")과 겹쳐서 쓰지 않는다. handle과 같은 판정을 쓰고 기록은 바꾸지 않는다.
-    func acknowledgement(for patientText: String) -> String? {
-        guard phase != .opening, phase != .saved, phase != .emergencyEnded, !config.acknowledgements.isEmpty,
-              !isEmergencyText(patientText), quickResult(for: phase, patientText: patientText) == nil else { return nil }
-        defer { acknowledgementCount += 1 }
-        return config.acknowledgements[acknowledgementCount % config.acknowledgements.count]
     }
 
     func handle(patientText: String) async -> Output {

@@ -10,9 +10,6 @@ import Foundation
 /// 케어콜 음성 통화. 준비(마이크 권한 → 모델 → 한국어 인식) 뒤 엔진·음성 인식·음성 합성·AI 분석을 한 통화로 묶는다.
 /// 끝나면 저장할 기록을 돌려주고, 저장은 부른 쪽이 한다. 통화가 끝나면 음성 인식을 닫으므로, 다시 걸려면 prepareSpeech()부터 다시 부른다.
 final class CareCallService: CareCalling {
-    /// 분석이 이보다 오래 걸리면 맞장구를 먼저 말한다 (바로 말하면 어색함, 프로토타입 기기 테스트)
-    private static let acknowledgementDelay: Duration = .seconds(1)
-
     private let config: CareCallConfig
     private let converter: SymptomRecordConverter
     private let rules: EmergencyRules
@@ -171,19 +168,9 @@ final class CareCallService: CareCalling {
             let text = try await recognizer.listen()
             guard !stopped, !text.isEmpty else { break }
             onActivity(.heard(text))
-            // 분석이 오래 걸리면 맞장구를 먼저 말한다. 그 전에 끝나면 말하지 않는다
-            let acknowledgement = engine.acknowledgement(for: text).map { line in
-                Task {
-                    try? await Task.sleep(for: Self.acknowledgementDelay)
-                    guard !Task.isCancelled, !stopped else { return }
-                    onActivity(.speaking(line))
-                    await voice.speak(line)
-                }
-            }
+            // 분석을 기다리는 동안 맞장구를 하지 않는다: 모델을 부르는 답(약 22%)도 Foundation Models로 2초 안팎이다
+            // (2026-10-21 Mac 평가: 중앙 2.2초, 90% 3.4초. Kanana는 7.5초라 1초가 넘으면 맞장구를 먼저 말했다)
             out = await engine.handle(patientText: text)
-            acknowledgement?.cancel()
-            await acknowledgement?.value
-            await voice.waitUntilDone() // 맞장구가 나오는 중이면 끝난 뒤 이어서
             guard !stopped else { break }
             onActivity(.speaking(out.utterance))
             await voice.speak(out.utterance)
