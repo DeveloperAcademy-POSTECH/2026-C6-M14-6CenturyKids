@@ -6,7 +6,7 @@ struct SignupConnectionConfirmationView: View {
         SignupStepScreen(state: state, title: "소속 병원을\n확인했어요") {
             if let connection = state.connection {
                 VStack(alignment: .leading, spacing: 20) {
-                    AuthMessage(text: "인증 완료", isError: false)
+                    AuthMessage(text: "코드 확인 완료", isError: false)
                     row("병원", connection.hospitalName)
                     if let department = connection.department { row("진료과", department) }
                     row("주치의", connection.doctorName)
