@@ -6,6 +6,7 @@ struct PatientFlowCompositionView: View {
     @State private var painViewModel: PainRecordViewModel
     @State private var settingsViewModel: SettingsViewModel
     @State private var recordDetailViewModel: RecordDetailViewModel
+    @State private var recordsViewModel: RecordsViewModel
     private let container: DependencyContainer
 
     init(container: DependencyContainer, patientId: UUID) {
@@ -16,8 +17,10 @@ struct PatientFlowCompositionView: View {
         _settingsViewModel = State(
             initialValue: container.makeSettingsViewModel(patientId: patientId)
         )
-        _recordDetailViewModel = State(
-            initialValue: container.makeRecordDetailViewModel(patientId: patientId)
+        let recordDetailViewModel = container.makeRecordDetailViewModel(patientId: patientId)
+        _recordDetailViewModel = State(initialValue: recordDetailViewModel)
+        _recordsViewModel = State(
+            initialValue: container.makeRecordsViewModel(patientId: patientId, detail: recordDetailViewModel)
         )
     }
 
@@ -26,7 +29,8 @@ struct PatientFlowCompositionView: View {
             pain: { PainRecordView(viewModel: painViewModel) },
             careCall: { CareCallFlowView(makeViewModel: container.makeCareCallViewModel) },
             records: {
-                RecordsFlowView(pain: { PainRecordDetailView(state: recordDetailViewModel.pain) },
+                RecordsFlowView(state: recordsViewModel.state,
+                                pain:{ PainRecordDetailView(state: recordDetailViewModel.pain) },
                                 symptom: { SymptomRecordDetailView(state: recordDetailViewModel.symptom) })
             },
             settings: { SettingsFlowView(viewModel: settingsViewModel) }
