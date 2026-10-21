@@ -9,7 +9,7 @@ struct SignupCompletionView: View {
                 // SF Symbol 크기이며 본문용 Pretendard 스타일을 적용하지 않습니다.
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 72)).foregroundStyle(AppColors.primary).accessibilityHidden(true)
-                Text("로그인하고 기록을 시작해 보세요.").appTextStyle(.label)
+                Text("가입한 계정으로 기록을 시작해 보세요.").appTextStyle(.label)
                 VStack(spacing: AppSpacing.compact) {
                     Text("환자").appTextStyle(.caption)
                     Text(email).appTextStyle(.label).textSelection(.enabled)
@@ -19,7 +19,7 @@ struct SignupCompletionView: View {
             }
             .frame(maxWidth: .infinity).padding(.top, AppSpacing.large)
         } footer: {
-            Button("로그인하기", action: onLogin).buttonStyle(AppButtonStyle())
+            Button("시작하기", action: onLogin).buttonStyle(AppButtonStyle())
         }
     }
 }

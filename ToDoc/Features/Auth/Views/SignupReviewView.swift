@@ -23,10 +23,6 @@ struct SignupReviewView: View {
                 AuthSubmitLabel(title: state.isAwaitingEmailConfirmation ? "확인 후 가입 이어가기" : (state.isAccountLocked ? "가입 이어서 진행하기" : "확인하고 가입 마치기"), isLoading: state.isWorking)
             }
             .buttonStyle(AppButtonStyle()).disabled(state.isWorking || state.onAction == nil)
-            if state.isAwaitingEmailConfirmation {
-                Button("인증 메일 다시 받기") { state.onAction?(.resendConfirmation) }
-                    .appTextStyle(.caption).frame(minHeight: AppMetrics.Control.minimumHitSize).disabled(state.isWorking)
-            }
             if state.isAccountLocked, let onLogin {
                 Button("로그인으로 돌아가기", action: onLogin)
                     .appTextStyle(.caption).frame(minHeight: AppMetrics.Control.minimumHitSize).disabled(state.isWorking)

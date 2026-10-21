@@ -69,7 +69,22 @@ enum AuthEntry { case login, signup, passwordReset }
         login.cancel(); signup.cancel(); reset.cancel()
         showsAuth = false
     }
+#if DEBUG
+    /// 실제 Repository는 그대로 사용합니다. 약관 동의 수집/보관 검증은 이 경로의 범위가 아닙니다.
+    func startLocalSignupTest() {
+        guard !session.isBusy, session.patient == nil, !signup.state.isAccountLocked else { return }
+        var configuration = signup.configuration
+        configuration.allowsSignupRequests = true
+        configuration.localSignupTest = true
+        signup = SignupViewModel(repositories: signup.repositories, session: session, configuration: configuration)
+        open(.signup)
+    }
+#endif
     func loginAfterSignup() {
+        if signup.state.step == .completion, let patient = signup.completedPatient {
+            session.patient = patient
+            return
+        }
         login.state.email = signup.state.email
         login.state.password = ""
         // 가입이 끝난 경우에만 화면 입력을 지웁니다. 중간 실패의 재시도 스냅샷은 SignupVM이 보관합니다.
