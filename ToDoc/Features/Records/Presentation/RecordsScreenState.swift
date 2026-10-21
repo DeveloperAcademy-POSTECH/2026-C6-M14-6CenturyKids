@@ -37,7 +37,7 @@ struct PainRecordDisplay: Identifiable {
 struct RecordPainDetail { let averageDifference: Double?; let days: [RecordPainDay]; let records: [PainRecordDisplay]? }
 struct RecordPainDay { let date: Date; let averageBefore: Double; let averageAfter: Double }
 enum RecordDetailContent { case symptom(RecordSymptomDetail), pain(RecordPainDetail) }
-enum RecordsAction { case load, moveDay(Int), cancel }
+enum RecordsAction { case load, moveDay(Int), select(RecordOverviewKind), cancel }
 @Observable final class RecordsScreenState {
     var dateLabel = "오늘"
     var snapshot: RecordOverviewSnapshot?
