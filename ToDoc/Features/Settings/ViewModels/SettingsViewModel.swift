@@ -294,8 +294,11 @@ final class SettingsViewModel {
         let state = hospitalConnectionState
         guard !state.isBusy,
               state.canConnect,
-              let doctorId = state.candidateDoctorId,
+              state.candidateDoctorId != nil,
               let candidate = state.candidate else { return }
+
+        let code = state.code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty else { return }
 
         state.isBusy = true
         state.errorMessage = nil
@@ -303,17 +306,7 @@ final class SettingsViewModel {
         defer { state.isBusy = false }
 
         do {
-            guard let patient = try await patientRepository.findById(patientId) else {
-                state.errorMessage = "환자 정보를 찾지 못했어요."
-                return
-            }
-
-            let updatedPatient = Patient(
-                user: patient.user,
-                doctorId: doctorId,
-                disease: patient.disease
-            )
-            try await patientRepository.save(patient: updatedPatient)
+            try await patientRepository.connectToDoctor(code: code)
 
             state.doctor = candidate
             state.candidate = nil
