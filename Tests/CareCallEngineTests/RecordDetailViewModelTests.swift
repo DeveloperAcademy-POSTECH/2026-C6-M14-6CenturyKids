@@ -157,7 +157,8 @@ struct RecordDetailViewModelTests {
         await waitUntil { !state.isSaving && repository.saved.count == 1 }
         let saved = try #require(repository.saved.first)
         #expect(!saved.symptoms.contains { $0.id == id })
-        #expect(saved.symptoms.contains { $0.symptomType == .numbness && $0.presence == .absent })
+        #expect(saved.symptoms.first { $0.symptomType == .numbness }?.presence == .absent)
+        #expect(saved.symptoms.first { $0.symptomType == .numbness }?.detail == "[검토 필요] 환자가 지움")
         guard case .symptom(let data) = state.content else { Issue.record("하루 기록 없음"); return }
         #expect(data.symptoms.map(\.type) == [.diarrhea])
         withExtendedLifetime(viewModel) {}

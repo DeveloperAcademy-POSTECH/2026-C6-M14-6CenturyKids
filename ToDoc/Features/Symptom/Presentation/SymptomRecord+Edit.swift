@@ -32,7 +32,7 @@ extension SymptomRecord {
         if !symptoms.contains(where: { $0.symptomType == removed.symptomType && $0.presence == .present }) {
             // 원래 내용에 이미 검토 필요 표시가 있으면 한 번만 쓴다
             let original = removed.detail.map { $0.hasPrefix("[검토 필요] ") ? String($0.dropFirst("[검토 필요] ".count)) : $0 }
-            let note = ["[검토 필요] 환자가 요약에서 지움", original].compactMap(\.self).joined(separator: ": ")
+            let note = ["[검토 필요] 환자가 지움", original].compactMap(\.self).joined(separator: ": ")
             if let absent = try? SymptomEntry(id: UUID(), symptomType: removed.symptomType, presence: .absent, bodyPart: nil, bodySide: nil,
                                               durationMinutes: nil, occurrenceCount: nil,
                                               detail: String(note.prefix(SymptomEntry.detailLimit))) {

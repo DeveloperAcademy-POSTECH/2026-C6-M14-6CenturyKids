@@ -605,7 +605,7 @@ final class CareCallViewModel {
     /// - 전에도 있음 → 같은 부위면 기존 값을 두고 빈 칸만 채우고 내용에 "다시 통화: …"를 덧붙인다, 다른 부위면 추가
     /// - 이번에 없음·모름인데 그날 기록에 이미 있는 증상은 그대로 둔다. 전에 있던 증상을 이번에 없다고 하면(좋아짐)
     ///   환자가 한 말("다시 통화: 구토가 나아졌어요", 말이 없으면 "지금은 없다고 함")을,
-    ///   검토가 필요한 답(요약에서 지움 등)이면 그 내용을 덧붙여 의료진이 보게 한다
+    ///   검토가 필요한 답(환자가 지움 등)이면 그 내용을 덧붙여 의료진이 보게 한다
     static func merge(_ old: SymptomRecord, with new: SymptomRecord) -> SymptomRecord {
         var symptoms = old.symptoms
         for entry in new.symptoms {

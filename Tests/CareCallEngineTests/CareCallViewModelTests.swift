@@ -372,7 +372,7 @@ struct CareCallViewModelTests {
         #expect(summary.record.presentSymptoms.map(\.symptomType) == [.numbness]) // 요약에는 '있음'만
         let saved = viewModel.record!.symptoms
         #expect(saved.map(\.presence) == [.absent, .present])
-        #expect(saved[0].detail == "[검토 필요] 환자가 요약에서 지움: 구토 횟수: 두 번")
+        #expect(saved[0].detail == "[검토 필요] 환자가 지움: 구토 횟수: 두 번")
         #expect(saved[1].bodyPart == .legFoot)
     }
 
