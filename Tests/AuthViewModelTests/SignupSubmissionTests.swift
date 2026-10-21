@@ -234,7 +234,7 @@ import ToDocDomain
     }
 
 #if DEBUG
-    func testLocalServerTestSkipsTermsWithoutInventingConsentAndUsesSameRepositories() async {
+    func testLocalServerTestCreatesAccountBeforeProfileWithoutInventingConsent() async {
         let f = AuthFixture(), flow = AuthFlowViewModel(repositories: f.repositories)
         flow.startLocalSignupTest()
         XCTAssertTrue(flow.signup.configuration.isLocalSignupTest)
@@ -255,6 +255,21 @@ import ToDocDomain
         XCTAssertTrue(s.acceptedTerms.isEmpty)
     }
 #endif
+
+    func testRequiredTermsGateAccountCreationWithoutRequiringOptionalNotifications() async {
+        let f = AuthFixture(), vm = ready(f)
+        vm.state.step = .terms
+        vm.state.acceptedTerms = [.service, .privacy]
+        XCTAssertFalse(vm.state.canProceedFromTerms)
+        await vm.continueFromTerms()
+        XCTAssertEqual(f.auth.signUpCount, 0)
+        vm.state.acceptedTerms.insert(.sensitiveInformation)
+        XCTAssertTrue(vm.state.canProceedFromTerms)
+        await vm.continueFromTerms()
+        XCTAssertEqual(f.auth.signUpCount, 1)
+        XCTAssertEqual(vm.state.step, .patientInfo)
+        XCTAssertFalse(vm.state.acceptedTerms.contains(.notifications))
+    }
 
     func testExistingLoginIsNotChangedByStartingAnotherSignup() async throws {
         let f = AuthFixture(), vm = ready(f)

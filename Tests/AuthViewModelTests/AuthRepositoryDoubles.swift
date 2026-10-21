@@ -1,4 +1,5 @@
 import Foundation
+import XCTest
 import ToDocDomain
 @testable import ToDocAuth
 
@@ -94,6 +95,7 @@ final class TestPatients: PatientRepository {
     }
     func findByName(_ name: String) async throws -> [Patient] { [] }
     func findByDoctorId(_ doctorId: UUID) async throws -> [Patient] { [] }
+    func connectToDoctor(code: String) async throws { XCTFail("이번 가입 흐름은 의사 연결 메서드를 추가 호출하지 않습니다.") }
 }
 @MainActor final class AuthFixture {
     let auth = TestAuthRepository()

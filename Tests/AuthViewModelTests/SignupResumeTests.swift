@@ -15,13 +15,16 @@ private final class ResumeDoctors: DoctorRepository {
     func findByName(_ name: String) async throws -> [Doctor] { [] }
     func findByHospitalId(_ hospitalId: UUID) async throws -> [Doctor] { [] }
     func findByCode(_ code: String) async throws -> Doctor? { nil }
+    func findConnectionInfoByCode(_ code: String) async throws -> DoctorConnectionInfo? {
+        XCTFail("가입 재개는 의사 코드를 조회하지 않습니다."); return nil
+    }
 }
 
 @MainActor final class SignupResumeTests: XCTestCase {
     private func flow(_ f: AuthFixture, doctors: ResumeDoctors? = ResumeDoctors()) -> AuthFlowViewModel {
         var repositories = f.repositories
         repositories.doctors = doctors
-        return AuthFlowViewModel(repositories: repositories)
+        return AuthFlowViewModel(repositories: repositories, configuration: SignupResetTests().configuration)
     }
     private func login(_ flow: AuthFlowViewModel) async {
         flow.open(.login)
@@ -44,7 +47,7 @@ private final class ResumeDoctors: DoctorRepository {
 
     func testAppRestartAfterAccountCreationCanFinishThroughLoginWithoutAnotherSignup() async {
         let f = AuthFixture()
-        var configuration = AuthConfiguration(); configuration.allowsSignupRequests = true
+        var configuration = SignupResetTests().configuration; configuration.allowsSignupRequests = true
         var first: AuthFlowViewModel? = AuthFlowViewModel(repositories: f.repositories, configuration: configuration)
         let state = first!.signup.state
         state.email = "patient@example.com"; state.password = "password123"; state.passwordConfirmation = state.password
@@ -74,6 +77,19 @@ private final class ResumeDoctors: DoctorRepository {
         XCTAssertEqual(f.auth.signUpCount, 1)
         resumed.loginAfterSignup()
         XCTAssertEqual(resumed.rootRoute, .patient)
+    }
+
+    func testDefaultConfigurationWaitsForTermsInsteadOfBypassingThemOnResume() async {
+        let f = AuthFixture(), resumed = AuthFlowViewModel(repositories: f.repositories)
+        await login(resumed)
+        resumed.signup.state.acceptedTerms = Set(SignupTerm.allCases)
+        XCTAssertFalse(resumed.signup.state.canProceedFromTerms)
+        await resumed.signup.continueFromTerms()
+        XCTAssertEqual(resumed.signup.state.step, .terms)
+        XCTAssertNotNil(resumed.signup.state.errorMessage)
+        XCTAssertEqual(f.users.finds, 0)
+        XCTAssertEqual(f.users.saves, 0); XCTAssertEqual(f.patients.saves, 0)
+        XCTAssertEqual(f.auth.signUpCount, 0)
     }
 
     func testPartiallySavedUserIsLoadedAndOnlyPatientIsWritten() async throws {

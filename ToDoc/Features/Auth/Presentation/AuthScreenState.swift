@@ -72,7 +72,7 @@ enum SignupAction {
     var currentValidationError: String?
     var termsContent: [SignupTerm: String] = [:]
     var isLocalSignupTest = false
-    var canProceedFromTerms: Bool { isLocalSignupTest || (hasRequiredTermsContent && allTermsAccepted) }
+    var canProceedFromTerms: Bool { isLocalSignupTest || (hasRequiredTermsContent && SignupTerm.allCases.filter(\.isRequired).allSatisfy(acceptedTerms.contains)) }
     var hasRequiredTermsContent = false
     var age: Int? {
         guard let birthday else { return nil }

@@ -38,6 +38,11 @@ with tempfile.TemporaryDirectory(prefix="todoc-auth-tests-") as directory:
 
     copy("ToDoc/Core/Errors", "Sources/ToDocCoreErrors")
     copy("ToDoc/Domain", "Sources/ToDocDomain")
+    # 앱에서는 같은 모듈인 internal 조회 타입을 임시 인증 모듈에도 그대로 둡니다.
+    # 제품 Domain의 접근 수준이나 공용 Package.swift를 바꾸지 않습니다.
+    connection_info = "Hospital/Models/DoctorConnectionInfo.swift"
+    copy("ToDoc/Domain/" + connection_info, "Sources/ToDocAuth/" + connection_info)
+    (package / "Sources/ToDocDomain" / connection_info).unlink()
     for area in ["Auth/Presentation", "Auth/ViewModels", "Onboarding/ViewModels"]:
         copy("ToDoc/Features/" + area, "Sources/ToDocAuth/" + area)
     for name in ["Auth", "User", "Patient", "Doctor", "Hospital"]:
