@@ -84,4 +84,17 @@ final class SupabaseDoctorRepository: DoctorRepository {
         
         return try dto.toDomain()
     }
+    
+    func findConnectionInfoByCode(_ code: String) async throws -> DoctorConnectionInfo? {
+        let dtos: [DoctorLookupDTO] = try await client
+            .rpc("find_doctor_by_code", params: ["p_code": code])
+            .execute()
+            .value
+        
+        guard let dto = dtos.first else {
+            return nil
+        }
+        
+        return dto.toDomain()
+    }
 }
