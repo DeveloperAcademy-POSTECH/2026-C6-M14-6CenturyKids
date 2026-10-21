@@ -10,8 +10,8 @@ import FoundationModels
 
 /// CareCallAI의 기기 안 모델 구현 (Apple Intelligence 기본 모델). 호출마다 새 세션을 만들고 Ledger 요약만 넣는다 (이전 대화 원문은 넣지 않음).
 final class FoundationModelsCareCallAdapter: CareCallAI {
-    /// 턴 분석 출력 상한. Kanana 프로토타입 평가 377회: 중앙 65, 상위 5% 113, 상위 1% 223토큰.
-    /// 200토큰을 넘는 출력은 항목을 늘어놓는 비정상 출력이었다. 넘으면 형식 실패로 엔진이 재시도한다.
+    /// 턴 분석 출력 상한. 넘으면 형식 실패로 엔진이 재시도한다. Foundation Models 평가(2026-10-21, 시나리오 55개): 상한 없음·100·160의
+    /// 결과가 같고 60이면 79%가 잘림 → 정상 출력은 100토큰 아래. 항목을 늘어놓는 비정상 출력을 끊으려 여유를 두고 160
     private static let analysisMaxTokens = 160
     private static let promptName = "prompt-turn-analysis-v16"
 
