@@ -20,6 +20,7 @@ import struct Auth.ErrorCode
         let flow = AuthFlowViewModel(repositories: fixture.repositories, configuration: configuration)
         flow.open(.signup)
         SignupResetTests().ready(flow.signup)
+        flow.signup.state.step = .terms
         return flow
     }
 
@@ -27,11 +28,11 @@ import struct Auth.ErrorCode
         for code: ErrorCode in [.emailExists, .userAlreadyExists] {
             let f = AuthFixture(), flow = flow(f), vm = flow.signup
             f.auth.signUpError = apiError(code)
-            await vm.submit()
+            await vm.continueFromTerms()
             XCTAssertTrue(vm.state.isEmailAlreadyRegistered)
             XCTAssertEqual(vm.state.errorMessage, message)
             XCTAssertTrue(vm.state.isAccountLocked)
-            XCTAssertEqual(vm.state.step, .review)
+            XCTAssertEqual(vm.state.step, .terms)
             XCTAssertEqual(f.auth.signUpCount, 1)
             XCTAssertEqual(f.auth.signInCount, 0)
             XCTAssertEqual(f.users.finds, 0)
@@ -51,10 +52,10 @@ import struct Auth.ErrorCode
     func testRepeatedSubmitAndBackPreserveDuplicateMessageWithoutAnotherRequest() async {
         let f = AuthFixture(), vm = flow(f).signup
         f.auth.signUpError = apiError(.userAlreadyExists)
-        await vm.submit()
+        await vm.continueFromTerms()
         vm.handle(.back)
         XCTAssertEqual(vm.state.errorMessage, message)
-        await vm.submit()
+        await vm.continueFromTerms()
         XCTAssertEqual(vm.state.errorMessage, message)
         XCTAssertEqual(f.auth.signUpCount, 1)
     }
@@ -64,7 +65,7 @@ import struct Auth.ErrorCode
         flow.signup.state.email = "  patient@example.com  "
         flow.login.state.password = "previous-password"
         f.auth.signUpError = apiError(.emailExists)
-        await flow.signup.submit()
+        await flow.signup.continueFromTerms()
         flow.loginAfterSignup()
         XCTAssertEqual(flow.screen, .login)
         XCTAssertTrue(flow.showsAuth)
@@ -85,7 +86,7 @@ import struct Auth.ErrorCode
     func testRestartAfterDuplicateAllowsDifferentEmailThroughNormalSignup() async {
         let f = AuthFixture(), flow = flow(f), previous = flow.signup
         f.auth.signUpError = apiError(.userAlreadyExists)
-        await previous.submit()
+        await previous.continueFromTerms()
         flow.restartSignupAfterConfirmation()
         XCTAssertFalse(flow.signup === previous)
         XCTAssertFalse(flow.signup.state.isEmailAlreadyRegistered)
@@ -94,6 +95,9 @@ import struct Auth.ErrorCode
         SignupResetTests().ready(flow.signup)
         flow.signup.state.email = "new@example.com"
         f.auth.signUpError = nil
+        flow.signup.state.step = .terms
+        await flow.signup.continueFromTerms()
+        flow.signup.state.step = .review
         await flow.signup.submit()
         XCTAssertEqual(flow.signup.state.step, .completion)
         XCTAssertEqual(f.auth.signUpCount, 2)
@@ -105,10 +109,10 @@ import struct Auth.ErrorCode
         for error in errors {
             let f = AuthFixture(), vm = flow(f).signup
             f.auth.signUpError = error
-            await vm.submit()
+            await vm.continueFromTerms()
             XCTAssertFalse(vm.state.isEmailAlreadyRegistered)
             XCTAssertNotEqual(vm.state.errorMessage, message)
-            await vm.submit()
+            await vm.continueFromTerms()
             XCTAssertEqual(f.auth.signUpCount, 1)
             XCTAssertEqual(f.users.saves, 0)
             XCTAssertEqual(f.patients.saves, 0)
@@ -117,6 +121,8 @@ import struct Auth.ErrorCode
 
     func testSameCodeDuringProfileReadIsNotASignupDuplicate() async {
         let f = AuthFixture(), vm = flow(f).signup
+        await vm.continueFromTerms()
+        vm.state.step = .review
         f.patients.findError = apiError(.emailExists)
         await vm.submit()
         XCTAssertFalse(vm.state.isEmailAlreadyRegistered)
@@ -131,11 +137,11 @@ import struct Auth.ErrorCode
         let f = AuthFixture(), vm = flow(f).signup
         f.auth.signUpError = apiError(.userAlreadyExists)
         f.auth.beforeSignUp = { vm.cancel() }
-        await vm.submit()
+        await vm.continueFromTerms()
         XCTAssertFalse(vm.state.isEmailAlreadyRegistered)
         XCTAssertNil(vm.state.errorMessage)
         XCTAssertFalse(vm.state.isWorking)
-        await vm.submit()
+        await vm.continueFromTerms()
         XCTAssertEqual(f.auth.signUpCount, 1)
         XCTAssertNotEqual(vm.state.errorMessage, message)
     }

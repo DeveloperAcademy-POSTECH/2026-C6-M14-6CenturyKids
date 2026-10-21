@@ -2,10 +2,11 @@ import SwiftUI
 
 struct SignupTermsView: View {
     @Bindable var state: SignupScreenState
+    var onLogin: (() -> Void)?
     @State private var selectedTerm: SignupTerm?
 
     var body: some View {
-        SignupStepScreen(state: state, title: "이용약관에\n동의해 주세요", buttonTitle: "동의하고 다음") {
+        AuthFormScreen(title: "이용약관에\n동의해 주세요", progress: state.step.progress, onBack: { state.onAction?(.back) }) {
             VStack(spacing: AppSpacing.item) {
                 Toggle(isOn: Binding(get: { state.allTermsAccepted }, set: { state.acceptedTerms = $0 ? Set(SignupTerm.allCases) : [] })) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -33,9 +34,24 @@ struct SignupTermsView: View {
                     }
                 }
             }
+            .disabled(state.isWorking || state.isAccountLocked)
+            Text(state.hasAuthenticatedAccount ? "로그인한 계정의 환자 정보를 이어서 입력합니다." : "동의하고 계정 만들기를 누르면 실제 계정이 생성됩니다. 환자 정보는 다음 단계에서 입력합니다.")
+                .appTextStyle(.caption)
             if !state.hasRequiredTermsContent {
                 Text("약관 본문은 준비 중이에요. 현재 회원가입 연결을 준비 중이에요.")
                     .appTextStyle(.caption).foregroundStyle(AppColors.Text.secondary)
+            }
+        } footer: {
+            if let error = state.errorMessage { AuthMessage(text: error) }
+            if !state.isEmailAlreadyRegistered {
+                Button { state.onAction?(.next) } label: {
+                    AuthSubmitLabel(title: state.isAwaitingEmailConfirmation ? "확인 후 이어가기" : (state.hasAuthenticatedAccount ? "동의하고 이어가기" : "동의하고 계정 만들기"), isLoading: state.isWorking)
+                }.buttonStyle(AppButtonStyle())
+                    .disabled(!state.canProceedFromTerms || state.isWorking || state.onAction == nil)
+            }
+            if let onLogin {
+                Button("로그인으로 이동", action: onLogin).buttonStyle(AppButtonStyle())
+                    .disabled(state.isWorking)
             }
         }
         .sheet(item: $selectedTerm) { term in
