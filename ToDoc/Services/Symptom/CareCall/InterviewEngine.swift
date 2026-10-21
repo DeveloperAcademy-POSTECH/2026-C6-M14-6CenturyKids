@@ -129,6 +129,12 @@ final class InterviewEngine {
         if let analyzed = result, let recheck = await recheckCorrection(analyzed, during: current, patientText: patientText) {
             result?.mentions += recheck
         }
+        if let analyzed = result, let rechecked = await recheckSaidEffects(analyzed, during: current, patientText: patientText) {
+            result?.mentions = rechecked
+        }
+        if case .slot(let key, .presence) = current, let analyzed = result, let absent = absentByNormalAnswer(analyzed, key: key, patientText: patientText) {
+            result?.mentions.append(absent)
+        }
         // 유무 질문에 모델이 낸 그 항목의 유무가 답의 말과 어긋나면 기록하지 않고 다시 묻는다 (잘못 남기느니 한 번 더 묻는다).
         // 이유 답("입이 아파서요")은 아래 reasonAnswer가 다시 채운다
         if case .slot(let key, .presence) = current {
@@ -676,6 +682,64 @@ final class InterviewEngine {
         request.slotName = effect.name
         guard let recheck = try? await analyzer.analyze(request) else { return nil }
         return recheck.mentions.filter { $0.effectId == effect.id }
+    }
+
+    /// 처음·그 밖에 질문에서 환자 말에 목록 증상 낱말(두 글자 이상, 부정 아님)이 있는데 모델이 빠뜨린 증상은 그 증상을 묻는 질문으로 한 번 더
+    /// 분석한다 (한 답에 여러 증상: "토하고 입안도 아프고 손도 저려요"의 구내염). 그렇게 '있음'이 나오면, 같은 말을 근거로 모델이 고른 다른 목록 증상 중
+    /// 두 글자 이상 낱말 근거가 없는 것은 뺀다 (잘못 고른 ID: "오돌토돌…근질근질"을 구토로). 판단은 모델이, 다시 물을지는 엔진이 정한다
+    /// (2026-10-21 Foundation Models 평가: 지시문으로는 고쳐지지 않았다)
+    private func recheckSaidEffects(_ result: TurnResult, during phase: InterviewPhase, patientText: String) async -> [Mention]? {
+        switch phase {
+        case .opening, .other: break
+        default: return nil
+        }
+        let mentioned = Set(result.mentions.map(\.effectId))
+        // 다시 물을 때는 그 낱말이 든 부분만 보여 준다: 증상 셋을 이은 답("속이 울렁거리고 등이 가렵고 변도 안 나와요")은
+        // 다시 물어도 같은 증상만 골랐다. 근거(quote)는 원문의 일부라 Ledger가 그대로 확인한다
+        let parts = KeywordMatcher.clauses(patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression))
+        let missed: [(effect: CareCallConfig.Effect, part: String)] = config.effects.compactMap { effect in
+            guard !mentioned.contains(effect.id) else { return nil }
+            let matcher = KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true)
+            guard matcher.matches(patientText) != nil else { return nil }
+            return (effect, parts.first { matcher.matches($0) != nil }?.trimmingCharacters(in: .whitespaces) ?? patientText)
+        }
+        var added: [Mention] = []
+        for (effect, part) in missed.prefix(3) {
+            var request = AnalysisRequest(patientText: part, question: effect.ask, ledgerSummary: ledgerSummary())
+            request.slotKey = effect.id
+            request.step = .presence
+            request.slotName = effect.name
+            guard let recheck = try? await analyzer.analyze(request) else { continue }
+            added += recheck.mentions.filter { $0.effectId == effect.id && $0.presence == .present }
+        }
+        guard !added.isEmpty else { return nil }
+        func evidenced(_ id: String) -> Bool {
+            config.effects.first { $0.id == id }?.keywords.contains { $0.count >= 2 && patientText.contains($0) } == true
+        }
+        // 지우는 것은 두 근거가 겹치고, 겹친 부분을 뺀 나머지에 그 증상 낱말이 하나도 없을 때만
+        // ("토하고 입안도 아프고"의 구토는 나머지 "토하고"에 '토'가 있어 남기고, "혓바닥이 따갑고 쓰려요"의 저림은 나머지 "쓰려요"에 없어 뺀다)
+        func onlyFrom(_ m: Mention, _ new: Mention) -> Bool {
+            let x = Self.normalized(m.quote), y = Self.normalized(new.quote)
+            guard !x.isEmpty, !y.isEmpty, x.contains(y) || y.contains(x) else { return false }
+            let rest = x.replacingOccurrences(of: y, with: "")
+            return !(config.effects.first { $0.id == m.effectId }?.keywords.contains { rest.contains(Self.normalized($0)) } ?? false)
+        }
+        let kept = result.mentions.filter { m in
+            !(knownIds.contains(m.effectId) && m.presence == .present && !evidenced(m.effectId)
+              && added.contains { onlyFrom(m, $0) })
+        }
+        return kept + added
+    }
+
+    /// 유무 질문에 모델이 그 항목을 남기지 않았는데 답이 정상이라는 말이면 '없음'으로 본다 ("입 안은 멀쩡하고요", "피부도 깨끗하고요").
+    /// 다른 목록 증상 낱말이 있으면 다른 이야기일 수 있어 보지 않는다 (2026-10-21 Foundation Models 평가: 모델이 빈 결과를 내 다시 물었다)
+    private func absentByNormalAnswer(_ result: TurnResult, key: String, patientText: String) -> Mention? {
+        guard !result.mentions.contains(where: { $0.effectId == key }), symptomHints.matches(patientText) == nil else { return nil }
+        let compact = Self.normalized(patientText)
+        guard soundsNegative(patientText) || config.normalWords.contains(where: { compact.contains(Self.normalized($0)) }),
+              !config.effects.contains(where: { $0.id != key && $0.keywords.contains { $0.count >= 2 && patientText.contains($0) } })
+        else { return nil }
+        return Mention(effectId: key, presence: .absent, quote: patientText)
     }
 
     /// 짧고 분명한 답은 모델 없이 처리한다 (속도·재현성). 해당하지 않으면 nil → 모델 호출

@@ -84,6 +84,8 @@ struct CareCallConfig: Decodable, Sendable {
     /// 한 항목에만 맞는 정상이라는 말("잘 나와요")은 그 항목의 absentPhrases에 둔다. "멀쩡해요"·"깨끗해요"는 넣지 않는다:
     /// 부위의 상태라 다른 항목 이야기("입은 멀쩡해요")일 수 있어 모델이 본다
     let noPrefixes: [String]
+    /// 그 항목이 정상이라는 말 ("입 안은 멀쩡하고요", "피부도 깨끗하고요"). 유무 질문에 모델이 아무것도 남기지 않았을 때 '없음'으로 본다
+    let normalWords: [String]
     let noSuffixes: [String]
     /// 유무 질문에 이 말로 끝나는 답은 이유를 말한 것 → 있음 ("입이 아파서요" = 입이 아파서 많이 못 먹었다, 초안)
     let reasonSuffixes: [String]

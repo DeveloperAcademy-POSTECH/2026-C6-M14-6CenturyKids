@@ -821,3 +821,68 @@ struct EmergencySafetyTests {
         if !ends { #expect(out.utterance != rules.confirmQuestion && !out.utterance.isEmpty) }
     }
 }
+
+/// 2026-10-21 Foundation Models 평가: 한 답의 여러 증상 중 일부를 빠뜨리고, 증상 ID를 잘못 고르고, "~하고요"로 끝난 부정 답에 빈 결과를 냈다
+@MainActor
+struct SaidEffectRecheckTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    private func opening(_ answer: String, first: [Mention], recheck: @escaping (AnalysisRequest) -> [Mention]) async -> InterviewEngine {
+        let mock = MockAnalyzer()
+        mock.respond = { request in
+            if request.slotKey == nil { return TurnResult(mentions: first, answeredCurrentSlot: true, needsClarification: false,
+                                                          emergencySignal: false, utterance: "") }
+            return TurnResult(mentions: recheck(request), answeredCurrentSlot: true, needsClarification: false,
+                              emergencySignal: false, utterance: "")
+        }
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: answer)
+        return engine
+    }
+
+    @Test func 빠뜨린_증상은_그_낱말이_든_부분으로_다시_묻는다() async {
+        let answer = "속이 울렁거리고 등이 가렵고 변도 안 나와요"
+        var asked: [String] = []
+        let engine = await opening(answer, first: [Mention(effectId: "nausea_vomiting", presence: .present, quote: "속이 울렁거리고"),
+                                                   Mention(effectId: "constipation", presence: .present, quote: "변도 안 나와요")]) { request in
+            asked.append(request.patientText)
+            return request.slotKey == "rash_pruritus" ? [Mention(effectId: "rash_pruritus", presence: .present, quote: "등이 가렵고")] : []
+        }
+        #expect(asked == ["등이 가렵고"])
+        for key in ["nausea_vomiting", "constipation", "rash_pruritus"] { #expect(engine.ledger[key]?.presence == .present, "\(key)") }
+    }
+
+    @Test func 다시_물어_확인된_증상과_같은_말만_근거인_잘못_고른_증상은_뺀다() async {
+        let engine = await opening("혓바닥이 따갑고 쓰려요",
+                                   first: [Mention(effectId: "neuropathy", presence: .present, quote: "혓바닥이 따갑고 쓰려요")]) { request in
+            request.slotKey == "stomatitis" ? [Mention(effectId: "stomatitis", presence: .present, quote: "혓바닥이 따갑고")] : []
+        }
+        #expect(engine.ledger["stomatitis"]?.presence == .present)
+        #expect(engine.ledger["neuropathy"] == nil)
+    }
+
+    @Test func 겹치지_않는_부분에_그_증상_낱말이_있으면_남긴다() async {
+        let engine = await opening("토하고 입안도 아프고 손도 저려요",
+                                   first: [Mention(effectId: "nausea_vomiting", presence: .present, quote: "토하고 입안도 아프고"),
+                                           Mention(effectId: "neuropathy", presence: .present, quote: "손도 저려요")]) { request in
+            request.slotKey == "stomatitis" ? [Mention(effectId: "stomatitis", presence: .present, quote: "입안도 아프고")] : []
+        }
+        for key in ["nausea_vomiting", "stomatitis", "neuropathy"] { #expect(engine.ledger[key]?.presence == .present, "\(key)") }
+    }
+
+    @Test(arguments: [("stomatitis", "입 안은 멀쩡하고요", MentionPresence?.some(.absent)),
+                      ("rash_pruritus", "피부도 깨끗하고요", .some(.absent)),
+                      ("constipation", "입이 멀쩡해요", nil)])   // 다른 증상 낱말(입이): 다른 이야기일 수 있어 남기지 않는다
+    func 유무_질문에_정상이라는_말이면_없음(key: String, answer: String, expected: MentionPresence?) async {
+        let mock = MockAnalyzer()
+        mock.script[answer] = .empty
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        while engine.phase != .slot(key: key, step: .presence) { _ = await engine.handle(patientText: "아니요") }
+        _ = await engine.handle(patientText: answer)
+        #expect(engine.ledger[key]?.presence == expected)
+    }
+}
