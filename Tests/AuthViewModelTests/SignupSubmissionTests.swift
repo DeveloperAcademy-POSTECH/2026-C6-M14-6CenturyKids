@@ -237,16 +237,20 @@ import ToDocDomain
     }
 
 #if DEBUG
-    func testLocalServerTestCreatesAccountBeforeProfileWithoutInventingConsent() async {
+    func testLocalServerTestRequiresTermsAndUsesSameRepositories() async {
         let f = AuthFixture(), flow = AuthFlowViewModel(repositories: f.repositories)
         flow.startLocalSignupTest()
         XCTAssertTrue(flow.signup.configuration.isLocalSignupTest)
-        XCTAssertTrue(flow.signup.configuration.terms.isEmpty)
+        XCTAssertEqual(flow.signup.configuration.terms.count, 5)
         let s = flow.signup.state
         SignupResetTests().ready(flow.signup)
         s.acceptedTerms = []; s.step = .passwordConfirmation
         flow.signup.handle(.next)
         XCTAssertEqual(s.step, .terms)
+        await flow.signup.continueFromTerms()
+        XCTAssertEqual(s.step, .terms)
+        XCTAssertNotNil(s.errorMessage)
+        s.acceptedTerms = Set(SignupTerm.allCases)
         await flow.signup.continueFromTerms()
         XCTAssertEqual(s.step, .patientInfo)
         flow.signup.handle(.back)
@@ -255,7 +259,7 @@ import ToDocDomain
         await flow.signup.submit()
         XCTAssertEqual(s.step, .completion)
         XCTAssertEqual(f.auth.signUpCount, 1)
-        XCTAssertTrue(s.acceptedTerms.isEmpty)
+        XCTAssertEqual(s.acceptedTerms.count, 5)
     }
 #endif
 
@@ -273,19 +277,19 @@ import ToDocDomain
         XCTAssertNotNil(vm.state.errorMessage)
     }
 
-    func testRequiredTermsGateAccountCreationWithoutRequiringOptionalNotifications() async {
+    func testAllFiveTermsGateAccountCreationBeforeProfileInput() async {
         let f = AuthFixture(), vm = ready(f)
         vm.state.step = .terms
-        vm.state.acceptedTerms = [.service, .privacy]
+        vm.state.acceptedTerms = [.service, .privacy, .sensitiveInformation, .doctorConnection]
         XCTAssertFalse(vm.state.canProceedFromTerms)
         await vm.continueFromTerms()
         XCTAssertEqual(f.auth.signUpCount, 0)
-        vm.state.acceptedTerms.insert(.sensitiveInformation)
+        vm.state.acceptedTerms.insert(.thirdPartyProvision)
         XCTAssertTrue(vm.state.canProceedFromTerms)
         await vm.continueFromTerms()
         XCTAssertEqual(f.auth.signUpCount, 1)
         XCTAssertEqual(vm.state.step, .patientInfo)
-        XCTAssertFalse(vm.state.acceptedTerms.contains(.notifications))
+        XCTAssertEqual(vm.state.acceptedTerms.count, 5)
     }
 
     func testExistingLoginIsNotChangedByStartingAnotherSignup() async throws {

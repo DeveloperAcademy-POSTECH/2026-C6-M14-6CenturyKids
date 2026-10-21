@@ -3,12 +3,13 @@ import Foundation
 import ToDocDomain
 #endif
 
-/// 앱 시작 지점에서 정해 주는 값입니다. 약관과 URL의 임의 기본값을 만들지 않습니다.
+/// 사용자 확정 약관을 기본 표시합니다. 가입 요청 활성화와 복귀 URL 설정은 별도입니다.
 nonisolated struct AuthConfiguration {
-    var terms: [SignupTerm: String] = [:]
-    var termsVersion: String?
+    var terms: [SignupTerm: String] = SignupTermsContent.provided
+    var termsVersion: String? = SignupTermsContent.version
+    var termsEffectiveDate: String? = SignupTermsContent.effectiveDate
     var redirectURL: URL?
-    /// 실서버 저장/메일 설정과 승인 약관·동의 정책 확인 후에만 명시적으로 허용합니다.
+    /// 실제 가입 요청은 별도 활성화하며 약관 표시만으로 자동 허용하지 않습니다.
     /// 기본 제품 경로는 확인 전까지 요청하지 않으며, 로컬 검사는 별도로 활성화합니다.
     var allowsSignupRequests = false
 
@@ -26,7 +27,13 @@ nonisolated struct AuthConfiguration {
 
     var hasRequiredTerms: Bool {
         guard let termsVersion, !termsVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        return SignupTerm.allCases.filter(\.isRequired).allSatisfy { hasContent(for: $0) }
+        guard let termsEffectiveDate, !termsEffectiveDate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return hasRequiredTermsContent && terms.values.allSatisfy {
+            !$0.contains("[서비스명]") && !$0.contains("[운영사명]")
+        }
+    }
+    var hasRequiredTermsContent: Bool {
+        SignupTerm.allCases.filter(\.isRequired).allSatisfy { hasContent(for: $0) }
     }
     func hasContent(for term: SignupTerm) -> Bool {
         !(terms[term]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
@@ -59,7 +66,8 @@ extension SignupTerm {
         case .service: "service"
         case .privacy: "privacy"
         case .sensitiveInformation: "sensitiveInformation"
-        case .notifications: "notifications"
+        case .doctorConnection: "doctorConnection"
+        case .thirdPartyProvision: "thirdPartyProvision"
         }
     }
 }
