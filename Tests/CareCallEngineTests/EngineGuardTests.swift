@@ -589,12 +589,13 @@ struct OpeningFollowUpTests {
         #expect(mock.requests.isEmpty)
     }
 
-    @Test(arguments: ["나 컨디션 좀 피곤해요", "그저 그래요", "별로 안 좋아요", "좋긴 한데 좀 힘들어요"])
-    func 컨디션_문제는_한_번_되묻는다(answer: String) async throws {
+    /// 증상 표현이 있으면 시작 시점을, 컨디션이 나쁘다는 말뿐이면 무엇이 불편한지 묻는다
+    @Test(arguments: [("나 컨디션 좀 피곤해요", true), ("그저 그래요", false), ("별로 안 좋아요", false), ("좋긴 한데 좀 힘들어요", true)])
+    func 컨디션_문제는_한_번_되묻는다(answer: String, symptom: Bool) async throws {
         let (engine, config) = try makeEngine(MockAnalyzer())
         _ = engine.start()
         let out = await engine.handle(patientText: answer)
-        #expect(out.utterance == config.openingFollowUp)
+        #expect(out.utterance == (symptom ? config.otherDetail.question : config.openingFollowUp))
         #expect(engine.phase == .opening)
         let next = await engine.handle(patientText: "그냥 그래요") // 두 번째는 되묻지 않음
         #expect(next.utterance == config.openingTransition.afterFollowUp + " " + config.effects[0].ask)
@@ -890,5 +891,37 @@ struct SaidEffectRecheckTests {
         _ = await engine.handle(patientText: answer)
         if let expected { #expect(engine.ledger[key]?.presence == expected) }
         else { #expect(engine.ledger[key]?.presence != .absent) } // 정상이라는 말로 '없음'을 만들지 않는다 (다른 규칙이 '있음'으로 남길 수는 있다)
+    }
+}
+
+/// 2026-10-22 사용자 피드백: 목록 밖 증상 뒤의 "어떤 점이 그러신지 조금 더"는 무엇을 더 말할지 막막하다 → 시작 시점을 묻고, 이미 말했으면 묻지 않는다
+@MainActor
+struct OnsetFollowUpTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    @Test(arguments: [("머리가 계속 아파요", true), ("어제부터 머리가 아파요", false), ("사흘째 잠을 못 자요", false),
+                      ("2주 전부터 어지러워요", false), ("아침에 일어날 때 어지러워요", true)])
+    func 그_밖에_목록_밖_증상은_언제부터인지_묻고_이미_말했으면_묻지_않는다(answer: String, asks: Bool) async {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer())
+        _ = engine.start()
+        for _ in 0..<10 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
+        let out = await engine.handle(patientText: answer)
+        #expect(engine.ledger.order.contains { $0.hasPrefix("other:") })
+        if asks {
+            #expect(out.utterance == config.otherDetail.question)
+            let done = await engine.handle(patientText: "일주일쯤 됐어요")
+            #expect(done.phase == .saved)
+            #expect(engine.ledger.order.compactMap { engine.ledger[$0] }.contains { $0.details.contains { $0.label == config.otherDetail.label } })
+        } else {
+            #expect(out.phase == .saved && out.utterance.hasPrefix(config.otherDetail.recorded))
+        }
+    }
+
+    @Test func 첫_질문에서_언제부터인지_말한_증상은_되묻지_않는다() async {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer())
+        _ = engine.start()
+        let out = await engine.handle(patientText: "어제부터 좀 피곤해요")
+        #expect(out.utterance != config.otherDetail.question && engine.phase != .opening)
     }
 }

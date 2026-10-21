@@ -179,11 +179,12 @@ final class InterviewEngine {
         // ("피곤해요" → "어떤 점이 그러신지…". "보통이에요", "잠은 잘 자요"는 묻지 않음)
         if current == .opening, openingFirstAnswer == nil, result?.needsClarification != true,
            symptomHints.matches(patientText) != nil || openingConcerns.matches(patientText) != nil,
-           !knownIds.contains(where: { ledger[$0]?.presence != before[$0]?.presence }) {
+           !knownIds.contains(where: { ledger[$0]?.presence != before[$0]?.presence }),
+           let followUp = openingFollowUpQuestion(patientText) {
             openingFirstAnswer = patientText
             // 첫 답에서 생긴 기타 항목: 꼬리질문의 답에서 나온 이름 없는 기타는 여기에 붙인다 (같은 증상이 둘로 기록되지 않게)
             openingOtherName = ledger.order.first { $0.hasPrefix("other:") && before[$0] == nil }.flatMap { ledger[$0]?.otherName }
-            return (Output(utterance: say(config.openingFollowUp), phase: phase), modelEmergency)
+            return (Output(utterance: say(followUp), phase: phase), modelEmergency)
         }
         // 꼬리질문의 답이면 첫 답과 합쳐 본다 ('피곤해요 / 일을 많이 해서요')
         let answerText = current == .opening ? [openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / ") : patientText
@@ -215,7 +216,7 @@ final class InterviewEngine {
                 let unclearKey = Ledger.key(effectId: "other", otherName: config.followUpCall.unclearName)
                 openingOtherName = ledger.order.first { $0.hasPrefix("other:") && $0 != unclearKey && before[$0] == nil }
                     .flatMap { ledger[$0]?.otherName }
-                return (Output(utterance: say(config.openingFollowUp), phase: phase), modelEmergency)
+                return (Output(utterance: say(config.followUpCall.followUp), phase: phase), modelEmergency)
             }
             if unclear { recordUnclearChange(patientText) }
             // '그 밖에'는 달라진 게 없다·모르겠다고 분명히 답했을 때만 생략한다 (없어졌다는 답 뒤에는 한 번 묻는다)
@@ -246,8 +247,8 @@ final class InterviewEngine {
                 otherAsked = true
                 recordedPrefix = config.otherDetail.recorded
             } else if let key = ledger.order.last(where: { $0.hasPrefix("other:") && before[$0] == nil }) {
-                // 새 기타 증상: 무엇인지 이미 되물은 답이면 바로 마무리, 아니면 한 번 더 묻는다
-                if otherYesFollowedUp {
+                // 새 기타 증상: 무엇인지 이미 되물었거나 언제부터인지 이미 말했으면 바로 마무리, 아니면 시작 시점을 묻는다
+                if otherYesFollowedUp || mentionsOnset(patientText) {
                     otherAsked = true
                     recordedPrefix = config.otherDetail.recorded
                 } else {
@@ -751,6 +752,21 @@ final class InterviewEngine {
         let compact = Self.normalized(last)
         guard soundsNegative(last) || config.normalWords.contains(where: { compact.contains(Self.normalized($0)) }) else { return nil }
         return Mention(effectId: key, presence: .absent, quote: patientText)
+    }
+
+    /// 첫 답을 한 번 되물을 말. 증상을 말했으면 시작 시점(이미 말했으면 nil: 되묻지 않는다), 컨디션이 나쁘다는 말뿐이면 무엇이 불편한지,
+    /// 다시 거는 통화면 무엇이 달라졌는지. 막연한 "어떤 점이 그러신지 조금 더"는 무엇을 더 말할지 막막했다 (2026-10-22 사용자 피드백)
+    private func openingFollowUpQuestion(_ patientText: String) -> String? {
+        if symptomHints.matches(patientText) != nil { return mentionsOnset(patientText) ? nil : config.otherDetail.question }
+        return unasked == nil ? config.openingFollowUp : config.followUpCall.followUp
+    }
+
+    /// 언제부터인지 이미 말했는지 ("어제부터 머리가 아파요", "사흘째", "2주 전부터")
+    private func mentionsOnset(_ text: String) -> Bool {
+        let compact = Self.normalized(text)
+        return config.onsetWords.contains { compact.contains(Self.normalized($0)) }
+            || text.range(of: #"(\d+|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(일|주|주일|달|개월|년|시간)\s*(전|째|넘게)"#,
+                          options: .regularExpression) != nil
     }
 
     /// 짧고 분명한 답은 모델 없이 처리한다 (속도·재현성). 해당하지 않으면 nil → 모델 호출

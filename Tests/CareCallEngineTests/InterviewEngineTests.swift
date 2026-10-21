@@ -105,9 +105,9 @@ struct InterviewEngineTests {
         let other = InterviewEngine(config: config, rules: rules, analyzer: mock)
         _ = other.start()
         let followUp = await other.handle(patientText: "좀 피곤해요")
-        #expect(followUp.utterance == config.openingFollowUp)
-        _ = await other.handle(patientText: "잠을 잘 못 자서요")
-        #expect(other.ledger.conditionText == "좀 피곤해요 / 잠을 잘 못 자서요")
+        #expect(followUp.utterance == config.otherDetail.question) // 증상 표현: 언제부터인지 묻는다
+        _ = await other.handle(patientText: "그저께부터요")
+        #expect(other.ledger.conditionText == "좀 피곤해요 / 그저께부터요")
     }
 
     @Test func 불명확하면_꼬리질문은_2회까지_후_검토필요로_넘어간다() async {
