@@ -25,7 +25,7 @@ struct SignupFormView: View {
             case .cancerStage: SignupCancerStageView(state: state)
             case .doctorCode: SignupDoctorCodeView(state: state)
             case .doctorConfirmation: SignupConnectionConfirmationView(state: state)
-            case .review: SignupReviewView(state: state, onLogin: onLogin, onRestart: onRestart)
+            case .review: SignupReviewView(state: state, onLogin: onLogin)
             case .completion:
                 SignupCompletionView(email: state.email) {
                     onLogin()
