@@ -493,52 +493,26 @@ final class CareCallViewModel {
         }
     }
 
-    /// 고친 횟수·지속 시간·내용을 검증해 반영한다. 비운 칸은 값 없음. 검증에 걸리면 이유를 보여 주고 고치는 중으로 둔다
+    /// 고친 횟수·지속 시간·내용을 검증해 반영한다. 검증에 걸리면 이유를 보여 주고 고치는 중으로 둔다
     private func finishEdit(_ id: UUID, _ input: SymptomEntryEditInput, in summary: SymptomSummaryScreenState) {
-        guard let record, let entry = record.symptoms.first(where: { $0.id == id }) else { return }
+        guard let record else { return }
         do {
-            let detail = input.detail.trimmingCharacters(in: .whitespacesAndNewlines)
-            let edited = try SymptomEntry(
-                id: entry.id, symptomType: entry.symptomType, presence: entry.presence, bodyPart: entry.bodyPart, bodySide: entry.bodySide,
-                rawLocationText: entry.rawLocationText, durationMinutes: try Self.number(input.durationText, else: .invalidDuration),
-                occurrenceCount: try Self.number(input.occurrenceText, else: .invalidOccurrenceCount), detail: detail.isEmpty ? nil : detail)
-            update(record.symptoms.map { $0.id == id ? edited : $0 }, in: summary)
+            update(try record.editingEntry(id, with: input), in: summary)
             summary.editingEntryID = nil
             summary.editErrorMessage = nil
         } catch {
-            summary.editErrorMessage = switch error {
-            case SymptomValueError.invalidDuration: "지속 시간은 10분에서 1440분 사이 숫자로 입력해 주세요."
-            case SymptomValueError.invalidOccurrenceCount: "횟수는 1에서 100 사이 숫자로 입력해 주세요."
-            case SymptomValueError.detailTooLong: "내용은 \(SymptomEntry.detailLimit)자까지 쓸 수 있어요."
-            default: "입력한 내용을 확인해 주세요."
-            }
+            summary.editErrorMessage = SymptomRecord.editErrorMessage(error)
         }
     }
 
-    /// 환자가 요약에서 지운 증상은 '없음'으로 바꾸고 의료진이 알 수 있게 검토 필요로 남긴다.
-    /// 같은 증상의 다른 부위 항목이 남아 있으면 그 항목만 뺀다
+    /// 지운 증상은 '없음'으로 바뀐다 (SymptomRecord.removingEntry)
     private func delete(_ id: UUID, in summary: SymptomSummaryScreenState) {
-        guard let record, let index = record.symptoms.firstIndex(where: { $0.id == id }) else { return }
-        var symptoms = record.symptoms
-        let removed = symptoms.remove(at: index)
-        if !symptoms.contains(where: { $0.symptomType == removed.symptomType && $0.presence == .present }) {
-            // 원래 내용에 이미 검토 필요 표시가 있으면 한 번만 쓴다
-            let original = removed.detail.map { $0.hasPrefix("[검토 필요] ") ? String($0.dropFirst("[검토 필요] ".count)) : $0 }
-            let note = ["[검토 필요] 환자가 요약에서 지움", original].compactMap(\.self).joined(separator: ": ")
-            if let absent = try? SymptomEntry(id: UUID(), symptomType: removed.symptomType, presence: .absent, bodyPart: nil, bodySide: nil,
-                                              durationMinutes: nil, occurrenceCount: nil,
-                                              detail: String(note.prefix(SymptomEntry.detailLimit))) {
-                symptoms.insert(absent, at: index)
-            }
-        }
-        update(symptoms, in: summary)
+        guard let record else { return }
+        update(record.removingEntry(id), in: summary)
         summary.editingEntryID = nil
     }
 
-    private func update(_ symptoms: [SymptomEntry], in summary: SymptomSummaryScreenState) {
-        guard let record else { return }
-        let updated = SymptomRecord(id: record.id, patientId: record.patientId, recordedDate: record.recordedDate,
-                                    conditionText: record.conditionText, symptoms: symptoms)
+    private func update(_ updated: SymptomRecord, in summary: SymptomSummaryScreenState) {
         self.record = updated
         keep(updated)
         summary.record = SymptomRecordDisplay(record: updated)
@@ -721,12 +695,5 @@ final class CareCallViewModel {
                                        durationMinutes: old.durationMinutes ?? fill?.durationMinutes,
                                        occurrenceCount: old.occurrenceCount ?? fill?.occurrenceCount, detail: detail)
         return merged ?? old
-    }
-
-    private static func number(_ text: String, else error: SymptomValueError) throws -> Int? {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        if trimmed.isEmpty { return nil }
-        guard let value = Int(trimmed) else { throw error }
-        return value
     }
 }
