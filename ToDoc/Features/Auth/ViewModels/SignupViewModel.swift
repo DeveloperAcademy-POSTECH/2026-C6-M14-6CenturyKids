@@ -267,7 +267,7 @@ import ToDocDomain
         do {
             let currentID = try await auth.getCurrentUserId()
             try checkCurrent(token)
-            guard auth.isSignedIn(), currentID == id else { throw AuthFlowError("다시 로그인한 뒤 가입 정보를 이어서 입력해 주세요.") }
+            guard auth.isSignedIn(), currentID == id else { throw AuthFlowError("인증 상태를 확인하지 못했어요. 지금은 정보를 저장할 수 없어요. 로그인으로 계정 상태를 확인해 주세요.") }
             let user = try User(id: id, name: draft.user.name, birthday: draft.user.birthday, sex: draft.user.sex)
             let patient = Patient(user: user, doctorId: draft.doctorID, disease: draft.disease)
 
