@@ -22,4 +22,6 @@ protocol PatientRepository {
     func findByDoctorId(
         _ doctorId: UUID
     ) async throws -> [Patient]
+    
+    func connectToDoctor(code: String) async throws
 }
