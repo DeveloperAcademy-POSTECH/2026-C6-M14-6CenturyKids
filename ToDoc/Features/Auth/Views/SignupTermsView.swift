@@ -39,7 +39,7 @@ struct SignupTermsView: View {
                 }
                 .disabled(state.isWorking || state.isAccountLocked)
             }
-            Text(state.hasAuthenticatedAccount ? "로그인한 계정의 환자 정보를 이어서 입력합니다." : "계정 만들기를 누르면 실제 계정이 생성됩니다. 환자 정보는 다음 단계에서 입력합니다.")
+            Text("계정 만들기를 누르면 실제 계정이 생성됩니다. 환자 정보는 다음 단계에서 입력합니다.")
                 .appTextStyle(.caption)
             if state.isLocalSignupTest {
                 Text("실서버 테스트 경로입니다. 약관 동의 수집·보관 검증은 포함하지 않습니다.")
@@ -52,7 +52,7 @@ struct SignupTermsView: View {
             if let error = state.errorMessage { AuthMessage(text: error) }
             if !state.isEmailAlreadyRegistered {
                 Button { state.onAction?(.next) } label: {
-                    AuthSubmitLabel(title: state.isAwaitingEmailConfirmation ? "확인 후 이어가기" : (state.isLocalSignupTest ? "테스트 계정 만들기" : (state.hasAuthenticatedAccount ? "동의하고 이어가기" : "동의하고 계정 만들기")), isLoading: state.isWorking)
+                    AuthSubmitLabel(title: state.isAwaitingEmailConfirmation ? "확인 후 이어가기" : (state.isLocalSignupTest ? "테스트 계정 만들기" : "동의하고 계정 만들기"), isLoading: state.isWorking)
                 }.buttonStyle(AppButtonStyle())
                     .disabled(!state.canProceedFromTerms || state.isWorking || state.onAction == nil)
             }

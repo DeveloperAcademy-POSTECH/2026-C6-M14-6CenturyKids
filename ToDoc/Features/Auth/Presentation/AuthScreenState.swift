@@ -61,7 +61,6 @@ enum SignupAction {
     var stage: SignupStageChoice?
     var otherStage = ""
     /// 계정 생성이 시작되면 당시 입력을 고정합니다. 재시도가 다른 사람의 정보로 이어지지 않게 합니다.
-    var hasStoredUserProfile = false
     var hasAuthenticatedAccount = false
     var isEmailAlreadyRegistered = false
     var isAccountLocked = false
