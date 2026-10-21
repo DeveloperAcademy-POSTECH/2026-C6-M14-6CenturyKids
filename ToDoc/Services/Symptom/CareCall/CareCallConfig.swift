@@ -150,12 +150,20 @@ struct CareCallConfig: Decodable, Sendable {
 struct EmergencyRules: Decodable, Sendable {
     let version: String
     let keywords: [String]
+    /// 자살 생각·자해·약 과다 복용 같은 위기 표현. 모델 판단 없이 안내(crisisMessage)하고 통화를 끝낸다
+    let crisisKeywords: [String]
     /// 이 온도(섭씨) 이상을 말하면 응급. "열이 조금 나요", "미열"은 응급 아님
     let feverCelsius: Double
     /// 응급일 때 말하고 통화를 끝내는 고정 안내
     let message: String
+    /// 위기 표현일 때 말하고 통화를 끝내는 고정 안내 (상담전화 안내 포함)
+    let crisisMessage: String
+    /// 모델만 응급이라고 본 답에 한 번 묻는 확인 질문. 그렇다고 하거나 분명하지 않으면 응급 안내로 끝낸다
+    let confirmQuestion: String
     /// 모델만 응급이라고 본 답이 어느 기록도 바꾸지 않았을 때 그 말을 원문으로 남기는 기타 항목 이름 (유무 '모름', 검토 필요)
     let reviewName: String
+    /// 위기 표현을 원문으로 남기는 기타 항목 이름 (유무 '모름', 검토 필요)
+    let crisisName: String
     /// 정상 종료 때 마무리 인사
     let closingMessage: String
 

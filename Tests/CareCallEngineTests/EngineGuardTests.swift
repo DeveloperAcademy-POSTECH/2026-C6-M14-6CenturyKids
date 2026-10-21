@@ -765,3 +765,59 @@ struct PresentPhraseTests {
         #expect(call.ledger["dehydration_nutrition"]?.presence == expected) // "입맛이 없어요"는 '없어요'로 끝나도 바로 '없음'이 아니다
     }
 }
+
+/// 2026-10-21 Foundation Models 탐침: 위기 표현이 기록 없이 사라지거나, 모델만 응급이라고 본 실신·토혈에도 통화가 이어졌다
+@MainActor
+struct EmergencySafetyTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    private func atOther(_ mock: MockAnalyzer) async -> InterviewEngine {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        for _ in 0..<10 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
+        return engine
+    }
+
+    @Test(arguments: ["요즘은 그냥 죽고 싶다는 생각이 들어요", "약을 한꺼번에 많이 먹어 버렸어요"])
+    func 위기_표현은_안내하고_끝내며_원문을_남긴다(answer: String) async {
+        let engine = await atOther(MockAnalyzer())
+        let out = await engine.handle(patientText: answer)
+        #expect(out.phase == .emergencyEnded && out.utterance == rules.crisisMessage)
+        let entry = engine.ledger[Ledger.key(effectId: "other", otherName: rules.crisisName)]
+        #expect(entry?.needsReview == true && entry?.quotes.contains(answer) == true)
+    }
+
+    @Test func 그_밖에에서_모델이_되물은_말은_다음_답이_없어요여도_원문으로_남는다() async {
+        let answer = "이렇게 살아서 뭐하나 싶어요"
+        let mock = MockAnalyzer()
+        mock.script[answer] = TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
+                                         emergencySignal: false, utterance: "")
+        let engine = await atOther(mock)
+        _ = await engine.handle(patientText: answer)
+        _ = await engine.handle(patientText: "없어요")
+        let entry = engine.ledger[Ledger.key(effectId: "other", otherName: config.otherUnclearName)]
+        #expect(entry?.presence == .unclear && entry?.needsReview == true && entry?.quotes.contains(answer) == true)
+    }
+
+    @Test func 키워드_낱말_사이에_말이_끼어도_응급이다() async {
+        let engine = await atOther(MockAnalyzer())
+        let out = await engine.handle(patientText: "어제 피를 한 바가지 토했어요")
+        #expect(out.phase == .emergencyEnded && out.utterance == rules.message)
+    }
+
+    @Test(arguments: [("네", true), ("모르겠어요", true), ("아니요", false), ("그 정도는 아니에요", false)])
+    func 모델만_응급이면_한_번_확인한다(reply: String, ends: Bool) async {
+        let answer = "어지러워서 잠깐 주저앉았어요"
+        let mock = MockAnalyzer()
+        mock.script[answer] = TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
+                                         emergencySignal: true, utterance: "")
+        let engine = await atOther(mock)
+        let check = await engine.handle(patientText: answer)
+        #expect(check.utterance == rules.confirmQuestion && check.phase == .other)
+        #expect(engine.ledger.entries.values.contains { $0.needsReview && $0.quotes.contains(answer) })
+        let out = await engine.handle(patientText: reply)
+        #expect((out.phase == .emergencyEnded) == ends)
+        if !ends { #expect(out.utterance != rules.confirmQuestion && !out.utterance.isEmpty) }
+    }
+}

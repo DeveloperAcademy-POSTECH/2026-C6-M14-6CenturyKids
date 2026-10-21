@@ -14,12 +14,14 @@ struct KeywordMatcher: Sendable {
     let keywords: [String]
     /// 키워드 바로 앞의 "안"("안 아파요")도 부정으로 볼지. 응급 키워드는 놓치지 않도록 false
     var prefixNegation = false
+    /// 띄어 쓴 키워드의 낱말 사이에 끼어도 되는 낱말 수 ("피를 토" ← "피를 한 바가지 토했어요"). 응급 키워드만 2
+    var maxGapWords = 0
 
     func matches(_ text: String) -> String? {
         for clause in Self.clauses(text) {
             for keyword in keywords {
                 var from = clause.startIndex
-                while let range = clause.range(of: Self.pattern(keyword), options: .regularExpression, range: from..<clause.endIndex) {
+                while let range = clause.range(of: Self.pattern(keyword, maxGapWords: maxGapWords), options: .regularExpression, range: from..<clause.endIndex) {
                     let rest = clause[range.upperBound...].replacingOccurrences(of: " ", with: "")
                     let before = clause[..<range.lowerBound].trimmingCharacters(in: .whitespaces)
                     // 증상 표현 모드: 앞의 "안"("안 아파요")과 바로 뒤의 "안"("열이 안 나요")도 부정
@@ -33,9 +35,10 @@ struct KeywordMatcher: Sendable {
     }
 
     /// 키워드 안의 공백 자리만 띄어쓰기를 무시한다 ("숨이 차" = "숨이차"). 공백 없는 키워드는 낱말 경계를 넘지 않는다
-    /// ("그리고 열이"의 "고 열"은 "고열"이 아님).
-    static func pattern(_ keyword: String) -> String {
-        keyword.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }.joined(separator: "\\s*")
+    /// ("그리고 열이"의 "고 열"은 "고열"이 아님). maxGapWords만큼 다른 낱말이 끼어도 된다
+    static func pattern(_ keyword: String, maxGapWords: Int = 0) -> String {
+        let gap = maxGapWords > 0 ? "(?:\\s+\\S+){0,\(maxGapWords)}\\s*" : "\\s*"
+        return keyword.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }.joined(separator: gap)
     }
 
     /// 쉼표·마침표와 "~는데/~지만"에서 끊는다 ("숨이 차진 않은데 가슴이 아파요" → 두 절)

@@ -151,13 +151,15 @@ struct InterviewEngineTests {
         return await engine.handle(patientText: "토하고 입안도 아프고 손도 저려요")
     }
 
-    @Test func 모델만_응급이라고_하면_통화를_이어_가고_그_답의_기록은_검토_필요() async {
-        let out = await modelOnlyEmergency()
-        #expect(out.utterance == config.openingTransition.noted + " " + config.effects[0].details[0].question)
-        #expect(out.phase == .slot(key: "nausea_vomiting", step: .detail))
+    @Test func 모델만_응급이라고_하면_한_번_확인하고_아니면_이어_가며_그_답의_기록은_검토_필요() async {
+        let check = await modelOnlyEmergency()
+        #expect(check.utterance == rules.confirmQuestion && check.phase == .opening)
         for key in ["nausea_vomiting", "stomatitis", "neuropathy"] {
             #expect(engine.ledger[key]?.needsReview == true, "\(key)")
         }
+        let out = await engine.handle(patientText: "아니요, 그 정도는 아니에요")
+        #expect(out.utterance == config.openingTransition.noted + " " + config.effects[0].details[0].question)
+        #expect(out.phase == .slot(key: "nausea_vomiting", step: .detail))
         _ = await engine.handle(patientText: "한 번이요") // 구토 횟수
         _ = await engine.handle(patientText: "없어요")   // 변비 (그 뒤에 받은 기록은 표시하지 않는다)
         #expect(engine.ledger["constipation"]?.presence == .absent && engine.ledger["constipation"]?.needsReview == false)
@@ -174,19 +176,21 @@ struct InterviewEngineTests {
     @Test func 모델이_응급이라고_본_답이_기록되지_않았으면_그_말을_모름으로_남긴다() async throws {
         var signal = TurnResult.empty
         signal.emergencySignal = true
-        mock.script["변 볼 때 빨간 피가 묻어 나와요"] = signal
+        mock.script["변 볼 때 뭐가 이상하게 나와요"] = signal
         await reach("constipation")
-        let out = await engine.handle(patientText: "변 볼 때 빨간 피가 묻어 나와요")
-        #expect(out.phase == .slot(key: "constipation", step: .presence)) // 통화는 이어 간다 (변비는 다시 묻는다)
+        let check = await engine.handle(patientText: "변 볼 때 뭐가 이상하게 나와요")
+        #expect(check.utterance == rules.confirmQuestion)
+        let out = await engine.handle(patientText: "아니요")
+        #expect(out.phase == .slot(key: "constipation", step: .presence)) // 아니라고 하면 이어 간다 (변비는 다시 묻는다)
         // 모델 판단만으로 '있음' 증상을 만들지 않는다 (유무 모름, 원문은 검토 필요로)
         let entry = engine.ledger["other:" + rules.reviewName]
         #expect(entry?.presence == .unclear && entry?.needsReview == true)
-        #expect(entry?.unsureAnswers == ["변 볼 때 빨간 피가 묻어 나와요"])
+        #expect(entry?.unsureAnswers == ["변 볼 때 뭐가 이상하게 나와요"])
         #expect(!engine.ledger.order.contains { engine.ledger[$0]?.presence == .present })
         let converter = SymptomRecordConverter(config: config, bodyParts: try fixture(BodyPartDictionary.self, "body_parts"))
         let note = converter.record(from: engine.ledger, patientId: UUID(), date: Date()).symptoms.filter { $0.symptomType == .other }
         #expect(note.map(\.presence) == [.unknown])
-        #expect(note.first?.detail == "[검토 필요] \(rules.reviewName): 변 볼 때 빨간 피가 묻어 나와요")
+        #expect(note.first?.detail == "[검토 필요] \(rules.reviewName): 변 볼 때 뭐가 이상하게 나와요")
     }
 
     /// 묻는 항목까지 "없어요"로 넘어간다

@@ -19,6 +19,7 @@ final class InterviewEngine {
     let config: CareCallConfig
     private let rules: EmergencyRules
     private let detector: KeywordMatcher
+    private let crisisDetector: KeywordMatcher
     private let symptomHints: KeywordMatcher
     private let openingConcerns: KeywordMatcher
     private let analyzer: any CareCallAI
@@ -41,6 +42,8 @@ final class InterviewEngine {
     private var openingOtherName: String?
     /// 마지막으로 한 말 = 답을 기다리는 질문 (음성·문자를 바꿔도 이 질문부터 이어 간다)
     private(set) var lastQuestion: String
+    /// 모델만 응급이라고 본 답 뒤에 확인 질문을 했으면, '아니요'일 때 이어 갈 말과 단계
+    private var pendingEmergencyCheck: (output: Output, phase: InterviewPhase)?
     /// 같은 날 다시 거는 통화면 오늘 기록에 아직 없는 항목(지난 통화가 끊겨 못 물음), 처음 통화면 nil.
     /// 다시 거는 통화는 "달라졌거나 새로 불편한 점"을 묻고, 그 답에서 나온 증상과 이 항목만 묻는다
     private let unasked: Set<String>?
@@ -48,7 +51,8 @@ final class InterviewEngine {
     init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI, followUp unasked: Set<String>? = nil) {
         self.config = config
         self.rules = rules
-        self.detector = KeywordMatcher(keywords: rules.keywords)
+        self.detector = KeywordMatcher(keywords: rules.keywords, maxGapWords: 2)
+        self.crisisDetector = KeywordMatcher(keywords: rules.crisisKeywords, maxGapWords: 2)
         self.symptomHints = KeywordMatcher(keywords: config.symptomHints, prefixNegation: true)
         self.openingConcerns = KeywordMatcher(keywords: config.openingConcerns, prefixNegation: true)
         self.analyzer = analyzer
@@ -73,16 +77,34 @@ final class InterviewEngine {
         guard phase != .saved, phase != .emergencyEnded else {
             return Output(utterance: "", phase: phase)
         }
+        // 위기 표현(자살 생각·자해·약 과다 복용)은 모델 판단 없이 안내하고 끝낸다. 말은 원문으로 남긴다
+        // (2026-10-21 Foundation Models: "죽고 싶다는 생각이 들어요"를 되묻기만 해 기록 없이 사라졌다)
+        if crisisDetector.matches(patientText) != nil {
+            recordForReview(patientText, name: rules.crisisName)
+            return endWithEmergency(message: rules.crisisMessage)
+        }
         if isEmergencyText(patientText) {
             return endWithEmergency()
         }
+        if let pending = pendingEmergencyCheck {
+            pendingEmergencyCheck = nil
+            // 확인 질문에 아니라고 하면 하던 대로 잇는다. 그렇다고 하거나 분명하지 않으면 응급 안내로 끝낸다
+            guard soundsNegative(patientText) else { return endWithEmergency() }
+            phase = pending.phase
+            say(pending.output.utterance)
+            return pending.output
+        }
+        let current = phase
         let before = ledger
         let (out, modelEmergency) = await respond(to: patientText)
-        // 모델만 응급이라고 함 (응급 키워드·체온에는 안 걸림): 통화를 끝내거나 되묻지 않고, 그 답의 기록을 검토 필요로 남긴다.
-        // 모델의 응급 판단은 흔들려(증상 여럿 "토하고 입안도 아프고 손도 저려요"를 응급으로 봄) 통화를 끝내는 데 쓰지 않는다
-        // (2026-10-21 Mac 평가, Foundation Models: 모델만 응급이라고 한 3번 중 1번이 거짓 응급)
-        if modelEmergency { markForReview(patientText, since: before) }
-        return out
+        // 모델만 응급이라고 함 (응급 키워드·체온에는 안 걸림): 그 답의 기록을 검토 필요로 남기고 한 번 확인한다.
+        // 모델의 응급 판단은 흔들려(증상 여럿 "토하고 입안도 아프고 손도 저려요"를 응급으로 봄) 바로 끝내지 않는다
+        // (2026-10-21 Mac 평가, Foundation Models: 모델만 응급이라고 한 3번 중 1번이 거짓 응급, 2번은 혈변·실신)
+        guard modelEmergency else { return out }
+        markForReview(patientText, since: before)
+        pendingEmergencyCheck = (out, phase)
+        phase = current
+        return Output(utterance: say(rules.confirmQuestion), phase: phase)
     }
 
     /// 답 한 턴을 기록하고 다음에 할 말을 정한다. 모델이 응급이라고 했는지도 함께 돌려준다 (검토 표시는 handle이 한다)
@@ -160,7 +182,8 @@ final class InterviewEngine {
         // 꼬리질문의 답이면 첫 답과 합쳐 본다 ('피곤해요 / 일을 많이 해서요')
         let answerText = current == .opening ? [openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / ") : patientText
         recordVerbatimOtherIfMissed(result, during: current, patientText: patientText, text: answerText,
-                                    unchanged: ledger.sameRecords(as: before))
+                                    unchanged: ledger.sameRecords(as: before),
+                                    modelAsked: quick == nil && result?.needsClarification == true)
         // 다시 거는 통화의 첫 답
         // - 말한 증상이 없는데 달라진 게 없다·없어졌다·모르겠다고 분명히 답하지도 않음("네"만, 분석 실패, 알아듣지 못한 답): 한 번 되묻는다
         // - "글쎄요"면 달라진 점을 '모름'으로 남긴다
@@ -513,7 +536,7 @@ final class InterviewEngine {
     /// 처음·그 밖에에서 이번 답으로 기록이 하나도 바뀌지 않았는데(모델이 비웠거나, 엉뚱한 항목에 붙여 막혔거나)
     /// 증상 표현이 부정 없이 있으면, 환자 말 그대로 기타 증상으로 기록하고 검토 필요로 둔다. 이름을 짓지 않는다 (의료진이 원문을 본다)
     private func recordVerbatimOtherIfMissed(_ result: TurnResult?, during phase: InterviewPhase, patientText: String, text: String,
-                                             unchanged: Bool) {
+                                             unchanged: Bool, modelAsked: Bool) {
         switch phase {
         case .opening, .other: break
         default: return
@@ -528,6 +551,16 @@ final class InterviewEngine {
         // '그 밖에'에서 증상 표현이 있으면 모델이 되물어도 먼저 남긴다: 되물은 답이 "없어요"면 증상이 사라졌다
         // ("잘 모르겠는데 머리가 아파요", 2026-10-19 실기기). 남기면 "어떤 점이 그러신지"를 물어 내용을 받는다
         let keepAnyway = phase == .other && symptomHints.matches(text) != nil
+        // '그 밖에'에서 모델이 되물은 말은 먼저 '모름'으로 남긴다: 되물은 답이 "없어요"·"네"면 처음 말이 사라졌다
+        // ("이렇게 살아서 뭐하나 싶어요", 2026-10-21 Foundation Models 탐침). '있음'으로는 남기지 않는다
+        if phase == .other, unchanged, modelAsked, !keepAnyway,
+           !soundsNegative(text), !soundsUnsure(text), !saysNormal(text) {
+            let name = config.otherUnclearName
+            ledger.apply(Mention(effectId: "other", otherName: name, presence: .unclear, quote: patientText),
+                         patientText: patientText, knownEffectIds: knownIds)
+            ledger.markUnknown(Ledger.key(effectId: "other", otherName: name), step: .presence, quote: patientText)
+            return
+        }
         guard unchanged, result?.needsClarification != true || keepAnyway,
               symptomHints.matches(text) != nil
                 || (phase == .other && !soundsNegative(text) && !soundsUnsure(text) && !saysNormal(text))
@@ -544,7 +577,11 @@ final class InterviewEngine {
     private func markForReview(_ patientText: String, since before: Ledger) {
         let changed = ledger.changedKeys(since: before)
         guard changed.isEmpty else { return changed.forEach { ledger.markNeedsReview($0) } }
-        let name = rules.reviewName
+        recordForReview(patientText, name: rules.reviewName)
+    }
+
+    /// 환자 말을 기타 항목(name)에 원문으로 남긴다 (유무 '모름', 검토 필요)
+    private func recordForReview(_ patientText: String, name: String) {
         ledger.apply(Mention(effectId: "other", otherName: name, presence: .unclear, quote: patientText),
                      patientText: patientText, knownEffectIds: knownIds)
         ledger.markUnknown(Ledger.key(effectId: "other", otherName: name), step: .presence, quote: patientText)
@@ -815,10 +852,11 @@ final class InterviewEngine {
         detector.matches(text) != nil || rules.mentionsFever(text)
     }
 
-    private func endWithEmergency() -> Output {
+    private func endWithEmergency(message: String? = nil) -> Output {
         phase = .emergencyEnded
-        say(rules.message)
-        return Output(utterance: rules.message, phase: phase)
+        let text = message ?? rules.message
+        say(text)
+        return Output(utterance: text, phase: phase)
     }
 
     /// 할 말을 마지막 질문으로 기억한다 (다음 분석 요청의 질문, 같은 질문 반복 판단에 쓴다)
