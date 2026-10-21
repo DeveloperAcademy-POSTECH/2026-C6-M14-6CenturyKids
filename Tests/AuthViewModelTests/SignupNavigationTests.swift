@@ -137,6 +137,21 @@ import ToDocDomain
         XCTAssertEqual(state.step, .review)
     }
 
+    func testUnknownStageAdvancesAndSurvivesDiagnosisEditing() {
+        let vm = makeViewModel(), state = vm.state
+        fillRequiredProfile(state)
+        state.stage = .unknown; state.step = .cancerStage
+        XCTAssertEqual(state.stageTitle, "잘 모르겠어요")
+        vm.handle(.next)
+        XCTAssertEqual(state.step, .doctorCode)
+        vm.handle(.skipDoctorCode)
+        vm.handle(.editDiagnosis)
+        vm.handle(.next)
+        XCTAssertEqual(state.stage, .unknown)
+        vm.handle(.next)
+        XCTAssertEqual(state.step, .review)
+    }
+
     func testUnknownCancerIsSeparateFromSearchAndPreservesTheSelectedStage() {
         let vm = makeViewModel(), state = vm.state
         fillRequiredProfile(state)

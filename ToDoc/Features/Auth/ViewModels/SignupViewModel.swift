@@ -103,7 +103,7 @@ import ToDocDomain
         }
     }
 
-    /// 암종 모름은 모델의 unknown을 사용합니다. 미확정 병기는 임의의 값으로 바꾸지 않습니다.
+    /// 암종·병기 모름은 각각 모델의 unknown을 사용하고 미선택과 구분합니다.
     private func validationError(for step: SignupStep) -> String? {
         switch step {
         case .role: return state.isPatient ? nil : "의사 가입은 iPad용 흐름 연결 후 이용할 수 있어요."
@@ -123,8 +123,7 @@ import ToDocDomain
         case .cancerType:
             return state.cancerType == nil ? "암 종류를 선택해 주세요." : nil
         case .cancerStage:
-            if case .known = state.stage { return nil }
-            return state.stage == nil ? "병기를 선택해 주세요." : "모름·직접 입력 병기는 저장 형식 연결을 준비 중이에요."
+            return state.stage == nil ? "병기를 선택해 주세요." : nil
         default: return nil
         }
     }
@@ -278,7 +277,7 @@ import ToDocDomain
             }
             guard normalizedCode.isEmpty || (verifiedDoctorCode == normalizedCode && verifiedDoctorID != nil),
                   let birthday = state.birthday, let sex = state.sex, let cancer = state.cancerType,
-                  case .known(let stage) = state.stage,
+                  let stage = state.stage?.domainValue,
                   let user = try? User(id: UUID(), name: state.name, birthday: birthday, sex: sex) else {
                 state.errorMessage = "입력한 정보와 의사 코드를 다시 확인해 주세요."
                 return

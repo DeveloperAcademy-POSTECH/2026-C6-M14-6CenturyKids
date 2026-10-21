@@ -55,7 +55,7 @@ import ToDocDomain
             let f = AuthFixture(), vm = ready(f)
             await createAccount(vm)
             if invalidTerms { vm.state.acceptedTerms = [] }
-            else { vm.state.stage = .unknown }
+            else { vm.state.stage = nil }
             await vm.submit()
             XCTAssertEqual(f.auth.signUpCount, 1)
             XCTAssertEqual(f.users.saves, 0); XCTAssertEqual(f.patients.saves, 0)
@@ -330,25 +330,31 @@ import ToDocDomain
         XCTAssertEqual(vm.state.email, "corrected@example.com")
     }
 
-    func testUnknownCancerSurvivesProfileSaveReadBackAndNewLogin() async {
-        let f = AuthFixture(), vm = ready(f)
-        vm.state.cancerType = .unknown
-        vm.state.stage = .known(.stage3)
-        await createAccount(vm)
-        await vm.submit()
-        XCTAssertEqual(vm.state.step, .completion)
-        XCTAssertEqual(vm.completedPatient?.disease?.carcinoma, .unknown)
-        XCTAssertEqual(vm.completedPatient?.disease?.stage, .stage3)
-        XCTAssertEqual(f.patients.saves, 1)
+    func testUnknownDiagnosisSurvivesProfileSaveReadBackAndNewLogin() async {
+        let combinations: [(CarcinomaType, SignupStageChoice, CarcinomaStage)] = [
+            (.unknown, .known(.stage3), .stage3),
+            (.lung, .unknown, .unknown),
+            (.unknown, .unknown, .unknown)
+        ]
+        for (cancer, choice, stage) in combinations {
+            let f = AuthFixture(), vm = ready(f)
+            vm.state.cancerType = cancer; vm.state.stage = choice
+            await createAccount(vm)
+            await vm.submit()
+            XCTAssertEqual(vm.state.step, .completion)
+            XCTAssertEqual(vm.completedPatient?.disease?.carcinoma, cancer)
+            XCTAssertEqual(vm.completedPatient?.disease?.stage, stage)
+            XCTAssertEqual(f.patients.saves, 1)
 
-        let newSession = AuthSessionState()
-        let login = LoginViewModel(repositories: f.repositories, session: newSession)
-        login.state.email = "patient@example.com"; login.state.password = "password123"
-        await login.submit()
-        XCTAssertTrue(login.state.didSignIn)
-        XCTAssertEqual(newSession.patient?.disease?.carcinoma.rawValue, "unknown")
-        XCTAssertEqual(newSession.patient?.disease?.stage, .stage3)
-        XCTAssertEqual(f.auth.signUpCount, 1)
-        XCTAssertEqual(f.users.finds, 1, "로그인에서는 Patient.findById만 사용합니다.")
+            let newSession = AuthSessionState()
+            let login = LoginViewModel(repositories: f.repositories, session: newSession)
+            login.state.email = "patient@example.com"; login.state.password = "password123"
+            await login.submit()
+            XCTAssertTrue(login.state.didSignIn)
+            XCTAssertEqual(newSession.patient?.disease?.carcinoma, cancer)
+            XCTAssertEqual(newSession.patient?.disease?.stage, stage)
+            XCTAssertEqual(f.auth.signUpCount, 1)
+            XCTAssertEqual(f.users.finds, 1, "로그인에서는 Patient.findById만 사용합니다.")
+        }
     }
 }

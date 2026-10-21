@@ -24,7 +24,7 @@ final class DomainEnumRawValueTests: XCTestCase {
     func testCarcinomaStageContract() {
         assertContract(CarcinomaStage.self, [
             (.stage0, "stage0"), (.stage1, "stage1"), (.stage2, "stage2"),
-            (.stage3, "stage3"), (.stage4, "stage4")
+            (.stage3, "stage3"), (.stage4, "stage4"), (.unknown, "unknown")
         ])
     }
 
@@ -38,7 +38,7 @@ final class DomainEnumRawValueTests: XCTestCase {
         ])
     }
 
-    func testApprovedAdditionalCancerValuesAndStageLimit() {
+    func testApprovedAdditionalCancerValuesAndUnknownDiagnosisLabels() {
         let additions = [("larynx", "후두암"), ("thymus", "흉선암"), ("esophagus", "식도암"),
                          ("smallIntestine", "소장암"), ("anus", "항문암")]
         for (raw, korean) in additions {
@@ -47,7 +47,7 @@ final class DomainEnumRawValueTests: XCTestCase {
         XCTAssertEqual(CarcinomaType.allCases.count, 16)
         XCTAssertEqual(CarcinomaType(rawValue: "unknown")?.displayName, "잘 모르겠어요")
         XCTAssertNil(CarcinomaStage(rawValue: "terminal"))
-        XCTAssertEqual(CarcinomaStage.allCases.map(\.displayName), ["0기", "1기", "2기", "3기", "4기"])
+        XCTAssertEqual(CarcinomaStage.allCases.map(\.displayName), ["0기", "1기", "2기", "3기", "4기", "잘 모르겠어요"])
     }
 
     func testMealTypeContract() {

@@ -57,7 +57,6 @@ enum SignupAction {
     var cancerType: CarcinomaType?
     var cancerSearch = ""
     var stage: SignupStageChoice?
-    var otherStage = ""
     /// 계정 생성이 시작되면 당시 입력을 고정합니다. 재시도가 다른 사람의 정보로 이어지지 않게 합니다.
     var hasStoredUserProfile = false
     var hasAuthenticatedAccount = false
@@ -97,9 +96,7 @@ enum SignupAction {
         }
     }
     var cancerTitle: String { cancerType?.displayName ?? "선택 전" }
-    var stageTitle: String {
-        switch stage { case .known(let value): value.displayName; case .unknown: "잘 모르겠어요"; case .other: otherStage; case nil: "선택 전" }
-    }
+    var stageTitle: String { stage?.domainValue.displayName ?? "선택 전" }
 }
 extension CarcinomaType { var title: String { displayName } }
 extension CarcinomaStage { var title: String { displayName } }
