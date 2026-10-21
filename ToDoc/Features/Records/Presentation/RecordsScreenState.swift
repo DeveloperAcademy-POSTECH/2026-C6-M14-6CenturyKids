@@ -21,6 +21,7 @@ struct RecordOverviewSnapshot {
     struct Symptom { let presentCount: Int?; let types: [SymptomType] }
 }
 /// 선택 기간의 증상별 크기와 그 기간의 기록. 크기(weight) 기준은 ViewModel이 정합니다.
+/// records는 최신순입니다 (주·월 카드 목록 순서).
 struct RecordSymptomDetail { let symptoms: [RecordSymptomItem]; let records: [SymptomRecordDisplay] }
 struct RecordSymptomItem: Identifiable {
     let type: SymptomType

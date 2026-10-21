@@ -2,23 +2,41 @@ import SwiftUI
 
 struct SymptomRecordDetailView: View {
     @State var state = RecordDetailScreenState(kind: .symptom)
+    /// 카드를 보여 줄 증상. 칸을 누르면 바뀌고, 같은 칸을 다시 누르거나 기간을 바꾸면 해제됩니다.
+    @State private var selected: SymptomType?
     var body: some View {
         RecordDetailLayout(state: state) {
             if case .symptom(let data) = state.content {
-                let entries = data.records.flatMap(\.presentSymptoms)
-                if data.symptoms.isEmpty || entries.isEmpty {
+                if data.symptoms.isEmpty || data.records.allSatisfy(\.presentSymptoms.isEmpty) {
                     Text("표시할 증상 기록이 없어요.").foregroundStyle(.secondary).padding(.vertical, 40)
                 } else {
                     bubbles(data.symptoms).padding(.top, 20)
-                    VStack(alignment: .trailing, spacing: 12) {
-                        if state.canEdit {
-                            Button("수정") { state.onAction?(.edit) }
-                                .modifier(RecordTextStyle(size: 14)).foregroundStyle(Color(white: 141/255))
-                                .buttonStyle(.plain).disabled(state.onAction == nil)
-                        }
-                        ForEach(entries) { RecordSymptomCard(entry: $0) }
-                    }.padding(.top, 20)
+                    cards(data.records).padding(.top, 20)
                 }
+            }
+        }
+        .onChange(of: state.periodLabel) { selected = nil }
+        .onChange(of: state.period) { selected = nil }
+    }
+
+    /// 고른 증상의 카드. 기록은 최신순으로 받으므로 주·월은 최신순 목록이 됩니다.
+    @ViewBuilder private func cards(_ records: [SymptomRecordDisplay]) -> some View {
+        let cards = records.flatMap { record in
+            record.presentSymptoms.filter { $0.symptomType == selected }.map { (date: record.recordedDate, entry: $0) }
+        }
+        if cards.isEmpty {
+            Text("자세한 기록을 보려면\n키워드를 선택해주세요.").modifier(RecordTextStyle(size: 14))
+                .foregroundStyle(Color(white: 141/255)).multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity).padding(.vertical, 44)
+                .background(.white, in: RoundedRectangle(cornerRadius: 24))
+        } else {
+            VStack(alignment: .trailing, spacing: 12) {
+                if state.canEdit {
+                    Button("수정") { state.onAction?(.edit) }
+                        .modifier(RecordTextStyle(size: 14)).foregroundStyle(Color(white: 141/255))
+                        .buttonStyle(.plain).disabled(state.onAction == nil)
+                }
+                ForEach(cards, id: \.entry.id) { RecordSymptomCard(date: $0.date, entry: $0.entry, calendar: state.calendar) }
             }
         }
     }
@@ -30,7 +48,9 @@ struct SymptomRecordDetailView: View {
             .map(\.element)
         return RecordSymptomGridLayout {
             ForEach(Array(ranked.enumerated()), id: \.element.id) { rank, item in
-                RecordSymptomBubble(item: item, color: RecordChartStyle.rankColor(rank))
+                RecordSymptomBubble(item: item, color: RecordChartStyle.rankColor(rank), isSelected: selected == item.type) {
+                    selected = selected == item.type ? nil : item.type
+                }
                     .layoutValue(key: RecordSymptomWeight.self, value: item.weight)
             }
         }.frame(height: 280)
@@ -40,11 +60,14 @@ struct SymptomRecordDetailView: View {
 private struct RecordSymptomBubble: View {
     let item: RecordSymptomItem
     let color: Color
+    let isSelected: Bool
+    let action: () -> Void
     var body: some View {
         GeometryReader { proxy in
             let side = min(proxy.size.width, proxy.size.height)
             // 모서리: min(짧은 변의 절반, 50)의 절반을 내림
             RoundedRectangle(cornerRadius: (min(side / 2, 50) / 2).rounded(.down)).fill(color)
+                .contentShape(Rectangle()).onTapGesture(perform: action)
                 .overlay {
                     // 짧은 변의 절반(11~34pt)에서, 이름이 칸 너비에 들어가도록 더 줄입니다
                     let name = item.type.displayName
@@ -55,11 +78,15 @@ private struct RecordSymptomBubble: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.type.displayName)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { action() }
     }
 }
 
 private struct RecordSymptomCard: View {
+    let date: Date
     let entry: SymptomEntryDisplay
+    let calendar: Calendar
     private var title: String {
         let location = entry.rawLocationText.flatMap { $0.isEmpty ? nil : $0 }
             ?? entry.bodyPart.map { [entry.bodySide?.displayName, $0.displayName].compactMap { $0 }.joined(separator: " ") }
@@ -71,15 +98,17 @@ private struct RecordSymptomCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Text(title).modifier(RecordTextStyle(size: 14, weight: .semibold))
-                Spacer(minLength: 8)
                 if let amount {
                     HStack(spacing: 4) {
                         Circle().fill(Color(red: 232/255, green: 85/255, blue: 62/255)).frame(width: 6, height: 6)
                         Text(amount).modifier(RecordTextStyle(size: 12))
                     }
                 }
+                Spacer(minLength: 8)
+                Text("\(calendar.component(.month, from: date))/\(calendar.component(.day, from: date))")
+                    .modifier(RecordTextStyle(size: 12)).foregroundStyle(Color(white: 141/255))
             }
+            Text(title).modifier(RecordTextStyle(size: 15, weight: .semibold))
             if let detail = entry.detail, !detail.isEmpty { Text("'\(detail)'").modifier(RecordTextStyle(size: 12)) }
         }.fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 22).padding(.vertical, 18).frame(maxWidth: .infinity, alignment: .leading)
