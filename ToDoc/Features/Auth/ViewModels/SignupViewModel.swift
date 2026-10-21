@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(Auth)
+import enum Auth.AuthError
+#endif
 #if SWIFT_PACKAGE
 import ToDocDomain
 #endif
@@ -11,6 +14,7 @@ import ToDocDomain
     init(repositories: AuthRepositories, session: AuthSessionState, configuration: AuthConfiguration) {
         self.repositories = repositories; self.session = session; self.configuration = configuration
         state.termsContent = configuration.terms; state.hasRequiredTermsContent = configuration.hasRequiredTerms
+        state.termsVersion = configuration.termsVersion; state.termsEffectiveDate = configuration.termsEffectiveDate
         state.onAction = { [weak self] action in self?.handle(action) }
     }
     private var requestID: UUID?
@@ -18,15 +22,23 @@ import ToDocDomain
     private var verifiedDoctorCode: String?
     private var accountID: UUID?
     private var creationAttempted = false
+    private var needsProfileCheck = false
     private var draft: Draft?
     private(set) var completedPatient: Patient?
     private struct Draft {
-        let email: String
-        let password: String
         let user: User
         let disease: CarcinomaDetail
         let doctorID: UUID?
     }
+    /// 로그인으로 확인된 계정만 받습니다. 이전 VM의 입력·비밀번호·동의는 재사용하지 않습니다.
+    func resumeAuthenticatedAccount(id: UUID, email: String) {
+        accountID = id
+        needsProfileCheck = true
+        state.email = email
+        state.hasAuthenticatedAccount = true
+        state.step = .terms
+    }
+
     /// 최종 확인에서 연 수정 화면은 입력을 마치거나 돌아갈 때 최종 확인으로 복귀합니다.
     private var reviewEditStart: SignupStep?
     /// View는 어떤 버튼이 눌렸는지만 전달합니다. 다음 단계와 검증은 이곳에서 결정합니다.
@@ -34,12 +46,17 @@ import ToDocDomain
         if case .cancel = action { cancel(); return }
         guard !state.isWorking else { return }
         switch action {
+        case .next where state.step == .terms:
+            state.hasAttemptedStep = true
+            state.currentValidationError = validationError(for: .terms)
+            if state.currentValidationError == nil { Task { await continueFromTerms() } }
+            else { state.errorMessage = state.currentValidationError }
         case .submit: Task { await submit() }
         case .resendConfirmation: Task { await resendConfirmation() }
         case .verifyDoctorCode: Task { await verifyDoctorCode() }
         default:
             guard !state.isAccountLocked else {
-                state.errorMessage = "계정 생성을 시작한 정보로 가입을 이어가고 있어요. 아래 버튼으로 다시 시도해 주세요."
+                state.errorMessage = state.isEmailAlreadyRegistered ? existingEmailMessage : "계정 생성을 시작한 정보로 가입을 이어가고 있어요. 아래 버튼으로 다시 시도해 주세요."
                 return
             }
             state.errorMessage = nil; state.currentValidationError = nil
@@ -64,8 +81,6 @@ import ToDocDomain
         guard state.currentValidationError == nil else { return }
         state.hasAttemptedStep = false
         switch state.step {
-        case .passwordConfirmation where configuration.isLocalSignupTest:
-            state.step = .patientInfo
         case .patientInfo where reviewEditStart == .patientInfo,
              .cancerStage where reviewEditStart == .cancerType:
             reviewEditStart = nil; state.step = .review
@@ -81,8 +96,8 @@ import ToDocDomain
             return
         }
         switch state.step {
-        case .patientInfo where configuration.isLocalSignupTest: state.step = .passwordConfirmation
         case .review: state.step = state.connection == nil ? .doctorCode : .doctorConfirmation
+        case .terms where accountID != nil: break
         case .completion, .role: break
         default: state.step = SignupStep(rawValue: state.step.rawValue - 1) ?? .role
         }
@@ -98,8 +113,7 @@ import ToDocDomain
         case .password: return AuthFormValidation.passwordError(state.password)
         case .passwordConfirmation: return state.passwordMatches ? nil : "비밀번호가 일치하지 않아요."
         case .terms:
-            if configuration.isLocalSignupTest { return nil }
-            guard configuration.hasRequiredTerms else { return "약관 본문과 버전을 준비 중이에요. 준비 후 가입할 수 있어요." }
+            guard configuration.hasRequiredTerms else { return "약관 본문·서비스명·운영사명과 적용 정보를 확인 중이에요. 준비 후 가입할 수 있어요." }
             guard SignupTerm.allCases.filter(\.isRequired).allSatisfy(state.acceptedTerms.contains) else { return "필수 약관에 동의해 주세요." }
             return state.acceptedTerms.allSatisfy(configuration.hasContent(for:)) ? nil : "선택한 약관의 본문을 준비 중이에요."
         case .patientInfo:
@@ -144,25 +158,118 @@ import ToDocDomain
         }
     }
 
-    /// 계정 생성 → 기존 정보 확인·저장 → Patient 조회로 완료를 확인합니다. 성공 세션은 유지합니다.
+    private var existingEmailMessage: String {
+        "이미 가입된 이메일이에요. 기존 계정으로 로그인해 주세요."
+    }
+
+    private func isExistingEmailError(_ error: Error) -> Bool {
+        #if canImport(Auth)
+        guard let error = error as? AuthError else { return false }
+        return error.errorCode == .emailExists || error.errorCode == .userAlreadyExists
+        #else
+        return false
+        #endif
+    }
+
+    /// 약관 동의 후 실제 계정을 만듭니다. 프로필을 저장하거나 가입 완료로 표시하지 않습니다.
+    func continueFromTerms() async {
+        guard !state.isWorking, state.step == .terms else { return }
+        state.errorMessage = nil
+        guard !state.isEmailAlreadyRegistered else { state.errorMessage = existingEmailMessage; return }
+        guard !creationAttempted || accountID != nil else {
+            state.errorMessage = "가입 요청 결과를 확인하지 못했어요. 로그인으로 계정을 확인해 주세요."
+            return
+        }
+        let required: [SignupStep] = accountID == nil ? [.role, .email, .password, .passwordConfirmation, .terms] : [.terms]
+        for step in required {
+            if let error = validationError(for: step) { state.errorMessage = error; return }
+        }
+        guard configuration.allowsSignupRequests || accountID != nil, let auth = repositories.auth,
+              repositories.users != nil, repositories.patients != nil else {
+            state.errorMessage = "회원가입 연결을 준비 중이에요. 아직 계정을 만들지 않았어요."; return
+        }
+        guard session.patient == nil, accountID != nil || !auth.isSignedIn() else {
+            state.errorMessage = "로그인된 계정이 있어요. 현재 계정을 확인한 뒤 가입해 주세요."; return
+        }
+        guard let token = session.begin() else {
+            state.errorMessage = "이전 인증 요청을 마무리하고 있어요. 잠시 후 다시 시도해 주세요."; return
+        }
+        requestID = token; state.isWorking = true; state.isAccountLocked = true
+        defer { session.finish(token); state.isWorking = false }
+        let isContinuation = accountID != nil
+        do {
+            if accountID == nil {
+                creationAttempted = true
+                session.loginPreference.isEnabled = false
+                state.email = AuthFormValidation.email(state.email)
+                do {
+                    accountID = try await auth.signUp(email: state.email, password: state.password)
+                } catch {
+                    guard isCurrent(token), isExistingEmailError(error) else { throw error }
+                    state.isEmailAlreadyRegistered = true
+                    state.errorMessage = existingEmailMessage
+                    state.password = ""; state.passwordConfirmation = ""
+                    return
+                }
+            }
+            try checkCurrent(token)
+            guard let id = accountID else { throw AuthFlowError("가입한 계정을 확인하지 못했어요.") }
+            if !auth.isSignedIn() {
+                guard !state.hasAuthenticatedAccount else {
+                    throw AuthFlowError("인증이 만료되었어요. 다시 로그인한 뒤 가입 정보를 이어서 입력해 주세요.")
+                }
+                state.isAwaitingEmailConfirmation = true
+                guard isContinuation else {
+                    throw AuthFlowError("이메일의 가입 확인을 마친 뒤 ‘확인 후 이어가기’를 눌러 주세요.")
+                }
+                let signedInID = try await auth.signIn(email: state.email, password: state.password)
+                try checkCurrent(token)
+                guard signedInID == id else { throw AuthFlowError("가입한 계정과 로그인한 계정이 달라요.") }
+            }
+            let currentID = try await auth.getCurrentUserId()
+            try checkCurrent(token)
+            guard currentID == id else { throw AuthFlowError("가입한 계정의 인증을 확인하지 못했어요.") }
+            if needsProfileCheck {
+                guard let doctors = repositories.doctors, let users = repositories.users else {
+                    throw AuthFlowError("기존 계정 정보 확인을 준비 중이에요. 잠시 후 다시 로그인해 주세요.")
+                }
+                let doctor = try await doctors.findById(id)
+                try checkCurrent(token)
+                guard doctor == nil else { throw AuthFlowError("의사 계정은 환자로 가입할 수 없어요. 의사용 앱에서 로그인해 주세요.") }
+                let user = try await users.findById(id)
+                try checkCurrent(token)
+                if let user {
+                    guard user.id == id else { throw profileConflict() }
+                    state.name = user.name; state.birthday = user.birthday; state.sex = user.sex
+                    state.hasStoredUserProfile = true
+                }
+                needsProfileCheck = false
+            }
+            state.isAwaitingEmailConfirmation = false
+            state.hasAuthenticatedAccount = true
+            state.password = ""; state.passwordConfirmation = ""
+            state.isAccountLocked = false
+            state.step = .patientInfo
+        } catch {
+            if isCurrent(token) {
+                state.errorMessage = (error as? AuthFlowError)?.message ?? (state.hasAuthenticatedAccount
+                    ? "기존 가입 정보를 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요."
+                    : "계정 생성 결과를 확인하지 못했어요. 로그인으로 계정을 확인해 주세요.")
+            }
+        }
+    }
+
+    /// 이미 인증된 계정의 정보만 저장합니다. 여기서는 signUp을 호출하지 않습니다.
     func submit() async {
         guard !state.isWorking, state.step == .review else { return }
         state.errorMessage = nil
-        guard configuration.allowsSignupRequests,
-              let auth = repositories.auth, let users = repositories.users, let patients = repositories.patients else {
-            state.errorMessage = "회원가입 연결을 준비 중이에요. 입력한 정보는 아직 저장되지 않았어요."
-            return
-        }
-        guard session.patient == nil, accountID != nil || !auth.isSignedIn() else {
-            state.errorMessage = "로그인된 계정이 있어요. 현재 계정을 확인한 뒤 가입해 주세요."
-            return
-        }
-        guard !creationAttempted || accountID != nil else {
-            state.errorMessage = "가입 요청 결과를 확인하지 못했어요. 다시 가입하기 전에 로그인으로 계정을 확인해 주세요."
-            return
+        guard state.hasAuthenticatedAccount, !needsProfileCheck, let id = accountID,
+              let auth = repositories.auth, let users = repositories.users, let patients = repositories.patients,
+              session.patient == nil else {
+            state.errorMessage = "먼저 약관에 동의하고 계정을 확인해 주세요."; return
         }
         if draft == nil {
-            let required: [SignupStep] = [.role, .name, .email, .password, .passwordConfirmation, .terms, .patientInfo, .cancerType, .cancerStage]
+            let required: [SignupStep] = [.role, .terms, .patientInfo, .cancerType, .cancerStage]
             for step in required {
                 if let error = validationError(for: step) { state.errorMessage = error; return }
             }
@@ -173,41 +280,21 @@ import ToDocDomain
                 state.errorMessage = "입력한 정보와 의사 코드를 다시 확인해 주세요."
                 return
             }
-            draft = Draft(email: AuthFormValidation.email(state.email), password: state.password, user: user,
+            draft = Draft(user: user,
                           disease: CarcinomaDetail(carcinoma: cancer, stage: stage), doctorID: verifiedDoctorID)
         }
         guard let draft else { return }
         guard let token = session.begin() else {
-            // 아직 가입 요청을 시작하지 않았다면 다음 제출에서 수정한 입력을 다시 검증합니다.
-            if !creationAttempted { self.draft = nil }
+            self.draft = nil
             state.errorMessage = "이전 인증 요청을 마무리하고 있어요. 잠시 후 다시 시도해 주세요."
             return
         }
         requestID = token; state.isWorking = true; state.isAccountLocked = true
         defer { session.finish(token); state.isWorking = false }
-        let isContinuation = accountID != nil
         do {
-            if accountID == nil {
-                // 응답 유실도 계정 생성 가능성이 있으므로 같은 요청을 자동 반복하지 않습니다.
-                creationAttempted = true
-                session.loginPreference.isEnabled = false
-                accountID = try await auth.signUp(email: draft.email, password: draft.password)
-            }
-            try checkCurrent(token)
-            guard let id = accountID else { throw AuthFlowError("가입한 계정을 확인하지 못했어요.") }
-            if !auth.isSignedIn() {
-                state.isAwaitingEmailConfirmation = true
-                guard isContinuation else {
-                    throw AuthFlowError("이메일의 가입 확인을 마친 뒤 ‘확인 후 가입 이어가기’를 눌러 주세요.")
-                }
-                let signedInID = try await auth.signIn(email: draft.email, password: draft.password)
-                try checkCurrent(token)
-                guard signedInID == id else { throw AuthFlowError("가입한 계정과 로그인한 계정이 달라요.") }
-            }
             let currentID = try await auth.getCurrentUserId()
             try checkCurrent(token)
-            guard currentID == id else { throw AuthFlowError("가입한 계정의 인증을 확인하지 못했어요.") }
-            state.isAwaitingEmailConfirmation = false
+            guard auth.isSignedIn(), currentID == id else { throw AuthFlowError("다시 로그인한 뒤 가입 정보를 이어서 입력해 주세요.") }
             let user = try User(id: id, name: draft.user.name, birthday: draft.user.birthday, sex: draft.user.sex)
             let patient = Patient(user: user, doctorId: draft.doctorID, disease: draft.disease)
 
@@ -232,7 +319,6 @@ import ToDocDomain
             guard let storedPatient, matches(storedPatient, patient) else { throw profileConflict() }
             // Patient.findById가 User를 함께 반환하므로 별도의 User 재조회는 필요하지 않습니다.
             completedPatient = storedPatient
-            state.email = draft.email
             state.password = ""; state.passwordConfirmation = ""
             self.draft = nil
             state.step = .completion

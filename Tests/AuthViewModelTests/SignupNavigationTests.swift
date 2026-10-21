@@ -10,7 +10,7 @@ import ToDocDomain
 
     private func makeViewModel(_ providedFixture: AuthFixture? = nil) -> SignupViewModel {
         let fixture = providedFixture ?? AuthFixture()
-        let vm = SignupViewModel(repositories: fixture.repositories, session: fixture.session, configuration: configuration)
+        let vm = SignupViewModel(repositories: fixture.repositories, session: fixture.session, configuration: { var c = configuration; c.allowsSignupRequests = true; return c }())
         let state = vm.state
         state.name = "테스트"; state.email = "patient@example.com"
         state.password = "password123"; state.passwordConfirmation = state.password
@@ -23,10 +23,10 @@ import ToDocDomain
         state.cancerType = .lung; state.stage = .known(.stage1)
     }
 
-    func testRequiredProfileAndDiagnosisPrecedeOptionalDoctorCode() {
+    func testRequiredProfileAndDiagnosisPrecedeOptionalDoctorCode() async {
         let vm = makeViewModel(); let state = vm.state
         state.step = .terms
-        vm.handle(.next)
+        await vm.continueFromTerms()
         XCTAssertEqual(state.step, .patientInfo)
         vm.handle(.next)
         XCTAssertEqual(state.step, .patientInfo, "필수 생년월일·성별을 입력하기 전에 의사 코드로 갈 수 없어야 합니다.")
