@@ -97,7 +97,7 @@ struct RecordDetailViewModelTests {
     }
 }
 
-private final class FakePainRepository: PainRepository {
+final class FakePainRepository: PainRepository {
     let records: [PainRecord]
     private(set) var ranges: [(from: Date, to: Date)] = []
     init(records: [PainRecord]) { self.records = records }
@@ -110,7 +110,7 @@ private final class FakePainRepository: PainRepository {
     func deleteById(_ id: UUID) async throws {}
 }
 
-private struct FakeRecordSymptomRepository: SymptomRepository {
+struct FakeRecordSymptomRepository: SymptomRepository {
     func findByPatientIdAndDate(patientId: UUID, from startDate: Date, to endDate: Date) async throws -> [SymptomRecord] { [] }
     func save(entity: SymptomRecord) async throws {}
     func findByPatientId(_ patientId: UUID) async throws -> [SymptomRecord] { [] }
