@@ -209,6 +209,7 @@ final class RecordDetailViewModel {
         let order = { (type: SymptomType) in SymptomType.allCases.firstIndex(of: type) ?? 0 }
         return RecordSymptomDetail(
             symptoms: symptoms.sorted { $0.weight != $1.weight ? $0.weight > $1.weight : order($0.type) < order($1.type) },
-            records: records.sorted { $0.recordedDate < $1.recordedDate }.map(SymptomRecordDisplay.init(record:)))
+            // 카드는 최신순 (주·월 목록)
+            records: records.sorted { $0.recordedDate > $1.recordedDate }.map(SymptomRecordDisplay.init(record:)))
     }
 }
