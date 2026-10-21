@@ -6,17 +6,17 @@ struct SignupTermsView: View {
 
     var body: some View {
         SignupStepScreen(state: state, title: "이용약관에\n동의해 주세요", buttonTitle: "동의하고 다음") {
-            VStack(spacing: 12) {
+            VStack(spacing: AppSpacing.item) {
                 Toggle(isOn: Binding(get: { state.allTermsAccepted }, set: { state.acceptedTerms = $0 ? Set(SignupTerm.allCases) : [] })) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("전체 동의").appTextStyle(.label)
                         Text("필수와 선택 항목 모두 동의").appTextStyle(.caption)
                     }
                 }
-                .toggleStyle(AuthCheckboxToggleStyle()).padding(20)
-                .background(AppColors.secondary, in: RoundedRectangle(cornerRadius: 20))
+                .toggleStyle(AuthCheckboxToggleStyle()).padding(AppSpacing.Auth.informationPadding)
+                .appSurface(.authInformation)
                 ForEach(SignupTerm.allCases) { term in
-                    HStack(alignment: .center, spacing: 4) {
+                    HStack(alignment: .center, spacing: AppSpacing.tight) {
                         Toggle(isOn: Binding(
                             get: { state.acceptedTerms.contains(term) },
                             set: { accepted in

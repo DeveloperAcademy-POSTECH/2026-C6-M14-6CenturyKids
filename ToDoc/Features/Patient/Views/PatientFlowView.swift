@@ -9,14 +9,14 @@ struct PatientFlowView: View {
     var careCall: () -> CareCallFlowView = { .init() }
     var notifications: () -> NotificationView = { .init() }
     var records: () -> RecordsFlowView = { .init() }
-    var settings: () -> SettingsFlowView = { .init() }
+    var settings: () -> SettingsFlowView
 
     init(
         pain: @escaping () -> PainRecordView,
         careCall: @escaping () -> CareCallFlowView = { .init() },
         notifications: @escaping () -> NotificationView = { .init() },
         records: @escaping () -> RecordsFlowView = { .init() },
-        settings: @escaping () -> SettingsFlowView = { .init() }
+        settings: @escaping () -> SettingsFlowView
     ) {
         self.pain = pain
         self.careCall = careCall
@@ -46,5 +46,21 @@ struct PatientFlowView: View {
 }
 
 #if DEBUG
-#Preview { PatientFlowView(pain: { .preview() }) }
+extension PatientFlowView {
+    @MainActor
+    static func preview() -> Self {
+        Self(
+            pain: { .preview() },
+            settings: {
+                SettingsFlowView(
+                    notifications: {
+                        NotificationSettingsView(viewModel: NotificationSettingsViewModel())
+                    }
+                )
+            }
+        )
+    }
+}
+
+#Preview { PatientFlowView.preview() }
 #endif

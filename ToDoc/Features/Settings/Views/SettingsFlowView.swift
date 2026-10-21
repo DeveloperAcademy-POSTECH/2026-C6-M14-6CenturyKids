@@ -13,9 +13,7 @@ struct SettingsFlowView: View {
     init(state: SettingsScreenState = .init(), personal: @escaping () -> PersonalInfoEditView = { .init() },
          cancer: @escaping () -> CancerTypeEditView = { .init() }, stage: @escaping () -> CancerStageEditView = { .init() },
          hospital: @escaping () -> HospitalConnectionView = { .init() },
-         notifications: @escaping @MainActor () -> NotificationSettingsView = {
-             NotificationSettingsView()
-         }) {
+         notifications: @escaping @MainActor () -> NotificationSettingsView) {
         viewModel = nil
         _state = State(initialValue: state); self.personal = personal; self.cancer = cancer
         self.stage = stage; self.hospital = hospital; self.notifications = notifications
@@ -23,9 +21,7 @@ struct SettingsFlowView: View {
 
     init(
         viewModel: SettingsViewModel,
-        notifications: @escaping @MainActor () -> NotificationSettingsView = {
-            NotificationSettingsView()
-        }
+        notifications: @escaping @MainActor () -> NotificationSettingsView
     ) {
         self.viewModel = viewModel
         _state = State(initialValue: viewModel.screenState)
@@ -51,4 +47,8 @@ struct SettingsFlowView: View {
         }
     }
 }
-#Preview { SettingsFlowView() }
+#Preview {
+    SettingsFlowView(
+        notifications: { NotificationSettingsView(viewModel: NotificationSettingsViewModel()) }
+    )
+}

@@ -6,10 +6,10 @@
 //
 
 /// 케어콜 AI 분석. 환자 답 한 턴을 분석해 언급된 증상을 돌려준다.
-/// 다음 질문은 AI가 아니라 엔진(SlotPlanner)이 기록 상태로 정한다. 구현: CoreAICareCallAdapter (Kanana)
+/// 다음 질문은 AI가 아니라 엔진(SlotPlanner)이 기록 상태로 정한다. 구현: FoundationModelsCareCallAdapter
 protocol CareCallAI {
     func analyze(_ request: AnalysisRequest) async throws -> TurnResult
-    /// 첫 분석 전에 지시문 계산을 미리 해 둔다 (첫 질문을 읽어 주는 동안). 결과는 버린다
+    /// 첫 분석 전에 모델을 준비해 둔다 (첫 질문을 읽어 주는 동안)
     func prewarm(_ request: AnalysisRequest) async
 }
 
@@ -29,7 +29,7 @@ struct AnalysisRequest: Sendable {
     var ledgerSummary: String
 }
 
-/// AI가 돌려주는 한 턴의 분석 결과. AI 쪽 출력 형식(@Generable)과 분리된 타입 (변환은 CoreAICareCallAdapter)
+/// AI가 돌려주는 한 턴의 분석 결과. AI 쪽 출력 형식(@Generable)과 분리된 타입 (변환은 FoundationModelsCareCallAdapter)
 struct TurnResult: Equatable, Sendable {
     var mentions: [Mention]
     var answeredCurrentSlot: Bool
