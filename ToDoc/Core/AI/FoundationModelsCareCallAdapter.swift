@@ -13,7 +13,7 @@ final class FoundationModelsCareCallAdapter: CareCallAI {
     /// 턴 분석 출력 상한. Kanana 프로토타입 평가 377회: 중앙 65, 상위 5% 113, 상위 1% 223토큰.
     /// 200토큰을 넘는 출력은 항목을 늘어놓는 비정상 출력이었다. 넘으면 형식 실패로 엔진이 재시도한다.
     private static let analysisMaxTokens = 160
-    private static let promptName = "prompt-turn-analysis-v14"
+    private static let promptName = "prompt-turn-analysis-v16"
 
     private let model: SystemLanguageModel
     private let template: PromptTemplate
@@ -41,6 +41,7 @@ final class FoundationModelsCareCallAdapter: CareCallAI {
     private func prompt(for request: AnalysisRequest) -> String {
         template.render([
             "question": request.question,
+            "effectId": request.slotKey ?? "없음",
             "effectName": request.slotName ?? "컨디션·기타 증상 전반",
             "missingFields": request.step.flatMap { missingFieldNames[$0] } ?? "언급된 증상 전부",
             "ledgerSummary": request.ledgerSummary,
