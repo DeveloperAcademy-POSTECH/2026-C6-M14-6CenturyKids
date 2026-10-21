@@ -8,8 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		A1B02669307B83AE00547CD2 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A1B02668307B83AE00547CD2 /* Supabase */; };
-		C6A1D0000000000000000001 /* onnxruntime in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1D0000000000000000002 /* onnxruntime */; };
-		C6A1D0000000000000000011 /* CoreAILM in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1D0000000000000000012 /* CoreAILM */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -47,9 +45,7 @@
 		A13BCAF73077425800901BFD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
-				C6A1D0000000000000000011 /* CoreAILM in Frameworks */,
 				A1B02669307B83AE00547CD2 /* Supabase in Frameworks */,
-				C6A1D0000000000000000001 /* onnxruntime in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -81,7 +77,6 @@
 				A13BCAF63077425800901BFD /* Sources */,
 				A13BCAF73077425800901BFD /* Frameworks */,
 				A13BCAF83077425800901BFD /* Resources */,
-				C6A1D0000000000000000004 /* Copy Models */,
 			);
 			buildRules = (
 			);
@@ -90,8 +85,6 @@
 			);
 			name = ToDoc;
 			packageProductDependencies = (
-				C6A1D0000000000000000012 /* CoreAILM */,
-				C6A1D0000000000000000002 /* onnxruntime */,
 				A1B02668307B83AE00547CD2 /* Supabase */,
 			);
 			productName = ToDoc;
@@ -123,8 +116,6 @@
 			mainGroup = A13BCAF13077425800901BFD;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				C6A1D0000000000000000013 /* XCRemoteSwiftPackageReference "coreai-models" */,
-				C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */,
 				A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -144,46 +135,6 @@
 			);
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		C6A1D0000000000000000004 /* Copy Models */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			name = "Copy Models";
-			shellPath = /bin/sh;
-			shellScript = (
-				"# Models/<이름>이 있으면 tools/models/<이름>.sha256으로 해시를 검사하고 앱에 복사한다. 없으면 넣지 않는다.",
-				"# 모델이 바뀌지 않았으면(크기·수정 시각 같음) 이미 검사한 것으로 보고 건너뛴다 (Kanana 2.4GB 검사에 약 5초)",
-				"for SUMS in \"$SRCROOT\"/tools/models/*.sha256; do",
-				"  NAME=$(basename \"$SUMS\" .sha256)",
-				"  SRC=\"$SRCROOT/Models/$NAME\"",
-				"  DEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/$NAME\"",
-				"  STAMP=\"$DERIVED_FILE_DIR/model-$NAME.stamp\"",
-				"  # tools/models/<이름>.device-only가 있으면 시뮬레이터에는 넣지 않는다 (Kanana: 시뮬레이터에 CoreAI 없음)",
-				"  if [ ! -d \"$SRC\" ] || { [ \"$PLATFORM_NAME\" = iphonesimulator ] && [ -f \"$SRCROOT/tools/models/$NAME.device-only\" ]; }; then",
-				"    rm -rf \"$DEST\" \"$STAMP\"",
-				"    continue",
-				"  fi",
-				"  CURRENT=$( (cat \"$SUMS\"; cd \"$SRC\" && find . -type f ! -name .DS_Store -exec stat -f '%N %z %m' {} + | LC_ALL=C sort) | shasum -a 256)",
-				"  if [ -d \"$DEST\" ] && [ \"$(cat \"$STAMP\" 2>/dev/null)\" = \"$CURRENT\" ]; then",
-				"    continue",
-				"  fi",
-				"  if ! (cd \"$SRC\" && shasum -a 256 -c --quiet \"$SUMS\"); then",
-				"    echo \"error: Models/$NAME 파일이 고정 버전과 다릅니다. 모델을 다시 준비하세요.\"",
-				"    exit 1",
-				"  fi",
-				"  rm -rf \"$DEST\"",
-				"  mkdir -p \"$DEST\" \"$DERIVED_FILE_DIR\"",
-				"  if ! (cd \"$SRC\" && awk '{print $2}' \"$SUMS\" | rsync -a --files-from=- . \"$DEST/\"); then",
-				"    echo \"error: Models/$NAME을 앱에 복사하지 못했습니다.\"",
-				"    exit 1",
-				"  fi",
-				"  echo \"$CURRENT\" > \"$STAMP\"",
-				"done",
-				"",
-			);
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A13BCAF63077425800901BFD /* Sources */ = {
@@ -419,22 +370,6 @@
 				minimumVersion = 2.5.1;
 			};
 		};
-		C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/microsoft/onnxruntime-swift-package-manager.git";
-			requirement = {
-				kind = exactVersion;
-				version = 1.24.2;
-			};
-		};
-		C6A1D0000000000000000013 /* XCRemoteSwiftPackageReference "coreai-models" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/YangSeokHoR/coreai-models.git";
-			requirement = {
-				kind = revision;
-				revision = b9ccaa0ec9acf864e25ac20d425cebdc252f4473;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -442,16 +377,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
-		};
-		C6A1D0000000000000000002 /* onnxruntime */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */;
-			productName = onnxruntime;
-		};
-		C6A1D0000000000000000012 /* CoreAILM */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C6A1D0000000000000000013 /* XCRemoteSwiftPackageReference "coreai-models" */;
-			productName = CoreAILM;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

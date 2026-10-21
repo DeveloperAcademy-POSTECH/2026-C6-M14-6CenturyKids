@@ -132,6 +132,15 @@ struct Ledger: Sendable {
         entries[key]?.needsReview = true
     }
 
+    /// before 뒤에 답을 받아 새로 생기거나 있음/없음·부위·꼬리질문 답이 바뀐 항목 (다음 질문을 묻느라 만든, 아직 답 없는 항목은 빼고)
+    func changedKeys(since before: Ledger) -> [String] {
+        order.filter { key in
+            guard let e = entries[key], e.presence != nil else { return false }
+            guard let old = before.entries[key] else { return true }
+            return e.presence != old.presence || e.locations != old.locations || e.details != old.details
+        }
+    }
+
     /// 단계를 묻기 전에 호출. 꼬리질문 한도를 넘으면 false (항목을 닫고 검토 필요 표시).
     mutating func markAsked(_ key: String, step: CareCallStep) -> Bool {
         var entry = entries[key] ?? Entry(key: key, effectId: key, otherName: nil)

@@ -25,6 +25,9 @@ struct CareCallConfig: Decodable, Sendable {
         /// '없다'가 붙어도 이 증상이 있다는 말 ("입맛 없" = "입맛이 좀 없어요", 식사 증상 있음). 두 낱말이 한 절에서 차례로 가까이
         /// (사이 8자 이내) 나오면 맞는다. 모델이 '없음'이라 해도 '있음'으로 본다. 약 이야기 절("약을 잘 못 먹어요")은 보지 않는다 (초안)
         let presentPhrases: [String]?
+        /// 이 항목을 물을 때 이 말로 끝나는 짧은 답은 모델 없이 '없음' ("잘 나와요" = 변비 없음). 다른 항목을 물을 때는 쓰지 않는다
+        /// ("소변은 잘 나와요"를 식사 '없음'으로 읽지 않게). 모든 항목에 쓰는 말은 noSuffixes (초안)
+        let absentPhrases: [String]?
 
         struct Detail: Decodable, Sendable {
             /// 기록에 붙이는 이름 ("횟수", "구토 횟수"). 한 항목 안에서 겹치지 않는다
@@ -54,7 +57,7 @@ struct CareCallConfig: Decodable, Sendable {
 
     let version: String
     let effects: [Effect]
-    /// 음성 통화 첫마디. 상대가 AI 음성임을 알린다 (Supertonic 라이선스 의무, 초안)
+    /// 음성 통화 첫마디. 상대가 AI 음성임을 알린다 (초안)
     let aiVoiceNotice: String
     let openingQuestion: String
     let otherQuestion: String
@@ -69,8 +72,6 @@ struct CareCallConfig: Decodable, Sendable {
     let openingConcerns: [String]
     /// '그 밖에' 질문에 "네"만 답했을 때 되묻는 말
     let otherFollowUp: String
-    /// 모델이 분석하는 동안 먼저 말하는 맞장구 (차례로 돌려 씀). 모델 없이 처리하는 답과 첫 질문 답에는 쓰지 않는다
-    let acknowledgements: [String]
     /// 오류·불분명으로 같은 질문을 다시 할 때 앞에 붙이는 말
     let repeatPrefix: String
     /// 다른 항목으로 돌아가 물을 때 앞에 붙이는 말. {name} = spokenName
@@ -78,7 +79,10 @@ struct CareCallConfig: Decodable, Sendable {
     /// '그 밖에'에서 기타 증상을 말하면 한 번 더 묻고(question) 답을 그대로 기록(label)한 뒤 마무리 인사 앞에 붙이는 말(recorded)
     let otherDetail: OtherDetail
     let locationPrompt: String
-    /// 유무 질문에 이 말로 시작하거나 끝나는 짧은 답은 모델 없이 '없음' (다른 증상·숫자·연결어가 없을 때만, 초안)
+    /// 유무 질문에 이 말로 시작하거나 끝나는 짧은 답은 모델 없이 '없음' (다른 증상·숫자·연결어가 없을 때만, 초안).
+    /// 경상도 말("없심더", "괘안십니더")도 넣는다: Foundation Models가 이런 답을 '있음'으로 뒤집었다 (2026-10-21 Mac 평가).
+    /// 한 항목에만 맞는 정상이라는 말("잘 나와요")은 그 항목의 absentPhrases에 둔다. "멀쩡해요"·"깨끗해요"는 넣지 않는다:
+    /// 부위의 상태라 다른 항목 이야기("입은 멀쩡해요")일 수 있어 모델이 본다
     let noPrefixes: [String]
     let noSuffixes: [String]
     /// 유무 질문에 이 말로 끝나는 답은 이유를 말한 것 → 있음 ("입이 아파서요" = 입이 아파서 많이 못 먹었다, 초안)
@@ -98,15 +102,6 @@ struct CareCallConfig: Decodable, Sendable {
 
     func returnPrefix(for effect: Effect) -> String {
         returnPrefix.replacingOccurrences(of: "{name}", with: effect.spokenName)
-    }
-
-    /// 통화 중 말할 고정 문구 (음성 미리 합성용). 응급 안내는 시스템 음성으로 읽으므로 넣지 않는다
-    func spokenPhrases(rules: EmergencyRules) -> [String] {
-        [aiVoiceNotice, openingQuestion, openingFollowUp, openingTransition.fine, openingTransition.noted, openingTransition.afterFollowUp,
-         followUpCall.question, followUpCall.noted, followUpCall.resume, followUpCall.notedAndResume, followUpCall.unchanged]
-            + effects.flatMap { [$0.ask] + $0.details.map(\.question) } + effects.map(returnPrefix(for:))
-            + acknowledgements + [repeatPrefix, otherDetail.question, otherDetail.recorded, locationPrompt,
-                                  otherQuestion, otherFollowUp, rules.closingMessage]
     }
 
     struct OpeningTransition: Decodable, Sendable {
@@ -159,6 +154,8 @@ struct EmergencyRules: Decodable, Sendable {
     let feverCelsius: Double
     /// 응급일 때 말하고 통화를 끝내는 고정 안내
     let message: String
+    /// 모델만 응급이라고 본 답이 어느 기록도 바꾸지 않았을 때 그 말을 원문으로 남기는 기타 항목 이름 (유무 '모름', 검토 필요)
+    let reviewName: String
     /// 정상 종료 때 마무리 인사
     let closingMessage: String
 

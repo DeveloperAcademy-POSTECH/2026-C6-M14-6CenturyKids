@@ -142,7 +142,6 @@ struct EngineGuardTests {
         _ = await engine.handle(patientText: "네 토했어요")               // 구토 있음 (메스꺼움은 말하지 않음)
         _ = await engine.handle(patientText: "하루 두 번이요")             // 구토 횟수
         #expect(engine.phase == .slot(key: "constipation", step: .presence))
-        #expect(engine.acknowledgement(for: "잘 모르겠어요") == nil)      // 모델 없이 처리 → 맞장구 없음
         _ = await engine.handle(patientText: "잘 모르겠어요")
         #expect(engine.ledger["constipation"]?.unknownSteps == [.presence])
         #expect(engine.ledger["constipation"]?.presence == .unclear)
@@ -157,12 +156,14 @@ struct EngineGuardTests {
 
     @Test(arguments: ["잘 모르겠는데 3번쯤이요", "모르겠지만 좀 메스꺼웠어요", "모르겠어요, 없는 것 같아요"])
     func 모르겠다와_다른_말이_섞이면_모델이_본다(answer: String) async throws {
+        var analyzed: [String] = []
         let engine = InterviewEngine(config: try fixture(CareCallConfig.self, "side_effects"),
                                      rules: try fixture(EmergencyRules.self, "emergency_rules"),
-                                     analyzer: ScriptedAnalyzer { _ in .empty })
+                                     analyzer: ScriptedAnalyzer { analyzed.append($0.patientText); return .empty })
         _ = engine.start()
         _ = await engine.handle(patientText: "괜찮아요")
-        #expect(engine.acknowledgement(for: answer) != nil) // 짧은 답 처리 아님 → 모델 호출
+        _ = await engine.handle(patientText: answer)
+        #expect(analyzed.contains(answer)) // 짧은 답 처리 아님 → 모델 호출
     }
 
     /// 모델 출력이 잘려 실패하면 같은 답을 한 번 더 분석한다 (되묻지 않음). 두 번 다 실패하면 지금처럼 되묻는다
