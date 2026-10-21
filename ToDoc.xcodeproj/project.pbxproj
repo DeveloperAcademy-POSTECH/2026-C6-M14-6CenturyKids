@@ -55,6 +55,7 @@
 				Data/Supabase/EdgeFunction/.gitkeep,
 				Domain/Exercise/Enums/.gitkeep,
 				Domain/Hospital/Enums/.gitkeep,
+				Info.plist,
 			);
 			target = A13BCAF93077425800901BFD /* ToDoc */;
 		};
@@ -433,8 +434,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ToDoc/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "증상 확인 대화를 듣기 위해 마이크를 사용합니다. 음성은 기기 안에서만 처리됩니다.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "말씀하신 내용을 글로 바꾸기 위해 기기 안의 음성 인식을 사용합니다.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -470,8 +473,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ToDoc/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "증상 확인 대화를 듣기 위해 마이크를 사용합니다. 음성은 기기 안에서만 처리됩니다.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "말씀하신 내용을 글로 바꾸기 위해 기기 안의 음성 인식을 사용합니다.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
