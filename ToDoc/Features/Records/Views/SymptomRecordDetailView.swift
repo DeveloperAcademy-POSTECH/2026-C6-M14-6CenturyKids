@@ -2,8 +2,6 @@ import SwiftUI
 
 struct SymptomRecordDetailView: View {
     @State var state = RecordDetailScreenState(kind: .symptom)
-    /// 말풍선을 띄운 증상 (칸을 누를 때마다 켜고 끈다)
-    @State private var selected: SymptomType?
     var body: some View {
         RecordDetailLayout(state: state) {
             if case .symptom(let data) = state.content {
@@ -23,8 +21,6 @@ struct SymptomRecordDetailView: View {
                 }
             }
         }
-        .onChange(of: state.periodLabel) { selected = nil }
-        .onChange(of: state.period) { selected = nil }
     }
 
     private func bubbles(_ symptoms: [RecordSymptomItem]) -> some View {
@@ -34,11 +30,8 @@ struct SymptomRecordDetailView: View {
             .map(\.element)
         return RecordSymptomGridLayout {
             ForEach(Array(ranked.enumerated()), id: \.element.id) { rank, item in
-                RecordSymptomBubble(item: item, color: RecordChartStyle.rankColor(rank), showsLabel: selected == item.type) {
-                    selected = selected == item.type ? nil : item.type
-                }
-                .layoutValue(key: RecordSymptomWeight.self, value: item.weight)
-                .zIndex(selected == item.type ? 1 : 0)
+                RecordSymptomBubble(item: item, color: RecordChartStyle.rankColor(rank))
+                    .layoutValue(key: RecordSymptomWeight.self, value: item.weight)
             }
         }.frame(height: 280)
     }
@@ -47,45 +40,21 @@ struct SymptomRecordDetailView: View {
 private struct RecordSymptomBubble: View {
     let item: RecordSymptomItem
     let color: Color
-    let showsLabel: Bool
-    let action: () -> Void
     var body: some View {
         GeometryReader { proxy in
             let side = min(proxy.size.width, proxy.size.height)
-            Button(action: action) {
-                // 모서리: min(짧은 변의 절반, 50)의 절반을 내림
-                RoundedRectangle(cornerRadius: (min(side / 2, 50) / 2).rounded(.down)).fill(color)
-                    .overlay {
-                        // 짧은 변의 절반(11~34pt)에서, 이름이 칸 너비에 들어가도록 더 줄입니다
-                        let name = item.type.displayName
-                        let fit = (proxy.size.width - 8) / CGFloat(max(name.count, 1))
-                        Text(name).font(.system(size: max(min(min(max(side * 0.5, 11), 34), fit), 8), weight: .bold))
-                            .foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.3).padding(.horizontal, 4)
-                    }
-            }.buttonStyle(.plain)
-            .overlay(alignment: .top) {
-                if showsLabel, let label = item.label { RecordSymptomTooltip(text: label).offset(y: -18).allowsHitTesting(false) }
-            }
+            // 모서리: min(짧은 변의 절반, 50)의 절반을 내림
+            RoundedRectangle(cornerRadius: (min(side / 2, 50) / 2).rounded(.down)).fill(color)
+                .overlay {
+                    // 짧은 변의 절반(11~34pt)에서, 이름이 칸 너비에 들어가도록 더 줄입니다
+                    let name = item.type.displayName
+                    let fit = (proxy.size.width - 8) / CGFloat(max(name.count, 1))
+                    Text(name).font(.system(size: max(min(min(max(side * 0.5, 11), 34), fit), 8), weight: .bold))
+                        .foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.3).padding(.horizontal, 4)
+                }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(item.type.displayName).accessibilityValue(item.label ?? "")
-        .accessibilityAddTraits(.isButton).accessibilityAction { action() }
-    }
-}
-
-private struct RecordSymptomTooltip: View {
-    let text: String
-    var body: some View {
-        VStack(spacing: 0) {
-            Text(text).modifier(RecordTextStyle(size: 11)).foregroundStyle(.white)
-                .padding(.horizontal, 12).padding(.vertical, 6).background(Color(white: 60/255), in: Capsule())
-            Triangle().fill(Color(white: 60/255)).frame(width: 8, height: 5)
-        }
-    }
-    private struct Triangle: Shape {
-        func path(in rect: CGRect) -> Path {
-            Path { $0.move(to: .zero); $0.addLine(to: CGPoint(x: rect.maxX, y: 0)); $0.addLine(to: CGPoint(x: rect.midX, y: rect.maxY)); $0.closeSubpath() }
-        }
+        .accessibilityLabel(item.type.displayName)
     }
 }
 

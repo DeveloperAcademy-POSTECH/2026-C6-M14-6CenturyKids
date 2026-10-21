@@ -95,7 +95,7 @@ struct ScreenCatalogPreview: View {
             ]))
         } else {
             state.canEdit = true
-            state.content = .symptom(.init(symptoms: [.init(type: .constipation, weight: 1, label: nil), .init(type: .diarrhea, weight: 1, label: "2회")],
+            state.content = .symptom(.init(symptoms: [.init(type: .constipation, weight: 1), .init(type: .diarrhea, weight: 1)],
                                            records: [symptomRecord()]))
         }
         return state
@@ -114,7 +114,7 @@ struct ScreenCatalogPreview: View {
         } else {
             // 주: 증상마다 '있음'으로 나타난 날 수 (1위 동률 예시)
             let days: [(SymptomType, Double)] = [(.nauseaVomiting, 3), (.numbness, 3), (.diarrhea, 2), (.oralPain, 1), (.rashItching, 1)]
-            state.content = .symptom(.init(symptoms: days.map { .init(type: $0.0, weight: $0.1, label: "\(Int($0.1))번") }, records: [symptomRecord()]))
+            state.content = .symptom(.init(symptoms: days.map { .init(type: $0.0, weight: $0.1) }, records: [symptomRecord()]))
         }
         return state
     }
