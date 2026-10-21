@@ -142,7 +142,6 @@ struct EngineGuardTests {
         _ = await engine.handle(patientText: "네 토했어요")               // 구토 있음 (메스꺼움은 말하지 않음)
         _ = await engine.handle(patientText: "하루 두 번이요")             // 구토 횟수
         #expect(engine.phase == .slot(key: "constipation", step: .presence))
-        #expect(engine.acknowledgement(for: "잘 모르겠어요") == nil)      // 모델 없이 처리 → 맞장구 없음
         _ = await engine.handle(patientText: "잘 모르겠어요")
         #expect(engine.ledger["constipation"]?.unknownSteps == [.presence])
         #expect(engine.ledger["constipation"]?.presence == .unclear)
@@ -157,12 +156,14 @@ struct EngineGuardTests {
 
     @Test(arguments: ["잘 모르겠는데 3번쯤이요", "모르겠지만 좀 메스꺼웠어요", "모르겠어요, 없는 것 같아요"])
     func 모르겠다와_다른_말이_섞이면_모델이_본다(answer: String) async throws {
+        var analyzed: [String] = []
         let engine = InterviewEngine(config: try fixture(CareCallConfig.self, "side_effects"),
                                      rules: try fixture(EmergencyRules.self, "emergency_rules"),
-                                     analyzer: ScriptedAnalyzer { _ in .empty })
+                                     analyzer: ScriptedAnalyzer { analyzed.append($0.patientText); return .empty })
         _ = engine.start()
         _ = await engine.handle(patientText: "괜찮아요")
-        #expect(engine.acknowledgement(for: answer) != nil) // 짧은 답 처리 아님 → 모델 호출
+        _ = await engine.handle(patientText: answer)
+        #expect(analyzed.contains(answer)) // 짧은 답 처리 아님 → 모델 호출
     }
 
     /// 모델 출력이 잘려 실패하면 같은 답을 한 번 더 분석한다 (되묻지 않음). 두 번 다 실패하면 지금처럼 되묻는다
@@ -429,11 +430,12 @@ struct OtherSymptomRetryTests {
         ("네, 열이 조금 나신다고 하셨습니다.", true),
         ("조금 더 자세히 말씀해 주시겠어요?", false),   // 꼬리질문
         ("", false),
+        ("열이 조금 나요.", false),                     // 환자 말 그대로 따라 씀
     ])
     func 맞장구만_쓴_답(utterance: String, retry: Bool) {
         let r = TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false, emergencySignal: false, utterance: utterance)
-        #expect(InterviewEngine.acknowledgedWithoutRecord(r, during: .other) == retry)
-        #expect(!InterviewEngine.acknowledgedWithoutRecord(r, during: .slot(key: "diarrhea", step: .presence)))
+        #expect(InterviewEngine.acknowledgedWithoutRecord(r, during: .other, patientText: "열이 조금 나요") == retry)
+        #expect(!InterviewEngine.acknowledgedWithoutRecord(r, during: .slot(key: "diarrhea", step: .presence), patientText: "열이 조금 나요"))
     }
 }
 
@@ -725,6 +727,23 @@ struct PresentPhraseTests {
         _ = call.start()
         _ = await call.handle(patientText: answer)
         #expect(call.ledger["dehydration_nutrition"]?.presence == .present)
+    }
+
+    /// 2026-10-20 Mac 평가 H16: 구토 답에 지난 식사 이야기가 섞이면 식사를 '있음'으로 넣어 식사 질문을 건너뛰었다
+    @Test func 다른_항목_답의_식사_말은_식사_질문을_건너뛰게_하지_않는다() async {
+        let answer = "이틀 동안은 계속 메슥거려서 밥을 거의 못 먹었는데 지금은 좀 나아졌어요"
+        let mock = MockAnalyzer()
+        mock.script[answer] = .mentions(Mention(effectId: "nausea_vomiting", presence: .present))
+        let call = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = call.start()
+        _ = await call.handle(patientText: "괜찮아요")
+        #expect(call.phase == .slot(key: "nausea_vomiting", step: .presence))
+        _ = await call.handle(patientText: answer)
+        #expect(call.ledger["dehydration_nutrition"] == nil)
+        while call.phase != .other, call.phase != .slot(key: "dehydration_nutrition", step: .presence) {
+            _ = await call.handle(patientText: call.phase.slotKey == "nausea_vomiting" ? "어제부터요" : "아니요")
+        }
+        #expect(call.phase == .slot(key: "dehydration_nutrition", step: .presence))
     }
 
     @Test(arguments: ["약을 못 먹었어요", "약을 잘 못 먹어요", "식사 후에 약을 못 먹었어요", "약을 밥이랑 같이 못 먹었어요", "밥 먹고 못 걸었어요"])

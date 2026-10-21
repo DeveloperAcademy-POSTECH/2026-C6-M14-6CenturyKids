@@ -6,6 +6,8 @@ import ToDocDomain
 final class TestAuthRepository: AuthRepository {
     let id = UUID()
     var signedIn = false
+    var signInResponseID: UUID?
+    var currentUserResponseID: UUID?
     var signInCount = 0
     var signUpCount = 0
     var resetCount = 0
@@ -24,7 +26,7 @@ final class TestAuthRepository: AuthRepository {
         signInCount += 1; lastEmail = email
         await beforeSignIn?()
         if let signInError { throw signInError }
-        signedIn = true; return id
+        signedIn = true; return signInResponseID ?? id
     }
     func signUp(email: String, password: String) async throws -> UUID {
         signUpCount += 1
@@ -40,7 +42,7 @@ final class TestAuthRepository: AuthRepository {
         signedIn = false
     }
     func getCurrentUserId() async throws -> UUID {
-        guard signedIn else { throw AuthFlowError("세션 없음") }; return id
+        guard signedIn else { throw AuthFlowError("세션 없음") }; return currentUserResponseID ?? id
     }
     func isSignedIn() -> Bool { signedIn }
     func requestPasswordChangeVerification() async throws {}
@@ -51,6 +53,7 @@ final class TestAuthRepository: AuthRepository {
 }
 final class TestUsers: UserRepository {
     var normalizeBirthday = false
+    var loseNextSaveResponse = false
     var value: User?
     var saves = 0
     var finds = 0
@@ -59,6 +62,7 @@ final class TestUsers: UserRepository {
         value = normalizeBirthday
             ? try User(id: user.id, name: user.name, birthday: Calendar.current.startOfDay(for: user.birthday), sex: user.sex)
             : user
+        if loseNextSaveResponse { loseNextSaveResponse = false; throw AuthFlowError("저장 후 응답 유실") }
     }
     func findById(_ id: UUID) async throws -> User? { finds += 1; return value }
     func findByName(_ name: String) async throws -> [User] { value.map { [$0] } ?? [] }

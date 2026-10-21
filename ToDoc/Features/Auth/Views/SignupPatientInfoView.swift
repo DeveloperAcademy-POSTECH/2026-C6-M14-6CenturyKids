@@ -8,7 +8,7 @@ struct SignupPatientInfoView: View {
     var body: some View {
         SignupStepScreen(state: state, title: "기본 정보를\n알려주세요") {
             AuthTextField(title: "이름", placeholder: "이름을 입력해 주세요", text: $state.name, contentType: .name)
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: AppSpacing.Auth.fieldLabelGap) {
                 Text("생년월일").appTextStyle(.label)
                 Button {
                     selectedBirthday = state.birthday ?? state.calendar.date(from: DateComponents(year: 2000, month: 1, day: 1)) ?? state.latestBirthday
@@ -19,15 +19,15 @@ struct SignupPatientInfoView: View {
                         Spacer()
                         Image(systemName: "calendar")
                     }
-                    .appTextStyle(.label).padding(20).frame(minHeight: 60)
-                    .background(AppColors.secondary, in: RoundedRectangle(cornerRadius: 16))
+                    .appTextStyle(.label).padding(AppSpacing.Auth.informationPadding).frame(minHeight: AppMetrics.Auth.inputMinimumHeight)
+                    .appSurface(.authInput)
                 }.buttonStyle(.plain)
                 if let age = state.age {
                     Text("만 \(age)세 · 생년월일로 계산해요").appTextStyle(.caption)
                         .foregroundStyle(AppColors.Text.secondary)
                 }
             }
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: AppSpacing.Auth.fieldLabelGap) {
                 Text("성별").appTextStyle(.label)
                 ViewThatFits(in: .horizontal) {
                     HStack { sexChoices }

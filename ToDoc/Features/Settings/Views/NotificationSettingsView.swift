@@ -4,10 +4,8 @@ import SwiftUI
 struct NotificationSettingsView: View {
     @State private var viewModel: NotificationSettingsViewModel
 
-    init(viewModel: NotificationSettingsViewModel? = nil) {
-        _viewModel = State(
-            initialValue: viewModel ?? NotificationSettingsViewModel()
-        )
+    init(viewModel: NotificationSettingsViewModel) {
+        _viewModel = State(initialValue: viewModel)
     }
 
     var body: some View {
@@ -74,6 +72,6 @@ struct NotificationSettingsView: View {
 
 #Preview("알림 시간 설정") {
     NavigationStack {
-        NotificationSettingsView()
+        NotificationSettingsView(viewModel: NotificationSettingsViewModel())
     }
 }

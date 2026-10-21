@@ -155,7 +155,7 @@ final class CareCallViewModel {
         show(.preparing(.permissions))
         let previous = last
         let task = Task {
-            // 화면을 떠났다 바로 돌아오면 취소한 준비가 아직 모델을 불러오는 중일 수 있다 (2.4GB를 두 번 불러오지 않게)
+            // 화면을 떠났다 바로 돌아오면 취소한 준비가 아직 진행 중일 수 있다 (준비가 겹치지 않게)
             await previous?.value
             do {
                 try advance(to: .preparing(.permissions), current)
@@ -203,7 +203,7 @@ final class CareCallViewModel {
         switch error {
         case AudioRecorderError.microphoneDenied: .microphoneDenied
         case LanguageModelError.modelMissing: .modelMissing
-        case LanguageModelError.loadFailed: .modelLoadFailed
+        case LanguageModelError.modelNotReady: .modelLoadFailed
         case SpeechRecognizerError.koreanUnsupported: .speechRecognitionUnsupported
         default: .failed
         }
@@ -318,7 +318,7 @@ final class CareCallViewModel {
         }
         conversation.isWorking = true
         return typing {
-            // 대기 화면에서 하던 준비가 모델을 불러오는 중일 수 있다 (2.4GB를 두 번 불러오지 않게)
+            // 대기 화면에서 하던 준비가 아직 진행 중일 수 있다 (준비가 겹치지 않게)
             await self.last?.value
             try await self.service.loadModel()
             try Task.checkCancellation()

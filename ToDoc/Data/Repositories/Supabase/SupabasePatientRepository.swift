@@ -69,4 +69,13 @@ final class SupabasePatientRepository: PatientRepository {
         
         return try dtos.map { try $0.toDomain() }
     }
+    
+    func connectToDoctor(code: String) async throws {
+        try await client
+            .rpc(
+                "connect_patient_to_doctor",
+                params: ["p_code": code]
+            )
+            .execute()
+    }
 }

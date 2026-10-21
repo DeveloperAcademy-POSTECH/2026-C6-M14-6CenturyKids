@@ -5,6 +5,7 @@ import SwiftUI
 struct PatientFlowCompositionView: View {
     @State private var painViewModel: PainRecordViewModel
     @State private var settingsViewModel: SettingsViewModel
+    @State private var notificationSettingsViewModel: NotificationSettingsViewModel
     private let container: DependencyContainer
 
     init(container: DependencyContainer, patientId: UUID) {
@@ -15,13 +16,23 @@ struct PatientFlowCompositionView: View {
         _settingsViewModel = State(
             initialValue: container.makeSettingsViewModel(patientId: patientId)
         )
+        _notificationSettingsViewModel = State(
+            initialValue: container.makeNotificationSettingsViewModel()
+        )
     }
 
     var body: some View {
         PatientFlowView(
             pain: { PainRecordView(viewModel: painViewModel) },
             careCall: { CareCallFlowView(makeViewModel: container.makeCareCallViewModel) },
-            settings: { SettingsFlowView(viewModel: settingsViewModel) }
+            settings: {
+                SettingsFlowView(
+                    viewModel: settingsViewModel,
+                    notifications: {
+                        NotificationSettingsView(viewModel: notificationSettingsViewModel)
+                    }
+                )
+            }
         )
     }
 }

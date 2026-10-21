@@ -24,4 +24,6 @@ protocol DoctorRepository {
     ) async throws -> [Doctor]
     
     func findByCode(_ code: String) async throws -> Doctor?
+    
+    func findConnectionInfoByCode(_ code: String) async throws -> DoctorConnectionInfo?
 }
