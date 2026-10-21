@@ -5,7 +5,7 @@ struct SymptomRecordDetailView: View {
     /// 카드를 보여 줄 증상. 칸을 누르면 바뀌고, 같은 칸을 다시 누르거나 기간을 바꾸면 해제됩니다.
     @State private var selected: SymptomType?
     var body: some View {
-        RecordDetailLayout(state: state) {
+        RecordDetailLayout(state: state, editing: state.isEditing) {
             if case .symptom(let data) = state.content {
                 if data.symptoms.isEmpty || data.records.allSatisfy(\.presentSymptoms.isEmpty) {
                     Text("표시할 증상 기록이 없어요.").foregroundStyle(.secondary).padding(.vertical, 40)
@@ -31,12 +31,26 @@ struct SymptomRecordDetailView: View {
                 .background(.white, in: RoundedRectangle(cornerRadius: 24))
         } else {
             VStack(alignment: .trailing, spacing: 12) {
-                if state.canEdit {
-                    Button("수정") { state.onAction?(.edit) }
-                        .modifier(RecordTextStyle(size: 14)).foregroundStyle(Color(white: 141/255))
-                        .buttonStyle(.plain).disabled(state.onAction == nil)
+                if state.canEdit, let selected {
+                    // 수정: 보이는 카드 전체를 편집 상태로. 카드마다 완료·삭제하면 저장되고, 닫기는 남은 편집을 버립니다.
+                    HStack(spacing: 8) {
+                        if state.isSaving { ProgressView().controlSize(.small) }
+                        Button(state.isEditing ? "닫기" : "수정") { state.onAction?(state.isEditing ? .endEdit : .edit(selected)) }
+                            .modifier(RecordTextStyle(size: 14)).foregroundStyle(Color(white: 141/255))
+                            .buttonStyle(.plain).disabled(state.onAction == nil || state.isSaving)
+                    }
                 }
-                ForEach(cards, id: \.entry.id) { RecordSymptomCard(date: $0.date, entry: $0.entry, calendar: state.calendar) }
+                ForEach(cards, id: \.entry.id) { card in
+                    if state.editingEntryIDs.contains(card.entry.id) {
+                        SymptomSummaryEntryEditor(draft: card.entry, errorMessage: state.editErrors[card.entry.id],
+                                                  onDelete: { state.onAction?(.delete(card.entry.id)) },
+                                                  onFinish: { state.onAction?(.finishEdit(card.entry.id, $0)) })
+                            .disabled(state.isSaving)
+                            .padding(20).background(.white, in: RoundedRectangle(cornerRadius: 24))
+                    } else {
+                        RecordSymptomCard(date: card.date, entry: card.entry, calendar: state.calendar)
+                    }
+                }
             }
         }
     }
@@ -49,6 +63,8 @@ struct SymptomRecordDetailView: View {
         return RecordSymptomGridLayout {
             ForEach(Array(ranked.enumerated()), id: \.element.id) { rank, item in
                 RecordSymptomBubble(item: item, color: RecordChartStyle.rankColor(rank), isSelected: selected == item.type) {
+                    // 편집 중에는 다른 증상으로 바꾸지 않는다
+                    guard !state.isEditing else { return }
                     selected = selected == item.type ? nil : item.type
                 }
                     .layoutValue(key: RecordSymptomWeight.self, value: item.weight)
