@@ -124,18 +124,13 @@ struct RecordPlot<Marks: View>: View {
     static let track = Color(red: 240/255, green: 242/255, blue: 234/255)
     static let pain = LinearGradient(colors: [Color(red: 1, green: 70/255, blue: 70/255), Color(red: 1, green: 150/255, blue: 70/255), Color(red: 1, green: 224/255, blue: 70/255), Color(red: 184/255, green: 234/255, blue: 95/255)], startPoint: .top, endPoint: .bottom)
     static let meals = [Color(red: 156/255, green: 228/255, blue: 46/255), AppColors.primary, Color(red: 229/255, green: 247/255, blue: 196/255)]
-    /// 하루 기록 증상별 색. 시안에 없는 증상은 시안 팔레트 안에서 겹치지 않게 골랐습니다.
-    static func color(for type: SymptomType) -> Color {
-        switch type {
-        case .constipation: green
-        case .diarrhea: Color(red: 235/255, green: 219/255, blue: 126/255)
-        case .nauseaVomiting: Color(red: 103/255, green: 100/255, blue: 106/255)
-        case .oralPain: Color(red: 201/255, green: 168/255, blue: 207/255)
-        case .numbness: Color(red: 229/255, green: 178/255, blue: 112/255)
-        case .rashItching: Color(red: 228/255, green: 204/255, blue: 107/255)
-        case .dehydrationNutrition: Color(red: 168/255, green: 200/255, blue: 220/255)
-        case .other: Color(white: 190/255)
-        }
+    /// 하루 기록 순위별 색 (임시, 디자인 확정 전): 1~4위는 상위색, 5위부터 하위색. 동률이어도 정렬 순서대로 씁니다.
+    static func rankColor(_ rank: Int) -> Color {
+        let top: [(Double, Double, Double)] = [(130, 246, 239), (165, 246, 176), (197, 242, 118), (244, 225, 116)]
+        let bottom: [(Double, Double, Double)] = [(252, 171, 115), (252, 157, 212), (210, 174, 252), (158, 194, 252), (87, 209, 252)]
+        let palette = top + bottom
+        let (red, green, blue) = palette[min(max(rank, 0), palette.count - 1)]
+        return Color(red: red / 255, green: green / 255, blue: blue / 255)
     }
     static func label(_ date: Date, state: RecordDetailScreenState) -> String {
         if state.period == .week {
