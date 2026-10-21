@@ -13,7 +13,7 @@ import Observation
 
 /// 기록 상세(통증·하루 기록) 화면의 상태를 보관한다: 기간(일/주/월) 이동, 기간 조회, 집계.
 /// 집계 기준은 노션 '기록상세확인'을 따른다. 통증은 하루 차이(평균 복용 전 − 평균 복용 후)를 기록한 날 수로 평균 내고,
-/// 하루 기록은 증상마다 '있음'으로 답한 날 수로 크기를 정한다
+/// 하루 기록은 증상마다 '있음'으로 답한 날 수로 크기를 정하고, 보이는 증상 카드를 고치거나 지우면 그날 기록을 다시 저장한다
 @MainActor
 @Observable
 final class RecordDetailViewModel {
@@ -27,6 +27,8 @@ final class RecordDetailViewModel {
     /// 화면마다 보고 있는 기간 안의 날짜 (처음은 오늘)
     private var anchors: [RecordOverviewKind: Date] = [:]
     @ObservationIgnored private var loads: [RecordOverviewKind: Task<Void, Never>] = [:]
+    /// 하루 기록 화면에 보이는 기간의 기록 (카드를 고칠 때 원래 기록)
+    private var symptomRecords: [SymptomRecord] = []
 
     init(patientId: UUID, painRepository: any PainRepository, symptomRepository: any SymptomRepository,
          calendar: Calendar = RecordDetailViewModel.calendar, now: @escaping () -> Date = Date.init) {
@@ -41,6 +43,7 @@ final class RecordDetailViewModel {
             state.onAction = { [weak self] action in self?.handle(action, for: kind) }
             showPeriod(of: state)
         }
+        symptom.canEdit = true
     }
 
     /// 시안의 주간 축(M T W T F S S)에 맞춰 월요일에 주를 시작한다
@@ -62,6 +65,11 @@ final class RecordDetailViewModel {
 
     private func handle(_ action: RecordDetailAction, for kind: RecordOverviewKind) {
         let state = state(kind)
+        // 편집 중에는 보고 있는 기간을 바꾸지 않는다 (편집 중인 카드가 사라지지 않게)
+        switch action {
+        case .movePeriod, .selectPeriod: guard !state.isEditing else { return }
+        default: break
+        }
         switch action {
         case .load:
             load(kind)
@@ -76,13 +84,50 @@ final class RecordDetailViewModel {
             guard state.period != period else { return }
             state.period = period
             load(kind)
-        case .edit:
-            // 하루 기록 수정은 다음 작업에서 연결한다 (그 전까지 화면은 canEdit == false라 버튼을 숨긴다)
-            break
+        case .edit(let type):
+            guard kind == .symptom, !state.isSaving else { return }
+            state.editingEntryIDs = Set(symptomRecords.flatMap(\.symptoms)
+                .filter { $0.symptomType == type && $0.presence == .present }.map(\.id))
+            state.editErrors = [:]
+        case .finishEdit(let id, let input):
+            guard let record = symptomRecords.first(where: { $0.symptoms.contains { $0.id == id } }), !state.isSaving else { return }
+            do {
+                save(try record.editingEntry(id, with: input), closing: id)
+            } catch {
+                state.editErrors[id] = SymptomRecord.editErrorMessage(error)
+            }
+        case .delete(let id):
+            guard let record = symptomRecords.first(where: { $0.symptoms.contains { $0.id == id } }), !state.isSaving else { return }
+            save(record.removingEntry(id), closing: id)
+        case .endEdit:
+            guard !state.isSaving else { return }
+            state.editingEntryIDs = []
+            state.editErrors = [:]
         case .cancel:
             loads[kind]?.cancel()
             loads[kind] = nil
             if state.loadState == .loading { state.loadState = .idle }
+            // 화면을 떠나면 저장하지 않은 편집은 버린다 (저장 중인 것은 끝까지 저장한다)
+            if !state.isSaving { state.editingEntryIDs = []; state.editErrors = [:] }
+        }
+    }
+
+    /// 고친 그날 기록을 저장하고, 성공하면 그 카드만 편집을 닫고 다시 집계한다. 실패하면 카드를 편집 상태로 두고 이유를 보여 준다
+    private func save(_ record: SymptomRecord, closing id: UUID) {
+        let state = symptom
+        state.isSaving = true
+        state.editErrors[id] = nil
+        Task { [weak self] in
+            guard let self else { return }
+            defer { state.isSaving = false }
+            do {
+                try await symptomRepository.save(entity: record)
+                symptomRecords = symptomRecords.map { $0.id == record.id ? record : $0 }
+                state.content = .symptom(Self.symptomDetail(symptomRecords, period: state.period, calendar: calendar))
+                state.editingEntryIDs.remove(id)
+            } catch {
+                state.editErrors[id] = "저장하지 못했어요. 다시 시도해 주세요."
+            }
         }
     }
 
@@ -98,8 +143,9 @@ final class RecordDetailViewModel {
         loads[kind] = Task { [weak self] in
             guard let self else { return }
             do {
-                let content = try await fetch(kind, in: interval, period: period)
+                let (content, records) = try await fetch(kind, in: interval, period: period)
                 guard !Task.isCancelled else { return }
+                if kind == .symptom { symptomRecords = records }
                 state.content = content
                 state.loadState = .loaded
             } catch {
@@ -109,17 +155,19 @@ final class RecordDetailViewModel {
         }
     }
 
-    private func fetch(_ kind: RecordOverviewKind, in interval: DateInterval, period: RecordPeriod) async throws -> RecordDetailContent {
+    /// 화면 내용과, 하루 기록이면 그 기간의 원래 기록 (통증은 빈 목록)
+    private func fetch(_ kind: RecordOverviewKind, in interval: DateInterval,
+                       period: RecordPeriod) async throws -> (RecordDetailContent, [SymptomRecord]) {
         switch kind {
         case .pain:
             // 통증 저장소는 끝 날짜 당일까지 포함한다
             let lastDay = calendar.date(byAdding: .day, value: -1, to: interval.end) ?? interval.start
             let records = try await painRepository.findByPatientIdAndDate(patientId: patientId, from: interval.start, to: lastDay)
-            return .pain(Self.painDetail(records, period: period, calendar: calendar))
+            return (.pain(Self.painDetail(records, period: period, calendar: calendar)), [])
         case .symptom:
             // 증상 저장소는 끝 날짜를 빼고 찾는다 (다음 기간의 첫날)
             let records = try await symptomRepository.findByPatientIdAndDate(patientId: patientId, from: interval.start, to: interval.end)
-            return .symptom(Self.symptomDetail(records, period: period, calendar: calendar))
+            return (.symptom(Self.symptomDetail(records, period: period, calendar: calendar)), records)
         }
     }
 

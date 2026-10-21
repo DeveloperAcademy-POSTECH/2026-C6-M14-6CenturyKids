@@ -45,7 +45,9 @@ enum RecordsAction { case load, moveDay(Int), select(RecordOverviewKind), cancel
     @ObservationIgnored var onAction: ((RecordsAction) -> Void)?
 }
 enum RecordDetailAction {
-    case load, movePeriod(Int), selectPeriod(RecordPeriod), edit, cancel
+    case load, movePeriod(Int), selectPeriod(RecordPeriod), cancel
+    /// 하루 기록: 그 증상의 카드 전체를 편집 상태로 / 카드 하나 고친 값 저장 / 카드 하나 지우기 / 남은 편집 닫기
+    case edit(SymptomType), finishEdit(UUID, SymptomEntryEditInput), delete(UUID), endEdit
 }
 /// 날짜 범위·축과 집계값은 호수의 새 ViewModel이 제공합니다. View는 집계를 계산하지 않습니다.
 @Observable final class RecordDetailScreenState {
@@ -56,8 +58,14 @@ enum RecordDetailAction {
     var calendar = Calendar.current
     var days: [Date] = []
     var content: RecordDetailContent?
-    /// 하루 기록 '수정' 버튼 표시 (수정 연결 전까지 false)
+    /// 하루 기록 '수정' 버튼 표시
     var canEdit = false
+    /// 편집 중인 카드 (비어 있으면 편집 중이 아님)
+    var editingEntryIDs: Set<UUID> = []
+    /// 카드마다 고친 값을 못 받거나 저장하지 못한 이유
+    var editErrors: [UUID: String] = [:]
+    var isSaving = false
+    var isEditing: Bool { !editingEntryIDs.isEmpty }
     var loadState: RecordOverviewDisplayState = .unavailable
     @ObservationIgnored var onAction: ((RecordDetailAction) -> Void)?
     init(kind: RecordOverviewKind) { self.kind = kind }
