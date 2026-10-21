@@ -11,11 +11,11 @@ struct SignupConnectionConfirmationView: View {
                     if let department = connection.department { row("진료과", department) }
                     row("주치의", connection.doctorName)
                 }
-                .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-                .background(AppColors.secondary, in: RoundedRectangle(cornerRadius: 20))
+                .padding(AppSpacing.section).frame(maxWidth: .infinity, alignment: .leading)
+                .appSurface(.authInformation)
             }
             Button { state.onAction?(.changeDoctorCode) } label: {
-                Text("다른 코드 입력").underline().appTextStyle(.caption).frame(minHeight: 44)
+                Text("다른 코드 입력").underline().appTextStyle(.caption).frame(minHeight: AppMetrics.Control.minimumHitSize)
             }
         }
     }

@@ -10,7 +10,7 @@ struct SettingsView: View {
     init(state: SettingsScreenState? = nil, onPersonalInfo: (() -> Void)? = nil,
          onCancerType: (() -> Void)? = nil, onCancerStage: (() -> Void)? = nil,
          onHospital: (() -> Void)? = nil,
-         notificationSettings: @escaping @MainActor () -> NotificationSettingsView = { NotificationSettingsView() }) {
+         notificationSettings: @escaping @MainActor () -> NotificationSettingsView) {
         _state = State(initialValue: state ?? .init()); self.onPersonalInfo = onPersonalInfo
         self.onCancerType = onCancerType; self.onCancerStage = onCancerStage; self.onHospital = onHospital
         self.notificationSettings = notificationSettings
@@ -84,4 +84,12 @@ struct SettingsView: View {
         }
     }
 }
-#Preview { NavigationStack { SettingsView() } }
+#Preview {
+    NavigationStack {
+        SettingsView(
+            notificationSettings: {
+                NotificationSettingsView(viewModel: NotificationSettingsViewModel())
+            }
+        )
+    }
+}

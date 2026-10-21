@@ -18,6 +18,7 @@ struct ScreenCatalogPreview: View {
     @State private var cancer = DiagnosisScreenState()
     @State private var stage = DiagnosisScreenState()
     @State private var hospital = previewHospital()
+    @State private var notificationSettingsViewModel = NotificationSettingsViewModel()
     var body: some View {
         VStack(spacing: 0) {
             Text("화면 예시 · 실제 인증/조회/저장 없음").font(.caption).padding(8)
@@ -51,13 +52,20 @@ struct ScreenCatalogPreview: View {
         case .painWeekDetail: PainRecordDetailView(state: weekState(.pain))
         case .symptomDetail: SymptomRecordDetailView(state: detailState(.symptom))
         case .symptomWeekDetail: SymptomRecordDetailView(state: weekState(.symptom))
-        case .settings: SettingsView(state: settingsState())
+        case .settings:
+            SettingsView(
+                state: settingsState(),
+                notificationSettings: {
+                    NotificationSettingsView(viewModel: notificationSettingsViewModel)
+                }
+            )
         case .personal: PersonalInfoEditView(state: personal)
         case .cancer: CancerTypeEditView(state: cancer)
         case .stage: CancerStageEditView(state: stage)
         case .hospital: HospitalConnectionView(state: hospital)
         case .notifications: NotificationView(state: notificationState())
-        case .notificationSettings: NotificationSettingsView()
+        case .notificationSettings:
+            NotificationSettingsView(viewModel: notificationSettingsViewModel)
         }
     }
     private func homeState() -> HomeScreenState {

@@ -8,6 +8,21 @@ nonisolated struct AuthConfiguration {
     var terms: [SignupTerm: String] = [:]
     var termsVersion: String?
     var redirectURL: URL?
+    /// 실서버 저장/메일 설정과 승인 약관·동의 정책 확인 후에만 명시적으로 허용합니다.
+    /// 기본 제품 경로는 확인 전까지 요청하지 않으며, 로컬 검사는 별도로 활성화합니다.
+    var allowsSignupRequests = false
+
+    /// 승인 약관을 대신하지 않는, 사용자가 명시적으로 선택한 Debug 실서버 검사입니다.
+    var isLocalSignupTest: Bool {
+#if DEBUG
+        localSignupTest
+#else
+        false
+#endif
+    }
+#if DEBUG
+    var localSignupTest = false
+#endif
 
     var hasRequiredTerms: Bool {
         guard let termsVersion, !termsVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
