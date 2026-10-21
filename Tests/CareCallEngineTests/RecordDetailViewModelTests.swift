@@ -90,8 +90,94 @@ struct RecordDetailViewModelTests {
         #expect(repository.ranges.count == 1)
     }
 
+    // MARK: - 하루 기록 수정
+
+    /// 17일 하루 기록(손발 저림 2회, 설사 있음)을 불러온 하루 기록 화면
+    /// 화면 상태는 ViewModel을 약하게 잡으므로 테스트가 ViewModel을 들고 있어야 한다
+    private func editing(_ repository: FakeRecordSymptomRepository) async throws -> (RecordDetailViewModel, RecordDetailScreenState, UUID) {
+        let numbness = try entry(.numbness, count: 2)
+        repository.records = [SymptomRecord(id: UUID(), patientId: UUID(), recordedDate: date(17), conditionText: nil,
+                                            symptoms: [numbness, try entry(.diarrhea)])]
+        let viewModel = RecordDetailViewModel(patientId: UUID(), painRepository: FakePainRepository(records: []),
+                                              symptomRepository: repository, calendar: calendar, now: { date(17, 12) })
+        let state = viewModel.symptom
+        state.onAction?(.load)
+        await waitUntil { state.loadState.isLoaded }
+        state.onAction?(.edit(.numbness))
+        return (viewModel, state, numbness.id)
+    }
+
+    private func input(_ id: UUID, in state: RecordDetailScreenState, count: String) -> SymptomEntryEditInput {
+        guard case .symptom(let data) = state.content,
+              let entry = data.records.flatMap(\.symptoms).first(where: { $0.id == id }) else { fatalError("카드 없음") }
+        var input = SymptomEntryEditInput(entry)
+        input.occurrenceText = count
+        return input
+    }
+
+    @Test func 수정을_완료하면_그날_기록을_저장하고_그_카드의_편집을_닫는다() async throws {
+        let repository = FakeRecordSymptomRepository()
+        let (viewModel, state, id) = try await editing(repository)
+        #expect(state.editingEntryIDs == [id])
+
+        state.onAction?(.finishEdit(id, input(id, in: state, count: "3")))
+        await waitUntil { !state.isSaving && repository.saved.count == 1 }
+        #expect(repository.saved.first?.symptoms.first { $0.id == id }?.occurrenceCount == 3)
+        #expect(state.editingEntryIDs.isEmpty)
+        guard case .symptom(let data) = state.content else { Issue.record("하루 기록 없음"); return }
+        #expect(data.records.flatMap(\.symptoms).first { $0.id == id }?.occurrenceCount == 3)
+        withExtendedLifetime(viewModel) {}
+    }
+
+    @Test func 숫자가_아니면_저장하지_않고_카드에_이유를_남긴다() async throws {
+        let repository = FakeRecordSymptomRepository()
+        let (viewModel, state, id) = try await editing(repository)
+        state.onAction?(.finishEdit(id, input(id, in: state, count: "두 번")))
+        #expect(state.editErrors[id] == "횟수는 1에서 100 사이 숫자로 입력해 주세요.")
+        #expect(state.editingEntryIDs == [id])
+        #expect(repository.saved.isEmpty)
+        withExtendedLifetime(viewModel) {}
+    }
+
+    @Test func 저장에_실패하면_편집을_유지하고_다시_시도하게_한다() async throws {
+        let repository = FakeRecordSymptomRepository()
+        repository.saveError = URLError(.notConnectedToInternet)
+        let (viewModel, state, id) = try await editing(repository)
+        state.onAction?(.finishEdit(id, input(id, in: state, count: "3")))
+        await waitUntil { !state.isSaving && state.editErrors[id] != nil }
+        #expect(state.editErrors[id] == "저장하지 못했어요. 다시 시도해 주세요.")
+        #expect(state.editingEntryIDs == [id])
+        withExtendedLifetime(viewModel) {}
+    }
+
+    @Test func 지우면_없음으로_저장되고_그리드에서_빠진다() async throws {
+        let repository = FakeRecordSymptomRepository()
+        let (viewModel, state, id) = try await editing(repository)
+        state.onAction?(.delete(id))
+        await waitUntil { !state.isSaving && repository.saved.count == 1 }
+        let saved = try #require(repository.saved.first)
+        #expect(!saved.symptoms.contains { $0.id == id })
+        #expect(saved.symptoms.contains { $0.symptomType == .numbness && $0.presence == .absent })
+        guard case .symptom(let data) = state.content else { Issue.record("하루 기록 없음"); return }
+        #expect(data.symptoms.map(\.type) == [.diarrhea])
+        withExtendedLifetime(viewModel) {}
+    }
+
+    @Test func 편집_중에는_기간을_바꾸지_않는다() async throws {
+        let (viewModel, state, _) = try await editing(FakeRecordSymptomRepository())
+        state.onAction?(.selectPeriod(.week))
+        #expect(state.period == .day)
+        state.onAction?(.endEdit)
+        state.onAction?(.selectPeriod(.week))
+        #expect(state.period == .week)
+        withExtendedLifetime(viewModel) {}
+    }
+
     private func waitUntilLoaded(_ state: RecordDetailScreenState) async {
-        for _ in 0..<100 where !state.loadState.isLoaded { await Task.yield() }
+        await waitUntil { state.loadState.isLoaded }
+    }
+    private func waitUntil(_ condition: () -> Bool) async {
+        for _ in 0..<200 where !condition() { await Task.yield() }
     }
 }
 
@@ -108,10 +194,16 @@ private final class FakePainRepository: PainRepository {
     func deleteById(_ id: UUID) async throws {}
 }
 
-private struct FakeRecordSymptomRepository: SymptomRepository {
-    func findByPatientIdAndDate(patientId: UUID, from startDate: Date, to endDate: Date) async throws -> [SymptomRecord] { [] }
-    func save(entity: SymptomRecord) async throws {}
-    func findByPatientId(_ patientId: UUID) async throws -> [SymptomRecord] { [] }
+private final class FakeRecordSymptomRepository: SymptomRepository {
+    var records: [SymptomRecord] = []
+    var saveError: Error?
+    private(set) var saved: [SymptomRecord] = []
+    func findByPatientIdAndDate(patientId: UUID, from startDate: Date, to endDate: Date) async throws -> [SymptomRecord] { records }
+    func save(entity: SymptomRecord) async throws {
+        if let saveError { throw saveError }
+        saved.append(entity)
+    }
+    func findByPatientId(_ patientId: UUID) async throws -> [SymptomRecord] { records }
     func findById(_ id: UUID) async throws -> SymptomRecord? { nil }
     func deleteById(_ id: UUID) async throws {}
 }
