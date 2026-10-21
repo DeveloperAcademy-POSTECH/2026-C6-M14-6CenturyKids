@@ -18,13 +18,10 @@ final class CareCallService: CareCalling {
     private let rules: EmergencyRules
     private let recorder: AudioRecorder
     private let recognizer: SpeechRecognizer
-    /// 응급 안내를 읽는 시스템 음성 (Supertonic 라이선스상 의료 조언으로 볼 수 있는 문구는 Supertonic으로 읽지 않는다)
-    private let systemVoice: SpeechSynthesizer
-    /// 모델(약 2.4GB)과 Supertonic(약 0.9GB)은 앱 시작이 아니라 준비 단계에서 만든다
+    private let voice: SpeechSynthesizer
+    /// 모델은 앱 시작이 아니라 준비 단계에서 확인한다
     private let loadAnalyzer: () async throws -> CareCallAI
-    private let makeVoice: () -> SpeechSynthesizer
     private var analyzer: CareCallAI?
-    private var voice: SpeechSynthesizer?
     private var stopped = false
     /// 지금 대화와 그 환자. 음성 통화와 문자 답이 같은 대화를 이어 간다
     private struct Conversation {
@@ -38,16 +35,14 @@ final class CareCallService: CareCalling {
     private var noticed = false
 
     init(config: CareCallConfig, rules: EmergencyRules, bodyParts: BodyPartDictionary, recorder: AudioRecorder, recognizer: SpeechRecognizer,
-         systemVoice: SpeechSynthesizer, loadAnalyzer: @escaping () async throws -> CareCallAI,
-         makeVoice: @escaping () -> SpeechSynthesizer) {
+         voice: SpeechSynthesizer, loadAnalyzer: @escaping () async throws -> CareCallAI) {
         self.config = config
         self.converter = SymptomRecordConverter(config: config, bodyParts: bodyParts)
         self.rules = rules
         self.recorder = recorder
         self.recognizer = recognizer
-        self.systemVoice = systemVoice
+        self.voice = voice
         self.loadAnalyzer = loadAnalyzer
-        self.makeVoice = makeVoice
     }
 
     // MARK: - 준비 (차례로 부른다. 실패하면 같은 단계를 다시 부를 수 있다)
@@ -57,14 +52,9 @@ final class CareCallService: CareCalling {
         _ = try await recorder.prepare()
     }
 
-    /// AI 모델과 음성 합성을 불러오고, 고정 문구를 뒤에서 미리 합성하기 시작한다
+    /// AI 모델을 쓸 수 있는지 확인한다
     func loadModel() async throws {
         if analyzer == nil { analyzer = try await loadAnalyzer() }
-        if voice == nil {
-            let voice = makeVoice()
-            voice.preload(config.spokenPhrases(rules: rules))
-            self.voice = voice
-        }
     }
 
     /// 한국어 음성 인식을 준비한다 (처음 한 번 인식 에셋을 내려받는다). 마이크는 통화를 시작할 때 켜진다
@@ -93,10 +83,7 @@ final class CareCallService: CareCalling {
 
     func answer(_ text: String) async throws -> CareCallTurn {
         guard let conversation else { throw CareCallServiceError.notPrepared }
-        // 문자 대화에서도 모델을 불러올 때 음성 합성이 고정 문구를 미리 합성하기 시작한다. 분석 중에는 멈춘다 (CPU 경쟁)
-        await voice?.setBusy(true)
         let out = await conversation.engine.handle(patientText: text)
-        await voice?.setBusy(false)
         return turn(out, of: conversation)
     }
 
@@ -135,7 +122,7 @@ final class CareCallService: CareCalling {
     /// 지금 대화를 끝까지 통화로 진행하고 결과를 돌려준다. 마무리 인사까지 마쳤으면 그날 기록, 중간에 끝났으면(stop·전화 등 오디오 중단, 통화 중 오류)
     /// 끊긴 곳까지 답한 기록. 통화 중 오류인데 받은 답이 없으면 오류를 그대로 던진다
     func run(onActivity: @escaping (CareCallActivity) -> Void) async throws -> CareCallOutcome {
-        guard let conversation, let voice else { throw CareCallServiceError.notPrepared }
+        guard let conversation else { throw CareCallServiceError.notPrepared }
         stopped = false // 지난 통화를 stop으로 끝냈어도 다시 걸 수 있게
         // 전화·Siri로 오디오가 끊기면 통화를 끝낸다 (중간부터 이어 가지 않는다)
         recorder.onEvent = { [weak self] event in
@@ -146,7 +133,7 @@ final class CareCallService: CareCalling {
         do {
             // 부른 쪽 작업이 취소되면(화면을 닫음) stop과 같이 끝낸다. 음성 인식은 취소를 직접 보지 않는다
             phase = try await withTaskCancellationHandler {
-                try await converse(engine: conversation.engine, voice: voice, onActivity: onActivity)
+                try await converse(engine: conversation.engine, onActivity: onActivity)
             } onCancel: {
                 Task { @MainActor [weak self] in await self?.stop() }
             }
@@ -162,13 +149,11 @@ final class CareCallService: CareCalling {
     /// 통화를 바로 끝낸다 (말하기·듣기 정지). 진행 중인 run은 중단 단계로 돌아온다
     func stop() async {
         stopped = true
-        voice?.stop()
-        systemVoice.stop()
+        voice.stop()
         await recognizer.stop()
     }
 
-    private func converse(engine: InterviewEngine, voice: SpeechSynthesizer,
-                          onActivity: @escaping (CareCallActivity) -> Void) async throws -> InterviewPhase {
+    private func converse(engine: InterviewEngine, onActivity: @escaping (CareCallActivity) -> Void) async throws -> InterviewPhase {
         var out = InterviewEngine.Output(utterance: engine.lastQuestion, phase: engine.phase)
         let opening = noticed ? out.utterance : config.aiVoiceNotice + " " + out.utterance
         noticed = true
@@ -177,8 +162,7 @@ final class CareCallService: CareCalling {
         try recognizer.startMicrophone()
         onActivity(.speaking(opening))
         await voice.speak(opening)
-        // 첫 질문을 말하는 동안 모델을 데운다. 듣기 전에 끝나므로 분석과 겹치지 않는다
-        // (모델은 새 생성이 시작되면 진행 중인 생성을 취소한다). 문자로 이미 답했으면 데워져 있다
+        // 첫 질문을 말하는 동안 모델을 데운다. 문자로 이미 답했으면 데워져 있다
         if engine.phase == .opening { await engine.prewarm() }
         await voice.waitUntilDone()
 
@@ -196,17 +180,14 @@ final class CareCallService: CareCalling {
                     await voice.speak(line)
                 }
             }
-            await voice.setBusy(true) // 분석 중에는 고정 문구 미리 합성을 멈춘다 (CPU 경쟁)
             out = await engine.handle(patientText: text)
-            await voice.setBusy(false)
             acknowledgement?.cancel()
             await acknowledgement?.value
             await voice.waitUntilDone() // 맞장구가 나오는 중이면 끝난 뒤 이어서
             guard !stopped else { break }
-            let speaker = out.phase == .emergencyEnded ? systemVoice : voice
             onActivity(.speaking(out.utterance))
-            await speaker.speak(out.utterance)
-            await speaker.waitUntilDone()
+            await voice.speak(out.utterance)
+            await voice.waitUntilDone()
         }
         return out.phase
     }
