@@ -345,22 +345,7 @@ final class SettingsViewModel {
         defer { state.isBusy = false }
 
         do {
-            guard let patient = try await patientRepository.findById(patientId) else {
-                state.errorMessage = "환자 정보를 찾지 못했어요."
-                return
-            }
-
-            guard patient.doctorId != nil else {
-                state.errorMessage = "연결된 의료진이 없어요."
-                return
-            }
-
-            let updatedPatient = Patient(
-                user: patient.user,
-                doctorId: nil,
-                disease: patient.disease
-            )
-            try await patientRepository.save(patient: updatedPatient)
+            try await patientRepository.disconnectFromDoctor()
 
             state.doctor = nil
             state.candidate = nil
