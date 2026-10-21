@@ -1,4 +1,5 @@
 import Foundation
+import XCTest
 import ToDocDomain
 @testable import ToDocAuth
 
@@ -19,6 +20,7 @@ final class TestAuthRepository: AuthRepository {
     var failUpdate = false
     var beforeSignIn: (() async -> Void)?
     var beforeSignUp: (() async -> Void)?
+    var signUpError: Error?
     var signInError: Error?
     var lastEmail: String?
     var lastRedirect: URL?
@@ -31,6 +33,7 @@ final class TestAuthRepository: AuthRepository {
     func signUp(email: String, password: String) async throws -> UUID {
         signUpCount += 1
         await beforeSignUp?()
+        if let signUpError { throw signUpError }
         if failSignUp { throw AuthFlowError("통신 실패") }
         signedIn = !confirmEmail; return id
     }
@@ -85,6 +88,7 @@ final class TestPatients: PatientRepository {
     }
     func findByName(_ name: String) async throws -> [Patient] { [] }
     func findByDoctorId(_ doctorId: UUID) async throws -> [Patient] { [] }
+    func connectToDoctor(code: String) async throws { XCTFail("이번 가입 흐름은 의사 연결 메서드를 추가 호출하지 않습니다.") }
 }
 @MainActor final class AuthFixture {
     let auth = TestAuthRepository()

@@ -17,10 +17,10 @@ struct SignupReviewView: View {
             SignupSummaryCard(title: "진단 정보", edit: { state.onAction?(.editDiagnosis) }) {
                 Text("\(state.cancerTitle) · \(state.stageTitle)")
             }.disabled(state.isWorking || state.isAccountLocked || state.onAction == nil)
-            if let error = state.errorMessage { AuthMessage(text: error) }
         } footer: {
+            if let error = state.errorMessage { AuthMessage(text: error) }
             Button { state.onAction?(.submit) } label: {
-                AuthSubmitLabel(title: state.isAwaitingEmailConfirmation ? "확인 후 가입 이어가기" : (state.isAccountLocked ? "가입 이어서 진행하기" : "확인하고 가입 마치기"), isLoading: state.isWorking)
+                AuthSubmitLabel(title: state.isAccountLocked ? "가입 이어서 진행하기" : "확인하고 가입 마치기", isLoading: state.isWorking)
             }
             .buttonStyle(AppButtonStyle()).disabled(state.isWorking || state.onAction == nil)
             if state.isAccountLocked, let onLogin {
