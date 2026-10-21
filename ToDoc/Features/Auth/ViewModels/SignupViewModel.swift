@@ -22,7 +22,6 @@ import ToDocDomain
     private var verifiedDoctorCode: String?
     private var accountID: UUID?
     private var creationAttempted = false
-    private var needsProfileCheck = false
     private var draft: Draft?
     private(set) var completedPatient: Patient?
     private struct Draft {
@@ -30,15 +29,6 @@ import ToDocDomain
         let disease: CarcinomaDetail
         let doctorID: UUID?
     }
-    /// 로그인으로 확인된 계정만 받습니다. 이전 VM의 입력·비밀번호·동의는 재사용하지 않습니다.
-    func resumeAuthenticatedAccount(id: UUID, email: String) {
-        accountID = id
-        needsProfileCheck = true
-        state.email = email
-        state.hasAuthenticatedAccount = true
-        state.step = .terms
-    }
-
     /// 최종 확인에서 연 수정 화면은 입력을 마치거나 돌아갈 때 최종 확인으로 복귀합니다.
     private var reviewEditStart: SignupStep?
     /// View는 어떤 버튼이 눌렸는지만 전달합니다. 다음 단계와 검증은 이곳에서 결정합니다.
@@ -184,7 +174,7 @@ import ToDocDomain
         for step in required {
             if let error = validationError(for: step) { state.errorMessage = error; return }
         }
-        guard configuration.allowsSignupRequests || accountID != nil, let auth = repositories.auth,
+        guard configuration.allowsSignupRequests, let auth = repositories.auth,
               repositories.users != nil, repositories.patients != nil else {
             state.errorMessage = "회원가입 연결을 준비 중이에요. 아직 계정을 만들지 않았어요."; return
         }
@@ -216,7 +206,7 @@ import ToDocDomain
             guard let id = accountID else { throw AuthFlowError("가입한 계정을 확인하지 못했어요.") }
             if !auth.isSignedIn() {
                 guard !state.hasAuthenticatedAccount else {
-                    throw AuthFlowError("인증이 만료되었어요. 다시 로그인한 뒤 가입 정보를 이어서 입력해 주세요.")
+                    throw AuthFlowError("인증이 만료되었어요. 지금은 정보를 저장할 수 없어요. 로그인으로 계정 상태를 확인해 주세요.")
                 }
                 state.isAwaitingEmailConfirmation = true
                 guard isContinuation else {
@@ -229,22 +219,6 @@ import ToDocDomain
             let currentID = try await auth.getCurrentUserId()
             try checkCurrent(token)
             guard currentID == id else { throw AuthFlowError("가입한 계정의 인증을 확인하지 못했어요.") }
-            if needsProfileCheck {
-                guard let doctors = repositories.doctors, let users = repositories.users else {
-                    throw AuthFlowError("기존 계정 정보 확인을 준비 중이에요. 잠시 후 다시 로그인해 주세요.")
-                }
-                let doctor = try await doctors.findById(id)
-                try checkCurrent(token)
-                guard doctor == nil else { throw AuthFlowError("의사 계정은 환자로 가입할 수 없어요. 의사용 앱에서 로그인해 주세요.") }
-                let user = try await users.findById(id)
-                try checkCurrent(token)
-                if let user {
-                    guard user.id == id else { throw profileConflict() }
-                    state.name = user.name; state.birthday = user.birthday; state.sex = user.sex
-                    state.hasStoredUserProfile = true
-                }
-                needsProfileCheck = false
-            }
             state.isAwaitingEmailConfirmation = false
             state.hasAuthenticatedAccount = true
             state.password = ""; state.passwordConfirmation = ""
@@ -252,9 +226,7 @@ import ToDocDomain
             state.step = .patientInfo
         } catch {
             if isCurrent(token) {
-                state.errorMessage = (error as? AuthFlowError)?.message ?? (state.hasAuthenticatedAccount
-                    ? "기존 가입 정보를 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요."
-                    : "계정 생성 결과를 확인하지 못했어요. 로그인으로 계정을 확인해 주세요.")
+                state.errorMessage = (error as? AuthFlowError)?.message ?? "계정 생성 결과를 확인하지 못했어요. 로그인으로 계정을 확인해 주세요."
             }
         }
     }
@@ -263,7 +235,7 @@ import ToDocDomain
     func submit() async {
         guard !state.isWorking, state.step == .review else { return }
         state.errorMessage = nil
-        guard state.hasAuthenticatedAccount, !needsProfileCheck, let id = accountID,
+        guard configuration.allowsSignupRequests, state.hasAuthenticatedAccount, let id = accountID,
               let auth = repositories.auth, let users = repositories.users, let patients = repositories.patients,
               session.patient == nil else {
             state.errorMessage = "먼저 약관에 동의하고 계정을 확인해 주세요."; return
@@ -294,7 +266,7 @@ import ToDocDomain
         do {
             let currentID = try await auth.getCurrentUserId()
             try checkCurrent(token)
-            guard auth.isSignedIn(), currentID == id else { throw AuthFlowError("다시 로그인한 뒤 가입 정보를 이어서 입력해 주세요.") }
+            guard auth.isSignedIn(), currentID == id else { throw AuthFlowError("인증 상태를 확인하지 못했어요. 지금은 정보를 저장할 수 없어요. 로그인으로 계정 상태를 확인해 주세요.") }
             let user = try User(id: id, name: draft.user.name, birthday: draft.user.birthday, sex: draft.user.sex)
             let patient = Patient(user: user, doctorId: draft.doctorID, disease: draft.disease)
 

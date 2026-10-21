@@ -7,12 +7,7 @@ struct SignupPatientInfoView: View {
 
     var body: some View {
         SignupStepScreen(state: state, title: "기본 정보를\n알려주세요") {
-            if state.hasStoredUserProfile {
-                Text("이미 저장된 기본 정보를 불러왔어요. 이 가입 과정에서는 기존 정보를 변경하지 않아요.")
-                    .appTextStyle(.caption)
-            }
             AuthTextField(title: "이름", placeholder: "이름을 입력해 주세요", text: $state.name, contentType: .name)
-                .disabled(state.hasStoredUserProfile)
             VStack(alignment: .leading, spacing: AppSpacing.Auth.fieldLabelGap) {
                 Text("생년월일").appTextStyle(.label)
                 Button {
@@ -26,7 +21,7 @@ struct SignupPatientInfoView: View {
                     }
                     .appTextStyle(.label).padding(AppSpacing.Auth.informationPadding).frame(minHeight: AppMetrics.Auth.inputMinimumHeight)
                     .appSurface(.authInput)
-                }.buttonStyle(.plain).disabled(state.hasStoredUserProfile)
+                }.buttonStyle(.plain)
                 if let age = state.age {
                     Text("만 \(age)세 · 생년월일로 계산해요").appTextStyle(.caption)
                         .foregroundStyle(AppColors.Text.secondary)
@@ -37,7 +32,7 @@ struct SignupPatientInfoView: View {
                 ViewThatFits(in: .horizontal) {
                     HStack { sexChoices }
                     VStack { sexChoices }
-                }.disabled(state.hasStoredUserProfile)
+                }
             }
         }
         .sheet(isPresented: $showsBirthday) {

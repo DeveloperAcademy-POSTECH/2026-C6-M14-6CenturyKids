@@ -260,6 +260,20 @@ import ToDocDomain
     }
 #endif
 
+    func testExpiredCreatedAccountNeverSignsInWithClearedPasswordOrCreatesAnotherAccount() async {
+        let f = AuthFixture(), vm = ready(f)
+        await createAccount(vm)
+        XCTAssertTrue(vm.state.password.isEmpty)
+        f.auth.signedIn = false
+        vm.state.step = .terms
+        await vm.continueFromTerms()
+        XCTAssertEqual(f.auth.signInCount, 0)
+        XCTAssertEqual(f.auth.signUpCount, 1)
+        XCTAssertEqual(f.users.saves, 0); XCTAssertEqual(f.patients.saves, 0)
+        XCTAssertEqual(vm.state.step, .terms)
+        XCTAssertNotNil(vm.state.errorMessage)
+    }
+
     func testAllFiveTermsGateAccountCreationBeforeProfileInput() async {
         let f = AuthFixture(), vm = ready(f)
         vm.state.step = .terms
