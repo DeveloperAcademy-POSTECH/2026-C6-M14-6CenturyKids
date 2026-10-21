@@ -94,6 +94,7 @@ struct ScreenCatalogPreview: View {
                 .init(id: UUID(), recordedDate: date, painBefore: 7, painAfter: 0)
             ]))
         } else {
+            state.canEdit = true
             state.content = .symptom(.init(symptoms: [.init(type: .constipation, weight: 1), .init(type: .diarrhea, weight: 1)],
                                            records: [symptomRecord()]))
         }
