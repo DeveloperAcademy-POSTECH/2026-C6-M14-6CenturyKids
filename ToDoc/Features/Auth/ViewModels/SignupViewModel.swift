@@ -130,31 +130,35 @@ import ToDocDomain
         }
     }
 
-    /// 코드 확인은 의사와 소속 병원을 함께 읽습니다. 검증된 의사의 ID만 최종 Patient에 넣습니다.
+    /// 기존 통합 조회로 의사와 병원을 확인합니다. 이 단계에서는 환자를 연결하거나 저장하지 않습니다.
     func verifyDoctorCode() async {
         guard !state.isWorking, !state.isAccountLocked else { return }
         let code = normalizedCode
+        verifiedDoctorID = nil; verifiedDoctorCode = nil; state.connection = nil
         state.errorMessage = nil; state.hasAttemptedStep = true
-        guard code.range(of: "^[A-Z0-9]{6}$", options: .regularExpression) != nil else {
-            state.currentValidationError = "영문·숫자 6자리 코드를 입력해 주세요."; return
+        guard code.range(of: "^[A-Za-z0-9]{8}$", options: .regularExpression) != nil else {
+            state.currentValidationError = "영문·숫자 8자리 코드를 입력해 주세요."; return
         }
         state.currentValidationError = nil
-        guard let doctors = repositories.doctors, let hospitals = repositories.hospitals else {
+        guard let doctors = repositories.doctors else {
             state.errorMessage = "의사 연결을 준비 중이에요. 건너뛰고 다음 화면을 확인할 수 있어요."; return
         }
         let token = UUID(); requestID = token; state.isWorking = true
         defer { state.isWorking = false }
         do {
-            guard let doctor = try await doctors.findByCode(code), doctor.code.uppercased() == code,
-                  let hospital = try await hospitals.findById(doctor.hospitalId), hospital.id == doctor.hospitalId else {
-                throw AuthFlowError("해당 코드의 의사와 병원을 찾지 못했어요. 코드를 확인해 주세요.")
-            }
+            let info = try await doctors.findConnectionInfoByCode(code)
             guard isCurrent(token), normalizedCode == code else { return }
-            verifiedDoctorID = doctor.user.id; verifiedDoctorCode = code
-            state.connection = SignupDoctorConnection(hospitalName: hospital.name, department: nil, doctorName: doctor.user.name)
+            guard let info, info.doctorCode == code else {
+                state.errorMessage = "해당 코드의 의사와 병원을 찾지 못했어요. 코드를 확인해 주세요."
+                return
+            }
+            verifiedDoctorID = info.doctorId; verifiedDoctorCode = code
+            state.connection = SignupDoctorConnection(hospitalName: info.hospitalName, department: nil, doctorName: info.doctorName)
             state.step = .doctorConfirmation
         } catch {
-            if isCurrent(token) { state.errorMessage = (error as? AuthFlowError)?.message ?? "의사 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요." }
+            if isCurrent(token), normalizedCode == code {
+                state.errorMessage = "의사 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."
+            }
         }
     }
 
@@ -349,6 +353,6 @@ import ToDocDomain
     }
 
     func cancel() { requestID = nil }
-    private var normalizedCode: String { state.doctorCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+    private var normalizedCode: String { state.doctorCode.trimmingCharacters(in: .whitespacesAndNewlines) }
     private func isCurrent(_ token: UUID) -> Bool { requestID == token && !Task.isCancelled }
 }

@@ -35,8 +35,10 @@ import ToDocDomain
     }
     func testMissingDoctorRepositoryCanBeSkipped() async {
         let f = AuthFixture(); let vm = SignupViewModel(repositories: f.repositories, session: f.session, configuration: configuration)
-        vm.state.step = .doctorCode; vm.state.doctorCode = "ABC123"
-        await vm.verifyDoctorCode(); XCTAssertNotNil(vm.state.errorMessage)
+        vm.state.step = .doctorCode; vm.state.doctorCode = "Ab12Cd34"
+        await vm.verifyDoctorCode()
+        XCTAssertNil(vm.state.currentValidationError)
+        XCTAssertEqual(vm.state.errorMessage, "의사 연결을 준비 중이에요. 건너뛰고 다음 화면을 확인할 수 있어요.")
         vm.handle(.skipDoctorCode)
         XCTAssertEqual(vm.state.step, .review); XCTAssertNil(vm.state.connection)
     }
