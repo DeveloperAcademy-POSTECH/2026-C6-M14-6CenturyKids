@@ -61,6 +61,9 @@ enum SignupAction {
     var stage: SignupStageChoice?
     var otherStage = ""
     /// 계정 생성이 시작되면 당시 입력을 고정합니다. 재시도가 다른 사람의 정보로 이어지지 않게 합니다.
+    var hasStoredUserProfile = false
+    var hasAuthenticatedAccount = false
+    var isEmailAlreadyRegistered = false
     var isAccountLocked = false
     var isAwaitingEmailConfirmation = false
     var isWorking = false
@@ -68,7 +71,10 @@ enum SignupAction {
     var hasAttemptedStep = false
     var currentValidationError: String?
     var termsContent: [SignupTerm: String] = [:]
+    var termsVersion: String?
+    var termsEffectiveDate: String?
     var hasRequiredTermsContent = false
+    var canProceedFromTerms: Bool { hasRequiredTermsContent && allTermsAccepted }
     var age: Int? {
         guard let birthday else { return nil }
         return calendar.dateComponents([.year], from: calendar.startOfDay(for: birthday), to: calendar.startOfDay(for: latestBirthday)).year

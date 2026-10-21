@@ -516,6 +516,7 @@ final class FakePatients: PatientRepository {
     func findByName(_ name: String) async throws -> [Patient] { [] }
     func findByDoctorId(_ doctorId: UUID) async throws -> [Patient] { [] }
     func connectToDoctor(code: String) async throws {}
+    func disconnectFromDoctor() async throws {}
 }
 
 /// 화면에 들어오면 ViewModel이 로그인 환자를 찾는다 (PainRecordViewModel과 같은 방식)

@@ -24,4 +24,6 @@ protocol PatientRepository {
     ) async throws -> [Patient]
     
     func connectToDoctor(code: String) async throws
+    
+    func disconnectFromDoctor() async throws
 }

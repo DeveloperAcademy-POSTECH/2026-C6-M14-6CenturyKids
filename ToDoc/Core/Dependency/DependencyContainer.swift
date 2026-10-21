@@ -77,17 +77,12 @@ final class DependencyContainer {
         )
     }
 
-    /// 인증과 가입에 필요한 실제 저장소를 연결하고, 전달된 저장소가 있으면 우선 사용합니다.
-    @MainActor func makeAuthFlow(configuration: AuthConfiguration = .init(),
-                      users: (any UserRepository)? = nil,
-                      patients: (any PatientRepository)? = nil,
-                      doctors: (any DoctorRepository)? = nil,
-                      hospitals: (any HospitalRepository)? = nil) -> AuthFlowViewModel {
-        return AuthFlowViewModel(
-            repositories: .init(auth: authRepository, users: users ?? userRepository,
-                                patients: patients ?? patientRepository,
-                                doctors: doctors ?? doctorRepository, hospitals: hospitals ?? hospitalRepository),
-            configuration: configuration,
+    /// 인증과 가입에 필요한 저장소는 컨테이너가 연결합니다.
+    @MainActor func makeAuthFlow() -> AuthFlowViewModel {
+        AuthFlowViewModel(
+            repositories: .init(auth: authRepository, users: userRepository, patients: patientRepository,
+                                doctors: doctorRepository, hospitals: hospitalRepository),
+            configuration: AuthConfiguration(),
             loginPreference: AuthLoginPreference(defaults: .standard)
         )
     }
