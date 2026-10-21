@@ -33,6 +33,15 @@ enum AuthEntry { case login, signup, passwordReset }
         signup = SignupViewModel(repositories: repositories, session: session, configuration: configuration)
         reset = PasswordResetViewModel(repositories: repositories, session: session, configuration: configuration)
         onboarding = OnboardingViewModel(repositories: repositories, session: session)
+        login.onIncompleteSignup = { [weak self] id, email in
+            guard let self else { return }
+            self.signup.cancel()
+            let signup = SignupViewModel(repositories: repositories, session: session, configuration: configuration)
+            signup.resumeAuthenticatedAccount(id: id, email: email)
+            self.signup = signup
+            self.signupReturnsToLogin = true
+            self.screen = .signup; self.showsAuth = true
+        }
     }
     func open(_ entry: AuthEntry) {
         if entry == .signup {
@@ -61,6 +70,7 @@ enum AuthEntry { case login, signup, passwordReset }
     /// 서버의 계정을 삭제/취소하지 않습니다. 로컬 입력과 재시도 체크포인트만 새로 시작합니다.
     func restartSignupAfterConfirmation() {
         guard signup.state.isAccountLocked, !signup.state.isWorking, !session.isBusy else { return }
+        if signup.state.hasAuthenticatedAccount { loginAfterSignup(); return }
         signup.cancel()
         signup = SignupViewModel(repositories: signup.repositories, session: session,
                                  configuration: signup.configuration)
@@ -85,6 +95,7 @@ enum AuthEntry { case login, signup, passwordReset }
             session.patient = patient
             return
         }
+        signup.cancel()
         login.state.email = signup.state.email
         login.state.password = ""
         // 가입이 끝난 경우에만 화면 입력을 지웁니다. 중간 실패의 재시도 스냅샷은 SignupVM이 보관합니다.

@@ -3,6 +3,8 @@ import SwiftUI
 struct SignupTermsView: View {
     @Bindable var state: SignupScreenState
     var onLogin: (() -> Void)?
+    var onRestart: (() -> Void)?
+    @State private var confirmsRestart = false
     @State private var selectedTerm: SignupTerm?
 
     var body: some View {
@@ -49,10 +51,21 @@ struct SignupTermsView: View {
                 }.buttonStyle(AppButtonStyle())
                     .disabled(!state.canProceedFromTerms || state.isWorking || state.onAction == nil)
             }
+            if state.isEmailAlreadyRegistered, onRestart != nil {
+                Button("다른 이메일로 다시 작성") { confirmsRestart = true }
+                    .appTextStyle(.caption).frame(minHeight: AppMetrics.Control.minimumHitSize)
+                    .disabled(state.isWorking)
+            }
             if let onLogin {
                 Button("로그인으로 이동", action: onLogin).buttonStyle(AppButtonStyle())
                     .disabled(state.isWorking)
             }
+        }
+        .alert("다른 이메일로 가입할까요?", isPresented: $confirmsRestart) {
+            Button("취소", role: .cancel) {}
+            Button("다시 작성") { onRestart?() }
+        } message: {
+            Text("현재 입력을 지우고 처음부터 작성합니다. 기존 계정은 그대로 유지됩니다.")
         }
         .sheet(item: $selectedTerm) { term in
             TermsDetailView(title: term.title, content: state.termsContent[term])

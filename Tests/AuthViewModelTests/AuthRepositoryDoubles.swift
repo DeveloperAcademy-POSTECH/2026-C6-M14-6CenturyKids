@@ -54,6 +54,7 @@ final class TestAuthRepository: AuthRepository {
     }
 }
 final class TestUsers: UserRepository {
+    var findError: Error?
     var normalizeBirthday = false
     var loseNextSaveResponse = false
     var value: User?
@@ -66,10 +67,15 @@ final class TestUsers: UserRepository {
             : user
         if loseNextSaveResponse { loseNextSaveResponse = false; throw AuthFlowError("저장 후 응답 유실") }
     }
-    func findById(_ id: UUID) async throws -> User? { finds += 1; return value }
+    func findById(_ id: UUID) async throws -> User? {
+        finds += 1
+        if let findError { throw findError }
+        return value
+    }
     func findByName(_ name: String) async throws -> [User] { value.map { [$0] } ?? [] }
 }
 final class TestPatients: PatientRepository {
+    var beforeFind: (() async -> Void)?
     var findError: Error?
     var value: Patient?
     var saves = 0
@@ -82,6 +88,7 @@ final class TestPatients: PatientRepository {
     }
     func findById(_ id: UUID) async throws -> Patient? {
         finds += 1
+        await beforeFind?()
         if let findError { throw findError }
         return value
     }
