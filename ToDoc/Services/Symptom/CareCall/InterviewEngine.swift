@@ -612,7 +612,8 @@ final class InterviewEngine {
         let compact = Self.normalized(t)
         guard config.vagueAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
               !NumberParser.hasNumber(t), !soundsNegative(t),
-              !["있", "했"].contains(where: compact.contains),
+              !["있", "했"].contains(where: compact.contains), !saysNormal(t),
+              !config.normalWords.contains(where: { compact.contains(Self.normalized($0)) }),
               !config.shortAnswers.yes.contains(where: { compact.hasPrefix(Self.normalized($0)) }) else { return false }
         if ["는데", "지만", "근데", "그런데"].contains(where: t.contains) { return false }
         return !config.effects.flatMap(\.keywords).contains(where: t.contains) && symptomHints.matches(t) == nil
@@ -752,8 +753,10 @@ final class InterviewEngine {
         let compact = Self.normalized(last)
         // 그 항목 낱말을 "안"으로 부정한 말도 정상이라는 말이다 ("아니요, 안 저려요"). "좀 저려요"는 아니다
         let ownKeywords = effect.keywords.filter { $0.count >= 2 }
-        let ownNegated = ownKeywords.contains(where: last.contains)
-            && KeywordMatcher(keywords: ownKeywords, prefixNegation: true).matches(last) == nil
+        // 앞부분에서 그 항목을 부정 없이 말했으면("손은 저리고 발은 안 저려요") 마지막 부분이 정상이어도 보지 않는다
+        let ownMatcher = KeywordMatcher(keywords: ownKeywords, prefixNegation: true)
+        guard parts.dropLast().allSatisfy({ ownMatcher.matches($0) == nil || soundsNegative($0) }) else { return nil }
+        let ownNegated = ownKeywords.contains(where: last.contains) && ownMatcher.matches(last) == nil
         guard soundsNegative(last) || ownNegated || config.normalWords.contains(where: { compact.contains(Self.normalized($0)) })
         else { return nil }
         return Mention(effectId: key, presence: .absent, quote: patientText)
@@ -910,20 +913,34 @@ final class InterviewEngine {
         config.shortAnswers.yes.contains(Self.normalized(patientText))
     }
 
-    /// 뒤에 다른 말이 올 수 있는 대조 표현: "~데"(깨끗한데·괜찮은데·있긴 한데 — "는데"만 보면 "한데"를 놓친다), "~지만", "근데", "그래도", "대신"
+    /// 뒤에 다른 말이 올 수 있는 대조 표현: "~데"·"~데요"(깨끗한데·괜찮은데·저리긴 한데요 — "는데"만 보면 "한데"를, 끝 경계만 보면 "한데요,"를 놓친다),
+    /// "~지만", "근데", "그래도", "대신"
     static func hasContrast(_ text: String) -> Bool {
-        text.range(of: #"[가-힣]데(?=[\s,.?!]|$)|지만|그래도|대신"#, options: .regularExpression) != nil
+        text.range(of: #"[가-힣]데요?(?=[\s,.?!]|$)|지만|그래도|대신"#, options: .regularExpression) != nil
     }
 
-    /// 질문을 다시 해 달라는 말 ("네? 뭐라고요?", "잘 안 들려요")
+    /// 질문을 다시 해 달라는 말 ("네? 뭐라고요?", "잘 안 들려요 다시 말해 주세요"). 답 전체가 되묻는 말과 "네"·"죄송한데" 같은 말뿐일 때만.
+    /// 다른 말이 섞이면 모델이 본다: 낱말이 들어 있기만 해도 보면 "밥이 잘 안 들어가요", "귀가 잘 안 들려요",
+    /// "뭐라고 해야 하나, 속이 울렁거려요"가 되묻기로 버려졌다 (2026-10-22 보안 리뷰·평가)
     private func isRepeatRequest(_ text: String) -> Bool {
-        let compact = Self.normalized(text)
-        return config.repeatRequests.contains { compact.contains(Self.normalized($0)) }
+        var rest = Self.normalized(Self.withoutFillers(text, fillers: config.shortAnswers.fillers))
+        var found = false
+        for phrase in config.repeatRequests.map(Self.normalized).sorted(by: { $0.count > $1.count }) where rest.contains(phrase) {
+            rest = rest.replacingOccurrences(of: phrase, with: "")
+            found = true
+        }
+        for word in Self.repeatCourtesy { rest = rest.replacingOccurrences(of: word, with: "") }
+        return found && rest.isEmpty
     }
 
-    /// 부위 질문에 "없어요"·"딱히 없어요": 부위는 '모름'으로 둔다 (유무를 뒤집지 않는다)
+    private static let repeatCourtesy = ["죄송한데", "죄송하지만", "죄송해요", "저기요", "잠깐만요", "네", "예", "좀"]
+
+    /// 부위 질문에 "없어요"·"딱히 없어요"·"어디라고 딱히 없어요"만: 부위는 '모름'으로 둔다 (유무를 뒤집지 않는다).
+    /// 부위가 섞인 답("손은 괜찮고 발이 저려요", "얼굴 말고는 없어요")은 모델이 부위를 뽑는다 (2026-10-22 보안 리뷰)
     private func isNoLocation(_ text: String) -> Bool {
-        soundsNegative(text) && Self.normalized(text).count <= 10
+        let compact = Self.normalized(Self.withoutFillers(text, fillers: config.shortAnswers.fillers))
+        return compact.range(of: #"^(아니요|아뇨|아니)?(딱히|따로|특별히|별로)?(어디|아무\s*데|그런\s*데|그런\s*곳|데|곳|부위)?(라고는|라고|는|도|가|은)?(딱히|따로|특별히|별로)?(없어요|없어|없습니다|없었어요|없는것같아요|몰라요|모르겠어요|잘모르겠어요)$"#,
+                             options: .regularExpression) != nil
     }
 
     static func normalized(_ s: String) -> String { String(s.filter { !$0.isWhitespace && !$0.isPunctuation }) }

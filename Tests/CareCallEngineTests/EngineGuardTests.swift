@@ -986,3 +986,64 @@ struct N100FindingsTests {
         #expect(engine.ledger["neuropathy"]?.presence == .present)
     }
 }
+
+/// 2026-10-22 시나리오 반복 1바퀴: 모델을 거치지 않는 빠른 길이 환자 말을 버리던 곳
+@MainActor
+struct FastPathGuardTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    private func reach(_ key: String, _ mock: MockAnalyzer) async -> InterviewEngine {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        while engine.phase != .slot(key: key, step: .presence) { _ = await engine.handle(patientText: "아니요") }
+        return engine
+    }
+
+    /// 되묻는 말은 답 전체가 그 말일 때만 모델 없이 다시 묻는다. 다른 말이 섞이면 모델이 본다
+    @Test(arguments: [("네? 뭐라고요?", true), ("잘 안 들려요 다시 말해 주세요", true), ("죄송한데 다시 말씀해 주시겠어요?", true),
+                      ("밥이 목으로 잘 안 들어가요", false), ("뭐라고 해야 하나, 속이 좀 울렁거려요", false)])
+    func 되묻는_말은_답_전체일_때만(text: String, repeatRequest: Bool) async {
+        let mock = MockAnalyzer()
+        let engine = await reach("dehydration_nutrition", mock)
+        let before = mock.requests.count
+        _ = await engine.handle(patientText: text)
+        #expect((mock.requests.count == before) == repeatRequest)
+    }
+
+    /// 부위 질문에 부위가 섞인 답("손은 괜찮고 발이 저려요")은 모델이 부위를 뽑는다. 짧은 '없어요'류만 부위 모름
+    @Test(arguments: [("손은 괜찮고 발이 저려요", false), ("얼굴 말고는 없어요", false), ("딱히 없어요", true), ("어디라고 딱히 없어요", true)])
+    func 부위_없음은_짧은_없어요만(text: String, unknown: Bool) async {
+        let mock = MockAnalyzer()
+        mock.script[text] = .mentions(Mention(effectId: "neuropathy", presence: .present, locations: ["발"]))
+        let engine = await reach("neuropathy", mock)
+        _ = await engine.handle(patientText: "네")
+        while engine.phase != .slot(key: "neuropathy", step: .location) { _ = await engine.handle(patientText: "한 삼십 분이요") }
+        _ = await engine.handle(patientText: text)
+        #expect(engine.ledger["neuropathy"]?.unknownSteps.contains(.location) == unknown)
+    }
+
+    @Test(arguments: [("저리긴 한데요, 괜찮아요", true), ("따가운데요 괜찮아요", true), ("가려운 데는 없어요", false)])
+    func 데요로_맺은_대조(text: String, contrast: Bool) {
+        #expect(InterviewEngine.hasContrast(text) == contrast)
+    }
+
+    /// 앞부분에서 그 항목을 말했으면 끝이 정상이라는 말이어도 엔진이 '없음'으로 채우지 않는다
+    @Test func 앞부분에서_말한_증상은_끝의_정상_말로_없음이_되지_않는다() async {
+        let mock = MockAnalyzer()
+        mock.script["손은 저리고 발은 안 저려요"] = .mentions()
+        let engine = await reach("neuropathy", mock)
+        _ = await engine.handle(patientText: "손은 저리고 발은 안 저려요")
+        #expect(engine.ledger["neuropathy"]?.presence != .absent)
+    }
+
+    /// "그럭저럭"이 있어도 정상이라는 말로 끝나면 애매한 답이 아니다 (모름으로 남기지 않는다)
+    @Test func 그럭저럭_잘_나와요는_없음() async {
+        let mock = MockAnalyzer()
+        mock.script["변은 그럭저럭 잘 나와요"] = .mentions(Mention(effectId: "constipation", presence: .absent))
+        let engine = await reach("constipation", mock)
+        _ = await engine.handle(patientText: "변은 그럭저럭 잘 나와요")
+        #expect(engine.ledger["constipation"]?.presence == .absent)
+    }
+}
