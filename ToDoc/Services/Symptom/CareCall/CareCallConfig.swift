@@ -154,6 +154,8 @@ struct EmergencyRules: Decodable, Sendable {
     let feverCelsius: Double
     /// 응급일 때 말하고 통화를 끝내는 고정 안내
     let message: String
+    /// 모델만 응급이라고 본 답이 어느 기록도 바꾸지 않았을 때 그 말을 원문으로 남기는 기타 항목 이름 (유무 '모름', 검토 필요)
+    let reviewName: String
     /// 정상 종료 때 마무리 인사
     let closingMessage: String
 

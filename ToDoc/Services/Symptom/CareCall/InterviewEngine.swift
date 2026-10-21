@@ -76,7 +76,17 @@ final class InterviewEngine {
         if isEmergencyText(patientText) {
             return endWithEmergency()
         }
+        let before = ledger
+        let (out, modelEmergency) = await respond(to: patientText)
+        // 모델만 응급이라고 함 (응급 키워드·체온에는 안 걸림): 통화를 끝내거나 되묻지 않고, 그 답의 기록을 검토 필요로 남긴다.
+        // 모델의 응급 판단은 흔들려(증상 여럿 "토하고 입안도 아프고 손도 저려요"를 응급으로 봄) 통화를 끝내는 데 쓰지 않는다
+        // (2026-10-21 Mac 평가, Foundation Models: 모델만 응급이라고 한 3번 중 1번이 거짓 응급)
+        if modelEmergency { markForReview(patientText, since: before) }
+        return out
+    }
 
+    /// 답 한 턴을 기록하고 다음에 할 말을 정한다. 모델이 응급이라고 했는지도 함께 돌려준다 (검토 표시는 handle이 한다)
+    private func respond(to patientText: String) async -> (output: Output, modelEmergency: Bool) {
         let current = phase
         var result: TurnResult?
         if let quick = quickResult(for: current, patientText: patientText) {
@@ -92,9 +102,7 @@ final class InterviewEngine {
                 result = await analyze(current, patientText: patientText) ?? r
             }
         }
-        if result?.emergencySignal == true {
-            return endWithEmergency()
-        }
+        let modelEmergency = result?.emergencySignal == true
         if let analyzed = result, let recheck = await recheckCorrection(analyzed, during: current, patientText: patientText) {
             result?.mentions += recheck
         }
@@ -146,7 +154,7 @@ final class InterviewEngine {
             openingFirstAnswer = patientText
             // 첫 답에서 생긴 기타 항목: 꼬리질문의 답에서 나온 이름 없는 기타는 여기에 붙인다 (같은 증상이 둘로 기록되지 않게)
             openingOtherName = ledger.order.first { $0.hasPrefix("other:") && before[$0] == nil }.flatMap { ledger[$0]?.otherName }
-            return Output(utterance: say(config.openingFollowUp), phase: phase)
+            return (Output(utterance: say(config.openingFollowUp), phase: phase), modelEmergency)
         }
         // 꼬리질문의 답이면 첫 답과 합쳐 본다 ('피곤해요 / 일을 많이 해서요')
         let answerText = current == .opening ? [openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / ") : patientText
@@ -177,7 +185,7 @@ final class InterviewEngine {
                 let unclearKey = Ledger.key(effectId: "other", otherName: config.followUpCall.unclearName)
                 openingOtherName = ledger.order.first { $0.hasPrefix("other:") && $0 != unclearKey && before[$0] == nil }
                     .flatMap { ledger[$0]?.otherName }
-                return Output(utterance: say(config.openingFollowUp), phase: phase)
+                return (Output(utterance: say(config.openingFollowUp), phase: phase), modelEmergency)
             }
             if unclear { recordUnclearChange(patientText) }
             // '그 밖에'는 달라진 게 없다·모르겠다고 분명히 답했을 때만 생략한다 (없어졌다는 답 뒤에는 한 번 묻는다)
@@ -214,7 +222,7 @@ final class InterviewEngine {
                     recordedPrefix = config.otherDetail.recorded
                 } else {
                     otherDetailKey = key
-                    return Output(utterance: say(config.otherDetail.question), phase: phase)
+                    return (Output(utterance: say(config.otherDetail.question), phase: phase), modelEmergency)
                 }
             } else {
                 // 분석이 실패하면 '그 밖에' 질문을 한 번 더 묻는다 (실패한 답의 증상을 버리지 않도록)
@@ -258,7 +266,7 @@ final class InterviewEngine {
         if let prefix = recordedPrefix {
             utterance = prefix + " " + utterance
         }
-        return Output(utterance: utterance, phase: phase)
+        return (Output(utterance: utterance, phase: phase), modelEmergency)
     }
 
     /// 모델이 고른 목록 증상의 낱말은 환자 말에 없고 다른 목록 증상 하나의 낱말만 있으면 그 증상으로 바꾼다
@@ -525,6 +533,18 @@ final class InterviewEngine {
         ledger.apply(Mention(effectId: "other", otherName: name, presence: .present, quote: patientText),
                      patientText: patientText, knownEffectIds: knownIds)
         ledger.markNeedsReview(Ledger.key(effectId: "other", otherName: name))
+    }
+
+    /// 모델만 응급이라고 본 답: 그 답으로 바뀐 기록을 검토 필요로 둔다 (통화는 그대로 이어 가고, 의료진이 기록에서 본다).
+    /// 바뀐 기록이 없으면 환자 말을 '모름' 기타 항목(rules.reviewName)에 원문으로 남긴다: 모델 판단만으로 '있음' 증상을 만들지 않는다.
+    /// 환자 화면(요약·기록)은 '있음'만 보여 이 항목은 보이지 않는다 (의료진 화면에서 검토 필요·모름을 보여 줄 것)
+    private func markForReview(_ patientText: String, since before: Ledger) {
+        let changed = ledger.changedKeys(since: before)
+        guard changed.isEmpty else { return changed.forEach { ledger.markNeedsReview($0) } }
+        let name = rules.reviewName
+        ledger.apply(Mention(effectId: "other", otherName: name, presence: .unclear, quote: patientText),
+                     patientText: patientText, knownEffectIds: knownIds)
+        ledger.markUnknown(Ledger.key(effectId: "other", otherName: name), step: .presence, quote: patientText)
     }
 
     /// "잘 모르겠어요", "기억이 안 나요" 같은 답. 숫자·없음 표현·연결어·증상 낱말이 함께 있으면 아니다

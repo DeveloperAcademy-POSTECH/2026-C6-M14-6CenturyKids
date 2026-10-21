@@ -139,14 +139,53 @@ struct InterviewEngineTests {
         #expect(after.utterance.isEmpty && after.isFinished)
     }
 
-    @Test func 모델_응급신호만_있어도_종료한다() async {
+    /// 모델만 응급이라고 한 첫 답 (응급 키워드·체온에는 안 걸림)
+    private func modelOnlyEmergency() async -> InterviewEngine.Output {
+        var signal = TurnResult.mentions(Mention(effectId: "nausea_vomiting", presence: .present),
+                                         Mention(effectId: "stomatitis", presence: .present),
+                                         Mention(effectId: "neuropathy", presence: .present, locations: ["손"]))
+        signal.emergencySignal = true
+        mock.script["토하고 입안도 아프고 손도 저려요"] = signal
+        _ = engine.start()
+        return await engine.handle(patientText: "토하고 입안도 아프고 손도 저려요")
+    }
+
+    @Test func 모델만_응급이라고_하면_통화를_이어_가고_그_답의_기록은_검토_필요() async {
+        let out = await modelOnlyEmergency()
+        #expect(out.utterance == config.openingTransition.noted + " " + config.effects[0].details[0].question)
+        #expect(out.phase == .slot(key: "nausea_vomiting", step: .detail))
+        for key in ["nausea_vomiting", "stomatitis", "neuropathy"] {
+            #expect(engine.ledger[key]?.needsReview == true, "\(key)")
+        }
+        _ = await engine.handle(patientText: "한 번이요") // 구토 횟수
+        _ = await engine.handle(patientText: "없어요")   // 변비 (그 뒤에 받은 기록은 표시하지 않는다)
+        #expect(engine.ledger["constipation"]?.presence == .absent && engine.ledger["constipation"]?.needsReview == false)
+    }
+
+    @Test func 모델이_응급이라고_본_답은_저장할_기록에_검토_필요로_남는다() async throws {
+        _ = await modelOnlyEmergency()
+        let converter = SymptomRecordConverter(config: config, bodyParts: try fixture(BodyPartDictionary.self, "body_parts"))
+        let record = converter.record(from: engine.ledger, patientId: UUID(), date: Date())
+        #expect(!record.symptoms.isEmpty)
+        #expect(record.symptoms.allSatisfy { $0.detail?.hasPrefix("[검토 필요]") == true })
+    }
+
+    @Test func 모델이_응급이라고_본_답이_기록되지_않았으면_그_말을_모름으로_남긴다() async throws {
         var signal = TurnResult.empty
         signal.emergencySignal = true
-        mock.script["몸이 너무 이상해요"] = signal
-        _ = engine.start()
-        let out = await engine.handle(patientText: "몸이 너무 이상해요")
-        #expect(out.phase == .emergencyEnded)
-        #expect(out.utterance == rules.message)
+        mock.script["변 볼 때 빨간 피가 묻어 나와요"] = signal
+        await reach("constipation")
+        let out = await engine.handle(patientText: "변 볼 때 빨간 피가 묻어 나와요")
+        #expect(out.phase == .slot(key: "constipation", step: .presence)) // 통화는 이어 간다 (변비는 다시 묻는다)
+        // 모델 판단만으로 '있음' 증상을 만들지 않는다 (유무 모름, 원문은 검토 필요로)
+        let entry = engine.ledger["other:" + rules.reviewName]
+        #expect(entry?.presence == .unclear && entry?.needsReview == true)
+        #expect(entry?.unsureAnswers == ["변 볼 때 빨간 피가 묻어 나와요"])
+        #expect(!engine.ledger.order.contains { engine.ledger[$0]?.presence == .present })
+        let converter = SymptomRecordConverter(config: config, bodyParts: try fixture(BodyPartDictionary.self, "body_parts"))
+        let note = converter.record(from: engine.ledger, patientId: UUID(), date: Date()).symptoms.filter { $0.symptomType == .other }
+        #expect(note.map(\.presence) == [.unknown])
+        #expect(note.first?.detail == "[검토 필요] \(rules.reviewName): 변 볼 때 빨간 피가 묻어 나와요")
     }
 
     /// 묻는 항목까지 "없어요"로 넘어간다
