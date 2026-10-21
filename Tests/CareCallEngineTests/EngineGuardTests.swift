@@ -1048,3 +1048,36 @@ struct FastPathGuardTests {
         #expect(engine.ledger["constipation"]?.presence == .absent)
     }
 }
+
+/// 2026-10-22 시나리오 반복 2바퀴: 유무 답을 절로 나눠 본다 (지금 상태 기준, 앞부분 긍정 + 끝 '괜찮아요')
+@MainActor
+struct ClausePresenceTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    private func answer(_ key: String, _ text: String, model presence: MentionPresence) async -> MentionPresence? {
+        let mock = MockAnalyzer()
+        mock.script[text] = .mentions(Mention(effectId: key, presence: presence, quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        while engine.phase != .slot(key: key, step: .presence) { _ = await engine.handle(patientText: "아니요") }
+        _ = await engine.handle(patientText: text)
+        return engine.ledger[key]?.presence
+    }
+
+    /// 다 나았다고 분명히 말하면 없음, 좀 나아져도 아직 있으면 모델 판단 그대로 (사용자 결정 2026-10-21)
+    @Test(arguments: [("nausea_vomiting", "그저께 한 번 토했는데 지금은 다 괜찮아졌어요", MentionPresence.absent),
+                      ("diarrhea", "설사는 약 먹고 멈췄어요", .absent),
+                      ("nausea_vomiting", "많이 나아졌는데 아직 좀 울렁거려요", .present),
+                      ("stomatitis", "아직 안 나았어요, 입안이 계속 따가워요", .present)])
+    func 지금_상태(key: String, text: String, expected: MentionPresence) async {
+        #expect(await answer(key, text, model: .present) == expected)
+    }
+
+    /// 앞부분에서 증상을 말하고 끝을 괜찮다는 말로 맺으면 모델이 없음이라 해도 있음
+    @Test(arguments: [("stomatitis", "혓바늘이 났는데요 괜찮아요"), ("nausea_vomiting", "아침엔 메스껍고 저녁엔 괜찮아요")])
+    func 앞부분_긍정은_있음(key: String, text: String) async {
+        #expect(await answer(key, text, model: .absent) == .present)
+    }
+}

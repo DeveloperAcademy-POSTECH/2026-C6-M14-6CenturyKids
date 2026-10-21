@@ -140,6 +140,14 @@ final class InterviewEngine {
         if case .slot(let key, .presence) = current {
             result?.mentions.removeAll { $0.effectId == key && contradicts($0.presence, patientText, for: key) }
         }
+        // 유무 질문: 다 나았다는 답은 '없음', 앞부분에서 증상을 말하고 끝을 '괜찮아요'로 맺은 답은 '있음' (모델이 거꾸로 기록했다)
+        if case .slot(let key, .presence) = current, result != nil, let presence = presenceByClauses(key: key, patientText: patientText) {
+            if let i = result?.mentions.firstIndex(where: { $0.effectId == key }) {
+                result?.mentions[i].presence = presence
+            } else {
+                result?.mentions.append(Mention(effectId: key, presence: presence, quote: patientText))
+            }
+        }
         if let analyzed = result, let reason = reasonAnswer(analyzed, during: current, patientText: patientText) {
             result?.mentions.append(reason)
         }
@@ -766,6 +774,34 @@ final class InterviewEngine {
         else { return nil }
         return Mention(effectId: key, presence: .absent, quote: patientText)
     }
+
+    /// 유무 질문 답을 절로 나눠 본 유무. 모델이 자주 거꾸로 기록한 두 경우만 정하고, 그 밖에는 nil (모델 판단 그대로)
+    /// (2026-10-22 평가: "지금은 다 괜찮아졌어요" → 있음, "손가락은 저리고 발가락은 괜찮아요"·"혓바늘이 났는데요 괜찮아요" → 없음)
+    /// - 마지막 부분이 다 나았다는 말("약 먹고 멈췄어요", "지금은 괜찮아요", "이제 잘 봐요")이고 '아직·덜·좀' 같은 말이 없으면 없음.
+    ///   사용자 결정(2026-10-21): 지금 상태 기준, 나아졌다고 분명히 말한 것만 없음, 좀 나아져도 아직 있으면 있음
+    /// - 앞부분에서 그 항목 낱말을 부정 없이 말하고 마지막 부분이 괜찮다·정상이라는 말이면 있음
+    private func presenceByClauses(key: String, patientText: String) -> MentionPresence? {
+        guard let effect = config.effects.first(where: { $0.id == key }) else { return nil }
+        let parts = KeywordMatcher.clauses(patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression))
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        guard let last = parts.last else { return nil }
+        let compact = Self.normalized(last)
+        let lastNormal = soundsNegative(last) || saysNormal(last) || config.normalWords.contains { compact.contains(Self.normalized($0)) }
+        if !Self.partialWords.contains(where: compact.contains),
+           Self.resolvedWords.contains(where: { compact.contains($0) && !compact.contains("안" + $0) && !compact.contains("못" + $0) })
+            || (Self.nowWords.contains(where: compact.contains) && lastNormal) {
+            return .absent
+        }
+        let own = KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true)
+        if parts.count > 1, lastNormal, parts.dropLast().contains(where: { own.matches($0) != nil && !soundsNegative($0) }) {
+            return .present
+        }
+        return nil
+    }
+
+    private static let resolvedWords = ["나았", "멈췄", "멎었", "그쳤", "없어졌", "괜찮아졌", "가라앉았", "들어갔", "아물었", "풀렸", "사라졌"]
+    private static let nowWords = ["지금은", "이제", "요즘은", "뒤로는", "후로는"]
+    private static let partialWords = ["아직", "덜", "조금", "좀", "가끔", "여전"]
 
     /// 첫 답을 한 번 되물을 말. 증상을 말했으면 시작 시점(이미 말했으면 nil: 되묻지 않는다), 컨디션이 나쁘다는 말뿐이면 무엇이 불편한지,
     /// 다시 거는 통화면 무엇이 달라졌는지. 막연한 "어떤 점이 그러신지 조금 더"는 무엇을 더 말할지 막막했다 (2026-10-22 사용자 피드백)
