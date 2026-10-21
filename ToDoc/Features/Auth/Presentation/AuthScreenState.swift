@@ -55,8 +55,6 @@ enum SignupAction {
     var birthday: Date?
     var sex: Sex?
     var cancerType: CarcinomaType?
-    var usesOtherCancer = false
-    var otherCancer = ""
     var cancerSearch = ""
     var stage: SignupStageChoice?
     var otherStage = ""
@@ -94,9 +92,11 @@ enum SignupAction {
         return formatter.string(from: birthday)
     }
     var filteredCancerTypes: [CarcinomaType] {
-        CarcinomaType.allCases.filter { cancerSearch.isEmpty || $0.displayName.localizedCaseInsensitiveContains(cancerSearch) }
+        CarcinomaType.allCases.filter {
+            $0 != .unknown && (cancerSearch.isEmpty || $0.displayName.localizedCaseInsensitiveContains(cancerSearch))
+        }
     }
-    var cancerTitle: String { usesOtherCancer ? otherCancer : cancerType?.displayName ?? "선택 전" }
+    var cancerTitle: String { cancerType?.displayName ?? "선택 전" }
     var stageTitle: String {
         switch stage { case .known(let value): value.displayName; case .unknown: "잘 모르겠어요"; case .other: otherStage; case nil: "선택 전" }
     }

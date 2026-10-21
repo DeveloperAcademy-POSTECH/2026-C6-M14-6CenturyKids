@@ -136,4 +136,26 @@ import ToDocDomain
         vm.handle(.back)
         XCTAssertEqual(state.step, .review)
     }
+
+    func testUnknownCancerIsSeparateFromSearchAndPreservesTheSelectedStage() {
+        let vm = makeViewModel(), state = vm.state
+        fillRequiredProfile(state)
+        state.cancerType = .unknown
+        state.stage = .known(.stage3)
+        state.cancerSearch = "검색 결과 없는 이름"
+        XCTAssertTrue(state.filteredCancerTypes.isEmpty)
+        XCTAssertEqual(state.cancerTitle, "잘 모르겠어요")
+        state.cancerSearch = ""
+        XCTAssertEqual(state.filteredCancerTypes.count, 15)
+        XCTAssertFalse(state.filteredCancerTypes.contains(.unknown))
+        state.step = .cancerType
+        vm.handle(.next)
+        XCTAssertEqual(state.step, .cancerStage)
+        vm.handle(.next)
+        XCTAssertEqual(state.step, .doctorCode)
+        vm.handle(.back); vm.handle(.back)
+        XCTAssertEqual(state.step, .cancerType)
+        XCTAssertEqual(state.cancerType, .unknown)
+        XCTAssertEqual(state.stage, .known(.stage3))
+    }
 }

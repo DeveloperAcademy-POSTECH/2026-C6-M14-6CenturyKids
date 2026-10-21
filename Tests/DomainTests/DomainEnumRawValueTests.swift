@@ -34,7 +34,7 @@ final class DomainEnumRawValueTests: XCTestCase {
             (.colorectal, "colorectal"), (.kidney, "kidney"), (.stomach, "stomach"),
             (.breast, "breast"), (.prostate, "prostate"), (.pancreas, "pancreas"), (.lung, "lung"),
             (.larynx, "larynx"), (.thymus, "thymus"), (.esophagus, "esophagus"),
-            (.smallIntestine, "smallIntestine"), (.anus, "anus")
+            (.smallIntestine, "smallIntestine"), (.anus, "anus"), (.unknown, "unknown")
         ])
     }
 
@@ -44,7 +44,8 @@ final class DomainEnumRawValueTests: XCTestCase {
         for (raw, korean) in additions {
             XCTAssertEqual(CarcinomaType(rawValue: raw)?.displayName, korean)
         }
-        XCTAssertEqual(CarcinomaType.allCases.count, 15)
+        XCTAssertEqual(CarcinomaType.allCases.count, 16)
+        XCTAssertEqual(CarcinomaType(rawValue: "unknown")?.displayName, "잘 모르겠어요")
         XCTAssertNil(CarcinomaStage(rawValue: "terminal"))
         XCTAssertEqual(CarcinomaStage.allCases.map(\.displayName), ["0기", "1기", "2기", "3기", "4기"])
     }

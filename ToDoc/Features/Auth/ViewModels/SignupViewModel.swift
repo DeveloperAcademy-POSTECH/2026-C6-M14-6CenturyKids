@@ -103,8 +103,7 @@ import ToDocDomain
         }
     }
 
-    /// '기타/모름'을 DB가 표현하지 못하는 동안 임의의 암종·병기로 바꾸어 저장하지 않습니다.
-    /// 팀에서 해당 Model/DB 계약을 정하면 이 검증과 Draft 변환만 확장하면 됩니다.
+    /// 암종 모름은 모델의 unknown을 사용합니다. 미확정 병기는 임의의 값으로 바꾸지 않습니다.
     private func validationError(for step: SignupStep) -> String? {
         switch step {
         case .role: return state.isPatient ? nil : "의사 가입은 iPad용 흐름 연결 후 이용할 수 있어요."
@@ -122,7 +121,7 @@ import ToDocDomain
             do { _ = try User(id: UUID(), name: state.name, birthday: birthday, sex: sex); return nil }
             catch { return "생년월일과 이름을 확인해 주세요. 미래 날짜는 선택할 수 없어요." }
         case .cancerType:
-            return state.usesOtherCancer ? "직접 입력한 암 이름은 저장 형식 연결을 준비 중이에요." : (state.cancerType == nil ? "암 종류를 선택해 주세요." : nil)
+            return state.cancerType == nil ? "암 종류를 선택해 주세요." : nil
         case .cancerStage:
             if case .known = state.stage { return nil }
             return state.stage == nil ? "병기를 선택해 주세요." : "모름·직접 입력 병기는 저장 형식 연결을 준비 중이에요."
