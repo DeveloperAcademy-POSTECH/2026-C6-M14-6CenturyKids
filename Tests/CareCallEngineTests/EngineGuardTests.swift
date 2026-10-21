@@ -854,13 +854,14 @@ struct SaidEffectRecheckTests {
         for key in ["nausea_vomiting", "constipation", "rash_pruritus"] { #expect(engine.ledger[key]?.presence == .present, "\(key)") }
     }
 
-    @Test func 다시_물어_확인된_증상과_같은_말만_근거인_잘못_고른_증상은_뺀다() async {
+    @Test func 다시_물어_확인된_증상과_같은_말만_근거인_잘못_고른_증상은_모름으로_두고_다시_묻는다() async {
         let engine = await opening("혓바닥이 따갑고 쓰려요",
                                    first: [Mention(effectId: "neuropathy", presence: .present, quote: "혓바닥이 따갑고 쓰려요")]) { request in
             request.slotKey == "stomatitis" ? [Mention(effectId: "stomatitis", presence: .present, quote: "혓바닥이 따갑고")] : []
         }
         #expect(engine.ledger["stomatitis"]?.presence == .present)
-        #expect(engine.ledger["neuropathy"] == nil)
+        #expect(engine.ledger["neuropathy"]?.presence == .unclear) // 지우지 않는다: 실제 증상이었어도 그 항목 차례에 다시 묻는다
+        #expect(SlotPlanner.pendingStep(engine.ledger["neuropathy"], effect: config.effects.first { $0.id == "neuropathy" }) == .presence)
     }
 
     @Test func 겹치지_않는_부분에_그_증상_낱말이_있으면_남긴다() async {
@@ -874,7 +875,11 @@ struct SaidEffectRecheckTests {
 
     @Test(arguments: [("stomatitis", "입 안은 멀쩡하고요", MentionPresence?.some(.absent)),
                       ("rash_pruritus", "피부도 깨끗하고요", .some(.absent)),
-                      ("constipation", "입이 멀쩡해요", nil)])   // 다른 증상 낱말(입이): 다른 이야기일 수 있어 남기지 않는다
+                      ("constipation", "입이 멀쩡해요", nil),    // 다른 증상 낱말(입이): 다른 이야기일 수 있어 남기지 않는다
+                      ("rash_pruritus", "피부는 깨끗한데 가려워요", nil),     // 대조: 증상이 있다는 말이 뒤에 온다
+                      ("stomatitis", "입안은 멀쩡한데 좀 쓰려요", nil),
+                      ("rash_pruritus", "피부도 깨끗하고 좀 가려워요", nil),  // 정상이라는 말이 마지막 부분이 아니다
+                      ("dehydration_nutrition", "물은 멀쩡하게 마시고 밥맛 없어요", nil)]) // 그 항목의 '있음' 표현
     func 유무_질문에_정상이라는_말이면_없음(key: String, answer: String, expected: MentionPresence?) async {
         let mock = MockAnalyzer()
         mock.script[answer] = .empty
@@ -883,6 +888,7 @@ struct SaidEffectRecheckTests {
         _ = await engine.handle(patientText: "괜찮아요")
         while engine.phase != .slot(key: key, step: .presence) { _ = await engine.handle(patientText: "아니요") }
         _ = await engine.handle(patientText: answer)
-        #expect(engine.ledger[key]?.presence == expected)
+        if let expected { #expect(engine.ledger[key]?.presence == expected) }
+        else { #expect(engine.ledger[key]?.presence != .absent) } // 정상이라는 말로 '없음'을 만들지 않는다 (다른 규칙이 '있음'으로 남길 수는 있다)
     }
 }

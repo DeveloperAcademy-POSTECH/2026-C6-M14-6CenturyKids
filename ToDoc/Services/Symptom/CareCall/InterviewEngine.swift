@@ -686,7 +686,8 @@ final class InterviewEngine {
 
     /// 처음·그 밖에 질문에서 환자 말에 목록 증상 낱말(두 글자 이상, 부정 아님)이 있는데 모델이 빠뜨린 증상은 그 증상을 묻는 질문으로 한 번 더
     /// 분석한다 (한 답에 여러 증상: "토하고 입안도 아프고 손도 저려요"의 구내염). 그렇게 '있음'이 나오면, 같은 말을 근거로 모델이 고른 다른 목록 증상 중
-    /// 두 글자 이상 낱말 근거가 없는 것은 뺀다 (잘못 고른 ID: "오돌토돌…근질근질"을 구토로). 판단은 모델이, 다시 물을지는 엔진이 정한다
+    /// 두 글자 이상 낱말 근거가 없는 것은 '모름'으로 바꾼다 (잘못 고른 ID: "오돌토돌…근질근질"을 구토로). 지우지 않아 실제 증상이었어도 잃지 않고,
+    /// 그 항목 차례에 유무를 다시 묻는다. 판단은 모델이, 다시 물을지는 엔진이 정한다
     /// (2026-10-21 Foundation Models 평가: 지시문으로는 고쳐지지 않았다)
     private func recheckSaidEffects(_ result: TurnResult, during phase: InterviewPhase, patientText: String) async -> [Mention]? {
         switch phase {
@@ -716,29 +717,39 @@ final class InterviewEngine {
         func evidenced(_ id: String) -> Bool {
             config.effects.first { $0.id == id }?.keywords.contains { $0.count >= 2 && patientText.contains($0) } == true
         }
-        // 지우는 것은 두 근거가 겹치고, 겹친 부분을 뺀 나머지에 그 증상 낱말이 하나도 없을 때만
-        // ("토하고 입안도 아프고"의 구토는 나머지 "토하고"에 '토'가 있어 남기고, "혓바닥이 따갑고 쓰려요"의 저림은 나머지 "쓰려요"에 없어 뺀다)
+        // '모름'으로 바꾸는 것은 두 근거가 겹치고, 겹친 부분을 뺀 나머지에 그 증상 낱말이 하나도 없을 때만
+        // ("토하고 입안도 아프고"의 구토는 나머지 "토하고"에 '토'가 있어 그대로, "혓바닥이 따갑고 쓰려요"의 저림은 나머지 "쓰려요"에 없어 '모름')
         func onlyFrom(_ m: Mention, _ new: Mention) -> Bool {
             let x = Self.normalized(m.quote), y = Self.normalized(new.quote)
             guard !x.isEmpty, !y.isEmpty, x.contains(y) || y.contains(x) else { return false }
             let rest = x.replacingOccurrences(of: y, with: "")
             return !(config.effects.first { $0.id == m.effectId }?.keywords.contains { rest.contains(Self.normalized($0)) } ?? false)
         }
-        let kept = result.mentions.filter { m in
-            !(knownIds.contains(m.effectId) && m.presence == .present && !evidenced(m.effectId)
-              && added.contains { onlyFrom(m, $0) })
+        let checked = result.mentions.map { m in
+            guard knownIds.contains(m.effectId), m.presence == .present, !evidenced(m.effectId), added.contains(where: { onlyFrom(m, $0) })
+            else { return m }
+            var doubtful = m
+            doubtful.presence = .unclear
+            return doubtful
         }
-        return kept + added
+        return checked + added
     }
 
-    /// 유무 질문에 모델이 그 항목을 남기지 않았는데 답이 정상이라는 말이면 '없음'으로 본다 ("입 안은 멀쩡하고요", "피부도 깨끗하고요").
-    /// 다른 목록 증상 낱말이 있으면 다른 이야기일 수 있어 보지 않는다 (2026-10-21 Foundation Models 평가: 모델이 빈 결과를 내 다시 물었다)
+    /// 유무 질문에 모델이 그 항목을 남기지 않았는데 답이 정상이라는 말로 끝나면 '없음'으로 본다 ("입 안은 멀쩡하고요", "피부도 깨끗하고요").
+    /// 애매하면 남기지 않고 다시 묻는다: 정상이라는 말이 마지막 부분에 있어야 하고, 대조("깨끗한데 가려워요")·숫자·그 항목의 '있음' 표현·
+    /// 증상 표현·다른 목록 증상 낱말이 있으면 보지 않는다 (2026-10-21 Foundation Models 평가: 모델이 빈 결과를 내 다시 물었다)
     private func absentByNormalAnswer(_ result: TurnResult, key: String, patientText: String) -> Mention? {
-        guard !result.mentions.contains(where: { $0.effectId == key }), symptomHints.matches(patientText) == nil else { return nil }
-        let compact = Self.normalized(patientText)
-        guard soundsNegative(patientText) || config.normalWords.contains(where: { compact.contains(Self.normalized($0)) }),
+        guard !result.mentions.contains(where: { $0.effectId == key }), symptomHints.matches(patientText) == nil,
+              !NumberParser.hasNumber(patientText),
+              // 대조: "~데"(깨끗한데·괜찮은데·멀쩡한데), "~지만", "그래도", "대신" 뒤에는 증상이 올 수 있다
+              patientText.range(of: #"[가-힣]데(?=[\s,.]|$)|지만|그래도|대신"#, options: .regularExpression) == nil,
+              let effect = config.effects.first(where: { $0.id == key }), !saysPresent(effect, patientText),
               !config.effects.contains(where: { $0.id != key && $0.keywords.contains { $0.count >= 2 && patientText.contains($0) } })
         else { return nil }
+        let parts = KeywordMatcher.clauses(patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression))
+        let last = parts.last { !$0.trimmingCharacters(in: .whitespaces).isEmpty } ?? patientText
+        let compact = Self.normalized(last)
+        guard soundsNegative(last) || config.normalWords.contains(where: { compact.contains(Self.normalized($0)) }) else { return nil }
         return Mention(effectId: key, presence: .absent, quote: patientText)
     }
 
