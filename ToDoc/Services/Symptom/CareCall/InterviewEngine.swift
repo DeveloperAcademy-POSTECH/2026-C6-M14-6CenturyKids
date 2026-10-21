@@ -89,7 +89,8 @@ final class InterviewEngine {
     private func respond(to patientText: String) async -> (output: Output, modelEmergency: Bool) {
         let current = phase
         var result: TurnResult?
-        if let quick = quickResult(for: current, patientText: patientText) {
+        let quick = quickResult(for: current, patientText: patientText)
+        if let quick {
             result = quick
         } else {
             result = await analyze(current, patientText: patientText)
@@ -242,7 +243,9 @@ final class InterviewEngine {
             let said = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
             if !said.isEmpty { unsettledAnswers["\(key)|\(step)", default: []].append(said) }
         }
-        let followUp = Self.validFollowUp(result?.utterance, patientText: patientText)
+        // 같은 항목을 다시 물을 때 모델이 쓴 문장은 쓰지 않고 설정 문구로 묻는다. 모델 문장은 설정 문구를 베끼거나(두 문장),
+        // 원래 질문을 다시 쓰거나, 환자 말에 물음표만 붙인 것이었다 (2026-10-21 Foundation Models 평가: 되묻기 7번 모두)
+        let followUp = quick?.utterance.isEmpty == false ? quick?.utterance : nil
         let recordedThisTurn = !ledger.sameRecords(as: before) // advance()가 '물음' 표시를 남기기 전에 본다
         var utterance = await advance(from: current, followUp: followUp)
         if current == .opening, let unasked {
@@ -769,23 +772,9 @@ final class InterviewEngine {
         config.shortAnswers.yes.contains(Self.normalized(patientText))
     }
 
-    /// 꼬리질문은 짧게 다시 묻는 말이다 (설정 질문은 길어야 30자 안팎)
-    static let maxFollowUpLength = 45
-
     static func normalized(_ s: String) -> String { String(s.filter { !$0.isWhitespace && !$0.isPunctuation }) }
 
-    /// 모델 꼬리질문은 물음표로 끝나는 짧은 한 문장이고 환자 말을 되풀이하지 않을 때만 쓴다. 아니면 설정 문구로 다시 묻는다
-    /// (2026-10-09 평가: "…있으신가요? (예: 어느 부분, 얼마나 심한지 등 …)"처럼 괄호·여러 문장이 그대로 읽힘)
-    static func validFollowUp(_ utterance: String?, patientText: String) -> String? {
-        guard let text = utterance?.trimmingCharacters(in: .whitespacesAndNewlines), text.hasSuffix("?"),
-              text.count <= maxFollowUpLength, text.filter({ ".?!".contains($0) }).count == 1,
-              !text.contains(where: { "()[]:".contains($0) }) else { return nil }
-        let u = normalized(text), p = normalized(patientText)
-        guard !u.isEmpty, !p.isEmpty else { return u.isEmpty ? nil : text }
-        return u.contains(p) || p.contains(u) ? nil : text
-    }
-
-    /// 새 항목은 설정 파일 문구, 같은 항목 재질문은 모델 꼬리질문
+    /// 새 항목은 설정 파일 문구. 같은 항목을 다시 물을 때 엔진이 정한 꼬리질문(followUp)이 있으면 그것을 쓴다
     private func question(key: String, step: CareCallStep, followUp: String?) -> String {
         let model = followUp?.trimmingCharacters(in: .whitespacesAndNewlines)
         switch step {

@@ -5,21 +5,6 @@ import Testing
 /// P3 실기기에서 본 모델 출력 문제를 엔진이 막는지
 @MainActor
 struct EngineGuardTests {
-    @Test(arguments: [
-        ("설사는 없어요", "설사는 없어요", false),          // 환자 말 되풀이
-        ("손이 저려요?", "네, 손이 좀 저려요", true),       // 일부만 겹침, 질문 형태 → 허용
-        ("설사는 없어요?", "설사는 없어요", false),         // 물음표만 붙인 되풀이
-        ("다른 부작용은 없다고 하셨습니다.", "다른 건 없어요", false), // 질문 아님
-        ("조금 더 자세히 말씀해 주시겠어요?", "그냥 좀 그래요", true),
-        ("입안이 헐거나 아픈 부위가 있으신가요? (예: 어느 부분, 얼마나 심한지 등)", "구내염이 좀 생긴 거 같긴 해요", false), // 괄호
-        ("오심·구토에 대해 좀 더 말씀해주실 수 있으신가요? 예를 들어, 구토를 하셨는지 알려주세요.", "음 좀 어지러웠어요 속이", false), // 여러 문장
-        ("구토를 하셨는지, 속이 메스꺼우셨는지, 얼마나 자주, 얼마나 오래 지속되었는지 말씀해 주시겠어요?", "속이 좀", false), // 너무 김
-        ("피부에 발진이나 가려운 곳이 있으신가요?", "네 있어요. 너무 슬퍼요.", true),
-    ])
-    func 꼬리질문_검증(utterance: String, patient: String, accepted: Bool) {
-        #expect((InterviewEngine.validFollowUp(utterance, patientText: patient) != nil) == accepted)
-    }
-
     @Test func 환자_말이_아닌_근거의_언급은_기록하지_않는다() {
         var ledger = Ledger()
         let ids: Set = ["nausea_vomiting"]

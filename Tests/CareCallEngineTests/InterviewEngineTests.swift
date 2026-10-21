@@ -118,7 +118,8 @@ struct InterviewEngineTests {
         // "그냥 좀 그래요"·"글쎄요"는 다시 묻지 않고 바로 '모름'으로 남긴다 (VagueAnswerTests). 모델이 불명확하다고 본 답만 다시 묻는다
         let f1 = await engine.handle(patientText: "어떤 거 말씀이세요?")
         #expect(f1.phase == .slot(key: "nausea_vomiting", step: .presence))
-        #expect(f1.utterance == "조금 더 자세히 말씀해 주시겠어요?")
+        let ask = engine.config.effects.first { $0.id == "nausea_vomiting" }!.ask
+        #expect(f1.utterance == engine.config.repeatPrefix + " " + ask) // 모델 꼬리질문은 쓰지 않고 같은 질문을 다시 한다
         let f2 = await engine.handle(patientText: "음 그게요")
         #expect(f2.phase == .slot(key: "nausea_vomiting", step: .presence))
         let moved = await engine.handle(patientText: "모르겠어요")
