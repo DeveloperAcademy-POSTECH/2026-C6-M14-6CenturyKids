@@ -47,7 +47,7 @@ struct RecordDetailViewModelTests {
         // 같은 날 부위별 항목 두 개는 하루, 없음·모름은 세지 않는다
         #expect(detail.symptoms.map(\.type) == [.numbness, .diarrhea])
         #expect(detail.symptoms.map(\.weight) == [2, 1])
-        #expect(detail.records.count == 2)
+        #expect(detail.records.map(\.recordedDate) == [date(18), date(17)])
     }
 
     @Test func 하루기록_일은_있음인_증상을_같은_크기로_증상_순서대로_보여준다() throws {
