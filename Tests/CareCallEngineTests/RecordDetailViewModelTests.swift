@@ -14,10 +14,12 @@ struct RecordDetailViewModelTests {
                        location: [BodyLocation(bodyPart: .headFace, bodySide: .left, bodyView: .front)], painBefore: before, painAfter: after)
     }
     func symptoms(_ day: Int, _ entries: [(SymptomType, SymptomPresence)]) throws -> SymptomRecord {
-        SymptomRecord(id: UUID(), patientId: UUID(), recordedDate: date(day), conditionText: nil, symptoms: try entries.map {
-            try SymptomEntry(id: UUID(), symptomType: $0.0, presence: $0.1, bodyPart: nil, bodySide: nil,
-                             durationMinutes: nil, occurrenceCount: nil, detail: nil)
-        })
+        SymptomRecord(id: UUID(), patientId: UUID(), recordedDate: date(day), conditionText: nil,
+                      symptoms: try entries.map { try entry($0.0, $0.1) })
+    }
+    func entry(_ type: SymptomType, _ presence: SymptomPresence = .present, count: Int? = nil, minutes: Int? = nil) throws -> SymptomEntry {
+        try SymptomEntry(id: UUID(), symptomType: type, presence: presence, bodyPart: nil, bodySide: nil,
+                         durationMinutes: minutes, occurrenceCount: count, detail: nil)
     }
 
     @Test func 통증_주월은_기록한_날들의_하루_차이를_날_수로_평균낸다() throws {
@@ -37,16 +39,29 @@ struct RecordDetailViewModelTests {
         #expect(RecordDetailViewModel.painDetail([], period: .day, calendar: calendar).averageDifference == nil)
     }
 
-    @Test func 하루기록은_증상마다_있음으로_답한_날_수로_크기를_정한다() throws {
+    @Test func 하루기록_주월은_증상마다_있음으로_나타난_날_수로_크기를_정한다() throws {
         let detail = RecordDetailViewModel.symptomDetail([
             try symptoms(17, [(.numbness, .present), (.numbness, .present), (.diarrhea, .absent)]),
             try symptoms(18, [(.numbness, .present), (.diarrhea, .present), (.constipation, .unknown)])
-        ], calendar: calendar)
+        ], period: .week, calendar: calendar)
         // 같은 날 부위별 항목 두 개는 하루, 없음·모름은 세지 않는다
         #expect(detail.symptoms.map(\.type) == [.numbness, .diarrhea])
         #expect(detail.symptoms.map(\.weight) == [2, 1])
-        #expect(detail.symptoms.first?.label == "2일")
+        #expect(detail.symptoms.map(\.label) == ["2번", "1번"])
         #expect(detail.records.count == 2)
+    }
+
+    @Test func 하루기록_일은_같은_크기로_그날_답한_횟수나_시간을_보여준다() throws {
+        let record = SymptomRecord(id: UUID(), patientId: UUID(), recordedDate: date(17), conditionText: nil, symptoms: [
+            try entry(.numbness, minutes: 30), try entry(.numbness, minutes: 60),
+            try entry(.nauseaVomiting, count: 2), try entry(.nauseaVomiting, count: 1),
+            try entry(.constipation), try entry(.diarrhea, .absent, count: 4)
+        ])
+        let detail = RecordDetailViewModel.symptomDetail([record], period: .day, calendar: calendar)
+        // 증상 순서대로 같은 크기. 횟수는 부위별 항목을 더하고, 시간은 가장 긴 것, 둘 다 없으면 말풍선 없음
+        #expect(detail.symptoms.map(\.type) == [.nauseaVomiting, .constipation, .numbness])
+        #expect(detail.symptoms.map(\.weight) == [1, 1, 1])
+        #expect(detail.symptoms.map(\.label) == ["3회", nil, "60분"])
     }
 
     @Test func 주_이름은_목요일이_든_달의_몇_번째_주로_센다() throws {
