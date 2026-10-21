@@ -270,13 +270,8 @@ final class SettingsViewModel {
                 return
             }
 
-            guard let doctor = try await doctorRepository.findByCode(code) else {
+            guard let doctor = try await doctorRepository.findConnectionInfoByCode(code) else { //요기바뀜
                 state.errorMessage = "의사 코드를 확인해 주세요."
-                return
-            }
-
-            guard let hospital = try await hospitalRepository.findById(doctor.hospitalId) else {
-                state.errorMessage = "의사의 병원 정보를 찾지 못했어요."
                 return
             }
 
@@ -284,12 +279,12 @@ final class SettingsViewModel {
                 return
             }
 
-            state.candidateDoctorId = doctor.user.id
+            state.candidateDoctorId = doctor.doctorId
             state.candidate = DoctorDisplayData(
-                hospitalName: hospital.name,
-                name: doctor.user.name
+                hospitalName: doctor.hospitalName,
+                name: doctor.doctorName
             )
-            state.canConnect = patient.doctorId != doctor.user.id
+            state.canConnect = patient.doctorId != doctor.doctorId
         } catch {
             state.errorMessage = "연결 정보를 확인하지 못했어요. 다시 시도해 주세요."
         }
