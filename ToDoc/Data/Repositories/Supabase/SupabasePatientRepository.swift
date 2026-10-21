@@ -78,4 +78,10 @@ final class SupabasePatientRepository: PatientRepository {
             )
             .execute()
     }
+    
+    func disconnectFromDoctor() async throws {
+        try await client
+            .rpc("disconnect_patient_from_doctor")
+            .execute()
+    }
 }

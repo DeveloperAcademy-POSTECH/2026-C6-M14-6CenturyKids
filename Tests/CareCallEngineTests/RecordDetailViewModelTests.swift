@@ -182,7 +182,7 @@ struct RecordDetailViewModelTests {
     }
 }
 
-private final class FakePainRepository: PainRepository {
+final class FakePainRepository: PainRepository {
     let records: [PainRecord]
     private(set) var ranges: [(from: Date, to: Date)] = []
     init(records: [PainRecord]) { self.records = records }
@@ -195,7 +195,7 @@ private final class FakePainRepository: PainRepository {
     func deleteById(_ id: UUID) async throws {}
 }
 
-private final class FakeRecordSymptomRepository: SymptomRepository {
+final class FakeRecordSymptomRepository: SymptomRepository {
     var records: [SymptomRecord] = []
     var saveError: Error?
     private(set) var saved: [SymptomRecord] = []
