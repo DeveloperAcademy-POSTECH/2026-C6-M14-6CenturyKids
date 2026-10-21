@@ -136,8 +136,8 @@ import ToDocDomain
         let code = normalizedCode
         verifiedDoctorID = nil; verifiedDoctorCode = nil; state.connection = nil
         state.errorMessage = nil; state.hasAttemptedStep = true
-        guard code.range(of: "^[A-Z0-9]{6}$", options: .regularExpression) != nil else {
-            state.currentValidationError = "영문·숫자 6자리 코드를 입력해 주세요."; return
+        guard code.range(of: "^[A-Za-z0-9]{8}$", options: .regularExpression) != nil else {
+            state.currentValidationError = "영문·숫자 8자리 코드를 입력해 주세요."; return
         }
         state.currentValidationError = nil
         guard let doctors = repositories.doctors else {
@@ -148,7 +148,7 @@ import ToDocDomain
         do {
             let info = try await doctors.findConnectionInfoByCode(code)
             guard isCurrent(token), normalizedCode == code else { return }
-            guard let info, info.doctorCode.uppercased() == code else {
+            guard let info, info.doctorCode == code else {
                 state.errorMessage = "해당 코드의 의사와 병원을 찾지 못했어요. 코드를 확인해 주세요."
                 return
             }
@@ -353,6 +353,6 @@ import ToDocDomain
     }
 
     func cancel() { requestID = nil }
-    private var normalizedCode: String { state.doctorCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+    private var normalizedCode: String { state.doctorCode.trimmingCharacters(in: .whitespacesAndNewlines) }
     private func isCurrent(_ token: UUID) -> Bool { requestID == token && !Task.isCancelled }
 }

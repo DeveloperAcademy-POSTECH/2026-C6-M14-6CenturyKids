@@ -3,10 +3,13 @@ import ToDocDomain
 @testable import ToDocAuth
 
 private final class LookupDoctors: DoctorRepository {
-    var value: DoctorConnectionInfo? = DoctorConnectionInfo(
-        doctorId: UUID(), doctorName: "테스트 의사", doctorCode: "ABC123",
-        hospitalId: UUID(), hospitalName: "테스트 병원", hospitalAddress: "테스트 주소"
-    )
+    var value: DoctorConnectionInfo?
+    init(code: String = "Ab12Cd34") {
+        value = DoctorConnectionInfo(
+            doctorId: UUID(), doctorName: "테스트 의사", doctorCode: code,
+            hospitalId: UUID(), hospitalName: "테스트 병원", hospitalAddress: "테스트 주소"
+        )
+    }
     var error: Error?
     var codes: [String] = []
     var beforeLookup: (() async -> Void)?
@@ -44,7 +47,7 @@ private final class LookupDoctors: DoctorRepository {
         configuration.allowsSignupRequests = true
         let vm = SignupViewModel(repositories: repositories, session: fixture.session, configuration: configuration)
         SignupResetTests().ready(vm)
-        vm.state.step = .doctorCode; vm.state.doctorCode = "ABC123"
+        vm.state.step = .doctorCode; vm.state.doctorCode = "Ab12Cd34"
         return vm
     }
 
@@ -61,30 +64,32 @@ private final class LookupDoctors: DoctorRepository {
         XCTAssertEqual(fixture.patients.saves, 0, file: file, line: line)
     }
 
-    func testUnifiedLookupNeedsNoHospitalRepositoryAndNormalizesInput() async {
-        let f = AuthFixture(), doctors = LookupDoctors()
-        let vm = model(doctors, fixture: f)
-        XCTAssertNil(vm.repositories.hospitals)
-        vm.state.doctorCode = " \n abc123 \t"
-        await vm.verifyDoctorCode()
-        XCTAssertEqual(doctors.codes, ["ABC123"])
-        XCTAssertEqual(vm.state.step, .doctorConfirmation)
-        XCTAssertEqual(vm.state.connection?.doctorName, doctors.value?.doctorName)
-        XCTAssertEqual(vm.state.connection?.hospitalName, doctors.value?.hospitalName)
-        XCTAssertNil(vm.state.connection?.department)
-        XCTAssertNil(vm.state.errorMessage)
-        XCTAssertFalse(vm.state.isWorking)
-        assertNoWrites(f)
+    func testUnifiedLookupNeedsNoHospitalRepositoryAndPreservesCodeCase() async {
+        for code in ["Ab12Cd34", "ab12cd34"] {
+            let f = AuthFixture(), doctors = LookupDoctors(code: code)
+            let vm = model(doctors, fixture: f)
+            XCTAssertNil(vm.repositories.hospitals)
+            vm.state.doctorCode = " \n \(code) \t"
+            await vm.verifyDoctorCode()
+            XCTAssertEqual(doctors.codes, [code])
+            XCTAssertEqual(vm.state.step, .doctorConfirmation)
+            XCTAssertEqual(vm.state.connection?.doctorName, doctors.value?.doctorName)
+            XCTAssertEqual(vm.state.connection?.hospitalName, doctors.value?.hospitalName)
+            XCTAssertNil(vm.state.connection?.department)
+            XCTAssertNil(vm.state.errorMessage)
+            XCTAssertFalse(vm.state.isWorking)
+            assertNoWrites(f)
+        }
     }
 
     func testInvalidCodeFormatNeverQueriesOrWrites() async {
-        for code in ["ABC", "ABC1234", "AB12!3", "한글1234", "AB 123"] {
+        for code in ["", "ABC123", "ABC1234", "AB12CD345", "AB12 CD3", "AB12!D34", "한B12CD34"] {
             let f = AuthFixture(), doctors = LookupDoctors()
             let vm = model(doctors, fixture: f)
             vm.state.doctorCode = code
             await vm.verifyDoctorCode()
             XCTAssertTrue(doctors.codes.isEmpty)
-            XCTAssertNotNil(vm.state.currentValidationError)
+            XCTAssertEqual(vm.state.currentValidationError, "영문·숫자 8자리 코드를 입력해 주세요.", "입력: \(code)")
             XCTAssertNil(vm.state.connection)
             XCTAssertEqual(vm.state.step, .doctorCode)
             XCTAssertFalse(vm.state.isWorking)
@@ -102,7 +107,7 @@ private final class LookupDoctors: DoctorRepository {
             XCTAssertEqual(vm.state.errorMessage, failure ? lookupErrorMessage : notFoundMessage)
             XCTAssertEqual(vm.state.step, .doctorCode)
             XCTAssertNil(vm.state.connection)
-            XCTAssertEqual(doctors.codes, ["ABC123"])
+            XCTAssertEqual(doctors.codes, ["Ab12Cd34"])
             assertNoWrites(f)
         }
     }
@@ -117,18 +122,20 @@ private final class LookupDoctors: DoctorRepository {
         assertNoWrites(f)
     }
 
-    func testResponseForAnotherCodeCannotConfirmDoctor() async {
-        let f = AuthFixture(), doctors = LookupDoctors()
-        let vm = model(doctors, fixture: f)
-        doctors.value = DoctorConnectionInfo(
-            doctorId: UUID(), doctorName: "다른 의사", doctorCode: "XYZ789",
-            hospitalId: UUID(), hospitalName: "다른 병원", hospitalAddress: "다른 주소"
-        )
-        await vm.verifyDoctorCode()
-        XCTAssertEqual(vm.state.errorMessage, notFoundMessage)
-        XCTAssertEqual(vm.state.step, .doctorCode)
-        XCTAssertNil(vm.state.connection)
-        assertNoWrites(f)
+    func testResponseForAnotherCodeOrDifferentCaseCannotConfirmDoctor() async {
+        for returnedCode in ["ZX98YU76", "AB12CD34"] {
+            let f = AuthFixture(), doctors = LookupDoctors()
+            let vm = model(doctors, fixture: f)
+            doctors.value = DoctorConnectionInfo(
+                doctorId: UUID(), doctorName: "다른 의사", doctorCode: returnedCode,
+                hospitalId: UUID(), hospitalName: "다른 병원", hospitalAddress: "다른 주소"
+            )
+            await vm.verifyDoctorCode()
+            XCTAssertEqual(vm.state.errorMessage, notFoundMessage)
+            XCTAssertEqual(vm.state.step, .doctorCode)
+            XCTAssertNil(vm.state.connection)
+            assertNoWrites(f)
+        }
     }
 
     func testChangingInputDiscardsLateSuccessAndErrorWithoutOverwritingCurrentMessage() async {
@@ -137,11 +144,11 @@ private final class LookupDoctors: DoctorRepository {
             let vm = model(doctors, fixture: f)
             if failure { doctors.error = URLError(.timedOut) }
             doctors.beforeLookup = {
-                vm.state.doctorCode = "XYZ789"
+                vm.state.doctorCode = "ZX98YU76"
                 vm.state.errorMessage = "새 코드를 확인해 주세요."
             }
             await vm.verifyDoctorCode()
-            XCTAssertEqual(vm.state.doctorCode, "XYZ789")
+            XCTAssertEqual(vm.state.doctorCode, "ZX98YU76")
             XCTAssertEqual(vm.state.step, .doctorCode)
             XCTAssertEqual(vm.state.errorMessage, "새 코드를 확인해 주세요.")
             XCTAssertNil(vm.state.connection)
@@ -238,7 +245,7 @@ private final class LookupDoctors: DoctorRepository {
         let vm = model(doctors, fixture: f)
         await createAccount(vm)
         await vm.verifyDoctorCode()
-        vm.state.doctorCode = "XYZ789"; vm.state.step = .review
+        vm.state.doctorCode = "ZX98YU76"; vm.state.step = .review
         await vm.submit()
         XCTAssertEqual(f.users.saves, 0); XCTAssertEqual(f.patients.saves, 0)
         XCTAssertNotEqual(vm.state.step, .completion)
