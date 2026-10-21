@@ -42,7 +42,8 @@ struct RecordOverviewCard<Graphic: View, Content: View>: View {
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: 28) {
                             graphic().frame(width: 80, height: 80)
-                            content().frame(minWidth: 115, maxWidth: .infinity, alignment: .leading)
+                            // 긴 부제가 세로 배치로 바꾸지 않고 이 칸 안에서 줄바꿈되도록 최소 너비로 잽니다
+                            content().frame(minWidth: 115, idealWidth: 115, maxWidth: .infinity, alignment: .leading)
                             arrow
                         }
                         vertical
