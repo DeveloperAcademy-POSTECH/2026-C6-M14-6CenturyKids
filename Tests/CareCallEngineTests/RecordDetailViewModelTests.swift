@@ -47,21 +47,19 @@ struct RecordDetailViewModelTests {
         // 같은 날 부위별 항목 두 개는 하루, 없음·모름은 세지 않는다
         #expect(detail.symptoms.map(\.type) == [.numbness, .diarrhea])
         #expect(detail.symptoms.map(\.weight) == [2, 1])
-        #expect(detail.symptoms.map(\.label) == ["2번", "1번"])
         #expect(detail.records.count == 2)
     }
 
-    @Test func 하루기록_일은_같은_크기로_그날_답한_횟수나_시간을_보여준다() throws {
+    @Test func 하루기록_일은_있음인_증상을_같은_크기로_증상_순서대로_보여준다() throws {
         let record = SymptomRecord(id: UUID(), patientId: UUID(), recordedDate: date(17), conditionText: nil, symptoms: [
             try entry(.numbness, minutes: 30), try entry(.numbness, minutes: 60),
             try entry(.nauseaVomiting, count: 2), try entry(.nauseaVomiting, count: 1),
             try entry(.constipation), try entry(.diarrhea, .absent, count: 4)
         ])
         let detail = RecordDetailViewModel.symptomDetail([record], period: .day, calendar: calendar)
-        // 증상 순서대로 같은 크기. 횟수는 부위별 항목을 더하고, 시간은 가장 긴 것, 둘 다 없으면 말풍선 없음
+        // 같은 증상의 부위별 항목은 한 칸, 없음은 빼고 증상 순서대로 같은 크기
         #expect(detail.symptoms.map(\.type) == [.nauseaVomiting, .constipation, .numbness])
         #expect(detail.symptoms.map(\.weight) == [1, 1, 1])
-        #expect(detail.symptoms.map(\.label) == ["3회", nil, "60분"])
     }
 
     @Test func 주_이름은_목요일이_든_달의_몇_번째_주로_센다() throws {
