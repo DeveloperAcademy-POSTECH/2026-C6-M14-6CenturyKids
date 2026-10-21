@@ -54,6 +54,12 @@ final class RecordDetailViewModel {
 
     private func state(_ kind: RecordOverviewKind) -> RecordDetailScreenState { kind == .pain ? pain : symptom }
 
+    /// 기록 목록에서 카드를 누르면 보던 날이 든 기간으로 상세를 연다 (조회는 상세 화면이 나타날 때)
+    func show(_ kind: RecordOverviewKind, at day: Date) {
+        anchors[kind] = day
+        showPeriod(of: state(kind))
+    }
+
     private func handle(_ action: RecordDetailAction, for kind: RecordOverviewKind) {
         let state = state(kind)
         switch action {
@@ -159,7 +165,7 @@ final class RecordDetailViewModel {
         }
     }
 
-    private static func monthDay(_ date: Date, _ calendar: Calendar) -> String {
+    static func monthDay(_ date: Date, _ calendar: Calendar) -> String {
         "\(calendar.component(.month, from: date))월 \(calendar.component(.day, from: date))일"
     }
 
