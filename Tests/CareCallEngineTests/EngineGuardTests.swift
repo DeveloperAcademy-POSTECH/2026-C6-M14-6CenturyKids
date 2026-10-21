@@ -110,7 +110,8 @@ struct EngineGuardTests {
         #expect(others.isEmpty != recorded)
         if recorded {
             #expect(engine.ledger[others[0]]?.needsReview == true)
-            #expect(out.utterance == config.otherDetail.question) // 한 번 더 묻고 마무리
+            // 증상 표현이 없는 원문 기록에는 시작 시점을 묻지 않고 마무리한다 (2026-10-22: 증상이 아닌 말 뒤 "언제부터 그러셨어요?")
+            #expect(out.utterance.hasPrefix(config.otherDetail.recorded))
         }
     }
 
@@ -383,7 +384,7 @@ struct OtherSymptomRetryTests {
         #expect(engine.ledger.order.allSatisfy { !$0.hasPrefix("other:") })
     }
 
-    @Test func 그_밖에_분석이_실패해도_부정이_아니면_원문으로_기록하고_내용을_묻는다() async throws {
+    @Test func 그_밖에_분석이_실패해도_부정이_아니면_원문으로_기록한다() async throws {
         let mock = MockAnalyzer()
         mock.failOn = ["잠을 잠 못 잡니다", "딱히 없는 것 같아요"]
         let engine = InterviewEngine(config: try fixture(CareCallConfig.self, "side_effects"),
@@ -395,7 +396,7 @@ struct OtherSymptomRetryTests {
         // "그게 좀 그래요" 같은 애매한 답은 기록하지 않는다 (VagueAnswerTests)
         let out = await engine.handle(patientText: "잠을 잠 못 잡니다")
         #expect(engine.ledger["other:잠을 잠 못 잡니다"]?.presence == .present)
-        #expect(out.utterance == engine.config.otherDetail.question)
+        #expect(out.utterance.hasPrefix(engine.config.otherDetail.recorded))
     }
 
     @Test(arguments: ["딱히 없는 것 같아요", "읎심더"])

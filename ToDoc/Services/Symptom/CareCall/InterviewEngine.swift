@@ -248,8 +248,11 @@ final class InterviewEngine {
                 otherAsked = true
                 recordedPrefix = config.otherDetail.recorded
             } else if let key = ledger.order.last(where: { $0.hasPrefix("other:") && before[$0] == nil }) {
-                // 새 기타 증상: 무엇인지 이미 되물었거나 언제부터인지 이미 말했으면 바로 마무리, 아니면 시작 시점을 묻는다
-                if otherYesFollowedUp || mentionsOnset(patientText) {
+                // 새 기타 증상: 무엇인지 이미 되물었거나 언제부터인지 이미 말했으면 바로 마무리, 아니면 시작 시점을 묻는다.
+                // 모델이 증상으로 보지 않아 원문만 남긴 말(증상 표현 없음: "병원비 때문에 걱정이 많아요", "손주가 와서 바빴어요")에는
+                // 시작 시점을 묻지 않는다 (2026-10-22 평가: 증상이 아닌 말 뒤에 "언제부터 그러셨어요?")
+                let verbatimOnly = ledger[key]?.needsReview == true && symptomHints.matches(patientText) == nil
+                if otherYesFollowedUp || mentionsOnset(patientText) || verbatimOnly {
                     otherAsked = true
                     recordedPrefix = config.otherDetail.recorded
                 } else {
@@ -558,7 +561,9 @@ final class InterviewEngine {
         // 다시 거는 통화의 첫 답에서 나빠졌다는 말("좀 안 좋아졌어요")은 컨디션으로 저장하지 않으니 기타로 남긴다
         // '그 밖에'에서 증상 표현이 있으면 모델이 되물어도 먼저 남긴다: 되물은 답이 "없어요"면 증상이 사라졌다
         // ("잘 모르겠는데 머리가 아파요", 2026-10-19 실기기). 남기면 "어떤 점이 그러신지"를 물어 내용을 받는다
-        let keepAnyway = phase == .other && symptomHints.matches(text) != nil
+        // 첫 질문의 꼬리질문("언제부터 그러셨어요?")에 답하면 모델은 시작 시점만 보고 되묻는다. 첫 답의 증상 표현은 그래도 남긴다
+        // ("밤에 잠을 통 못 자요 / 주사 맞고부터요"가 기록 없이 사라졌다, 2026-10-22 평가)
+        let keepAnyway = (phase == .other || (phase == .opening && openingFirstAnswer != nil)) && symptomHints.matches(text) != nil
         // '그 밖에'에서 모델이 되물은 말은 먼저 '모름'으로 남긴다: 되물은 답이 "없어요"·"네"면 처음 말이 사라졌다
         // ("이렇게 살아서 뭐하나 싶어요", 2026-10-21 Foundation Models 탐침). '있음'으로는 남기지 않는다
         if phase == .other, unchanged, modelAsked, !keepAnyway,
