@@ -1081,3 +1081,22 @@ struct ClausePresenceTests {
         #expect(await answer(key, text, model: .absent) == .present)
     }
 }
+
+/// 2026-10-22 시나리오 반복 2바퀴: 처음·그 밖에서 저림·피부를 근거 낱말 없이 고르면 기타 증상으로
+@MainActor
+struct KeywordRequiredTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    @Test(arguments: [("허리가 아파서 잘 못 걸어요", "neuropathy", false), ("옆구리가 결려요", "rash_pruritus", false),
+                      ("손끝이 저려요", "neuropathy", true), ("발이 찌르르해요", "neuropathy", true)])
+    func 근거_없는_저림_피부는_기타(text: String, key: String, listed: Bool) async {
+        let mock = MockAnalyzer()
+        mock.script[text] = .mentions(Mention(effectId: key, presence: .present, quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: text)
+        #expect((engine.ledger[key]?.presence == .present) == listed)
+        #expect(engine.ledger.order.contains { $0.hasPrefix("other:") } != listed)
+    }
+}

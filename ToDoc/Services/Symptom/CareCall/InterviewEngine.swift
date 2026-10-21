@@ -152,7 +152,8 @@ final class InterviewEngine {
             result?.mentions.append(reason)
         }
         if let mentions = result?.mentions {
-            result?.mentions = presentByPhrase(reassignedByKeywords(normalizedOthers(mentions, during: current, patientText: patientText),
+            result?.mentions = presentByPhrase(reassignedByKeywords(normalizedOthers(unevidencedAsOther(mentions, during: current, patientText: patientText),
+                                                                                     during: current, patientText: patientText),
                                                                     during: current, patientText: patientText),
                                                 during: current, patientText: patientText)
         }
@@ -312,6 +313,19 @@ final class InterviewEngine {
             utterance = prefix + " " + utterance
         }
         return (Output(utterance: utterance, phase: phase), modelEmergency)
+    }
+
+    /// 처음·그 밖에 질문에서 낱말이 꼭 있어야 하는 항목(keywordRequired: 저림·피부)을 환자 말에 그 낱말 없이 고르면 기타 증상으로 둔다
+    /// (2026-10-22 평가: "허리가 아파서", "무릎이 쑤셔요", "어지러워요"를 저림으로, "옆구리가 결려요"를 피부로). 이름은 normalizedOthers가 원문으로 붙이고,
+    /// 그 항목은 차례가 오면 그대로 묻는다
+    private func unevidencedAsOther(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
+        guard phase == .opening || phase == .other else { return mentions }
+        return mentions.map { m in
+            // '모름'(다시 확인해 이미 낮춘 것)은 그대로 둔다: 그 항목 차례에 다시 묻는다
+            guard m.presence == .present, let effect = config.effects.first(where: { $0.id == m.effectId }), effect.keywordRequired == true,
+                  !effect.keywords.contains(where: patientText.contains) else { return m }
+            return Mention(effectId: "other", presence: m.presence, quote: m.quote)
+        }
     }
 
     /// 모델이 고른 목록 증상의 낱말은 환자 말에 없고 다른 목록 증상 하나의 낱말만 있으면 그 증상으로 바꾼다

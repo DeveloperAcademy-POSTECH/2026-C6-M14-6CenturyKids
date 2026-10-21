@@ -79,6 +79,7 @@
     },
     {
       "id": "neuropathy",
+      "keywordRequired": true,
       "name": "말초신경병증(손발 저림)",
       "spokenName": "손발 저림",
       "ask": "손이나 발이 저리거나 감각이 둔한 곳이 있으세요?",
@@ -92,12 +93,17 @@
         "저린",
         "저릿",
         "찌릿",
+        "찌르르",
+        "둔해",
+        "둔하",
+        "남의 살",
         "감각"
       ],
       "requiresLocation": true
     },
     {
       "id": "rash_pruritus",
+      "keywordRequired": true,
       "name": "피부 발진·가려움",
       "spokenName": "피부 발진이나 가려움",
       "ask": "피부에 발진이 생기거나 가려운 곳이 있으세요?",
@@ -112,7 +118,10 @@
         "두드러기",
         "근질",
         "간지",
-        "뾰루지"
+        "뾰루지",
+        "울긋불긋",
+        "오돌토돌",
+        "뭐가 났"
       ],
       "requiresLocation": true
     },
