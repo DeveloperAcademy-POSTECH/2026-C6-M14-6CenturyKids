@@ -90,6 +90,8 @@ struct CareCallConfig: Decodable, Sendable {
     let noPrefixes: [String]
     /// 그 항목이 정상이라는 말 ("입 안은 멀쩡하고요", "피부도 깨끗하고요"). 유무 질문에 모델이 아무것도 남기지 않았을 때 '없음'으로 본다
     let normalWords: [String]
+    /// 질문을 다시 해 달라는 말 ("네? 뭐라고요?", "잘 안 들려요"). 모델 없이 같은 질문을 다시 한다 ("네"로 시작해 '있음'이 됐다)
+    let repeatRequests: [String]
     let noSuffixes: [String]
     /// 유무 질문에 이 말로 끝나는 답은 이유를 말한 것 → 있음 ("입이 아파서요" = 입이 아파서 많이 못 먹었다, 초안)
     let reasonSuffixes: [String]

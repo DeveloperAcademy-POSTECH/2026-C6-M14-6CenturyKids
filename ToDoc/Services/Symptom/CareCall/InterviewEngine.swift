@@ -198,7 +198,7 @@ final class InterviewEngine {
         if current == .opening, let unasked {
             // 증상이 없어졌다고만 말한 답("설사는 멈췄어요" → 이번 답으로 목록 증상 없음)은 알아들은 답이라 되묻지 않는다.
             // 연결어·숫자·나빠졌다는 말이 섞이면("멈췄는데 대신…") 놓친 증상이 있을 수 있어 되묻는다
-            let mixed = ["근데", "그런데", "는데", "지만", "한데"].contains(where: Self.normalized(patientText).contains)
+            let mixed = Self.hasContrast(patientText)
                 || NumberParser.hasNumber(patientText) || openingConcerns.matches(patientText) != nil
             let toldAbsent = !mixed && ledger.order.contains { key in
                 knownIds.contains(key) && ledger[key]?.presence == .absent && before[key]?.presence != .absent
@@ -225,7 +225,8 @@ final class InterviewEngine {
 
         switch current {
         case .slot(let key, let step) where step != .detail
-            && (isUnknownAnswer(patientText) || (step == .presence && isVagueAnswer(patientText))):
+            && (isUnknownAnswer(patientText) || (step == .presence && isVagueAnswer(patientText))
+                || (step == .location && isNoLocation(patientText))):
             ledger.markUnknown(key, step: step, quote: patientText) // '모름' + 원문
         case .other where otherDetailKey == nil && soundsUnsure(patientText) && ledger.sameRecords(as: before):
             // '그 밖에'에 "모르겠어요"·"그냥 그래요": 기타 '모름' + 원문으로 남기고 마무리 (증상 '있음'으로는 남기지 않는다)
@@ -742,15 +743,19 @@ final class InterviewEngine {
     private func absentByNormalAnswer(_ result: TurnResult, key: String, patientText: String) -> Mention? {
         guard !result.mentions.contains(where: { $0.effectId == key }), symptomHints.matches(patientText) == nil,
               !NumberParser.hasNumber(patientText),
-              // 대조: "~데"(깨끗한데·괜찮은데·멀쩡한데), "~지만", "그래도", "대신" 뒤에는 증상이 올 수 있다
-              patientText.range(of: #"[가-힣]데(?=[\s,.]|$)|지만|그래도|대신"#, options: .regularExpression) == nil,
+              !Self.hasContrast(patientText),
               let effect = config.effects.first(where: { $0.id == key }), !saysPresent(effect, patientText),
               !config.effects.contains(where: { $0.id != key && $0.keywords.contains { $0.count >= 2 && patientText.contains($0) } })
         else { return nil }
         let parts = KeywordMatcher.clauses(patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression))
         let last = parts.last { !$0.trimmingCharacters(in: .whitespaces).isEmpty } ?? patientText
         let compact = Self.normalized(last)
-        guard soundsNegative(last) || config.normalWords.contains(where: { compact.contains(Self.normalized($0)) }) else { return nil }
+        // 그 항목 낱말을 "안"으로 부정한 말도 정상이라는 말이다 ("아니요, 안 저려요"). "좀 저려요"는 아니다
+        let ownKeywords = effect.keywords.filter { $0.count >= 2 }
+        let ownNegated = ownKeywords.contains(where: last.contains)
+            && KeywordMatcher(keywords: ownKeywords, prefixNegation: true).matches(last) == nil
+        guard soundsNegative(last) || ownNegated || config.normalWords.contains(where: { compact.contains(Self.normalized($0)) })
+        else { return nil }
         return Mention(effectId: key, presence: .absent, quote: patientText)
     }
 
@@ -777,6 +782,11 @@ final class InterviewEngine {
         let patientText = Self.withoutFillers(fullText, fillers: config.shortAnswers.fillers)
         let text = Self.normalized(patientText)
         let yes = isShortYes(patientText), no = config.shortAnswers.no.contains(text)
+        // "네? 뭐라고요?": 기록하지 않고 같은 질문을 다시 한다 (모델이 "네"를 보고 '있음'으로 남겼다, 2026-10-22 평가)
+        if isRepeatRequest(patientText), phase.asksQuestion {
+            return TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
+                              emergencySignal: false, utterance: "")
+        }
         switch phase {
         case .other where otherDetailKey != nil:
             // 기타 증상 꼬리질문의 답: 모델 없이 그대로 기록 (아래 switch)
@@ -792,7 +802,7 @@ final class InterviewEngine {
             return TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
                               emergencySignal: false, utterance: config.otherFollowUp)
         case .slot(_, .presence) where isUnknownAnswer(patientText) || isVagueAnswer(patientText),
-             .slot(_, .location) where isUnknownAnswer(patientText),
+             .slot(_, .location) where isUnknownAnswer(patientText) || isNoLocation(patientText),
              .other where isUnknownAnswer(patientText) || isVagueAnswer(patientText):
             // "모르겠어요"·"그냥 그래요": 모델 없이 '모름' + 원문으로 기록 (아래 switch)
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
@@ -827,7 +837,7 @@ final class InterviewEngine {
         guard config.noPrefixes.contains(where: { compact == Self.normalized($0) })
                 || (config.noSuffixes + (effect?.absentPhrases ?? [])).contains(where: { compact.hasSuffix(Self.normalized($0)) })
         else { return false }
-        if ["근데", "그런데", "는데", "지만", "그리고", "대신"].contains(where: { t.contains($0) }) { return false }
+        if Self.hasContrast(t) || t.contains("그리고") { return false }
         if NumberParser.hasNumber(t) { return false }
         let otherKeywords = config.effects.filter { $0.id != key }.flatMap(\.keywords)
         if otherKeywords.contains(where: { t.contains($0) }) { return false }
@@ -898,6 +908,22 @@ final class InterviewEngine {
 
     private func isShortYes(_ patientText: String) -> Bool {
         config.shortAnswers.yes.contains(Self.normalized(patientText))
+    }
+
+    /// 뒤에 다른 말이 올 수 있는 대조 표현: "~데"(깨끗한데·괜찮은데·있긴 한데 — "는데"만 보면 "한데"를 놓친다), "~지만", "근데", "그래도", "대신"
+    static func hasContrast(_ text: String) -> Bool {
+        text.range(of: #"[가-힣]데(?=[\s,.?!]|$)|지만|그래도|대신"#, options: .regularExpression) != nil
+    }
+
+    /// 질문을 다시 해 달라는 말 ("네? 뭐라고요?", "잘 안 들려요")
+    private func isRepeatRequest(_ text: String) -> Bool {
+        let compact = Self.normalized(text)
+        return config.repeatRequests.contains { compact.contains(Self.normalized($0)) }
+    }
+
+    /// 부위 질문에 "없어요"·"딱히 없어요": 부위는 '모름'으로 둔다 (유무를 뒤집지 않는다)
+    private func isNoLocation(_ text: String) -> Bool {
+        soundsNegative(text) && Self.normalized(text).count <= 10
     }
 
     static func normalized(_ s: String) -> String { String(s.filter { !$0.isWhitespace && !$0.isPunctuation }) }
