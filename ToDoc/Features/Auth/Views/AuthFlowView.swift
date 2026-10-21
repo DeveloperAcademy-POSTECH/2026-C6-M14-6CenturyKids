@@ -32,7 +32,7 @@ import SwiftUI
 #if DEBUG
         .safeAreaInset(edge: .bottom) {
             if model.signup.configuration.isLocalSignupTest, model.screen == .signup {
-                Text("실서버 가입 테스트 · 약관 동의 수집 제외")
+                Text("실서버 가입 테스트 · 약관 확인 포함 · 동의 이력 서버 보관 제외")
                     .font(.caption).padding(8)
             } else if model.screen == .login || (model.screen == .signup && model.signup.state.step == .role) {
                 Button("실서버 가입 테스트") { confirmsSignupTest = true }
@@ -44,7 +44,7 @@ import SwiftUI
             Button("취소", role: .cancel) {}
             Button("테스트 시작") { model.startLocalSignupTest() }
         } message: {
-            Text("실제 서버에 계정과 사용자·환자 정보가 저장됩니다. 본인 소유의 새 테스트 이메일과 가상 프로필을 사용하세요. 승인 약관을 대신하지 않으며 약관 단계와 동의 저장은 제외합니다.")
+            Text("실제 서버에 계정과 사용자·환자 정보가 저장됩니다. 본인 소유의 새 테스트 이메일과 가상 프로필을 사용하세요. 약관을 확인하고 필수 항목 5개에 동의해야 진행할 수 있습니다. 동의 이력은 서버에 보관하지 않습니다.")
         }
 #endif
         .onChange(of: model.login.state.didSignIn) { _, signedIn in if signedIn { onSignedIn?() } }

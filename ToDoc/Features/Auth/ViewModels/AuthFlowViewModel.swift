@@ -80,7 +80,7 @@ enum AuthEntry { case login, signup, passwordReset }
         showsAuth = false
     }
 #if DEBUG
-    /// 실제 Repository는 그대로 사용합니다. 약관 동의 수집/보관 검증은 이 경로의 범위가 아닙니다.
+    /// 실제 Repository와 약관 확인을 사용합니다. 동의 이력의 서버 보관은 이 경로의 범위가 아닙니다.
     func startLocalSignupTest() {
         guard !session.isBusy, session.patient == nil, !signup.state.isAccountLocked else { return }
         var configuration = signup.configuration

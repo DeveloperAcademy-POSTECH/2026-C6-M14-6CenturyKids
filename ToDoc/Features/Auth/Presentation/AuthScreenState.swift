@@ -71,9 +71,10 @@ enum SignupAction {
     var hasAttemptedStep = false
     var currentValidationError: String?
     var termsContent: [SignupTerm: String] = [:]
-    var isLocalSignupTest = false
-    var canProceedFromTerms: Bool { isLocalSignupTest || (hasRequiredTermsContent && SignupTerm.allCases.filter(\.isRequired).allSatisfy(acceptedTerms.contains)) }
+    var termsVersion: String?
+    var termsEffectiveDate: String?
     var hasRequiredTermsContent = false
+    var canProceedFromTerms: Bool { hasRequiredTermsContent && allTermsAccepted }
     var age: Int? {
         guard let birthday else { return nil }
         return calendar.dateComponents([.year], from: calendar.startOfDay(for: birthday), to: calendar.startOfDay(for: latestBirthday)).year
