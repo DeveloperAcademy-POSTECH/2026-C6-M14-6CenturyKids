@@ -341,8 +341,9 @@ final class InterviewEngine {
         guard phase == .opening || phase == .other else { return mentions }
         return mentions.map { m in
             // '모름'(다시 확인해 이미 낮춘 것)은 그대로 둔다: 그 항목 차례에 다시 묻는다
+            // 낱말을 부정한 말("다리가 저린 건 아니고 쑤셔요")은 근거가 아니다
             guard m.presence == .present, let effect = config.effects.first(where: { $0.id == m.effectId }), effect.keywordRequired == true,
-                  !effect.keywords.contains(where: patientText.contains) else { return m }
+                  KeywordMatcher(keywords: effect.keywords, prefixNegation: true).matches(patientText) == nil else { return m }
             return Mention(effectId: "other", presence: m.presence, quote: m.quote)
         }
     }

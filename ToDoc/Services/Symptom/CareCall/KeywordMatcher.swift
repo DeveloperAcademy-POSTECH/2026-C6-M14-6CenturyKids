@@ -26,9 +26,9 @@ struct KeywordMatcher: Sendable {
                     let before = clause[..<range.lowerBound].trimmingCharacters(in: .whitespaces)
                     // 증상 표현 모드: 앞의 "안"("안 아파요")과 바로 뒤의 "안"("열이 안 나요")도 부정
                     let negatedBefore = prefixNegation && (before == "안" || before.hasSuffix(" 안") || rest.hasPrefix("안"))
-                    // 증상 표현 모드: "뻐근한 데는 없어요", "쑤시는 데 없어요"도 부정 ("아픈데 없어지질 않아요", "없진 않아요"는 아니다)
+                    // 증상 표현 모드: "뻐근한 데는 없어요", "쑤시는 데 없어요", "저린 건 아니고"도 부정 ("아픈데 없어지질 않아요", "없진 않아요"는 아니다)
                     let negatedPlace = prefixNegation
-                        && rest.range(of: #"^(?:하|한|는|은)?(?:데|곳|부분|부위)(?:는|도|은|가)?(?:없(?!어지|어져|진|지는|지않)|않|아니)"#,
+                        && rest.range(of: #"^(?:하|한|는|은)?(?:데|곳|부분|부위|건|게|거)(?:는|도|은|가)?(?:없(?!어지|어져|진|지는|지않)|않|아니)"#,
                                       options: .regularExpression) != nil
                     if !Self.negated(rest), !negatedBefore, !negatedPlace { return keyword }
                     from = range.upperBound

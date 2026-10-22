@@ -1239,3 +1239,17 @@ struct PlaceNegationTests {
         #expect(KeywordMatcher(keywords: ["가슴이 아"]).matches("가슴이 아픈 데는 없어요") != nil)
     }
 }
+
+extension KeywordRequiredTests {
+    /// 낱말을 부정한 말("저린 건 아니고")은 저림 근거가 아니다
+    @Test func 부정한_저림_낱말은_근거가_아니다() async {
+        let mock = MockAnalyzer()
+        let text = "다리가 저린 건 아니고 쑤셔요"
+        mock.script[text] = .mentions(Mention(effectId: "neuropathy", presence: .present, locations: ["다리"], quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: text)
+        #expect(engine.ledger["neuropathy"]?.presence != .present)
+        #expect(engine.ledger.order.contains { $0.hasPrefix("other:") })
+    }
+}
