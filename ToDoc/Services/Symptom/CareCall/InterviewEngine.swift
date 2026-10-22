@@ -210,8 +210,9 @@ final class InterviewEngine {
             ledger.setConditionText([openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / "))
         }
         // 첫 질문: 증상 표현이나 컨디션이 나쁘다는 말이 있고 목록 증상은 기록되지 않았으면 한 번 되묻는다
-        // ("피곤해요" → "어떤 점이 그러신지…". "보통이에요", "잠은 잘 자요"는 묻지 않음)
-        if current == .opening, openingFirstAnswer == nil, result?.needsClarification != true,
+        // ("피곤해요" → "어떤 점이 그러신지…". "보통이에요", "잠은 잘 자요"는 묻지 않음).
+        // 증상 표현이 있으면 모델이 되물어도 묻는다: "기침이 좀 나요 감기 기운인지"를 되묻기로 내 시작 시점을 묻지 않았다 (2026-10-22 평가)
+        if current == .opening, openingFirstAnswer == nil, result?.needsClarification != true || symptomHints.matches(patientText) != nil,
            symptomHints.matches(patientText) != nil || openingConcerns.matches(patientText) != nil,
            !knownIds.contains(where: { ledger[$0]?.presence != before[$0]?.presence }),
            let followUp = openingFollowUpQuestion(patientText) {
