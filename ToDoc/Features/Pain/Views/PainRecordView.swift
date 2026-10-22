@@ -9,7 +9,7 @@ struct PainRecordView: View {
     @State private var activeAlert: PainRecordAlert?
     @Environment(\.dismiss) private var dismiss
     var onClose: (() -> Void)?
-    var onShowRecord: (() -> Void)?
+    var onShowRecord: ((PainRecord) -> Void)?
     var onHome: (() -> Void)?
     var onCancel: (() -> Void)?
 
@@ -28,7 +28,7 @@ struct PainRecordView: View {
     }
 
     init(viewModel: PainRecordViewModel, state: PainScreenState = PainScreenState(),
-         onClose: (() -> Void)? = nil, onShowRecord: (() -> Void)? = nil,
+         onClose: (() -> Void)? = nil, onShowRecord: ((PainRecord) -> Void)? = nil,
          onHome: (() -> Void)? = nil, onCancel: (() -> Void)? = nil) {
         self.viewModel = viewModel
         _state = State(initialValue: state)
@@ -89,7 +89,7 @@ struct PainRecordView: View {
                         { saveAndMove(to: destination) }
                     },
                     onHome: {
-                        saveAndMove(to: {
+                        saveAndMove(to: { _ in
                             if let onHome {
                                 onHome()
                             } else {
@@ -177,13 +177,13 @@ struct PainRecordView: View {
         }
     }
 
-    private func saveAndMove(to destination: @escaping () -> Void) {
+    private func saveAndMove(to destination: @escaping (PainRecord) -> Void) {
         guard !viewModel.isSaving else { return }
 
         Task { @MainActor in
             do {
-                _ = try await viewModel.savePreparedRecord()
-                destination()
+                let savedRecord = try await viewModel.savePreparedRecord()
+                destination(savedRecord)
             } catch PainRecordViewModel.SaveError.alreadySaving {
                 return
             } catch {

@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-enum HomeDestination: String, Hashable { case symptom, pain, notifications }
+enum HomeDestination: String, Hashable { case symptom, pain, painDetail, notifications }
 enum HomeLoadState { case unavailable, loading, loaded, failed }
 struct HomeDoctorMessage: Identifiable {
     let id: UUID
