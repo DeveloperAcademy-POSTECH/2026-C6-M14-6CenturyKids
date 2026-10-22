@@ -88,8 +88,14 @@ struct PainRecordView: View {
                     onShowRecord: onShowRecord.map { destination in
                         { saveAndMove(to: destination) }
                     },
-                    onHome: onHome.map { destination in
-                        { saveAndMove(to: destination) }
+                    onHome: {
+                        saveAndMove(to: {
+                            if let onHome {
+                                onHome()
+                            } else {
+                                dismiss()
+                            }
+                        })
                     }
                 )
             } else {
