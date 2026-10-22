@@ -1217,3 +1217,11 @@ extension OpeningMixedTests {
         #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
     }
 }
+
+extension ClausePresenceTests {
+    /// 붙어 쓴 '-데요' 뒤도 절 경계: "혓바늘이 따가운데요 괜찮아요"는 있음, 띄어 쓴 "가려운 데는 없어요"는 그대로
+    @Test func 붙어_쓴_데요_뒤도_절_경계() async {
+        #expect(await answer("stomatitis", "입안이 좀 따가운데요 괜찮아요", model: .absent) == .present)
+        #expect(await answer("rash_pruritus", "가려운 데는 없어요", model: .absent) == .absent)
+    }
+}

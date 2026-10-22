@@ -846,7 +846,10 @@ final class InterviewEngine {
     /// - 앞부분에서 그 항목 낱말을 부정 없이 말하고 마지막 부분이 괜찮다·정상이라는 말이면 있음
     private func presenceByClauses(key: String, patientText: String) -> MentionPresence? {
         guard let effect = config.effects.first(where: { $0.id == key }) else { return nil }
-        let parts = KeywordMatcher.clauses(patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression))
+        // "따가운데요 괜찮아요"처럼 붙어 쓴 '-데요' 뒤도 절 경계로 본다 (띄어 쓴 "가려운 데는"은 아니다)
+        let split = patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression)
+            .replacingOccurrences(of: #"([가-힣])데요\s+"#, with: "$1데요,", options: .regularExpression)
+        let parts = KeywordMatcher.clauses(split)
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         guard let last = parts.last else { return nil }
         let compact = Self.normalized(last)
