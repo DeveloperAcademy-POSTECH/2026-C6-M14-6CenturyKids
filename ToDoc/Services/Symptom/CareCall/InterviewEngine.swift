@@ -143,6 +143,11 @@ final class InterviewEngine {
             result?.mentions.removeAll { $0.effectId == key && $0.presence != .present && $0.locations.isEmpty }
             for i in result?.mentions.indices ?? 0..<0 where result?.mentions[i].effectId == key { result?.mentions[i].presence = .present }
         }
+        // 부위 질문의 답은 짧아 근거를 답 전체로 둔다. 모델이 "등이요"를 "등요"로 옮겨 적어 근거 확인에 걸리고 부위가 버려졌다 (2026-10-22 평가).
+        // 부위 낱말은 Ledger가 환자 말에 있는지 따로 확인한다
+        if case .slot(let key, .location) = current {
+            for i in result?.mentions.indices ?? 0..<0 where result?.mentions[i].effectId == key { result?.mentions[i].quote = patientText }
+        }
         if case .slot(let key, .presence) = current, let analyzed = result, let absent = absentByNormalAnswer(analyzed, key: key, patientText: patientText) {
             result?.mentions.append(absent)
         }

@@ -1198,3 +1198,11 @@ extension OpeningMixedTests {
         #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
     }
 }
+
+extension LocationKeepsPresenceTests {
+    /// 모델이 근거를 바꿔 적어도("등이요" → "등요") 부위 질문의 답이면 부위를 받는다
+    @Test func 부위_답의_근거를_바꿔_적어도_부위를_받는다() async {
+        let engine = await atLocation("등이요", model: Mention(effectId: "rash_pruritus", presence: .present, locations: ["등"], quote: "등요"))
+        #expect(engine.ledger["rash_pruritus"]?.locations == ["등"])
+    }
+}
