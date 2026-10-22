@@ -132,6 +132,9 @@ final class InterviewEngine {
         if let analyzed = result, let rechecked = await recheckSaidEffects(analyzed, during: current, patientText: patientText) {
             result?.mentions = rechecked
         }
+        if case .slot(let key, .presence) = current, let mentions = result?.mentions {
+            result?.mentions = toCurrentSlot(mentions, key: key, patientText: patientText)
+        }
         if case .slot(let key, .presence) = current, let analyzed = result, let absent = absentByNormalAnswer(analyzed, key: key, patientText: patientText) {
             result?.mentions.append(absent)
         }
@@ -789,6 +792,19 @@ final class InterviewEngine {
         return Mention(effectId: key, presence: .absent, quote: patientText)
     }
 
+    /// 유무 질문에 모델이 지금 항목은 비우고 다른 목록 증상을 '있음'으로 골랐는데 환자 말에 그 증상 낱말이 하나도 없으면 지금 항목의 답으로 본다
+    /// (2026-10-22 평가: 변비 질문에 "네 사흘째요"·"조금 나오긴 하는데 아직 시원하지 않아요"를 설사로 기록하고 변비를 다시 물었다)
+    private func toCurrentSlot(_ mentions: [Mention], key: String, patientText: String) -> [Mention] {
+        guard knownIds.contains(key), !mentions.contains(where: { $0.effectId == key }),
+              let i = mentions.firstIndex(where: { m in
+                  m.effectId != key && m.presence == .present
+                      && config.effects.first { $0.id == m.effectId }.map { !$0.keywords.contains(where: patientText.contains) } == true
+              }) else { return mentions }
+        var moved = mentions
+        moved[i].effectId = key
+        return moved
+    }
+
     /// 유무 질문 답을 절로 나눠 본 유무. 모델이 자주 거꾸로 기록한 두 경우만 정하고, 그 밖에는 nil (모델 판단 그대로)
     /// (2026-10-22 평가: "지금은 다 괜찮아졌어요" → 있음, "손가락은 저리고 발가락은 괜찮아요"·"혓바늘이 났는데요 괜찮아요" → 없음)
     /// - 마지막 부분이 다 나았다는 말("약 먹고 멈췄어요", "지금은 괜찮아요", "이제 잘 봐요")이고 '아직·덜·좀' 같은 말이 없으면 없음.
@@ -807,7 +823,7 @@ final class InterviewEngine {
             return .absent
         }
         let own = KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true)
-        if parts.count > 1, lastNormal, parts.dropLast().contains(where: { own.matches($0) != nil && !soundsNegative($0) }) {
+        if parts.count > 1, lastNormal, parts.dropLast().contains(where: { own.matches($0) != nil && !soundsNegative($0) && !$0.contains("않") }) {
             return .present
         }
         return nil

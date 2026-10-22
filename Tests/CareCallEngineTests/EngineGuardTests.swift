@@ -1100,3 +1100,39 @@ struct KeywordRequiredTests {
         #expect(engine.ledger.order.contains { $0.hasPrefix("other:") } != listed)
     }
 }
+
+/// 2026-10-22 시나리오 반복 3바퀴: 유무 질문에 근거 없이 다른 항목을 고른 답, '않' 부정 절
+@MainActor
+struct CurrentSlotTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    private func answer(_ key: String, _ text: String, model: Mention) async -> InterviewEngine {
+        let mock = MockAnalyzer()
+        mock.script[text] = .mentions(model)
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        while engine.phase != .slot(key: key, step: .presence) { _ = await engine.handle(patientText: "아니요") }
+        _ = await engine.handle(patientText: text)
+        return engine
+    }
+
+    @Test func 근거_낱말_없이_다른_항목을_고르면_지금_항목의_답() async {
+        let engine = await answer("constipation", "네 사흘째요", model: Mention(effectId: "diarrhea", presence: .present, quote: "네 사흘째요"))
+        #expect(engine.ledger["constipation"]?.presence == .present)
+        #expect(engine.ledger["diarrhea"]?.presence != .present)
+    }
+
+    @Test func 다른_항목_낱말이_있으면_옮기지_않는다() async {
+        let engine = await answer("constipation", "아니요 오히려 설사를 했어요",
+                                  model: Mention(effectId: "diarrhea", presence: .present, quote: "설사를 했어요"))
+        #expect(engine.ledger["diarrhea"]?.presence == .present)
+    }
+
+    @Test func 않으로_부정한_앞부분은_있음_근거가_아니다() async {
+        let engine = await answer("stomatitis", "입안은 헐지 않았고 괜찮아요",
+                                  model: Mention(effectId: "stomatitis", presence: .absent, quote: "입안은 헐지 않았고 괜찮아요"))
+        #expect(engine.ledger["stomatitis"]?.presence == .absent)
+    }
+}
