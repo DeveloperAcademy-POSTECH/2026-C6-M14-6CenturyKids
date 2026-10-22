@@ -762,7 +762,8 @@ final class InterviewEngine {
             request.step = .presence
             request.slotName = effect.name
             guard let recheck = try? await analyzer.analyze(request) else { continue }
-            added += recheck.mentions.filter { $0.effectId == effect.id && $0.presence == .present }
+            // 다시 물어도 근거 낱말 없는 다른 증상을 고르면("온몸이 근질근질해요" → 저림) 다시 묻는 그 증상의 답으로 본다
+            added += toCurrentSlot(recheck.mentions, key: effect.id, patientText: part).filter { $0.effectId == effect.id && $0.presence == .present }
         }
         guard !added.isEmpty else { return nil }
         func evidenced(_ id: String) -> Bool {
