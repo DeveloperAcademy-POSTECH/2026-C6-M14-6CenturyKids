@@ -160,6 +160,9 @@ final class InterviewEngine {
                                                                     during: current, patientText: patientText),
                                                 during: current, patientText: patientText)
         }
+        if let mentions = result?.mentions {
+            result?.mentions = otherClausesBesideListed(mentions, during: current, patientText: patientText)
+        }
         if current == .opening, unasked != nil, let mentions = result?.mentions {
             result?.mentions = stoppedOverride(mentions, patientText: patientText)
         }
@@ -803,6 +806,21 @@ final class InterviewEngine {
         var moved = mentions
         moved[i].effectId = key
         return moved
+    }
+
+    /// 첫 질문 답에서 목록 증상을 기록했을 때, 목록 낱말이 없는 다른 부분에 증상 표현이 있으면 그 부분을 기타 증상으로 남긴다
+    /// ("피곤하고 손도 저려요"의 피곤, "머리가 아프고 속도 메스꺼워요"의 두통 — 모델은 목록 증상만 기록했다, 2026-10-22 평가).
+    /// 컨디션이 나쁘다는 말("힘들어요", "기운이 없어요")은 남기지 않는다. 모델이 기타를 이미 냈으면 손대지 않는다
+    private func otherClausesBesideListed(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
+        guard phase == .opening, mentions.contains(where: { knownIds.contains($0.effectId) && $0.presence == .present }),
+              !mentions.contains(where: { $0.effectId == "other" }) else { return mentions }
+        let listWords = config.effects.flatMap(\.keywords)
+        let parts = KeywordMatcher.clauses(patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression))
+            .map { $0.trimmingCharacters(in: .whitespaces.union(.punctuationCharacters)) }.filter { !$0.isEmpty }
+        guard parts.count > 1 else { return mentions }
+        return mentions + parts.filter { part in
+            symptomHints.matches(part) != nil && openingConcerns.matches(part) == nil && !listWords.contains(where: part.contains)
+        }.map { Mention(effectId: "other", otherName: $0, presence: .present, quote: $0) }
     }
 
     /// 유무 질문 답을 절로 나눠 본 유무. 모델이 자주 거꾸로 기록한 두 경우만 정하고, 그 밖에는 nil (모델 판단 그대로)

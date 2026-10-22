@@ -1136,3 +1136,22 @@ struct CurrentSlotTests {
         #expect(engine.ledger["stomatitis"]?.presence == .absent)
     }
 }
+
+/// 2026-10-22 시나리오 반복 3바퀴: 첫 답의 목록 증상과 함께 말한 목록 밖 증상
+@MainActor
+struct OpeningMixedTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    @Test(arguments: [("피곤하고 손도 저려요", true), ("머리가 아프고 속도 메스꺼워요", true), ("토하고 나니까 힘들어요", false)])
+    func 목록_밖_부분은_기타(text: String, other: Bool) async {
+        let mock = MockAnalyzer()
+        let key = text.contains("저려") ? "neuropathy" : "nausea_vomiting"
+        mock.script[text] = .mentions(Mention(effectId: key, presence: .present, quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: text)
+        #expect(engine.ledger[key]?.presence == .present)
+        #expect(engine.ledger.order.contains { $0.hasPrefix("other:") } == other)
+    }
+}
