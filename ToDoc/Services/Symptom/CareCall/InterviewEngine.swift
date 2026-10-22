@@ -680,6 +680,7 @@ final class InterviewEngine {
         let compact = Self.normalized(text)
         return ["없", "읎", "괜찮", "아니", "아뇨"].contains(where: compact.contains)
             || config.noSuffixes.contains(where: { compact.hasSuffix(Self.normalized($0)) })
+            || config.shortAnswers.no.contains(Self.normalized(Self.withoutFillers(text, fillers: config.shortAnswers.fillers)))
     }
 
     /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다

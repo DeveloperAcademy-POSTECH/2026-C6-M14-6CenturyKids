@@ -1206,3 +1206,14 @@ extension LocationKeepsPresenceTests {
         #expect(engine.ledger["rash_pruritus"]?.locations == ["등"])
     }
 }
+
+extension OpeningMixedTests {
+    /// '그 밖에'의 짧은 "딱히요"는 없다는 답이라 원문 기타로 남기지 않는다
+    @Test func 그_밖에_딱히요는_기록하지_않는다() async {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer())
+        _ = engine.start()
+        for _ in 0..<20 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
+        _ = await engine.handle(patientText: "음 딱히요")
+        #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
+    }
+}
