@@ -1225,3 +1225,17 @@ extension ClausePresenceTests {
         #expect(await answer("rash_pruritus", "가려운 데는 없어요", model: .absent) == .absent)
     }
 }
+
+/// 2026-10-22 시나리오 반복 11바퀴: 증상 표현의 '…한 데는 없어요' 부정 (응급 키워드는 그대로)
+struct PlaceNegationTests {
+    @Test(arguments: [("뻐근한 데는 없어요", false), ("쑤시는 데 없어요", false), ("아픈 곳은 없어요", false),
+                      ("허리가 아픈데 없어지질 않아요", true), ("아픈 데가 없진 않아요", true), ("결리는 데가 있어요", true)])
+    func 증상_표현의_데는_없어요(text: String, symptom: Bool) {
+        let hints = KeywordMatcher(keywords: ["아파", "아프", "아픈", "쑤시", "뻐근", "결리"], prefixNegation: true)
+        #expect((hints.matches(text) != nil) == symptom)
+    }
+
+    @Test func 응급_키워드는_데는_없어요로_막지_않는다() {
+        #expect(KeywordMatcher(keywords: ["가슴이 아"]).matches("가슴이 아픈 데는 없어요") != nil)
+    }
+}
