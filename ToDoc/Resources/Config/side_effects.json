@@ -24,6 +24,7 @@
     },
     {
       "id": "constipation",
+      "presentPhrases": ["변 못", "변 안 나", "변 잘 안 나", "화장실 못"],
       "name": "변비",
       "spokenName": "변비",
       "ask": "변을 보기 힘들거나 변비가 있으셨나요?",
