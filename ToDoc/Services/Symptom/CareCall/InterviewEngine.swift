@@ -708,6 +708,9 @@ final class InterviewEngine {
     private func saysNormal(_ text: String) -> Bool {
         let compact = Self.normalized(text)
         return config.effects.flatMap { $0.absentPhrases ?? [] }.contains { compact.hasSuffix(Self.normalized($0)) }
+            // 다 나았다는 말로 끝남 ("쑤시던 건 다 나았어요", "결리던 것도 풀렸어요"). 아직·또·다시·안 나·덜이 있으면 아니다
+            || (compact.range(of: #"(나았|풀렸|없어졌|괜찮아졌|가라앉았|멈췄|그쳤|빠졌)(어요|습니다|어|네요)?$"#, options: .regularExpression) != nil
+                && !["아직", "또", "다시", "안나", "덜"].contains(where: compact.contains))
     }
 
     /// 유무 질문의 답과 모델이 낸 그 항목의 유무가 어긋남 (Foundation Models, 2026-10-21 Mac 평가):

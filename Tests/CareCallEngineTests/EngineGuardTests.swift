@@ -1288,3 +1288,15 @@ extension ClausePresenceTests {
         #expect(engine.ledger["rash_pruritus"]?.locations == ["팔"])
     }
 }
+
+extension OpeningMixedTests {
+    /// '그 밖에'의 다 나았다는 말은 증상으로 기록하지 않는다 ("아직·또·다시"가 있으면 기록)
+    @Test(arguments: [("쑤시던 건 다 나았어요", false), ("결리던 것도 풀렸어요", false), ("쑤신 게 나았다가 또 쑤셔요", true)])
+    func 그_밖에_다_나았다는_말(text: String, recorded: Bool) async {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer())
+        _ = engine.start()
+        for _ in 0..<20 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
+        _ = await engine.handle(patientText: text)
+        #expect(engine.ledger.order.contains { $0.hasPrefix("other:") } == recorded)
+    }
+}
