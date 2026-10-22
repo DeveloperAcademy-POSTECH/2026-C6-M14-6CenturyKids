@@ -44,6 +44,8 @@ final class InterviewEngine {
     private(set) var lastQuestion: String
     /// 모델만 응급이라고 본 답 뒤에 확인 질문을 했으면, '아니요'일 때 이어 갈 말과 단계
     private var pendingEmergencyCheck: (output: Output, phase: InterviewPhase)?
+    /// 이번 답에서 근거 없이 고른 목록 증상을 기타로 돌렸음 (새 기타 항목을 검토 필요로 둔다)
+    private var convertedToOther = false
     /// 같은 날 다시 거는 통화면 오늘 기록에 아직 없는 항목(지난 통화가 끊겨 못 물음), 처음 통화면 nil.
     /// 다시 거는 통화는 "달라졌거나 새로 불편한 점"을 묻고, 그 답에서 나온 증상과 이 항목만 묻는다
     private let unasked: Set<String>?
@@ -199,6 +201,10 @@ final class InterviewEngine {
                          mayChangeRecorded: mayChangeRecorded(mention, during: current, patientText: patientText))
         }
         prefillNumber(from: patientText, since: before, during: current)
+        if convertedToOther {
+            for key in ledger.order where key.hasPrefix("other:") && before[key] == nil { ledger.markNeedsReview(key) }
+            convertedToOther = false
+        }
         // 첫 질문 답은 그대로 남긴다 (꼬리질문의 답이면 첫 답과 이어서). 다시 거는 통화는 컨디션을 묻지 않는다
         if current == .opening, unasked == nil {
             ledger.setConditionText([openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / "))
@@ -339,11 +345,15 @@ final class InterviewEngine {
     /// 그 항목은 차례가 오면 그대로 묻는다
     private func unevidencedAsOther(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
         guard phase == .opening || phase == .other else { return mentions }
+        // 목록 낱말이 하나도 없고 증상 표현만 있는 말("요새 어지러워서 자꾸 누워 있어요", "머리가 핑 돌아요")은 어느 항목으로 골랐든 목록 밖 증상이다
+        let nonListOnly = symptomHints.matches(patientText) != nil && !config.effects.flatMap(\.keywords).contains(where: patientText.contains)
         return mentions.map { m in
             // '모름'(다시 확인해 이미 낮춘 것)은 그대로 둔다: 그 항목 차례에 다시 묻는다
             // 낱말을 부정한 말("다리가 저린 건 아니고 쑤셔요")은 근거가 아니다
-            guard m.presence == .present, let effect = config.effects.first(where: { $0.id == m.effectId }), effect.keywordRequired == true,
+            guard m.presence == .present, let effect = config.effects.first(where: { $0.id == m.effectId }),
+                  effect.keywordRequired == true || nonListOnly,
                   KeywordMatcher(keywords: effect.keywords, prefixNegation: true).matches(patientText) == nil else { return m }
+            convertedToOther = true
             return Mention(effectId: "other", presence: m.presence, quote: m.quote)
         }
     }

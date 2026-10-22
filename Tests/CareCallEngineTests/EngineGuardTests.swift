@@ -1253,3 +1253,21 @@ extension KeywordRequiredTests {
         #expect(engine.ledger.order.contains { $0.hasPrefix("other:") })
     }
 }
+
+extension KeywordRequiredTests {
+    /// 목록 낱말 없이 증상 표현만 있는 말은 모델이 어느 항목으로 골랐든 기타로 (검토 필요). 증상 표현 없는 바꿔 말하기는 그대로
+    @Test(arguments: [("요새 어지러워서 자꾸 누워 있어요", "dehydration_nutrition", false), ("머리가 핑 돌아서 자꾸 앉아 있어요", "nausea_vomiting", false),
+                      ("속이 뒤집힐 것 같아요", "nausea_vomiting", true)])
+    func 목록_낱말_없는_증상_표현은_기타(text: String, picked: String, listed: Bool) async {
+        let mock = MockAnalyzer()
+        mock.script[text] = .mentions(Mention(effectId: picked, presence: .present, quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: text)
+        #expect((engine.ledger[picked]?.presence == .present) == listed)
+        if !listed {
+            let other = engine.ledger.order.first { $0.hasPrefix("other:") }
+            #expect(other.flatMap { engine.ledger[$0]?.needsReview } == true)
+        }
+    }
+}
