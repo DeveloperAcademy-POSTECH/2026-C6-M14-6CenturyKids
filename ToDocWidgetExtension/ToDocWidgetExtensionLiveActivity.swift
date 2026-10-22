@@ -12,69 +12,85 @@ import SwiftUI
 struct ToDocWidgetExtensionAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         // Dynamic stateful properties about your activity go here!
-        var emoji: String
+        var sentence: String
     }
 
     // Fixed non-changing properties about your activity go here!
     var name: String
+    var image: String
 }
 
 struct ToDocWidgetExtensionLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ToDocWidgetExtensionAttributes.self) { context in
             // Lock screen/banner UI goes here
-            VStack {
-                Text("Hello \(context.state.emoji)")
+            HStack(spacing: 0) {
+                Image(context.attributes.image)
+                    .padding(.leading, 20)
+                    .padding(.trailing, 16)
+                
+                VStack(alignment: .leading) {
+                    Text(context.state.sentence)
+                    Text(context.attributes.name)
+                        .fontWeight(.bold)
+                }
+                
+                Spacer()
             }
-            .activityBackgroundTint(Color.cyan)
-            .activitySystemActionForegroundColor(Color.black)
+            .frame(height: 96)
+            .activityBackgroundTint(Color.black)
+            .activitySystemActionForegroundColor(Color.white)
 
         } dynamicIsland: { context in
             DynamicIsland {
                 // Expanded UI goes here.  Compose the expanded UI through
                 // various regions, like leading/trailing/center/bottom
                 DynamicIslandExpandedRegion(.leading) {
-                    Text("Leading")
+                    Image(context.attributes.image)
+                    Text(context.attributes.name)
                 }
-                DynamicIslandExpandedRegion(.trailing) {
-                    Text("Trailing")
+                DynamicIslandExpandedRegion(.center) {
+                    Text(context.state.sentence)
+                        .foregroundStyle(.gray)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text("Bottom \(context.state.emoji)")
-                    // more content
+                    
                 }
             } compactLeading: {
-                Text("L")
+                Image("DynamicIslandCompactLeading")
             } compactTrailing: {
-                Text("T \(context.state.emoji)")
+                Image(systemName: "stethoscope")
             } minimal: {
-                Text(context.state.emoji)
+                Image("DynamicIslandMinimal")
             }
             .widgetURL(URL(string: "http://www.apple.com"))
             .keylineTint(Color.red)
+            .contentMargins(.all, 20, for: .expanded)
+            .contentMargins(.horizontal, 11, for: .minimal)
+            .contentMargins(.vertical, 7, for: .minimal)
         }
     }
 }
 
 extension ToDocWidgetExtensionAttributes {
     fileprivate static var preview: ToDocWidgetExtensionAttributes {
-        ToDocWidgetExtensionAttributes(name: "World")
+        ToDocWidgetExtensionAttributes(name: "Dr.학로", image: "DoctorHangno")
     }
 }
 
 extension ToDocWidgetExtensionAttributes.ContentState {
-    fileprivate static var smiley: ToDocWidgetExtensionAttributes.ContentState {
-        ToDocWidgetExtensionAttributes.ContentState(emoji: "😀")
+    fileprivate static var normal: ToDocWidgetExtensionAttributes.ContentState {
+        ToDocWidgetExtensionAttributes.ContentState(sentence: "오늘 하루는 어떠셨나요?")
      }
      
-     fileprivate static var starEyes: ToDocWidgetExtensionAttributes.ContentState {
-         ToDocWidgetExtensionAttributes.ContentState(emoji: "🤩")
+     fileprivate static var emergency: ToDocWidgetExtensionAttributes.ContentState {
+         ToDocWidgetExtensionAttributes.ContentState(sentence: "오늘 기록이 아직 없어요!")
      }
 }
 
 #Preview("Notification", as: .content, using: ToDocWidgetExtensionAttributes.preview) {
    ToDocWidgetExtensionLiveActivity()
 } contentStates: {
-    ToDocWidgetExtensionAttributes.ContentState.smiley
-    ToDocWidgetExtensionAttributes.ContentState.starEyes
+    ToDocWidgetExtensionAttributes.ContentState.normal
+    ToDocWidgetExtensionAttributes.ContentState.emergency
 }
