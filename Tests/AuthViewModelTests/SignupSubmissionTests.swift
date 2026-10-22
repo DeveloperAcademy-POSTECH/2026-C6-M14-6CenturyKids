@@ -330,15 +330,19 @@ import ToDocDomain
         XCTAssertEqual(vm.state.email, "corrected@example.com")
     }
 
-    func testUnknownDiagnosisSurvivesProfileSaveReadBackAndNewLogin() async {
-        let combinations: [(CarcinomaType, SignupStageChoice, CarcinomaStage)] = [
-            (.unknown, .known(.stage3), .stage3),
-            (.lung, .unknown, .unknown),
-            (.unknown, .unknown, .unknown)
+    func testDiagnosisChoicesSurviveProfileSaveReadBackAndNewLogin() async throws {
+        let custom = try XCTUnwrap(CarcinomaType(name: "난소암 (고등급 장액성)"))
+        let combinations: [(CarcinomaType, SignupStageChoice, CarcinomaStage, String?)] = [
+            (.unknown, .known(.stage3), .stage3, nil),
+            (.lung, .unknown, .unknown, nil),
+            (.unknown, .unknown, .unknown, nil),
+            (custom, .known(.stage3), .stage3, "  난소암 (고등급 장액성)  "),
+            (custom, .unknown, .unknown, custom.rawValue)
         ]
-        for (cancer, choice, stage) in combinations {
+        for (cancer, choice, stage, customName) in combinations {
             let f = AuthFixture(), vm = ready(f)
             vm.state.cancerType = cancer; vm.state.stage = choice
+            vm.state.usesCustomCancer = customName != nil; vm.state.customCancerName = customName ?? ""
             await createAccount(vm)
             await vm.submit()
             XCTAssertEqual(vm.state.step, .completion)
@@ -352,9 +356,37 @@ import ToDocDomain
             await login.submit()
             XCTAssertTrue(login.state.didSignIn)
             XCTAssertEqual(newSession.patient?.disease?.carcinoma, cancer)
+            XCTAssertEqual(newSession.patient?.disease?.carcinoma.displayName, cancer.displayName)
             XCTAssertEqual(newSession.patient?.disease?.stage, stage)
             XCTAssertEqual(f.auth.signUpCount, 1)
             XCTAssertEqual(f.users.finds, 1, "로그인에서는 Patient.findById만 사용합니다.")
         }
+    }
+
+    func testFinalSubmitRejectsEmptyCustomNameEvenWithOldPresetSelected() async {
+        let f = AuthFixture(), vm = ready(f)
+        await createAccount(vm)
+        vm.state.usesCustomCancer = true; vm.state.customCancerName = "  "
+        await vm.submit()
+        XCTAssertEqual(f.auth.signUpCount, 1)
+        XCTAssertEqual(f.users.saves, 0); XCTAssertEqual(f.patients.saves, 0)
+        XCTAssertNotEqual(vm.state.step, .completion)
+        XCTAssertNotNil(vm.state.errorMessage)
+    }
+
+    func testCustomNameSaveRetryKeepsTheOriginalDraft() async {
+        let f = AuthFixture(), vm = ready(f)
+        vm.state.usesCustomCancer = true; vm.state.customCancerName = "난소암"; vm.state.stage = .unknown
+        await createAccount(vm)
+        f.patients.failNextSave = true
+        await vm.submit()
+        XCTAssertNotEqual(vm.state.step, .completion)
+        vm.state.customCancerName = "다른 암종"; vm.state.stage = .known(.stage2)
+        await vm.submit()
+        XCTAssertEqual(vm.state.step, .completion)
+        XCTAssertEqual(vm.completedPatient?.disease?.carcinoma.rawValue, "난소암")
+        XCTAssertEqual(vm.completedPatient?.disease?.stage, .unknown)
+        XCTAssertEqual(f.auth.signUpCount, 1)
+        XCTAssertEqual(f.users.saves, 1); XCTAssertEqual(f.patients.saves, 2)
     }
 }

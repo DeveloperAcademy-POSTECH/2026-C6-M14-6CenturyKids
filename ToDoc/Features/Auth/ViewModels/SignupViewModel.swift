@@ -121,7 +121,10 @@ import ToDocDomain
             do { _ = try User(id: UUID(), name: state.name, birthday: birthday, sex: sex); return nil }
             catch { return "생년월일과 이름을 확인해 주세요. 미래 날짜는 선택할 수 없어요." }
         case .cancerType:
-            return state.cancerType == nil ? "암 종류를 선택해 주세요." : nil
+            if state.usesCustomCancer && state.selectedCancerType == nil {
+                return "진단받은 암 이름을 한 줄로 입력해 주세요."
+            }
+            return state.selectedCancerType == nil ? "암 종류를 선택해 주세요." : nil
         case .cancerStage:
             return state.stage == nil ? "병기를 선택해 주세요." : nil
         default: return nil
@@ -276,7 +279,7 @@ import ToDocDomain
                 if let error = validationError(for: step) { state.errorMessage = error; return }
             }
             guard normalizedCode.isEmpty || (verifiedDoctorCode == normalizedCode && verifiedDoctorID != nil),
-                  let birthday = state.birthday, let sex = state.sex, let cancer = state.cancerType,
+                  let birthday = state.birthday, let sex = state.sex, let cancer = state.selectedCancerType,
                   let stage = state.stage?.domainValue,
                   let user = try? User(id: UUID(), name: state.name, birthday: birthday, sex: sex) else {
                 state.errorMessage = "입력한 정보와 의사 코드를 다시 확인해 주세요."

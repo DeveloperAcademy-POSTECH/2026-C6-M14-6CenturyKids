@@ -55,6 +55,8 @@ enum SignupAction {
     var birthday: Date?
     var sex: Sex?
     var cancerType: CarcinomaType?
+    var usesCustomCancer = false
+    var customCancerName = ""
     var cancerSearch = ""
     var stage: SignupStageChoice?
     /// 계정 생성이 시작되면 당시 입력을 고정합니다. 재시도가 다른 사람의 정보로 이어지지 않게 합니다.
@@ -95,7 +97,10 @@ enum SignupAction {
             $0 != .unknown && (cancerSearch.isEmpty || $0.displayName.localizedCaseInsensitiveContains(cancerSearch))
         }
     }
-    var cancerTitle: String { cancerType?.displayName ?? "선택 전" }
+    var selectedCancerType: CarcinomaType? {
+        usesCustomCancer ? CarcinomaType(name: customCancerName) : cancerType
+    }
+    var cancerTitle: String { selectedCancerType?.displayName ?? "선택 전" }
     var stageTitle: String { stage?.domainValue.displayName ?? "선택 전" }
 }
 extension CarcinomaType { var title: String { displayName } }

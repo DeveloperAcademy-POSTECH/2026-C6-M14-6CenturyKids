@@ -152,6 +152,27 @@ import ToDocDomain
         XCTAssertEqual(state.step, .review)
     }
 
+    func testCustomCancerRequiresANameAndPreservesItWhileNavigating() {
+        let vm = makeViewModel(), state = vm.state
+        fillRequiredProfile(state); state.step = .cancerType; state.usesCustomCancer = true
+        for invalid in ["", "  ", "암\n이름"] {
+            state.customCancerName = invalid; vm.handle(.next)
+            XCTAssertEqual(state.step, .cancerType)
+            XCTAssertNotNil(state.currentValidationError)
+        }
+        state.customCancerName = "  난소암  "; vm.handle(.next)
+        XCTAssertEqual(state.step, .cancerStage)
+        XCTAssertEqual(state.cancerTitle, "난소암")
+        vm.handle(.back)
+        state.usesCustomCancer = false; state.cancerType = .lung
+        XCTAssertEqual(state.cancerTitle, "폐암")
+        state.cancerType = .unknown
+        XCTAssertEqual(state.cancerTitle, "잘 모르겠어요")
+        state.usesCustomCancer = true
+        XCTAssertEqual(state.cancerTitle, "난소암")
+        XCTAssertEqual(state.stage, .known(.stage1))
+    }
+
     func testUnknownCancerIsSeparateFromSearchAndPreservesTheSelectedStage() {
         let vm = makeViewModel(), state = vm.state
         fillRequiredProfile(state)
