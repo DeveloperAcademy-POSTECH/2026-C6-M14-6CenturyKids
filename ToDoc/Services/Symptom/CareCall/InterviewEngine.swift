@@ -828,6 +828,8 @@ final class InterviewEngine {
         guard parts.count > 1 else { return mentions }
         return mentions + parts.filter { part in
             symptomHints.matches(part) != nil && openingConcerns.matches(part) == nil && !listWords.contains(where: part.contains)
+                // 주어 없는 "아파요"는 앞에서 말한 증상의 말이다 ("손발이 저리고 아파요"). "어지럽고"·"머리가 아프고"는 남긴다
+                && !(!part.contains(" ") && ["아파", "아프", "아팠"].contains(where: part.contains))
         }.map { Mention(effectId: "other", otherName: $0, presence: .present, quote: $0) }
     }
 

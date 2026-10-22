@@ -1186,3 +1186,15 @@ struct LocationKeepsPresenceTests {
         #expect(engine.ledger["rash_pruritus"]?.presence == .absent)
     }
 }
+
+extension OpeningMixedTests {
+    /// 주어 없는 "아파요"는 앞 증상의 말이라 기타로 남기지 않는다
+    @Test func 주어_없는_아파요는_기타가_아니다() async {
+        let mock = MockAnalyzer()
+        mock.script["손발이 저리고 아파요"] = .mentions(Mention(effectId: "neuropathy", presence: .present, quote: "손발이 저리고 아파요"))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "손발이 저리고 아파요")
+        #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
+    }
+}
