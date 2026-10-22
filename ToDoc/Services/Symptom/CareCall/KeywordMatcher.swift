@@ -30,7 +30,11 @@ struct KeywordMatcher: Sendable {
                     let negatedPlace = prefixNegation
                         && rest.range(of: #"^(?:하|한|는|은)?(?:데|곳|부분|부위|건|게|거)(?:는|도|은|가)?(?:없(?!어지|어져|진|지는|지않)|않|아니)"#,
                                       options: .regularExpression) != nil
-                    if !Self.negated(rest), !negatedBefore, !negatedPlace { return keyword }
+                    // 다 나았다는 말 ("쑤시던 건 다 나았어요", "결리던 것도 다 풀렸어요")
+                    let resolved = prefixNegation
+                        && rest.range(of: #"^(?:하|한|는|은|던|하던|했던)?(?:데|건|게|거|것|곳)(?:은|는|도|이|가)?(?:다|이제|이젠|싹)?(?:나았|풀렸|없어졌|괜찮아졌|가라앉았|멈췄|그쳤|빠졌)"#,
+                                      options: .regularExpression) != nil
+                    if !Self.negated(rest), !negatedBefore, !negatedPlace, !resolved { return keyword }
                     from = range.upperBound
                 }
             }
