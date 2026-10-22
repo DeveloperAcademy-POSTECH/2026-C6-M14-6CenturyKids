@@ -135,6 +135,14 @@ final class InterviewEngine {
         if case .slot(let key, .presence) = current, let mentions = result?.mentions {
             result?.mentions = toCurrentSlot(mentions, key: key, patientText: patientText)
         }
+        // 부위 질문의 답("얼굴 말고는 없어요")을 모델이 '없음'으로 읽어 있던 증상이 지워졌다 (2026-10-22 평가). 부위 질문에서는 유무를 바꾸지 않는다.
+        // 그 항목 낱말을 직접 부정한 번복("이제 안 가려워요")만 받는다
+        if case .slot(let key, .location) = current, let effect = config.effects.first(where: { $0.id == key }),
+           !(effect.keywords.contains { $0.count >= 2 && patientText.contains($0) }
+             && KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true).matches(patientText) == nil) {
+            result?.mentions.removeAll { $0.effectId == key && $0.presence != .present && $0.locations.isEmpty }
+            for i in result?.mentions.indices ?? 0..<0 where result?.mentions[i].effectId == key { result?.mentions[i].presence = .present }
+        }
         if case .slot(let key, .presence) = current, let analyzed = result, let absent = absentByNormalAnswer(analyzed, key: key, patientText: patientText) {
             result?.mentions.append(absent)
         }
@@ -841,7 +849,7 @@ final class InterviewEngine {
             return .absent
         }
         let own = KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true)
-        if parts.count > 1, lastNormal, parts.dropLast().contains(where: { own.matches($0) != nil && !soundsNegative($0) && !$0.contains("않") }) {
+        if parts.count > 1, lastNormal, parts.dropLast().contains(where: { own.matches($0) != nil && !soundsNegative($0) && !$0.contains("않") && $0.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil }) {
             return .present
         }
         return nil

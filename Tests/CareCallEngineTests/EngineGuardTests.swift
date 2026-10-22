@@ -1155,3 +1155,34 @@ struct OpeningMixedTests {
         #expect(engine.ledger.order.contains { $0.hasPrefix("other:") } == other)
     }
 }
+
+/// 2026-10-22 시나리오 반복 4바퀴: 부위 질문의 답으로 유무를 뒤집지 않는다, '안' 부정 절
+@MainActor
+struct LocationKeepsPresenceTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    private func atLocation(_ answer: String, model: Mention) async -> InterviewEngine {
+        let mock = MockAnalyzer()
+        mock.script[answer] = .mentions(model)
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        while engine.phase != .slot(key: "rash_pruritus", step: .presence) { _ = await engine.handle(patientText: "아니요") }
+        _ = await engine.handle(patientText: "네")
+        while engine.phase != .slot(key: "rash_pruritus", step: .location) { _ = await engine.handle(patientText: "한 삼십 분이요") }
+        _ = await engine.handle(patientText: answer)
+        return engine
+    }
+
+    @Test func 부위_답의_없어요는_유무를_바꾸지_않는다() async {
+        let engine = await atLocation("얼굴 말고는 없어요", model: Mention(effectId: "rash_pruritus", presence: .absent, quote: "얼굴 말고는 없어요"))
+        #expect(engine.ledger["rash_pruritus"]?.presence == .present)
+    }
+
+    @Test func 그_증상을_직접_부정한_번복은_받는다() async {
+        let engine = await atLocation("아 다시 생각해 보니 이제 안 가려워요",
+                                      model: Mention(effectId: "rash_pruritus", presence: .absent, quote: "이제 안 가려워요"))
+        #expect(engine.ledger["rash_pruritus"]?.presence == .absent)
+    }
+}
