@@ -49,8 +49,11 @@ final class InterviewEngine {
     /// 같은 날 다시 거는 통화면 오늘 기록에 아직 없는 항목(지난 통화가 끊겨 못 물음), 처음 통화면 nil.
     /// 다시 거는 통화는 "달라졌거나 새로 불편한 점"을 묻고, 그 답에서 나온 증상과 이 항목만 묻는다
     private let unasked: Set<String>?
+    /// 부위 낱말 (body_parts.json). 절 판단으로 '있음'이 된 답에서 그 절의 부위를 찾을 때만 쓴다
+    private let locationWords: [String]
 
-    init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI, followUp unasked: Set<String>? = nil) {
+    init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI, followUp unasked: Set<String>? = nil,
+         locationWords: [String] = []) {
         self.config = config
         self.rules = rules
         self.detector = KeywordMatcher(keywords: rules.keywords, maxGapWords: 2)
@@ -62,6 +65,7 @@ final class InterviewEngine {
         self.names = Dictionary(uniqueKeysWithValues: config.effects.map { ($0.id, $0.name) })
         self.keywords = Dictionary(uniqueKeysWithValues: config.effects.map { ($0.id, $0.keywords) })
         self.unasked = unasked
+        self.locationWords = locationWords
         self.lastQuestion = unasked == nil ? config.openingQuestion : config.followUpCall.question
     }
 
@@ -159,11 +163,16 @@ final class InterviewEngine {
             result?.mentions.removeAll { $0.effectId == key && contradicts($0.presence, patientText, for: key) }
         }
         // 유무 질문: 다 나았다는 답은 '없음', 앞부분에서 증상을 말하고 끝을 '괜찮아요'로 맺은 답은 '있음' (모델이 거꾸로 기록했다)
-        if case .slot(let key, .presence) = current, result != nil, let presence = presenceByClauses(key: key, patientText: patientText) {
-            if let i = result?.mentions.firstIndex(where: { $0.effectId == key }) {
-                result?.mentions[i].presence = presence
-            } else {
-                result?.mentions.append(Mention(effectId: key, presence: presence, quote: patientText))
+        if case .slot(let key, .presence) = current, result != nil, let judged = presenceByClauses(key: key, patientText: patientText) {
+            if result?.mentions.contains(where: { $0.effectId == key }) != true {
+                result?.mentions.append(Mention(effectId: key, presence: judged.presence, quote: patientText))
+            }
+            for i in result?.mentions.indices ?? 0..<0 where result?.mentions[i].effectId == key {
+                result?.mentions[i].presence = judged.presence
+                // 모델이 '없음'으로 읽어 부위가 비었으면 증상을 말한 절의 부위를 쓴다 ("팔은 가렵고" → 팔). 없으면 부위를 묻는다
+                if judged.presence == .present, result?.mentions[i].locations.isEmpty == true, let clause = judged.clause {
+                    result?.mentions[i].locations = locations(in: clause)
+                }
             }
         }
         if let analyzed = result, let reason = reasonAnswer(analyzed, during: current, patientText: patientText) {
@@ -857,7 +866,7 @@ final class InterviewEngine {
     /// - 마지막 부분이 다 나았다는 말("약 먹고 멈췄어요", "지금은 괜찮아요", "이제 잘 봐요")이고 '아직·덜·좀' 같은 말이 없으면 없음.
     ///   사용자 결정(2026-10-21): 지금 상태 기준, 나아졌다고 분명히 말한 것만 없음, 좀 나아져도 아직 있으면 있음
     /// - 앞부분에서 그 항목 낱말을 부정 없이 말하고 마지막 부분이 괜찮다·정상이라는 말이면 있음
-    private func presenceByClauses(key: String, patientText: String) -> MentionPresence? {
+    private func presenceByClauses(key: String, patientText: String) -> (presence: MentionPresence, clause: String?)? {
         guard let effect = config.effects.first(where: { $0.id == key }) else { return nil }
         // "따가운데요 괜찮아요"처럼 붙어 쓴 '-데요' 뒤도 절 경계로 본다 (띄어 쓴 "가려운 데는"은 아니다)
         let split = patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression)
@@ -870,13 +879,22 @@ final class InterviewEngine {
         if !Self.partialWords.contains(where: compact.contains),
            Self.resolvedWords.contains(where: { compact.contains($0) && !compact.contains("안" + $0) && !compact.contains("못" + $0) })
             || (Self.nowWords.contains(where: compact.contains) && lastNormal) {
-            return .absent
+            return (.absent, nil)
         }
         let own = KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true)
-        if parts.count > 1, lastNormal, parts.dropLast().contains(where: { own.matches($0) != nil && !soundsNegative($0) && !$0.contains("않") && $0.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil }) {
-            return .present
+        if parts.count > 1, lastNormal, let clause = parts.dropLast().first(where: {
+            own.matches($0) != nil && !soundsNegative($0) && !$0.contains("않") && $0.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil
+        }) {
+            return (.present, clause)
         }
         return nil
+    }
+
+    /// 절에 나온 부위 낱말. 겹치면 긴 낱말만 ("손가락" → 손가락, 손 아님), 나온 차례대로
+    private func locations(in clause: String) -> [String] {
+        let found = Set(locationWords.filter { clause.contains($0) })
+        return found.filter { word in !found.contains { $0 != word && $0.contains(word) } }
+            .sorted { clause.range(of: $0)!.lowerBound < clause.range(of: $1)!.lowerBound }
     }
 
     private static let resolvedWords = ["나았", "멈췄", "멎었", "그쳤", "없어졌", "괜찮아졌", "가라앉았", "들어갔", "아물었", "풀렸", "사라졌"]

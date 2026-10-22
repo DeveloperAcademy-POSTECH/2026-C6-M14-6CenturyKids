@@ -1271,3 +1271,20 @@ extension KeywordRequiredTests {
         }
     }
 }
+
+extension ClausePresenceTests {
+    /// 절 판단으로 있음이 되면 그 절의 부위를 부위로 쓴다 (부위를 다시 묻지 않는다)
+    @Test func 앞부분_긍정의_부위를_쓴다() async {
+        let words = try! fixture(BodyPartDictionary.self, "body_parts").parts.values.flatMap { $0 }
+        let mock = MockAnalyzer()
+        let text = "팔은 가렵고 다리는 괜찮아요"
+        mock.script[text] = .mentions(Mention(effectId: "rash_pruritus", presence: .absent, quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock, locationWords: words)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        while engine.phase != .slot(key: "rash_pruritus", step: .presence) { _ = await engine.handle(patientText: "아니요") }
+        _ = await engine.handle(patientText: text)
+        #expect(engine.ledger["rash_pruritus"]?.presence == .present)
+        #expect(engine.ledger["rash_pruritus"]?.locations == ["팔"])
+    }
+}
