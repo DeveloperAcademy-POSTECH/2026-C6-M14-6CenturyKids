@@ -269,7 +269,7 @@ final class InterviewEngine {
     /// 구내염 '있음'으로만 남아 환자 말이 기록에서 사라졌다 (2026-10-23 응급 세트). 검토 필요는 붙이지 않는다: 항목 낱말이 없는 답으로 가리면
     /// 사투리·바꿔 말한 답("네 입병이 났어요", "손이 쪼매 저립니더")까지 걸렸다 (2026-10-24 회귀 세트 29개). 항목과 원문을 함께 보면 어긋남이 보인다
     /// 남기지 않는 답: 절마다 없다·괜찮다는 말뿐인 답("아니요 그런 건 없어요", "변은 매일 봐요"), 이 항목은 그대로이고 다른 증상으로 기록된 답
-    /// (그 증상의 말), 다시 묻게 된 답 중 증상 낱말이 없는 것("어떤 거 말씀이세요?"은 닫을 때 원문으로 남는다).
+    /// (그 증상의 말), 다시 묻게 된 답 중 되묻는 말·모르겠다는 말("어떤 거 말씀이세요?"은 닫을 때 원문으로 남는다).
     /// '없음'이어도 다른 말이 있으면 남긴다: "그건 아니고 요즘 머리가 지끈지끈해요"가 구토 '없음'으로만 남았다 (2026-10-24 확인 세트)
     /// '그 밖에' 답이 목록 증상으로 기록되면 그 항목에 남긴다 ("왼쪽 가슴이 찌릿하게 아프면서 팔까지 저려요" → 저림 '있음'만 남았다)
     private func keepAnswerText(during current: InterviewPhase, patientText: String, since before: Ledger) {
@@ -282,14 +282,20 @@ final class InterviewEngine {
         switch ledger[key]?.presence {
         case .present where changed.contains(key): break
         case .absent where changed.contains(key):
-            // 이 항목 낱말을 부정한 답("설사는 안 해요", "손발은 안 저려요")은 그냥 없다는 답이다. 대조·다른 증상 말이 있으면 남긴다
-            let aboutItem = effect.said(in: patientText) || effect.said(in: AnswerReading.normalized(patientText))
+            // 절 가운데 없다·괜찮다는 말도, 이 항목 말도 아닌 것이 있어야 남긴다. "설사는 안 해요", "손발은 안 저려요"는 그냥 없다는 답이고
+            // "변비는 모르겠고 소변볼 때 따끔거려요"는 뒷절이 다른 이야기다 (2026-10-24 실기기)
+            let content = AnswerReading.parts(patientText).contains { clause in
+                !reading.soundsNegative(clause) && !reading.saysNormal(clause)
+                    && !effect.said(in: clause) && !effect.said(in: AnswerReading.normalized(clause))
+            }
             let otherSaid = symptomHints.matches(patientText) != nil || config.effects.contains { $0.id != key && $0.said(in: patientText, minLength: 2) }
-            guard !AnswerReading.parts(patientText).allSatisfy({ reading.soundsNegative($0) || reading.saysNormal($0) }),
-                  !aboutItem || AnswerReading.hasContrast(patientText) || otherSaid else { return }
+            guard content || AnswerReading.hasContrast(patientText) || otherSaid || reading.negatesOtherThing(patientText, for: key) else { return }
         case .unclear, nil:
-            guard changed.allSatisfy({ $0 == key }),
-                  symptomHints.matches(patientText) != nil || config.saysAnyEffect(in: patientText) else { return }
+            // 다시 묻게 된 답도 남긴다 ("목소리가 잘 안 나와요", "냄새를 잘 못 맡겠어요"는 증상 낱말이 없어 되물은 뒤 사라졌다).
+            // 되묻는 말·모르겠다는 말·한 낱말 답("그러니까요")은 닫을 때 원문으로 남기는 기존 흐름에 둔다
+            let words = AnswerReading.withoutFillers(patientText, fillers: config.shortAnswers.fillers).split(whereSeparator: \.isWhitespace)
+            guard changed.allSatisfy({ $0 == key }), words.count >= 2, !AnswerReading.asksBack(patientText),
+                  !reading.soundsUnsure(patientText), !reading.isVagueAnswer(patientText), !reading.isRepeatRequest(patientText) else { return }
         default: return
         }
         ledger.addAnswer(patientText, for: key)

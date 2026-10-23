@@ -217,6 +217,42 @@ struct InterviewEngineTests {
         #expect(engine.ledger["neuropathy"]?.answers.isEmpty == true)
     }
 
+    @Test func 다른_것이_없다는_답은_모델로_보고_원문을_남긴다() async {
+        await reach("nausea_vomiting")
+        _ = await engine.handle(patientText: "다리에 힘이 하나도 없어요")
+        #expect(mock.requests.last?.patientText == "다리에 힘이 하나도 없어요")
+        #expect(engine.ledger["nausea_vomiting"]?.answers == ["다리에 힘이 하나도 없어요"])
+    }
+
+    @Test(arguments: ["헌 데가 없어요", "그런 적이 없어요", "별 이상이 없어요", "입안에 헌 데가 하나도 없어요"])
+    func 가리키는_말이나_이_항목이_주어면_그냥_없다는_답(answer: String) async {
+        await reach("stomatitis")
+        let asked = mock.requests.count
+        _ = await engine.handle(patientText: answer)
+        #expect(mock.requests.count == asked) // 모델 없이 '없음'
+        #expect(engine.ledger["stomatitis"]?.presence == .absent)
+        #expect(engine.ledger["stomatitis"]?.answers.isEmpty == true)
+    }
+
+    @Test func 없다는_말_뒤에_다른_이야기를_하면_원문을_남긴다() async {
+        mock.script["변비는 모르겠고 소변볼 때 따끔거려요"] = .mentions(Mention(effectId: "constipation", presence: .absent, locations: [], quote: ""))
+        await reach("constipation")
+        _ = await engine.handle(patientText: "변비는 모르겠고 소변볼 때 따끔거려요")
+        #expect(engine.ledger["constipation"]?.answers == ["변비는 모르겠고 소변볼 때 따끔거려요"])
+    }
+
+    @Test func 되물은_답도_원문으로_남긴다() async {
+        var asked = TurnResult.empty
+        asked.needsClarification = true
+        mock.script["목소리가 잘 안 나와요"] = asked
+        await reach("rash_pruritus")
+        let out = await engine.handle(patientText: "목소리가 잘 안 나와요")
+        #expect(out.phase == .slot(key: "rash_pruritus", step: .presence)) // 다시 묻는다
+        _ = await engine.handle(patientText: "아니요")
+        #expect(engine.ledger["rash_pruritus"]?.presence == .absent)
+        #expect(engine.ledger["rash_pruritus"]?.answers == ["목소리가 잘 안 나와요"])
+    }
+
     private func reach(_ key: String) async {
         _ = engine.start()
         for _ in 0..<20 where engine.phase != .slot(key: key, step: .presence) {
