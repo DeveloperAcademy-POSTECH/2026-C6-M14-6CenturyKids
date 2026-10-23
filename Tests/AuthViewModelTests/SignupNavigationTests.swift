@@ -136,4 +136,62 @@ import ToDocDomain
         vm.handle(.back)
         XCTAssertEqual(state.step, .review)
     }
+
+    func testUnknownStageAdvancesAndSurvivesDiagnosisEditing() {
+        let vm = makeViewModel(), state = vm.state
+        fillRequiredProfile(state)
+        state.stage = .unknown; state.step = .cancerStage
+        XCTAssertEqual(state.stageTitle, "잘 모르겠어요")
+        vm.handle(.next)
+        XCTAssertEqual(state.step, .doctorCode)
+        vm.handle(.skipDoctorCode)
+        vm.handle(.editDiagnosis)
+        vm.handle(.next)
+        XCTAssertEqual(state.stage, .unknown)
+        vm.handle(.next)
+        XCTAssertEqual(state.step, .review)
+    }
+
+    func testCustomCancerRequiresANameAndPreservesItWhileNavigating() {
+        let vm = makeViewModel(), state = vm.state
+        fillRequiredProfile(state); state.step = .cancerType; state.usesCustomCancer = true
+        for invalid in ["", "  ", "암\n이름"] {
+            state.customCancerName = invalid; vm.handle(.next)
+            XCTAssertEqual(state.step, .cancerType)
+            XCTAssertNotNil(state.currentValidationError)
+        }
+        state.customCancerName = "  난소암  "; vm.handle(.next)
+        XCTAssertEqual(state.step, .cancerStage)
+        XCTAssertEqual(state.cancerTitle, "난소암")
+        vm.handle(.back)
+        state.usesCustomCancer = false; state.cancerType = .lung
+        XCTAssertEqual(state.cancerTitle, "폐암")
+        state.cancerType = .unknown
+        XCTAssertEqual(state.cancerTitle, "잘 모르겠어요")
+        state.usesCustomCancer = true
+        XCTAssertEqual(state.cancerTitle, "난소암")
+        XCTAssertEqual(state.stage, .known(.stage1))
+    }
+
+    func testUnknownCancerIsSeparateFromSearchAndPreservesTheSelectedStage() {
+        let vm = makeViewModel(), state = vm.state
+        fillRequiredProfile(state)
+        state.cancerType = .unknown
+        state.stage = .known(.stage3)
+        state.cancerSearch = "검색 결과 없는 이름"
+        XCTAssertTrue(state.filteredCancerTypes.isEmpty)
+        XCTAssertEqual(state.cancerTitle, "잘 모르겠어요")
+        state.cancerSearch = ""
+        XCTAssertEqual(state.filteredCancerTypes.count, 15)
+        XCTAssertFalse(state.filteredCancerTypes.contains(.unknown))
+        state.step = .cancerType
+        vm.handle(.next)
+        XCTAssertEqual(state.step, .cancerStage)
+        vm.handle(.next)
+        XCTAssertEqual(state.step, .doctorCode)
+        vm.handle(.back); vm.handle(.back)
+        XCTAssertEqual(state.step, .cancerType)
+        XCTAssertEqual(state.cancerType, .unknown)
+        XCTAssertEqual(state.stage, .known(.stage3))
+    }
 }
