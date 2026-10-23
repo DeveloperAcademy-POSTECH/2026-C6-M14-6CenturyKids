@@ -24,13 +24,12 @@ struct EffectMention {
 @Generable
 struct TurnAnalysis {
     var mentions: [EffectMention]
-    /// 엔진은 읽지 않지만 빼지 않는다: 빼면 실신 응급을 놓친 실행이 나왔고 속도 이득은 0.04초였다 (2026-10-19 Mac 평가)
+    /// 엔진은 읽지 않지만 빼지 않는다: 빼면 통과가 47/55 → 42/55로 떨어졌다 (2026-10-21 Foundation Models 평가)
     var answeredCurrentSlot: Bool
     var needsClarification: Bool
     var emergencySignal: Bool
-    /// 설명을 달지 않는다: 언제 쓰는지(되물을 때만)는 지시문 규칙 6이 정한다. 예전 설명("다음에 환자에게 할 말")은 규칙 6과 어긋나
-    /// 일부 실행에서 기록을 utterance에 쓰고 mentions를 비웠고("오심·구토: present"), "되물을 때만 쓰는 질문"은 질문 남발을 불렀다
-    /// (2026-10-19 Mac 평가, 시나리오 55개×3회를 프로세스 3번씩)
+    /// 설명을 달지 않는다: 언제 쓰는지(되물을 때만)는 지시문 규칙 6이 정한다. 규칙 6에 맞춘 설명("needsClarification이 true일 때만…")을 달면
+    /// 통과 47/55 → 45/55, 재현율 51/56 → 46/56으로 떨어졌다 (2026-10-21 Foundation Models 평가)
     var utterance: String
 }
 

@@ -62,7 +62,11 @@ struct CareCallConfig: Decodable, Sendable {
     let openingQuestion: String
     let otherQuestion: String
     /// 첫 질문 꼬리질문: 답에 증상 표현(symptomHints)이나 컨디션이 나쁘다는 말(openingConcerns)이 있고 목록 증상이 기록되지 않았으면 한 번
+    /// 첫 답이 컨디션이 나쁘다는 말뿐일 때 한 번 되묻는 말 (무엇이 불편한지). 증상을 말했으면 otherDetail로 시작 시점을 묻는다
     let openingFollowUp: String
+    /// 언제부터인지 이미 말한 답의 낱말 ("어제부터", "사흘째", "이틀 동안"). 이 말이 있으면 시작 시점을 다시 묻지 않는다.
+    /// "아침에"·"밤에"는 시작이 아니라 언제 그런지라 넣지 않는다
+    let onsetWords: [String]
     /// 첫 질문 다음, 증상 질문 앞에 붙이는 말
     let openingTransition: OpeningTransition
     /// 같은 날 다시 거는 케어콜 (오늘 기록이 이미 있을 때)
@@ -84,6 +88,10 @@ struct CareCallConfig: Decodable, Sendable {
     /// 한 항목에만 맞는 정상이라는 말("잘 나와요")은 그 항목의 absentPhrases에 둔다. "멀쩡해요"·"깨끗해요"는 넣지 않는다:
     /// 부위의 상태라 다른 항목 이야기("입은 멀쩡해요")일 수 있어 모델이 본다
     let noPrefixes: [String]
+    /// 그 항목이 정상이라는 말 ("입 안은 멀쩡하고요", "피부도 깨끗하고요"). 유무 질문에 모델이 아무것도 남기지 않았을 때 '없음'으로 본다
+    let normalWords: [String]
+    /// 질문을 다시 해 달라는 말 ("네? 뭐라고요?", "잘 안 들려요"). 모델 없이 같은 질문을 다시 한다 ("네"로 시작해 '있음'이 됐다)
+    let repeatRequests: [String]
     let noSuffixes: [String]
     /// 유무 질문에 이 말로 끝나는 답은 이유를 말한 것 → 있음 ("입이 아파서요" = 입이 아파서 많이 못 먹었다, 초안)
     let reasonSuffixes: [String]
@@ -116,6 +124,8 @@ struct CareCallConfig: Decodable, Sendable {
     struct FollowUpCall: Decodable, Sendable {
         /// 첫 질문 ("다시 연결됐어요. 아까 통화 뒤로 달라졌거나 새로 불편해진 점이 있으세요?")
         let question: String
+        /// 첫 답에서 무엇이 달라졌는지 말하지 않았을 때 한 번 되묻는 말
+        let followUp: String
         /// 달라진 게 없다는 답의 낱말 ("똑같아요", "그대로예요"). "없어요·괜찮아요"는 없음 표현으로 본다
         let unchangedAnswers: [String]
         /// 첫 답에서 증상을 말함 → 그 증상을 묻기 전에
@@ -132,6 +142,8 @@ struct CareCallConfig: Decodable, Sendable {
         let stoppedAnswers: [String]
     }
 
+    /// 목록 밖 증상(기타)을 말했을 때 한 번 묻는 꼬리질문. 막연한 "어떤 점이 그러신지"는 무엇을 더 말할지 막막하다고 해서
+    /// 목록 증상의 "시작"처럼 시작 시점을 묻는다 (2026-10-22 사용자 피드백). 이미 언제부터인지 말했으면 묻지 않는다
     struct OtherDetail: Decodable, Sendable {
         let question: String
         let label: String
@@ -150,12 +162,20 @@ struct CareCallConfig: Decodable, Sendable {
 struct EmergencyRules: Decodable, Sendable {
     let version: String
     let keywords: [String]
+    /// 자살 생각·자해·약 과다 복용 같은 위기 표현. 모델 판단 없이 안내(crisisMessage)하고 통화를 끝낸다
+    let crisisKeywords: [String]
     /// 이 온도(섭씨) 이상을 말하면 응급. "열이 조금 나요", "미열"은 응급 아님
     let feverCelsius: Double
     /// 응급일 때 말하고 통화를 끝내는 고정 안내
     let message: String
+    /// 위기 표현일 때 말하고 통화를 끝내는 고정 안내 (상담전화 안내 포함)
+    let crisisMessage: String
+    /// 모델만 응급이라고 본 답에 한 번 묻는 확인 질문. 그렇다고 하거나 분명하지 않으면 응급 안내로 끝낸다
+    let confirmQuestion: String
     /// 모델만 응급이라고 본 답이 어느 기록도 바꾸지 않았을 때 그 말을 원문으로 남기는 기타 항목 이름 (유무 '모름', 검토 필요)
     let reviewName: String
+    /// 위기 표현을 원문으로 남기는 기타 항목 이름 (유무 '모름', 검토 필요)
+    let crisisName: String
     /// 정상 종료 때 마무리 인사
     let closingMessage: String
 

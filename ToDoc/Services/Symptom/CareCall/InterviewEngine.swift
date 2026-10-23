@@ -19,6 +19,7 @@ final class InterviewEngine {
     let config: CareCallConfig
     private let rules: EmergencyRules
     private let detector: KeywordMatcher
+    private let crisisDetector: KeywordMatcher
     private let symptomHints: KeywordMatcher
     private let openingConcerns: KeywordMatcher
     private let analyzer: any CareCallAI
@@ -41,6 +42,8 @@ final class InterviewEngine {
     private var openingOtherName: String?
     /// 마지막으로 한 말 = 답을 기다리는 질문 (음성·문자를 바꿔도 이 질문부터 이어 간다)
     private(set) var lastQuestion: String
+    /// 모델만 응급이라고 본 답 뒤에 확인 질문을 했으면, '아니요'일 때 이어 갈 말과 단계
+    private var pendingEmergencyCheck: (output: Output, phase: InterviewPhase)?
     /// 같은 날 다시 거는 통화면 오늘 기록에 아직 없는 항목(지난 통화가 끊겨 못 물음), 처음 통화면 nil.
     /// 다시 거는 통화는 "달라졌거나 새로 불편한 점"을 묻고, 그 답에서 나온 증상과 이 항목만 묻는다
     private let unasked: Set<String>?
@@ -48,7 +51,8 @@ final class InterviewEngine {
     init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI, followUp unasked: Set<String>? = nil) {
         self.config = config
         self.rules = rules
-        self.detector = KeywordMatcher(keywords: rules.keywords)
+        self.detector = KeywordMatcher(keywords: rules.keywords, maxGapWords: 2)
+        self.crisisDetector = KeywordMatcher(keywords: rules.crisisKeywords, maxGapWords: 2)
         self.symptomHints = KeywordMatcher(keywords: config.symptomHints, prefixNegation: true)
         self.openingConcerns = KeywordMatcher(keywords: config.openingConcerns, prefixNegation: true)
         self.analyzer = analyzer
@@ -73,23 +77,42 @@ final class InterviewEngine {
         guard phase != .saved, phase != .emergencyEnded else {
             return Output(utterance: "", phase: phase)
         }
+        // 위기 표현(자살 생각·자해·약 과다 복용)은 모델 판단 없이 안내하고 끝낸다. 말은 원문으로 남긴다
+        // (2026-10-21 Foundation Models: "죽고 싶다는 생각이 들어요"를 되묻기만 해 기록 없이 사라졌다)
+        if crisisDetector.matches(patientText) != nil {
+            recordForReview(patientText, name: rules.crisisName)
+            return endWithEmergency(message: rules.crisisMessage)
+        }
         if isEmergencyText(patientText) {
             return endWithEmergency()
         }
+        if let pending = pendingEmergencyCheck {
+            pendingEmergencyCheck = nil
+            // 확인 질문에 아니라고 하면 하던 대로 잇는다. 그렇다고 하거나 분명하지 않으면 응급 안내로 끝낸다
+            guard soundsNegative(patientText) else { return endWithEmergency() }
+            phase = pending.phase
+            say(pending.output.utterance)
+            return pending.output
+        }
+        let current = phase
         let before = ledger
         let (out, modelEmergency) = await respond(to: patientText)
-        // 모델만 응급이라고 함 (응급 키워드·체온에는 안 걸림): 통화를 끝내거나 되묻지 않고, 그 답의 기록을 검토 필요로 남긴다.
-        // 모델의 응급 판단은 흔들려(증상 여럿 "토하고 입안도 아프고 손도 저려요"를 응급으로 봄) 통화를 끝내는 데 쓰지 않는다
-        // (2026-10-21 Mac 평가, Foundation Models: 모델만 응급이라고 한 3번 중 1번이 거짓 응급)
-        if modelEmergency { markForReview(patientText, since: before) }
-        return out
+        // 모델만 응급이라고 함 (응급 키워드·체온에는 안 걸림): 그 답의 기록을 검토 필요로 남기고 한 번 확인한다.
+        // 모델의 응급 판단은 흔들려(증상 여럿 "토하고 입안도 아프고 손도 저려요"를 응급으로 봄) 바로 끝내지 않는다
+        // (2026-10-21 Mac 평가, Foundation Models: 모델만 응급이라고 한 3번 중 1번이 거짓 응급, 2번은 혈변·실신)
+        guard modelEmergency else { return out }
+        markForReview(patientText, since: before)
+        pendingEmergencyCheck = (out, phase)
+        phase = current
+        return Output(utterance: say(rules.confirmQuestion), phase: phase)
     }
 
     /// 답 한 턴을 기록하고 다음에 할 말을 정한다. 모델이 응급이라고 했는지도 함께 돌려준다 (검토 표시는 handle이 한다)
     private func respond(to patientText: String) async -> (output: Output, modelEmergency: Bool) {
         let current = phase
         var result: TurnResult?
-        if let quick = quickResult(for: current, patientText: patientText) {
+        let quick = quickResult(for: current, patientText: patientText)
+        if let quick {
             result = quick
         } else {
             result = await analyze(current, patientText: patientText)
@@ -105,6 +128,12 @@ final class InterviewEngine {
         let modelEmergency = result?.emergencySignal == true
         if let analyzed = result, let recheck = await recheckCorrection(analyzed, during: current, patientText: patientText) {
             result?.mentions += recheck
+        }
+        if let analyzed = result, let rechecked = await recheckSaidEffects(analyzed, during: current, patientText: patientText) {
+            result?.mentions = rechecked
+        }
+        if case .slot(let key, .presence) = current, let analyzed = result, let absent = absentByNormalAnswer(analyzed, key: key, patientText: patientText) {
+            result?.mentions.append(absent)
         }
         // 유무 질문에 모델이 낸 그 항목의 유무가 답의 말과 어긋나면 기록하지 않고 다시 묻는다 (잘못 남기느니 한 번 더 묻는다).
         // 이유 답("입이 아파서요")은 아래 reasonAnswer가 다시 채운다
@@ -150,16 +179,18 @@ final class InterviewEngine {
         // ("피곤해요" → "어떤 점이 그러신지…". "보통이에요", "잠은 잘 자요"는 묻지 않음)
         if current == .opening, openingFirstAnswer == nil, result?.needsClarification != true,
            symptomHints.matches(patientText) != nil || openingConcerns.matches(patientText) != nil,
-           !knownIds.contains(where: { ledger[$0]?.presence != before[$0]?.presence }) {
+           !knownIds.contains(where: { ledger[$0]?.presence != before[$0]?.presence }),
+           let followUp = openingFollowUpQuestion(patientText) {
             openingFirstAnswer = patientText
             // 첫 답에서 생긴 기타 항목: 꼬리질문의 답에서 나온 이름 없는 기타는 여기에 붙인다 (같은 증상이 둘로 기록되지 않게)
             openingOtherName = ledger.order.first { $0.hasPrefix("other:") && before[$0] == nil }.flatMap { ledger[$0]?.otherName }
-            return (Output(utterance: say(config.openingFollowUp), phase: phase), modelEmergency)
+            return (Output(utterance: say(followUp), phase: phase), modelEmergency)
         }
         // 꼬리질문의 답이면 첫 답과 합쳐 본다 ('피곤해요 / 일을 많이 해서요')
         let answerText = current == .opening ? [openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / ") : patientText
         recordVerbatimOtherIfMissed(result, during: current, patientText: patientText, text: answerText,
-                                    unchanged: ledger.sameRecords(as: before))
+                                    unchanged: ledger.sameRecords(as: before),
+                                    modelAsked: quick == nil && result?.needsClarification == true)
         // 다시 거는 통화의 첫 답
         // - 말한 증상이 없는데 달라진 게 없다·없어졌다·모르겠다고 분명히 답하지도 않음("네"만, 분석 실패, 알아듣지 못한 답): 한 번 되묻는다
         // - "글쎄요"면 달라진 점을 '모름'으로 남긴다
@@ -167,7 +198,7 @@ final class InterviewEngine {
         if current == .opening, let unasked {
             // 증상이 없어졌다고만 말한 답("설사는 멈췄어요" → 이번 답으로 목록 증상 없음)은 알아들은 답이라 되묻지 않는다.
             // 연결어·숫자·나빠졌다는 말이 섞이면("멈췄는데 대신…") 놓친 증상이 있을 수 있어 되묻는다
-            let mixed = ["근데", "그런데", "는데", "지만", "한데"].contains(where: Self.normalized(patientText).contains)
+            let mixed = Self.hasContrast(patientText)
                 || NumberParser.hasNumber(patientText) || openingConcerns.matches(patientText) != nil
             let toldAbsent = !mixed && ledger.order.contains { key in
                 knownIds.contains(key) && ledger[key]?.presence == .absent && before[key]?.presence != .absent
@@ -185,7 +216,7 @@ final class InterviewEngine {
                 let unclearKey = Ledger.key(effectId: "other", otherName: config.followUpCall.unclearName)
                 openingOtherName = ledger.order.first { $0.hasPrefix("other:") && $0 != unclearKey && before[$0] == nil }
                     .flatMap { ledger[$0]?.otherName }
-                return (Output(utterance: say(config.openingFollowUp), phase: phase), modelEmergency)
+                return (Output(utterance: say(config.followUpCall.followUp), phase: phase), modelEmergency)
             }
             if unclear { recordUnclearChange(patientText) }
             // '그 밖에'는 달라진 게 없다·모르겠다고 분명히 답했을 때만 생략한다 (없어졌다는 답 뒤에는 한 번 묻는다)
@@ -194,7 +225,8 @@ final class InterviewEngine {
 
         switch current {
         case .slot(let key, let step) where step != .detail
-            && (isUnknownAnswer(patientText) || (step == .presence && isVagueAnswer(patientText))):
+            && (isUnknownAnswer(patientText) || (step == .presence && isVagueAnswer(patientText))
+                || (step == .location && isNoLocation(patientText))):
             ledger.markUnknown(key, step: step, quote: patientText) // '모름' + 원문
         case .other where otherDetailKey == nil && soundsUnsure(patientText) && ledger.sameRecords(as: before):
             // '그 밖에'에 "모르겠어요"·"그냥 그래요": 기타 '모름' + 원문으로 남기고 마무리 (증상 '있음'으로는 남기지 않는다)
@@ -216,8 +248,8 @@ final class InterviewEngine {
                 otherAsked = true
                 recordedPrefix = config.otherDetail.recorded
             } else if let key = ledger.order.last(where: { $0.hasPrefix("other:") && before[$0] == nil }) {
-                // 새 기타 증상: 무엇인지 이미 되물은 답이면 바로 마무리, 아니면 한 번 더 묻는다
-                if otherYesFollowedUp {
+                // 새 기타 증상: 무엇인지 이미 되물었거나 언제부터인지 이미 말했으면 바로 마무리, 아니면 시작 시점을 묻는다
+                if otherYesFollowedUp || mentionsOnset(patientText) {
                     otherAsked = true
                     recordedPrefix = config.otherDetail.recorded
                 } else {
@@ -242,7 +274,9 @@ final class InterviewEngine {
             let said = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
             if !said.isEmpty { unsettledAnswers["\(key)|\(step)", default: []].append(said) }
         }
-        let followUp = Self.validFollowUp(result?.utterance, patientText: patientText)
+        // 같은 항목을 다시 물을 때 모델이 쓴 문장은 쓰지 않고 설정 문구로 묻는다. 모델 문장은 설정 문구를 베끼거나(두 문장),
+        // 원래 질문을 다시 쓰거나, 환자 말에 물음표만 붙인 것이었다 (2026-10-21 Foundation Models 평가: 되묻기 7번 모두)
+        let followUp = quick?.utterance.isEmpty == false ? quick?.utterance : nil
         let recordedThisTurn = !ledger.sameRecords(as: before) // advance()가 '물음' 표시를 남기기 전에 본다
         var utterance = await advance(from: current, followUp: followUp)
         if current == .opening, let unasked {
@@ -510,7 +544,7 @@ final class InterviewEngine {
     /// 처음·그 밖에에서 이번 답으로 기록이 하나도 바뀌지 않았는데(모델이 비웠거나, 엉뚱한 항목에 붙여 막혔거나)
     /// 증상 표현이 부정 없이 있으면, 환자 말 그대로 기타 증상으로 기록하고 검토 필요로 둔다. 이름을 짓지 않는다 (의료진이 원문을 본다)
     private func recordVerbatimOtherIfMissed(_ result: TurnResult?, during phase: InterviewPhase, patientText: String, text: String,
-                                             unchanged: Bool) {
+                                             unchanged: Bool, modelAsked: Bool) {
         switch phase {
         case .opening, .other: break
         default: return
@@ -525,6 +559,16 @@ final class InterviewEngine {
         // '그 밖에'에서 증상 표현이 있으면 모델이 되물어도 먼저 남긴다: 되물은 답이 "없어요"면 증상이 사라졌다
         // ("잘 모르겠는데 머리가 아파요", 2026-10-19 실기기). 남기면 "어떤 점이 그러신지"를 물어 내용을 받는다
         let keepAnyway = phase == .other && symptomHints.matches(text) != nil
+        // '그 밖에'에서 모델이 되물은 말은 먼저 '모름'으로 남긴다: 되물은 답이 "없어요"·"네"면 처음 말이 사라졌다
+        // ("이렇게 살아서 뭐하나 싶어요", 2026-10-21 Foundation Models 탐침). '있음'으로는 남기지 않는다
+        if phase == .other, unchanged, modelAsked, !keepAnyway,
+           !soundsNegative(text), !soundsUnsure(text), !saysNormal(text) {
+            let name = config.otherUnclearName
+            ledger.apply(Mention(effectId: "other", otherName: name, presence: .unclear, quote: patientText),
+                         patientText: patientText, knownEffectIds: knownIds)
+            ledger.markUnknown(Ledger.key(effectId: "other", otherName: name), step: .presence, quote: patientText)
+            return
+        }
         guard unchanged, result?.needsClarification != true || keepAnyway,
               symptomHints.matches(text) != nil
                 || (phase == .other && !soundsNegative(text) && !soundsUnsure(text) && !saysNormal(text))
@@ -541,7 +585,11 @@ final class InterviewEngine {
     private func markForReview(_ patientText: String, since before: Ledger) {
         let changed = ledger.changedKeys(since: before)
         guard changed.isEmpty else { return changed.forEach { ledger.markNeedsReview($0) } }
-        let name = rules.reviewName
+        recordForReview(patientText, name: rules.reviewName)
+    }
+
+    /// 환자 말을 기타 항목(name)에 원문으로 남긴다 (유무 '모름', 검토 필요)
+    private func recordForReview(_ patientText: String, name: String) {
         ledger.apply(Mention(effectId: "other", otherName: name, presence: .unclear, quote: patientText),
                      patientText: patientText, knownEffectIds: knownIds)
         ledger.markUnknown(Ledger.key(effectId: "other", otherName: name), step: .presence, quote: patientText)
@@ -638,6 +686,94 @@ final class InterviewEngine {
         return recheck.mentions.filter { $0.effectId == effect.id }
     }
 
+    /// 처음·그 밖에 질문에서 환자 말에 목록 증상 낱말(두 글자 이상, 부정 아님)이 있는데 모델이 빠뜨린 증상은 그 증상을 묻는 질문으로 한 번 더
+    /// 분석한다 (한 답에 여러 증상: "토하고 입안도 아프고 손도 저려요"의 구내염). 그렇게 '있음'이 나오면, 같은 말을 근거로 모델이 고른 다른 목록 증상 중
+    /// 두 글자 이상 낱말 근거가 없는 것은 '모름'으로 바꾼다 (잘못 고른 ID: "오돌토돌…근질근질"을 구토로). 지우지 않아 실제 증상이었어도 잃지 않고,
+    /// 그 항목 차례에 유무를 다시 묻는다. 판단은 모델이, 다시 물을지는 엔진이 정한다
+    /// (2026-10-21 Foundation Models 평가: 지시문으로는 고쳐지지 않았다)
+    private func recheckSaidEffects(_ result: TurnResult, during phase: InterviewPhase, patientText: String) async -> [Mention]? {
+        switch phase {
+        case .opening, .other: break
+        default: return nil
+        }
+        let mentioned = Set(result.mentions.map(\.effectId))
+        // 다시 물을 때는 그 낱말이 든 부분만 보여 준다: 증상 셋을 이은 답("속이 울렁거리고 등이 가렵고 변도 안 나와요")은
+        // 다시 물어도 같은 증상만 골랐다. 근거(quote)는 원문의 일부라 Ledger가 그대로 확인한다
+        let parts = KeywordMatcher.clauses(patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression))
+        let missed: [(effect: CareCallConfig.Effect, part: String)] = config.effects.compactMap { effect in
+            guard !mentioned.contains(effect.id) else { return nil }
+            let matcher = KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true)
+            guard matcher.matches(patientText) != nil else { return nil }
+            return (effect, parts.first { matcher.matches($0) != nil }?.trimmingCharacters(in: .whitespaces) ?? patientText)
+        }
+        var added: [Mention] = []
+        for (effect, part) in missed.prefix(3) {
+            var request = AnalysisRequest(patientText: part, question: effect.ask, ledgerSummary: ledgerSummary())
+            request.slotKey = effect.id
+            request.step = .presence
+            request.slotName = effect.name
+            guard let recheck = try? await analyzer.analyze(request) else { continue }
+            added += recheck.mentions.filter { $0.effectId == effect.id && $0.presence == .present }
+        }
+        guard !added.isEmpty else { return nil }
+        func evidenced(_ id: String) -> Bool {
+            config.effects.first { $0.id == id }?.keywords.contains { $0.count >= 2 && patientText.contains($0) } == true
+        }
+        // '모름'으로 바꾸는 것은 두 근거가 겹치고, 겹친 부분을 뺀 나머지에 그 증상 낱말이 하나도 없을 때만
+        // ("토하고 입안도 아프고"의 구토는 나머지 "토하고"에 '토'가 있어 그대로, "혓바닥이 따갑고 쓰려요"의 저림은 나머지 "쓰려요"에 없어 '모름')
+        func onlyFrom(_ m: Mention, _ new: Mention) -> Bool {
+            let x = Self.normalized(m.quote), y = Self.normalized(new.quote)
+            guard !x.isEmpty, !y.isEmpty, x.contains(y) || y.contains(x) else { return false }
+            let rest = x.replacingOccurrences(of: y, with: "")
+            return !(config.effects.first { $0.id == m.effectId }?.keywords.contains { rest.contains(Self.normalized($0)) } ?? false)
+        }
+        let checked = result.mentions.map { m in
+            guard knownIds.contains(m.effectId), m.presence == .present, !evidenced(m.effectId), added.contains(where: { onlyFrom(m, $0) })
+            else { return m }
+            var doubtful = m
+            doubtful.presence = .unclear
+            return doubtful
+        }
+        return checked + added
+    }
+
+    /// 유무 질문에 모델이 그 항목을 남기지 않았는데 답이 정상이라는 말로 끝나면 '없음'으로 본다 ("입 안은 멀쩡하고요", "피부도 깨끗하고요").
+    /// 애매하면 남기지 않고 다시 묻는다: 정상이라는 말이 마지막 부분에 있어야 하고, 대조("깨끗한데 가려워요")·숫자·그 항목의 '있음' 표현·
+    /// 증상 표현·다른 목록 증상 낱말이 있으면 보지 않는다 (2026-10-21 Foundation Models 평가: 모델이 빈 결과를 내 다시 물었다)
+    private func absentByNormalAnswer(_ result: TurnResult, key: String, patientText: String) -> Mention? {
+        guard !result.mentions.contains(where: { $0.effectId == key }), symptomHints.matches(patientText) == nil,
+              !NumberParser.hasNumber(patientText),
+              !Self.hasContrast(patientText),
+              let effect = config.effects.first(where: { $0.id == key }), !saysPresent(effect, patientText),
+              !config.effects.contains(where: { $0.id != key && $0.keywords.contains { $0.count >= 2 && patientText.contains($0) } })
+        else { return nil }
+        let parts = KeywordMatcher.clauses(patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression))
+        let last = parts.last { !$0.trimmingCharacters(in: .whitespaces).isEmpty } ?? patientText
+        let compact = Self.normalized(last)
+        // 그 항목 낱말을 "안"으로 부정한 말도 정상이라는 말이다 ("아니요, 안 저려요"). "좀 저려요"는 아니다
+        let ownKeywords = effect.keywords.filter { $0.count >= 2 }
+        let ownNegated = ownKeywords.contains(where: last.contains)
+            && KeywordMatcher(keywords: ownKeywords, prefixNegation: true).matches(last) == nil
+        guard soundsNegative(last) || ownNegated || config.normalWords.contains(where: { compact.contains(Self.normalized($0)) })
+        else { return nil }
+        return Mention(effectId: key, presence: .absent, quote: patientText)
+    }
+
+    /// 첫 답을 한 번 되물을 말. 증상을 말했으면 시작 시점(이미 말했으면 nil: 되묻지 않는다), 컨디션이 나쁘다는 말뿐이면 무엇이 불편한지,
+    /// 다시 거는 통화면 무엇이 달라졌는지. 막연한 "어떤 점이 그러신지 조금 더"는 무엇을 더 말할지 막막했다 (2026-10-22 사용자 피드백)
+    private func openingFollowUpQuestion(_ patientText: String) -> String? {
+        if symptomHints.matches(patientText) != nil { return mentionsOnset(patientText) ? nil : config.otherDetail.question }
+        return unasked == nil ? config.openingFollowUp : config.followUpCall.followUp
+    }
+
+    /// 언제부터인지 이미 말했는지 ("어제부터 머리가 아파요", "사흘째", "2주 전부터")
+    private func mentionsOnset(_ text: String) -> Bool {
+        let compact = Self.normalized(text)
+        return config.onsetWords.contains { compact.contains(Self.normalized($0)) }
+            || text.range(of: #"(\d+|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(일|주|주일|달|개월|년|시간)\s*(전|째|넘게)"#,
+                          options: .regularExpression) != nil
+    }
+
     /// 짧고 분명한 답은 모델 없이 처리한다 (속도·재현성). 해당하지 않으면 nil → 모델 호출
     /// - 유무 단계: "네"는 있음, "아니요·없어요·괜찮아요"는 없음
     /// - 처음·그 밖에 질문의 "없어요" → 기록할 것 없음
@@ -646,6 +782,11 @@ final class InterviewEngine {
         let patientText = Self.withoutFillers(fullText, fillers: config.shortAnswers.fillers)
         let text = Self.normalized(patientText)
         let yes = isShortYes(patientText), no = config.shortAnswers.no.contains(text)
+        // "네? 뭐라고요?": 기록하지 않고 같은 질문을 다시 한다 (모델이 "네"를 보고 '있음'으로 남겼다, 2026-10-22 평가)
+        if isRepeatRequest(patientText), phase.asksQuestion {
+            return TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
+                              emergencySignal: false, utterance: "")
+        }
         switch phase {
         case .other where otherDetailKey != nil:
             // 기타 증상 꼬리질문의 답: 모델 없이 그대로 기록 (아래 switch)
@@ -661,7 +802,7 @@ final class InterviewEngine {
             return TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
                               emergencySignal: false, utterance: config.otherFollowUp)
         case .slot(_, .presence) where isUnknownAnswer(patientText) || isVagueAnswer(patientText),
-             .slot(_, .location) where isUnknownAnswer(patientText),
+             .slot(_, .location) where isUnknownAnswer(patientText) || isNoLocation(patientText),
              .other where isUnknownAnswer(patientText) || isVagueAnswer(patientText):
             // "모르겠어요"·"그냥 그래요": 모델 없이 '모름' + 원문으로 기록 (아래 switch)
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
@@ -696,7 +837,7 @@ final class InterviewEngine {
         guard config.noPrefixes.contains(where: { compact == Self.normalized($0) })
                 || (config.noSuffixes + (effect?.absentPhrases ?? [])).contains(where: { compact.hasSuffix(Self.normalized($0)) })
         else { return false }
-        if ["근데", "그런데", "는데", "지만", "그리고", "대신"].contains(where: { t.contains($0) }) { return false }
+        if Self.hasContrast(t) || t.contains("그리고") { return false }
         if NumberParser.hasNumber(t) { return false }
         let otherKeywords = config.effects.filter { $0.id != key }.flatMap(\.keywords)
         if otherKeywords.contains(where: { t.contains($0) }) { return false }
@@ -769,23 +910,25 @@ final class InterviewEngine {
         config.shortAnswers.yes.contains(Self.normalized(patientText))
     }
 
-    /// 꼬리질문은 짧게 다시 묻는 말이다 (설정 질문은 길어야 30자 안팎)
-    static let maxFollowUpLength = 45
+    /// 뒤에 다른 말이 올 수 있는 대조 표현: "~데"(깨끗한데·괜찮은데·있긴 한데 — "는데"만 보면 "한데"를 놓친다), "~지만", "근데", "그래도", "대신"
+    static func hasContrast(_ text: String) -> Bool {
+        text.range(of: #"[가-힣]데(?=[\s,.?!]|$)|지만|그래도|대신"#, options: .regularExpression) != nil
+    }
+
+    /// 질문을 다시 해 달라는 말 ("네? 뭐라고요?", "잘 안 들려요")
+    private func isRepeatRequest(_ text: String) -> Bool {
+        let compact = Self.normalized(text)
+        return config.repeatRequests.contains { compact.contains(Self.normalized($0)) }
+    }
+
+    /// 부위 질문에 "없어요"·"딱히 없어요": 부위는 '모름'으로 둔다 (유무를 뒤집지 않는다)
+    private func isNoLocation(_ text: String) -> Bool {
+        soundsNegative(text) && Self.normalized(text).count <= 10
+    }
 
     static func normalized(_ s: String) -> String { String(s.filter { !$0.isWhitespace && !$0.isPunctuation }) }
 
-    /// 모델 꼬리질문은 물음표로 끝나는 짧은 한 문장이고 환자 말을 되풀이하지 않을 때만 쓴다. 아니면 설정 문구로 다시 묻는다
-    /// (2026-10-09 평가: "…있으신가요? (예: 어느 부분, 얼마나 심한지 등 …)"처럼 괄호·여러 문장이 그대로 읽힘)
-    static func validFollowUp(_ utterance: String?, patientText: String) -> String? {
-        guard let text = utterance?.trimmingCharacters(in: .whitespacesAndNewlines), text.hasSuffix("?"),
-              text.count <= maxFollowUpLength, text.filter({ ".?!".contains($0) }).count == 1,
-              !text.contains(where: { "()[]:".contains($0) }) else { return nil }
-        let u = normalized(text), p = normalized(patientText)
-        guard !u.isEmpty, !p.isEmpty else { return u.isEmpty ? nil : text }
-        return u.contains(p) || p.contains(u) ? nil : text
-    }
-
-    /// 새 항목은 설정 파일 문구, 같은 항목 재질문은 모델 꼬리질문
+    /// 새 항목은 설정 파일 문구. 같은 항목을 다시 물을 때 엔진이 정한 꼬리질문(followUp)이 있으면 그것을 쓴다
     private func question(key: String, step: CareCallStep, followUp: String?) -> String {
         let model = followUp?.trimmingCharacters(in: .whitespacesAndNewlines)
         switch step {
@@ -826,10 +969,11 @@ final class InterviewEngine {
         detector.matches(text) != nil || rules.mentionsFever(text)
     }
 
-    private func endWithEmergency() -> Output {
+    private func endWithEmergency(message: String? = nil) -> Output {
         phase = .emergencyEnded
-        say(rules.message)
-        return Output(utterance: rules.message, phase: phase)
+        let text = message ?? rules.message
+        say(text)
+        return Output(utterance: text, phase: phase)
     }
 
     /// 할 말을 마지막 질문으로 기억한다 (다음 분석 요청의 질문, 같은 질문 반복 판단에 쓴다)
