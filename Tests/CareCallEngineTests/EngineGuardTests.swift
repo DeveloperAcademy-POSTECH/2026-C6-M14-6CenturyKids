@@ -110,7 +110,8 @@ struct EngineGuardTests {
         #expect(others.isEmpty != recorded)
         if recorded {
             #expect(engine.ledger[others[0]]?.needsReview == true)
-            #expect(out.utterance == config.otherDetail.question) // 한 번 더 묻고 마무리
+            // 증상 표현이 없는 원문 기록에는 시작 시점을 묻지 않고 마무리한다 (2026-10-22: 증상이 아닌 말 뒤 "언제부터 그러셨어요?")
+            #expect(out.utterance.hasPrefix(config.otherDetail.recorded))
         }
     }
 
@@ -383,7 +384,7 @@ struct OtherSymptomRetryTests {
         #expect(engine.ledger.order.allSatisfy { !$0.hasPrefix("other:") })
     }
 
-    @Test func 그_밖에_분석이_실패해도_부정이_아니면_원문으로_기록하고_내용을_묻는다() async throws {
+    @Test func 그_밖에_분석이_실패해도_부정이_아니면_원문으로_기록한다() async throws {
         let mock = MockAnalyzer()
         mock.failOn = ["잠을 잠 못 잡니다", "딱히 없는 것 같아요"]
         let engine = InterviewEngine(config: try fixture(CareCallConfig.self, "side_effects"),
@@ -395,7 +396,7 @@ struct OtherSymptomRetryTests {
         // "그게 좀 그래요" 같은 애매한 답은 기록하지 않는다 (VagueAnswerTests)
         let out = await engine.handle(patientText: "잠을 잠 못 잡니다")
         #expect(engine.ledger["other:잠을 잠 못 잡니다"]?.presence == .present)
-        #expect(out.utterance == engine.config.otherDetail.question)
+        #expect(out.utterance.hasPrefix(engine.config.otherDetail.recorded))
     }
 
     @Test(arguments: ["딱히 없는 것 같아요", "읎심더"])
@@ -984,5 +985,318 @@ struct N100FindingsTests {
         #expect(engine.ledger["neuropathy"]?.presence == .absent)
         _ = await engine.handle(patientText: "아 손이 좀 저린 건 있어요")
         #expect(engine.ledger["neuropathy"]?.presence == .present)
+    }
+}
+
+/// 2026-10-22 시나리오 반복 1바퀴: 모델을 거치지 않는 빠른 길이 환자 말을 버리던 곳
+@MainActor
+struct FastPathGuardTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    private func reach(_ key: String, _ mock: MockAnalyzer) async -> InterviewEngine {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        while engine.phase != .slot(key: key, step: .presence) { _ = await engine.handle(patientText: "아니요") }
+        return engine
+    }
+
+    /// 되묻는 말은 답 전체가 그 말일 때만 모델 없이 다시 묻는다. 다른 말이 섞이면 모델이 본다
+    @Test(arguments: [("네? 뭐라고요?", true), ("잘 안 들려요 다시 말해 주세요", true), ("죄송한데 다시 말씀해 주시겠어요?", true),
+                      ("밥이 목으로 잘 안 들어가요", false), ("뭐라고 해야 하나, 속이 좀 울렁거려요", false)])
+    func 되묻는_말은_답_전체일_때만(text: String, repeatRequest: Bool) async {
+        let mock = MockAnalyzer()
+        let engine = await reach("dehydration_nutrition", mock)
+        let before = mock.requests.count
+        _ = await engine.handle(patientText: text)
+        #expect((mock.requests.count == before) == repeatRequest)
+    }
+
+    /// 부위 질문에 부위가 섞인 답("손은 괜찮고 발이 저려요")은 모델이 부위를 뽑는다. 짧은 '없어요'류만 부위 모름
+    @Test(arguments: [("손은 괜찮고 발이 저려요", false), ("얼굴 말고는 없어요", false), ("딱히 없어요", true), ("어디라고 딱히 없어요", true)])
+    func 부위_없음은_짧은_없어요만(text: String, unknown: Bool) async {
+        let mock = MockAnalyzer()
+        mock.script[text] = .mentions(Mention(effectId: "neuropathy", presence: .present, locations: ["발"]))
+        let engine = await reach("neuropathy", mock)
+        _ = await engine.handle(patientText: "네")
+        while engine.phase != .slot(key: "neuropathy", step: .location) { _ = await engine.handle(patientText: "한 삼십 분이요") }
+        _ = await engine.handle(patientText: text)
+        #expect(engine.ledger["neuropathy"]?.unknownSteps.contains(.location) == unknown)
+    }
+
+    @Test(arguments: [("저리긴 한데요, 괜찮아요", true), ("따가운데요 괜찮아요", true), ("가려운 데는 없어요", false)])
+    func 데요로_맺은_대조(text: String, contrast: Bool) {
+        #expect(InterviewEngine.hasContrast(text) == contrast)
+    }
+
+    /// 앞부분에서 그 항목을 말했으면 끝이 정상이라는 말이어도 엔진이 '없음'으로 채우지 않는다
+    @Test func 앞부분에서_말한_증상은_끝의_정상_말로_없음이_되지_않는다() async {
+        let mock = MockAnalyzer()
+        mock.script["손은 저리고 발은 안 저려요"] = .mentions()
+        let engine = await reach("neuropathy", mock)
+        _ = await engine.handle(patientText: "손은 저리고 발은 안 저려요")
+        #expect(engine.ledger["neuropathy"]?.presence != .absent)
+    }
+
+    /// "그럭저럭"이 있어도 정상이라는 말로 끝나면 애매한 답이 아니다 (모름으로 남기지 않는다)
+    @Test func 그럭저럭_잘_나와요는_없음() async {
+        let mock = MockAnalyzer()
+        mock.script["변은 그럭저럭 잘 나와요"] = .mentions(Mention(effectId: "constipation", presence: .absent))
+        let engine = await reach("constipation", mock)
+        _ = await engine.handle(patientText: "변은 그럭저럭 잘 나와요")
+        #expect(engine.ledger["constipation"]?.presence == .absent)
+    }
+}
+
+/// 2026-10-22 시나리오 반복 2바퀴: 유무 답을 절로 나눠 본다 (지금 상태 기준, 앞부분 긍정 + 끝 '괜찮아요')
+@MainActor
+struct ClausePresenceTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    private func answer(_ key: String, _ text: String, model presence: MentionPresence) async -> MentionPresence? {
+        let mock = MockAnalyzer()
+        mock.script[text] = .mentions(Mention(effectId: key, presence: presence, quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        while engine.phase != .slot(key: key, step: .presence) { _ = await engine.handle(patientText: "아니요") }
+        _ = await engine.handle(patientText: text)
+        return engine.ledger[key]?.presence
+    }
+
+    /// 다 나았다고 분명히 말하면 없음, 좀 나아져도 아직 있으면 모델 판단 그대로 (사용자 결정 2026-10-21)
+    @Test(arguments: [("nausea_vomiting", "그저께 한 번 토했는데 지금은 다 괜찮아졌어요", MentionPresence.absent),
+                      ("diarrhea", "설사는 약 먹고 멈췄어요", .absent),
+                      ("nausea_vomiting", "많이 나아졌는데 아직 좀 울렁거려요", .present),
+                      ("stomatitis", "아직 안 나았어요, 입안이 계속 따가워요", .present)])
+    func 지금_상태(key: String, text: String, expected: MentionPresence) async {
+        #expect(await answer(key, text, model: .present) == expected)
+    }
+
+    /// 앞부분에서 증상을 말하고 끝을 괜찮다는 말로 맺으면 모델이 없음이라 해도 있음
+    @Test(arguments: [("stomatitis", "혓바늘이 났는데요 괜찮아요"), ("nausea_vomiting", "아침엔 메스껍고 저녁엔 괜찮아요")])
+    func 앞부분_긍정은_있음(key: String, text: String) async {
+        #expect(await answer(key, text, model: .absent) == .present)
+    }
+}
+
+/// 2026-10-22 시나리오 반복 2바퀴: 처음·그 밖에서 저림·피부를 근거 낱말 없이 고르면 기타 증상으로
+@MainActor
+struct KeywordRequiredTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    @Test(arguments: [("허리가 아파서 잘 못 걸어요", "neuropathy", false), ("옆구리가 결려요", "rash_pruritus", false),
+                      ("손끝이 저려요", "neuropathy", true), ("발이 찌르르해요", "neuropathy", true)])
+    func 근거_없는_저림_피부는_기타(text: String, key: String, listed: Bool) async {
+        let mock = MockAnalyzer()
+        mock.script[text] = .mentions(Mention(effectId: key, presence: .present, quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: text)
+        #expect((engine.ledger[key]?.presence == .present) == listed)
+        #expect(engine.ledger.order.contains { $0.hasPrefix("other:") } != listed)
+    }
+}
+
+/// 2026-10-22 시나리오 반복 3바퀴: 유무 질문에 근거 없이 다른 항목을 고른 답, '않' 부정 절
+@MainActor
+struct CurrentSlotTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    private func answer(_ key: String, _ text: String, model: Mention) async -> InterviewEngine {
+        let mock = MockAnalyzer()
+        mock.script[text] = .mentions(model)
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        while engine.phase != .slot(key: key, step: .presence) { _ = await engine.handle(patientText: "아니요") }
+        _ = await engine.handle(patientText: text)
+        return engine
+    }
+
+    @Test func 근거_낱말_없이_다른_항목을_고르면_지금_항목의_답() async {
+        let engine = await answer("constipation", "네 사흘째요", model: Mention(effectId: "diarrhea", presence: .present, quote: "네 사흘째요"))
+        #expect(engine.ledger["constipation"]?.presence == .present)
+        #expect(engine.ledger["diarrhea"]?.presence != .present)
+    }
+
+    @Test func 다른_항목_낱말이_있으면_옮기지_않는다() async {
+        let engine = await answer("constipation", "아니요 오히려 설사를 했어요",
+                                  model: Mention(effectId: "diarrhea", presence: .present, quote: "설사를 했어요"))
+        #expect(engine.ledger["diarrhea"]?.presence == .present)
+    }
+
+    @Test func 않으로_부정한_앞부분은_있음_근거가_아니다() async {
+        let engine = await answer("stomatitis", "입안은 헐지 않았고 괜찮아요",
+                                  model: Mention(effectId: "stomatitis", presence: .absent, quote: "입안은 헐지 않았고 괜찮아요"))
+        #expect(engine.ledger["stomatitis"]?.presence == .absent)
+    }
+}
+
+/// 2026-10-22 시나리오 반복 3바퀴: 첫 답의 목록 증상과 함께 말한 목록 밖 증상
+@MainActor
+struct OpeningMixedTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    @Test(arguments: [("피곤하고 손도 저려요", true), ("머리가 아프고 속도 메스꺼워요", true), ("토하고 나니까 힘들어요", false)])
+    func 목록_밖_부분은_기타(text: String, other: Bool) async {
+        let mock = MockAnalyzer()
+        let key = text.contains("저려") ? "neuropathy" : "nausea_vomiting"
+        mock.script[text] = .mentions(Mention(effectId: key, presence: .present, quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: text)
+        #expect(engine.ledger[key]?.presence == .present)
+        #expect(engine.ledger.order.contains { $0.hasPrefix("other:") } == other)
+    }
+}
+
+/// 2026-10-22 시나리오 반복 4바퀴: 부위 질문의 답으로 유무를 뒤집지 않는다, '안' 부정 절
+@MainActor
+struct LocationKeepsPresenceTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+
+    private func atLocation(_ answer: String, model: Mention) async -> InterviewEngine {
+        let mock = MockAnalyzer()
+        mock.script[answer] = .mentions(model)
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        while engine.phase != .slot(key: "rash_pruritus", step: .presence) { _ = await engine.handle(patientText: "아니요") }
+        _ = await engine.handle(patientText: "네")
+        while engine.phase != .slot(key: "rash_pruritus", step: .location) { _ = await engine.handle(patientText: "한 삼십 분이요") }
+        _ = await engine.handle(patientText: answer)
+        return engine
+    }
+
+    @Test func 부위_답의_없어요는_유무를_바꾸지_않는다() async {
+        let engine = await atLocation("얼굴 말고는 없어요", model: Mention(effectId: "rash_pruritus", presence: .absent, quote: "얼굴 말고는 없어요"))
+        #expect(engine.ledger["rash_pruritus"]?.presence == .present)
+    }
+
+    @Test func 그_증상을_직접_부정한_번복은_받는다() async {
+        let engine = await atLocation("아 다시 생각해 보니 이제 안 가려워요",
+                                      model: Mention(effectId: "rash_pruritus", presence: .absent, quote: "이제 안 가려워요"))
+        #expect(engine.ledger["rash_pruritus"]?.presence == .absent)
+    }
+}
+
+extension OpeningMixedTests {
+    /// 주어 없는 "아파요"는 앞 증상의 말이라 기타로 남기지 않는다
+    @Test func 주어_없는_아파요는_기타가_아니다() async {
+        let mock = MockAnalyzer()
+        mock.script["손발이 저리고 아파요"] = .mentions(Mention(effectId: "neuropathy", presence: .present, quote: "손발이 저리고 아파요"))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "손발이 저리고 아파요")
+        #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
+    }
+}
+
+extension LocationKeepsPresenceTests {
+    /// 모델이 근거를 바꿔 적어도("등이요" → "등요") 부위 질문의 답이면 부위를 받는다
+    @Test func 부위_답의_근거를_바꿔_적어도_부위를_받는다() async {
+        let engine = await atLocation("등이요", model: Mention(effectId: "rash_pruritus", presence: .present, locations: ["등"], quote: "등요"))
+        #expect(engine.ledger["rash_pruritus"]?.locations == ["등"])
+    }
+}
+
+extension OpeningMixedTests {
+    /// '그 밖에'의 짧은 "딱히요"는 없다는 답이라 원문 기타로 남기지 않는다
+    @Test func 그_밖에_딱히요는_기록하지_않는다() async {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer())
+        _ = engine.start()
+        for _ in 0..<20 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
+        _ = await engine.handle(patientText: "음 딱히요")
+        #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
+    }
+}
+
+extension ClausePresenceTests {
+    /// 붙어 쓴 '-데요' 뒤도 절 경계: "혓바늘이 따가운데요 괜찮아요"는 있음, 띄어 쓴 "가려운 데는 없어요"는 그대로
+    @Test func 붙어_쓴_데요_뒤도_절_경계() async {
+        #expect(await answer("stomatitis", "입안이 좀 따가운데요 괜찮아요", model: .absent) == .present)
+        #expect(await answer("rash_pruritus", "가려운 데는 없어요", model: .absent) == .absent)
+    }
+}
+
+/// 2026-10-22 시나리오 반복 11바퀴: 증상 표현의 '…한 데는 없어요' 부정 (응급 키워드는 그대로)
+struct PlaceNegationTests {
+    @Test(arguments: [("뻐근한 데는 없어요", false), ("쑤시는 데 없어요", false), ("아픈 곳은 없어요", false),
+                      ("허리가 아픈데 없어지질 않아요", true), ("아픈 데가 없진 않아요", true), ("결리는 데가 있어요", true)])
+    func 증상_표현의_데는_없어요(text: String, symptom: Bool) {
+        let hints = KeywordMatcher(keywords: ["아파", "아프", "아픈", "쑤시", "뻐근", "결리"], prefixNegation: true)
+        #expect((hints.matches(text) != nil) == symptom)
+    }
+
+    @Test func 응급_키워드는_데는_없어요로_막지_않는다() {
+        #expect(KeywordMatcher(keywords: ["가슴이 아"]).matches("가슴이 아픈 데는 없어요") != nil)
+    }
+}
+
+extension KeywordRequiredTests {
+    /// 낱말을 부정한 말("저린 건 아니고")은 저림 근거가 아니다
+    @Test func 부정한_저림_낱말은_근거가_아니다() async {
+        let mock = MockAnalyzer()
+        let text = "다리가 저린 건 아니고 쑤셔요"
+        mock.script[text] = .mentions(Mention(effectId: "neuropathy", presence: .present, locations: ["다리"], quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: text)
+        #expect(engine.ledger["neuropathy"]?.presence != .present)
+        #expect(engine.ledger.order.contains { $0.hasPrefix("other:") })
+    }
+}
+
+extension KeywordRequiredTests {
+    /// 목록 낱말 없이 증상 표현만 있는 말은 모델이 어느 항목으로 골랐든 기타로 (검토 필요). 증상 표현 없는 바꿔 말하기는 그대로
+    @Test(arguments: [("요새 어지러워서 자꾸 누워 있어요", "dehydration_nutrition", false), ("머리가 핑 돌아서 자꾸 앉아 있어요", "nausea_vomiting", false),
+                      ("속이 뒤집힐 것 같아요", "nausea_vomiting", true)])
+    func 목록_낱말_없는_증상_표현은_기타(text: String, picked: String, listed: Bool) async {
+        let mock = MockAnalyzer()
+        mock.script[text] = .mentions(Mention(effectId: picked, presence: .present, quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = engine.start()
+        _ = await engine.handle(patientText: text)
+        #expect((engine.ledger[picked]?.presence == .present) == listed)
+        if !listed {
+            let other = engine.ledger.order.first { $0.hasPrefix("other:") }
+            #expect(other.flatMap { engine.ledger[$0]?.needsReview } == true)
+        }
+    }
+}
+
+extension ClausePresenceTests {
+    /// 절 판단으로 있음이 되면 그 절의 부위를 부위로 쓴다 (부위를 다시 묻지 않는다)
+    @Test func 앞부분_긍정의_부위를_쓴다() async {
+        let words = try! fixture(BodyPartDictionary.self, "body_parts").parts.values.flatMap { $0 }
+        let mock = MockAnalyzer()
+        let text = "팔은 가렵고 다리는 괜찮아요"
+        mock.script[text] = .mentions(Mention(effectId: "rash_pruritus", presence: .absent, quote: text))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock, locationWords: words)
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        while engine.phase != .slot(key: "rash_pruritus", step: .presence) { _ = await engine.handle(patientText: "아니요") }
+        _ = await engine.handle(patientText: text)
+        #expect(engine.ledger["rash_pruritus"]?.presence == .present)
+        #expect(engine.ledger["rash_pruritus"]?.locations == ["팔"])
+    }
+}
+
+extension OpeningMixedTests {
+    /// '그 밖에'의 다 나았다는 말은 증상으로 기록하지 않는다 ("아직·또·다시"가 있으면 기록)
+    @Test(arguments: [("쑤시던 건 다 나았어요", false), ("결리던 것도 풀렸어요", false), ("쑤신 게 나았다가 또 쑤셔요", true)])
+    func 그_밖에_다_나았다는_말(text: String, recorded: Bool) async {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer())
+        _ = engine.start()
+        for _ in 0..<20 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
+        _ = await engine.handle(patientText: text)
+        #expect(engine.ledger.order.contains { $0.hasPrefix("other:") } == recorded)
     }
 }

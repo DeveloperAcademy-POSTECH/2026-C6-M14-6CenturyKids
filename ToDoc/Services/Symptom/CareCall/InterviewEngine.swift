@@ -44,11 +44,16 @@ final class InterviewEngine {
     private(set) var lastQuestion: String
     /// 모델만 응급이라고 본 답 뒤에 확인 질문을 했으면, '아니요'일 때 이어 갈 말과 단계
     private var pendingEmergencyCheck: (output: Output, phase: InterviewPhase)?
+    /// 이번 답에서 근거 없이 고른 목록 증상을 기타로 돌렸음 (새 기타 항목을 검토 필요로 둔다)
+    private var convertedToOther = false
     /// 같은 날 다시 거는 통화면 오늘 기록에 아직 없는 항목(지난 통화가 끊겨 못 물음), 처음 통화면 nil.
     /// 다시 거는 통화는 "달라졌거나 새로 불편한 점"을 묻고, 그 답에서 나온 증상과 이 항목만 묻는다
     private let unasked: Set<String>?
+    /// 부위 낱말 (body_parts.json). 절 판단으로 '있음'이 된 답에서 그 절의 부위를 찾을 때만 쓴다
+    private let locationWords: [String]
 
-    init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI, followUp unasked: Set<String>? = nil) {
+    init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI, followUp unasked: Set<String>? = nil,
+         locationWords: [String] = []) {
         self.config = config
         self.rules = rules
         self.detector = KeywordMatcher(keywords: rules.keywords, maxGapWords: 2)
@@ -60,6 +65,7 @@ final class InterviewEngine {
         self.names = Dictionary(uniqueKeysWithValues: config.effects.map { ($0.id, $0.name) })
         self.keywords = Dictionary(uniqueKeysWithValues: config.effects.map { ($0.id, $0.keywords) })
         self.unasked = unasked
+        self.locationWords = locationWords
         self.lastQuestion = unasked == nil ? config.openingQuestion : config.followUpCall.question
     }
 
@@ -132,6 +138,22 @@ final class InterviewEngine {
         if let analyzed = result, let rechecked = await recheckSaidEffects(analyzed, during: current, patientText: patientText) {
             result?.mentions = rechecked
         }
+        if case .slot(let key, .presence) = current, let mentions = result?.mentions {
+            result?.mentions = toCurrentSlot(mentions, key: key, patientText: patientText)
+        }
+        // 부위 질문의 답("얼굴 말고는 없어요")을 모델이 '없음'으로 읽어 있던 증상이 지워졌다 (2026-10-22 평가). 부위 질문에서는 유무를 바꾸지 않는다.
+        // 그 항목 낱말을 직접 부정한 번복("이제 안 가려워요")만 받는다
+        if case .slot(let key, .location) = current, let effect = config.effects.first(where: { $0.id == key }),
+           !(effect.keywords.contains { $0.count >= 2 && patientText.contains($0) }
+             && KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true).matches(patientText) == nil) {
+            result?.mentions.removeAll { $0.effectId == key && $0.presence != .present && $0.locations.isEmpty }
+            for i in result?.mentions.indices ?? 0..<0 where result?.mentions[i].effectId == key { result?.mentions[i].presence = .present }
+        }
+        // 부위 질문의 답은 짧아 근거를 답 전체로 둔다. 모델이 "등이요"를 "등요"로 옮겨 적어 근거 확인에 걸리고 부위가 버려졌다 (2026-10-22 평가).
+        // 부위 낱말은 Ledger가 환자 말에 있는지 따로 확인한다
+        if case .slot(let key, .location) = current {
+            for i in result?.mentions.indices ?? 0..<0 where result?.mentions[i].effectId == key { result?.mentions[i].quote = patientText }
+        }
         if case .slot(let key, .presence) = current, let analyzed = result, let absent = absentByNormalAnswer(analyzed, key: key, patientText: patientText) {
             result?.mentions.append(absent)
         }
@@ -140,13 +162,30 @@ final class InterviewEngine {
         if case .slot(let key, .presence) = current {
             result?.mentions.removeAll { $0.effectId == key && contradicts($0.presence, patientText, for: key) }
         }
+        // 유무 질문: 다 나았다는 답은 '없음', 앞부분에서 증상을 말하고 끝을 '괜찮아요'로 맺은 답은 '있음' (모델이 거꾸로 기록했다)
+        if case .slot(let key, .presence) = current, result != nil, let judged = presenceByClauses(key: key, patientText: patientText) {
+            if result?.mentions.contains(where: { $0.effectId == key }) != true {
+                result?.mentions.append(Mention(effectId: key, presence: judged.presence, quote: patientText))
+            }
+            for i in result?.mentions.indices ?? 0..<0 where result?.mentions[i].effectId == key {
+                result?.mentions[i].presence = judged.presence
+                // 모델이 '없음'으로 읽어 부위가 비었으면 증상을 말한 절의 부위를 쓴다 ("팔은 가렵고" → 팔). 없으면 부위를 묻는다
+                if judged.presence == .present, result?.mentions[i].locations.isEmpty == true, let clause = judged.clause {
+                    result?.mentions[i].locations = locations(in: clause)
+                }
+            }
+        }
         if let analyzed = result, let reason = reasonAnswer(analyzed, during: current, patientText: patientText) {
             result?.mentions.append(reason)
         }
         if let mentions = result?.mentions {
-            result?.mentions = presentByPhrase(reassignedByKeywords(normalizedOthers(mentions, during: current, patientText: patientText),
+            result?.mentions = presentByPhrase(reassignedByKeywords(normalizedOthers(unevidencedAsOther(mentions, during: current, patientText: patientText),
+                                                                                     during: current, patientText: patientText),
                                                                     during: current, patientText: patientText),
                                                 during: current, patientText: patientText)
+        }
+        if let mentions = result?.mentions {
+            result?.mentions = otherClausesBesideListed(mentions, during: current, patientText: patientText)
         }
         if current == .opening, unasked != nil, let mentions = result?.mentions {
             result?.mentions = stoppedOverride(mentions, patientText: patientText)
@@ -171,13 +210,18 @@ final class InterviewEngine {
                          mayChangeRecorded: mayChangeRecorded(mention, during: current, patientText: patientText))
         }
         prefillNumber(from: patientText, since: before, during: current)
+        if convertedToOther {
+            for key in ledger.order where key.hasPrefix("other:") && before[key] == nil { ledger.markNeedsReview(key) }
+            convertedToOther = false
+        }
         // 첫 질문 답은 그대로 남긴다 (꼬리질문의 답이면 첫 답과 이어서). 다시 거는 통화는 컨디션을 묻지 않는다
         if current == .opening, unasked == nil {
             ledger.setConditionText([openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / "))
         }
         // 첫 질문: 증상 표현이나 컨디션이 나쁘다는 말이 있고 목록 증상은 기록되지 않았으면 한 번 되묻는다
-        // ("피곤해요" → "어떤 점이 그러신지…". "보통이에요", "잠은 잘 자요"는 묻지 않음)
-        if current == .opening, openingFirstAnswer == nil, result?.needsClarification != true,
+        // ("피곤해요" → "어떤 점이 그러신지…". "보통이에요", "잠은 잘 자요"는 묻지 않음).
+        // 증상 표현이 있으면 모델이 되물어도 묻는다: "기침이 좀 나요 감기 기운인지"를 되묻기로 내 시작 시점을 묻지 않았다 (2026-10-22 평가)
+        if current == .opening, openingFirstAnswer == nil, result?.needsClarification != true || symptomHints.matches(patientText) != nil,
            symptomHints.matches(patientText) != nil || openingConcerns.matches(patientText) != nil,
            !knownIds.contains(where: { ledger[$0]?.presence != before[$0]?.presence }),
            let followUp = openingFollowUpQuestion(patientText) {
@@ -248,8 +292,11 @@ final class InterviewEngine {
                 otherAsked = true
                 recordedPrefix = config.otherDetail.recorded
             } else if let key = ledger.order.last(where: { $0.hasPrefix("other:") && before[$0] == nil }) {
-                // 새 기타 증상: 무엇인지 이미 되물었거나 언제부터인지 이미 말했으면 바로 마무리, 아니면 시작 시점을 묻는다
-                if otherYesFollowedUp || mentionsOnset(patientText) {
+                // 새 기타 증상: 무엇인지 이미 되물었거나 언제부터인지 이미 말했으면 바로 마무리, 아니면 시작 시점을 묻는다.
+                // 모델이 증상으로 보지 않아 원문만 남긴 말(증상 표현 없음: "병원비 때문에 걱정이 많아요", "손주가 와서 바빴어요")에는
+                // 시작 시점을 묻지 않는다 (2026-10-22 평가: 증상이 아닌 말 뒤에 "언제부터 그러셨어요?")
+                let verbatimOnly = ledger[key]?.needsReview == true && symptomHints.matches(patientText) == nil
+                if otherYesFollowedUp || mentionsOnset(patientText) || verbatimOnly {
                     otherAsked = true
                     recordedPrefix = config.otherDetail.recorded
                 } else {
@@ -301,6 +348,24 @@ final class InterviewEngine {
             utterance = prefix + " " + utterance
         }
         return (Output(utterance: utterance, phase: phase), modelEmergency)
+    }
+
+    /// 처음·그 밖에 질문에서 낱말이 꼭 있어야 하는 항목(keywordRequired: 저림·피부)을 환자 말에 그 낱말 없이 고르면 기타 증상으로 둔다
+    /// (2026-10-22 평가: "허리가 아파서", "무릎이 쑤셔요", "어지러워요"를 저림으로, "옆구리가 결려요"를 피부로). 이름은 normalizedOthers가 원문으로 붙이고,
+    /// 그 항목은 차례가 오면 그대로 묻는다
+    private func unevidencedAsOther(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
+        guard phase == .opening || phase == .other else { return mentions }
+        // 목록 낱말이 하나도 없고 증상 표현만 있는 말("요새 어지러워서 자꾸 누워 있어요", "머리가 핑 돌아요")은 어느 항목으로 골랐든 목록 밖 증상이다
+        let nonListOnly = symptomHints.matches(patientText) != nil && !config.effects.flatMap(\.keywords).contains(where: patientText.contains)
+        return mentions.map { m in
+            // '모름'(다시 확인해 이미 낮춘 것)은 그대로 둔다: 그 항목 차례에 다시 묻는다
+            // 낱말을 부정한 말("다리가 저린 건 아니고 쑤셔요")은 근거가 아니다
+            guard m.presence == .present, let effect = config.effects.first(where: { $0.id == m.effectId }),
+                  effect.keywordRequired == true || nonListOnly,
+                  KeywordMatcher(keywords: effect.keywords, prefixNegation: true).matches(patientText) == nil else { return m }
+            convertedToOther = true
+            return Mention(effectId: "other", presence: m.presence, quote: m.quote)
+        }
     }
 
     /// 모델이 고른 목록 증상의 낱말은 환자 말에 없고 다른 목록 증상 하나의 낱말만 있으면 그 증상으로 바꾼다
@@ -558,7 +623,9 @@ final class InterviewEngine {
         // 다시 거는 통화의 첫 답에서 나빠졌다는 말("좀 안 좋아졌어요")은 컨디션으로 저장하지 않으니 기타로 남긴다
         // '그 밖에'에서 증상 표현이 있으면 모델이 되물어도 먼저 남긴다: 되물은 답이 "없어요"면 증상이 사라졌다
         // ("잘 모르겠는데 머리가 아파요", 2026-10-19 실기기). 남기면 "어떤 점이 그러신지"를 물어 내용을 받는다
-        let keepAnyway = phase == .other && symptomHints.matches(text) != nil
+        // 첫 질문의 꼬리질문("언제부터 그러셨어요?")에 답하면 모델은 시작 시점만 보고 되묻는다. 첫 답의 증상 표현은 그래도 남긴다
+        // ("밤에 잠을 통 못 자요 / 주사 맞고부터요"가 기록 없이 사라졌다, 2026-10-22 평가)
+        let keepAnyway = (phase == .other || (phase == .opening && openingFirstAnswer != nil)) && symptomHints.matches(text) != nil
         // '그 밖에'에서 모델이 되물은 말은 먼저 '모름'으로 남긴다: 되물은 답이 "없어요"·"네"면 처음 말이 사라졌다
         // ("이렇게 살아서 뭐하나 싶어요", 2026-10-21 Foundation Models 탐침). '있음'으로는 남기지 않는다
         if phase == .other, unchanged, modelAsked, !keepAnyway,
@@ -612,7 +679,8 @@ final class InterviewEngine {
         let compact = Self.normalized(t)
         guard config.vagueAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
               !NumberParser.hasNumber(t), !soundsNegative(t),
-              !["있", "했"].contains(where: compact.contains),
+              !["있", "했"].contains(where: compact.contains), !saysNormal(t),
+              !config.normalWords.contains(where: { compact.contains(Self.normalized($0)) }),
               !config.shortAnswers.yes.contains(where: { compact.hasPrefix(Self.normalized($0)) }) else { return false }
         if ["는데", "지만", "근데", "그런데"].contains(where: t.contains) { return false }
         return !config.effects.flatMap(\.keywords).contains(where: t.contains) && symptomHints.matches(t) == nil
@@ -633,12 +701,16 @@ final class InterviewEngine {
         let compact = Self.normalized(text)
         return ["없", "읎", "괜찮", "아니", "아뇨"].contains(where: compact.contains)
             || config.noSuffixes.contains(where: { compact.hasSuffix(Self.normalized($0)) })
+            || config.shortAnswers.no.contains(Self.normalized(Self.withoutFillers(text, fillers: config.shortAnswers.fillers)))
     }
 
     /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다
     private func saysNormal(_ text: String) -> Bool {
         let compact = Self.normalized(text)
         return config.effects.flatMap { $0.absentPhrases ?? [] }.contains { compact.hasSuffix(Self.normalized($0)) }
+            // 다 나았다는 말로 끝남 ("쑤시던 건 다 나았어요", "결리던 것도 풀렸어요"). 아직·또·다시·안 나·덜이 있으면 아니다
+            || (compact.range(of: #"(나았|풀렸|없어졌|괜찮아졌|가라앉았|멈췄|그쳤|빠졌)(어요|습니다|어|네요)?$"#, options: .regularExpression) != nil
+                && !["아직", "또", "다시", "안나", "덜"].contains(where: compact.contains))
     }
 
     /// 유무 질문의 답과 모델이 낸 그 항목의 유무가 어긋남 (Foundation Models, 2026-10-21 Mac 평가):
@@ -713,7 +785,8 @@ final class InterviewEngine {
             request.step = .presence
             request.slotName = effect.name
             guard let recheck = try? await analyzer.analyze(request) else { continue }
-            added += recheck.mentions.filter { $0.effectId == effect.id && $0.presence == .present }
+            // 다시 물어도 근거 낱말 없는 다른 증상을 고르면("온몸이 근질근질해요" → 저림) 다시 묻는 그 증상의 답으로 본다
+            added += toCurrentSlot(recheck.mentions, key: effect.id, patientText: part).filter { $0.effectId == effect.id && $0.presence == .present }
         }
         guard !added.isEmpty else { return nil }
         func evidenced(_ id: String) -> Bool {
@@ -752,12 +825,84 @@ final class InterviewEngine {
         let compact = Self.normalized(last)
         // 그 항목 낱말을 "안"으로 부정한 말도 정상이라는 말이다 ("아니요, 안 저려요"). "좀 저려요"는 아니다
         let ownKeywords = effect.keywords.filter { $0.count >= 2 }
-        let ownNegated = ownKeywords.contains(where: last.contains)
-            && KeywordMatcher(keywords: ownKeywords, prefixNegation: true).matches(last) == nil
+        // 앞부분에서 그 항목을 부정 없이 말했으면("손은 저리고 발은 안 저려요") 마지막 부분이 정상이어도 보지 않는다
+        let ownMatcher = KeywordMatcher(keywords: ownKeywords, prefixNegation: true)
+        guard parts.dropLast().allSatisfy({ ownMatcher.matches($0) == nil || soundsNegative($0) }) else { return nil }
+        let ownNegated = ownKeywords.contains(where: last.contains) && ownMatcher.matches(last) == nil
         guard soundsNegative(last) || ownNegated || config.normalWords.contains(where: { compact.contains(Self.normalized($0)) })
         else { return nil }
         return Mention(effectId: key, presence: .absent, quote: patientText)
     }
+
+    /// 유무 질문에 모델이 지금 항목은 비우고 다른 목록 증상을 '있음'으로 골랐는데 환자 말에 그 증상 낱말이 하나도 없으면 지금 항목의 답으로 본다
+    /// (2026-10-22 평가: 변비 질문에 "네 사흘째요"·"조금 나오긴 하는데 아직 시원하지 않아요"를 설사로 기록하고 변비를 다시 물었다)
+    private func toCurrentSlot(_ mentions: [Mention], key: String, patientText: String) -> [Mention] {
+        guard knownIds.contains(key), !mentions.contains(where: { $0.effectId == key }),
+              let i = mentions.firstIndex(where: { m in
+                  m.effectId != key && m.presence == .present
+                      && config.effects.first { $0.id == m.effectId }.map { !$0.keywords.contains(where: patientText.contains) } == true
+              }) else { return mentions }
+        var moved = mentions
+        moved[i].effectId = key
+        return moved
+    }
+
+    /// 첫 질문 답에서 목록 증상을 기록했을 때, 목록 낱말이 없는 다른 부분에 증상 표현이 있으면 그 부분을 기타 증상으로 남긴다
+    /// ("피곤하고 손도 저려요"의 피곤, "머리가 아프고 속도 메스꺼워요"의 두통 — 모델은 목록 증상만 기록했다, 2026-10-22 평가).
+    /// 컨디션이 나쁘다는 말("힘들어요", "기운이 없어요")은 남기지 않는다. 모델이 기타를 이미 냈으면 손대지 않는다
+    private func otherClausesBesideListed(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
+        guard phase == .opening, mentions.contains(where: { knownIds.contains($0.effectId) && $0.presence == .present }),
+              !mentions.contains(where: { $0.effectId == "other" }) else { return mentions }
+        let listWords = config.effects.flatMap(\.keywords)
+        let parts = KeywordMatcher.clauses(patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression))
+            .map { $0.trimmingCharacters(in: .whitespaces.union(.punctuationCharacters)) }.filter { !$0.isEmpty }
+        guard parts.count > 1 else { return mentions }
+        return mentions + parts.filter { part in
+            symptomHints.matches(part) != nil && openingConcerns.matches(part) == nil && !listWords.contains(where: part.contains)
+                // 주어 없는 "아파요"는 앞에서 말한 증상의 말이다 ("손발이 저리고 아파요"). "어지럽고"·"머리가 아프고"는 남긴다
+                && !(!part.contains(" ") && ["아파", "아프", "아팠"].contains(where: part.contains))
+        }.map { Mention(effectId: "other", otherName: $0, presence: .present, quote: $0) }
+    }
+
+    /// 유무 질문 답을 절로 나눠 본 유무. 모델이 자주 거꾸로 기록한 두 경우만 정하고, 그 밖에는 nil (모델 판단 그대로)
+    /// (2026-10-22 평가: "지금은 다 괜찮아졌어요" → 있음, "손가락은 저리고 발가락은 괜찮아요"·"혓바늘이 났는데요 괜찮아요" → 없음)
+    /// - 마지막 부분이 다 나았다는 말("약 먹고 멈췄어요", "지금은 괜찮아요", "이제 잘 봐요")이고 '아직·덜·좀' 같은 말이 없으면 없음.
+    ///   사용자 결정(2026-10-21): 지금 상태 기준, 나아졌다고 분명히 말한 것만 없음, 좀 나아져도 아직 있으면 있음
+    /// - 앞부분에서 그 항목 낱말을 부정 없이 말하고 마지막 부분이 괜찮다·정상이라는 말이면 있음
+    private func presenceByClauses(key: String, patientText: String) -> (presence: MentionPresence, clause: String?)? {
+        guard let effect = config.effects.first(where: { $0.id == key }) else { return nil }
+        // "따가운데요 괜찮아요"처럼 붙어 쓴 '-데요' 뒤도 절 경계로 본다 (띄어 쓴 "가려운 데는"은 아니다)
+        let split = patientText.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression)
+            .replacingOccurrences(of: #"([가-힣])데요\s+"#, with: "$1데요,", options: .regularExpression)
+        let parts = KeywordMatcher.clauses(split)
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        guard let last = parts.last else { return nil }
+        let compact = Self.normalized(last)
+        let lastNormal = soundsNegative(last) || saysNormal(last) || config.normalWords.contains { compact.contains(Self.normalized($0)) }
+        if !Self.partialWords.contains(where: compact.contains),
+           Self.resolvedWords.contains(where: { compact.contains($0) && !compact.contains("안" + $0) && !compact.contains("못" + $0) })
+            || (Self.nowWords.contains(where: compact.contains) && lastNormal) {
+            return (.absent, nil)
+        }
+        let own = KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true)
+        if parts.count > 1, lastNormal, let clause = parts.dropLast().first(where: {
+            own.matches($0) != nil && !soundsNegative($0) && !$0.contains("않") && $0.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil
+        }) {
+            return (.present, clause)
+        }
+        return nil
+    }
+
+    /// 절에 나온 부위 낱말. 겹치면 긴 낱말만 ("손가락" → 손가락, 손 아님), 나온 차례대로
+    private func locations(in clause: String) -> [String] {
+        let found = Set(locationWords.filter { clause.contains($0) })
+        return found.filter { word in !found.contains { $0 != word && $0.contains(word) } }
+            .sorted { clause.range(of: $0)!.lowerBound < clause.range(of: $1)!.lowerBound }
+    }
+
+    private static let resolvedWords = ["나았", "멈췄", "멎었", "그쳤", "없어졌", "괜찮아졌", "가라앉았", "들어갔", "아물었", "풀렸", "사라졌"]
+    private static let nowWords = ["지금은", "이제", "요즘은", "뒤로는", "후로는"]
+    private static let partialWords = ["아직", "덜", "조금", "좀", "가끔", "여전"]
 
     /// 첫 답을 한 번 되물을 말. 증상을 말했으면 시작 시점(이미 말했으면 nil: 되묻지 않는다), 컨디션이 나쁘다는 말뿐이면 무엇이 불편한지,
     /// 다시 거는 통화면 무엇이 달라졌는지. 막연한 "어떤 점이 그러신지 조금 더"는 무엇을 더 말할지 막막했다 (2026-10-22 사용자 피드백)
@@ -910,20 +1055,34 @@ final class InterviewEngine {
         config.shortAnswers.yes.contains(Self.normalized(patientText))
     }
 
-    /// 뒤에 다른 말이 올 수 있는 대조 표현: "~데"(깨끗한데·괜찮은데·있긴 한데 — "는데"만 보면 "한데"를 놓친다), "~지만", "근데", "그래도", "대신"
+    /// 뒤에 다른 말이 올 수 있는 대조 표현: "~데"·"~데요"(깨끗한데·괜찮은데·저리긴 한데요 — "는데"만 보면 "한데"를, 끝 경계만 보면 "한데요,"를 놓친다),
+    /// "~지만", "근데", "그래도", "대신"
     static func hasContrast(_ text: String) -> Bool {
-        text.range(of: #"[가-힣]데(?=[\s,.?!]|$)|지만|그래도|대신"#, options: .regularExpression) != nil
+        text.range(of: #"[가-힣]데요?(?=[\s,.?!]|$)|지만|그래도|대신"#, options: .regularExpression) != nil
     }
 
-    /// 질문을 다시 해 달라는 말 ("네? 뭐라고요?", "잘 안 들려요")
+    /// 질문을 다시 해 달라는 말 ("네? 뭐라고요?", "잘 안 들려요 다시 말해 주세요"). 답 전체가 되묻는 말과 "네"·"죄송한데" 같은 말뿐일 때만.
+    /// 다른 말이 섞이면 모델이 본다: 낱말이 들어 있기만 해도 보면 "밥이 잘 안 들어가요", "귀가 잘 안 들려요",
+    /// "뭐라고 해야 하나, 속이 울렁거려요"가 되묻기로 버려졌다 (2026-10-22 보안 리뷰·평가)
     private func isRepeatRequest(_ text: String) -> Bool {
-        let compact = Self.normalized(text)
-        return config.repeatRequests.contains { compact.contains(Self.normalized($0)) }
+        var rest = Self.normalized(Self.withoutFillers(text, fillers: config.shortAnswers.fillers))
+        var found = false
+        for phrase in config.repeatRequests.map(Self.normalized).sorted(by: { $0.count > $1.count }) where rest.contains(phrase) {
+            rest = rest.replacingOccurrences(of: phrase, with: "")
+            found = true
+        }
+        for word in Self.repeatCourtesy { rest = rest.replacingOccurrences(of: word, with: "") }
+        return found && rest.isEmpty
     }
 
-    /// 부위 질문에 "없어요"·"딱히 없어요": 부위는 '모름'으로 둔다 (유무를 뒤집지 않는다)
+    private static let repeatCourtesy = ["죄송한데", "죄송하지만", "죄송해요", "저기요", "잠깐만요", "네", "예", "좀"]
+
+    /// 부위 질문에 "없어요"·"딱히 없어요"·"어디라고 딱히 없어요"만: 부위는 '모름'으로 둔다 (유무를 뒤집지 않는다).
+    /// 부위가 섞인 답("손은 괜찮고 발이 저려요", "얼굴 말고는 없어요")은 모델이 부위를 뽑는다 (2026-10-22 보안 리뷰)
     private func isNoLocation(_ text: String) -> Bool {
-        soundsNegative(text) && Self.normalized(text).count <= 10
+        let compact = Self.normalized(Self.withoutFillers(text, fillers: config.shortAnswers.fillers))
+        return compact.range(of: #"^(아니요|아뇨|아니)?(딱히|따로|특별히|별로)?(어디|아무\s*데|그런\s*데|그런\s*곳|데|곳|부위)?(라고는|라고|는|도|가|은)?(딱히|따로|특별히|별로)?(없어요|없어|없습니다|없었어요|없는것같아요|몰라요|모르겠어요|잘모르겠어요)$"#,
+                             options: .regularExpression) != nil
     }
 
     static func normalized(_ s: String) -> String { String(s.filter { !$0.isWhitespace && !$0.isPunctuation }) }

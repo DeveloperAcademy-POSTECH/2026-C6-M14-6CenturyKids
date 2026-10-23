@@ -28,6 +28,8 @@ struct CareCallConfig: Decodable, Sendable {
         /// 이 항목을 물을 때 이 말로 끝나는 짧은 답은 모델 없이 '없음' ("잘 나와요" = 변비 없음). 다른 항목을 물을 때는 쓰지 않는다
         /// ("소변은 잘 나와요"를 식사 '없음'으로 읽지 않게). 모든 항목에 쓰는 말은 noSuffixes (초안)
         let absentPhrases: [String]?
+        /// 처음·그 밖에 질문에서 모델이 이 항목을 골라도 환자 말에 keywords 낱말이 없으면 기타 증상으로 본다 (저림·피부, 초안)
+        let keywordRequired: Bool?
 
         struct Detail: Decodable, Sendable {
             /// 기록에 붙이는 이름 ("횟수", "구토 횟수"). 한 항목 안에서 겹치지 않는다
