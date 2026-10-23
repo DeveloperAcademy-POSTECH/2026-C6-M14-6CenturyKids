@@ -22,6 +22,18 @@ struct SymptomRecordConverterTests {
 
     private func label(_ id: String) -> String { config.effects.first { $0.id == id }!.details[0].label }
 
+    @Test func 유무_답_원문이_길면_원문을_줄여_꼬리질문_답을_남긴다() {
+        var ledger = Ledger()
+        let long = String(repeating: "입안이 헐어서 밥을 못 먹겠어요 ", count: 20)
+        said(&ledger, "stomatitis", .present, long)
+        ledger.addAnswer(long, for: "stomatitis")
+        ledger.addDetail("어제부터요", label: label("stomatitis"), for: "stomatitis")
+        let detail = converter.record(from: ledger, patientId: patientId, date: date).symptoms.first?.detail ?? ""
+        #expect(detail.count <= SymptomEntry.detailLimit)
+        #expect(detail.hasPrefix("[검토 필요] 입안이 헐어서"))
+        #expect(detail.hasSuffix("… / 어제부터요"))
+    }
+
     @Test func 없음과_모름도_답으로_저장한다() {
         var ledger = Ledger()
         said(&ledger, "nausea_vomiting", .present, "네 토했어요")

@@ -63,13 +63,26 @@ struct SymptomRecordConverter {
             ? e.quotes.last.flatMap { shared.contains($0) ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : $0 }
             : nil
         // 유무 질문에 한 답·모르겠다고 한 답은 원문 그대로 ("숨이 잘 안 쉬어져요", "[검토 필요] … / 부위: 모르겠어요"). 같은 말은 한 번만
+        let lead = [firstSaid, toldAbsent].compactMap(\.self)
+        let tail = answers.map { questions.count > 1 ? "\($0.label): \($0.text)" : $0.text } + e.unsureAnswers
         var said: [String] = []
-        for part in [firstSaid, toldAbsent].compactMap(\.self) + e.answers + answers.map({ questions.count > 1 ? "\($0.label): \($0.text)" : $0.text })
-            + e.unsureAnswers where !said.contains(part) { said.append(part) }
+        for part in lead + e.answers + tail where !said.contains(part) { said.append(part) }
+        // 유무 답 원문이 길어 내용 한도를 넘으면 원문을 줄여 꼬리질문 답을 남기고 검토 필요로 둔다 (CareCallViewModel.filled와 같이)
+        var review = e.needsReview
+        let fixed = "[검토 필요] ".count + (e.otherName.map { $0.count + ": ".count } ?? 0)
+        let raw = said.filter { e.answers.contains($0) && !lead.contains($0) && !tail.contains($0) }
+        if !raw.isEmpty, fixed + said.joined(separator: " / ").count > SymptomEntry.detailLimit {
+            review = true
+            let others = said.filter { !raw.contains($0) }
+            let room = SymptomEntry.detailLimit - fixed - others.reduce(0) { $0 + $1.count + " / ".count }
+            let joined = raw.joined(separator: " / ")
+            let cut = room <= 1 ? nil : joined.count <= room ? joined : String(joined.prefix(room - 1)) + "…"
+            said = said.filter(lead.contains) + [cut].compactMap(\.self) + said.filter { !lead.contains($0) && !raw.contains($0) }
+        }
         let answerText = said.joined(separator: " / ")
         // 검토 필요 → 앞에 표시, 기타 증상 → 앞에 이름 (#84)
         let body = [e.otherName, answerText.isEmpty ? nil : answerText].compactMap(\.self).joined(separator: ": ")
-        let text = ([e.needsReview ? "[검토 필요]" : nil, body.isEmpty ? nil : body].compactMap(\.self)).joined(separator: " ")
+        let text = ([review ? "[검토 필요]" : nil, body.isEmpty ? nil : body].compactMap(\.self)).joined(separator: " ")
         let detail = text.isEmpty ? nil : String(text.prefix(SymptomEntry.detailLimit))
         // 숫자는 그 숫자를 물은 질문의 답에서만 읽는다 ("언제부터"의 "두 시간 전"을 지속 시간으로 읽지 않게)
         func number(_ kind: CareCallConfig.Effect.Detail.Number, _ read: (String) -> Int?) -> Int? {
