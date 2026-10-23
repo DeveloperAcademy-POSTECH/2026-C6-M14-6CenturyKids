@@ -42,7 +42,7 @@ let package = Package(
                     "Core/AI/CareCallAI.swift", "Core/AI/CareCallStep.swift", "Core/AI/MentionPresence.swift",
                     "Services/Symptom/CareCall/BodyPartDictionary.swift",
                     "Services/Symptom/CareCall/CareCallConfig.swift", "Services/Symptom/CareCall/CareCallConfigError.swift",
-                    "Services/Symptom/CareCall/InterviewEngine.swift", "Services/Symptom/CareCall/InterviewPhase.swift",
+                    "Services/Symptom/CareCall/InterviewEngine.swift", "Services/Symptom/CareCall/AnswerReading.swift", "Services/Symptom/CareCall/InterviewPhase.swift",
                     "Services/Symptom/CareCall/KeywordMatcher.swift", "Services/Symptom/CareCall/Ledger.swift",
                     "Services/Symptom/CareCall/NumberParser.swift", "Services/Symptom/CareCall/PlannedQuestion.swift",
                     "Services/Symptom/CareCall/SlotPlanner.swift", "Services/Symptom/CareCall/SymptomRecordConverter.swift",

@@ -45,6 +45,11 @@ struct CareCallConfig: Decodable, Sendable {
             }
         }
 
+        /// 환자 말에 이 항목 낱말이 있는지 (minLength: 이보다 짧은 낱말은 보지 않는다. 한 글자 "토"·"물"은 다른 말 안에 흔하다)
+        func said(in text: String, minLength: Int = 1) -> Bool {
+            keywords.contains { $0.count >= minLength && text.contains($0) }
+        }
+
         /// 이 항목에서 물을 꼬리질문. 낱말이 있는 질문은 환자가 그 말을 했을 때만 묻고("토했어요" → 횟수만),
         /// 어느 쪽인지 말하지 않았으면("네") 전부 묻는다. "토하진 않았어요"처럼 부정한 말은 보지 않는다
         func details(heard quotes: [String]) -> [Detail] {
@@ -59,6 +64,12 @@ struct CareCallConfig: Decodable, Sendable {
 
     let version: String
     let effects: [Effect]
+
+    func effect(_ id: String) -> Effect? { effects.first { $0.id == id } }
+
+    /// 환자 말에 목록 항목 낱말이 하나라도 있는지
+    func saysAnyEffect(in text: String) -> Bool { effects.contains { $0.said(in: text) } }
+
     /// 음성 통화 첫마디. 상대가 AI 음성임을 알린다 (초안)
     let aiVoiceNotice: String
     let openingQuestion: String
