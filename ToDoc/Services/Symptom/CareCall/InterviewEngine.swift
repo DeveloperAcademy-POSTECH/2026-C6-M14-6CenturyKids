@@ -134,6 +134,7 @@ final class InterviewEngine {
         }
         let before = ledger
         record(result?.mentions ?? [], during: current, patientText: patientText, since: before)
+        if quick == nil { keepAnswerText(during: current, patientText: patientText, since: before) }
         if let followUp = openingFollowUp(result, during: current, patientText: patientText, since: before) {
             return (Output(utterance: say(followUp), phase: phase), modelEmergency)
         }
@@ -262,6 +263,36 @@ final class InterviewEngine {
         if current == .opening, unasked == nil {
             ledger.setConditionText([openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / "))
         }
+    }
+
+    /// 유무 질문 답을 그 항목에 원문으로 남긴다 (짧은 답은 모델 없이 처리해 여기 오지 않는다): 구내염 질문에 "숨이 잘 안 쉬어져요"가
+    /// 구내염 '있음'으로만 남아 환자 말이 기록에서 사라졌다 (2026-10-23 응급 세트). 검토 필요는 붙이지 않는다: 항목 낱말이 없는 답으로 가리면
+    /// 사투리·바꿔 말한 답("네 입병이 났어요", "손이 쪼매 저립니더")까지 걸렸다 (2026-10-24 회귀 세트 29개). 항목과 원문을 함께 보면 어긋남이 보인다
+    /// 남기지 않는 답: 절마다 없다·괜찮다는 말뿐인 답("아니요 그런 건 없어요", "변은 매일 봐요"), 이 항목은 그대로이고 다른 증상으로 기록된 답
+    /// (그 증상의 말), 다시 묻게 된 답 중 증상 낱말이 없는 것("어떤 거 말씀이세요?"은 닫을 때 원문으로 남는다).
+    /// '없음'이어도 다른 말이 있으면 남긴다: "그건 아니고 요즘 머리가 지끈지끈해요"가 구토 '없음'으로만 남았다 (2026-10-24 확인 세트)
+    /// '그 밖에' 답이 목록 증상으로 기록되면 그 항목에 남긴다 ("왼쪽 가슴이 찌릿하게 아프면서 팔까지 저려요" → 저림 '있음'만 남았다)
+    private func keepAnswerText(during current: InterviewPhase, patientText: String, since before: Ledger) {
+        let changed = ledger.changedKeys(since: before)
+        if current == .other {
+            for key in changed where ledger[key]?.presence == .present && config.effect(key) != nil { ledger.addAnswer(patientText, for: key) }
+            return
+        }
+        guard case .slot(let key, .presence) = current, let effect = config.effect(key) else { return }
+        switch ledger[key]?.presence {
+        case .present where changed.contains(key): break
+        case .absent where changed.contains(key):
+            // 이 항목 낱말을 부정한 답("설사는 안 해요", "손발은 안 저려요")은 그냥 없다는 답이다. 대조·다른 증상 말이 있으면 남긴다
+            let aboutItem = effect.said(in: patientText) || effect.said(in: AnswerReading.normalized(patientText))
+            let otherSaid = symptomHints.matches(patientText) != nil || config.effects.contains { $0.id != key && $0.said(in: patientText, minLength: 2) }
+            guard !AnswerReading.parts(patientText).allSatisfy({ reading.soundsNegative($0) || reading.saysNormal($0) }),
+                  !aboutItem || AnswerReading.hasContrast(patientText) || otherSaid else { return }
+        case .unclear, nil:
+            guard changed.allSatisfy({ $0 == key }),
+                  symptomHints.matches(patientText) != nil || config.saysAnyEffect(in: patientText) else { return }
+        default: return
+        }
+        ledger.addAnswer(patientText, for: key)
     }
 
     /// 첫 질문: 증상 표현이나 컨디션이 나쁘다는 말이 있고 목록 증상은 기록되지 않았으면 한 번 되묻는다. 되물을 말을 돌려준다

@@ -62,9 +62,9 @@ struct SymptomRecordConverter {
         let toldAbsent = followUp && presence == .absent && answers.isEmpty && !e.askedSteps.contains(.presence)
             ? e.quotes.last.flatMap { shared.contains($0) ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : $0 }
             : nil
-        // 모르겠다·애매하다고 한 답은 원문 그대로 ("[검토 필요] 잘 모르겠어요", "… / 부위: 모르겠어요"). 같은 말은 한 번만
+        // 유무 질문에 한 답·모르겠다고 한 답은 원문 그대로 ("숨이 잘 안 쉬어져요", "[검토 필요] … / 부위: 모르겠어요"). 같은 말은 한 번만
         var said: [String] = []
-        for part in [firstSaid, toldAbsent].compactMap(\.self) + answers.map({ questions.count > 1 ? "\($0.label): \($0.text)" : $0.text })
+        for part in [firstSaid, toldAbsent].compactMap(\.self) + e.answers + answers.map({ questions.count > 1 ? "\($0.label): \($0.text)" : $0.text })
             + e.unsureAnswers where !said.contains(part) { said.append(part) }
         let answerText = said.joined(separator: " / ")
         // 검토 필요 → 앞에 표시, 기타 증상 → 앞에 이름 (#84)

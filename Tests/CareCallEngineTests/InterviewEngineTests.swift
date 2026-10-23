@@ -194,6 +194,29 @@ struct InterviewEngineTests {
     }
 
     /// 묻는 항목까지 "없어요"로 넘어간다
+    @Test func 유무_질문에_다른_이야기를_한_답도_그_항목에_원문으로_남긴다() async throws {
+        mock.script["숨이 잘 안 쉬어져요"] = .mentions(Mention(effectId: "stomatitis", presence: .present, locations: [], quote: ""))
+        await reach("stomatitis")
+        _ = await engine.handle(patientText: "숨이 잘 안 쉬어져요")
+        #expect(engine.ledger["stomatitis"]?.answers == ["숨이 잘 안 쉬어져요"])
+        let converter = SymptomRecordConverter(config: config, bodyParts: try fixture(BodyPartDictionary.self, "body_parts"))
+        let saved = converter.record(from: engine.ledger, patientId: UUID(), date: Date()).symptoms.first { $0.symptomType == .oralPain }
+        #expect(saved?.detail?.hasPrefix("숨이 잘 안 쉬어져요") == true)
+    }
+
+    @Test func 그냥_없다는_답은_원문으로_남기지_않는다() async {
+        mock.script["입안이 헐어서 따가워요"] = .mentions(Mention(effectId: "stomatitis", presence: .present, locations: [], quote: ""))
+        await reach("stomatitis")
+        _ = await engine.handle(patientText: "입안이 헐어서 따가워요")
+        #expect(engine.ledger["stomatitis"]?.answers == ["입안이 헐어서 따가워요"])
+        // 다음 항목: 모델이 그냥 '없음'으로 본 긴 답
+        mock.script["손발은 아무렇지도 않아요"] = .mentions(Mention(effectId: "neuropathy", presence: .absent, locations: [], quote: ""))
+        for _ in 0..<5 where engine.phase != .slot(key: "neuropathy", step: .presence) { _ = await engine.handle(patientText: "어제부터요") }
+        _ = await engine.handle(patientText: "손발은 아무렇지도 않아요")
+        #expect(engine.ledger["neuropathy"]?.presence == .absent)
+        #expect(engine.ledger["neuropathy"]?.answers.isEmpty == true)
+    }
+
     private func reach(_ key: String) async {
         _ = engine.start()
         for _ in 0..<20 where engine.phase != .slot(key: key, step: .presence) {
