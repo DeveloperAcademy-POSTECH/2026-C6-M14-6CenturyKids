@@ -219,7 +219,7 @@ final class RecordDetailViewModel {
 
     // MARK: - 집계
 
-    /// 날마다 평균 복용 전·후를 그래프로, 기록한 날들의 하루 차이 평균을 문구로. 일별은 기록마다 시간축에 그린다
+    /// 날마다 평균 복용 전·후를 그래프로, 기록한 날들의 하루 차이 평균을 문구로. 일별은 기록마다 시각 순서대로 나란히 그린다
     static func painDetail(_ records: [PainRecord], period: RecordPeriod, calendar: Calendar) -> RecordPainDetail {
         let grouped = Dictionary(grouping: records) { calendar.startOfDay(for: $0.recordedDate) }
         let days: [RecordPainDay] = grouped.map { date, records in
