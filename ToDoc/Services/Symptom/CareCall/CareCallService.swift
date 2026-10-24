@@ -96,11 +96,11 @@ final class CareCallService: CareCalling {
                      outcome: out.isFinished ? outcome(of: conversation, phase: out.phase) : nil)
     }
 
-    /// 마무리 인사까지 마쳤으면 그날 기록, 응급이면 응급 종료, 중간이면 끊긴 곳까지 답한 기록
+    /// 마무리 인사까지 마쳤으면 그날 기록, 응급이면 응급 전까지의 기록과 응급으로 끝낸 말, 중간이면 끊긴 곳까지 답한 기록
     private func outcome(of conversation: Conversation, phase: InterviewPhase) -> CareCallOutcome {
         switch phase {
         case .saved: .completed(record(of: conversation))
-        case .emergencyEnded: .emergencyEnded
+        case .emergencyEnded: .emergencyEnded(record(of: conversation))
         default: .interrupted(partialRecord(of: conversation))
         }
     }

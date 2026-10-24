@@ -458,8 +458,12 @@ final class CareCallViewModel {
             forget()
             conversation.question = nil
             conversation.errorMessage = "통화가 끊겼어요. 다시 시도해 주세요."
-        case .emergencyEnded:
-            forget() // 응급 종료는 저장하지 않는다. 마지막으로 말한 응급 안내가 화면에 남는다 (응급 화면은 디자인 팀과 정할 예정)
+        case .emergencyEnded(let record):
+            // 요약 화면 없이 바로 저장한다 (실패하면 폰에 남겨 다음 케어콜에 올린다). 마지막으로 말한 응급 안내가 화면에 남는다
+            // (응급 화면은 디자인 팀과 정할 예정)
+            self.record = record
+            keep(record)
+            save(showingResult: false)
         }
     }
 
@@ -530,7 +534,7 @@ final class CareCallViewModel {
             summary?.errorMessage = nil
             summary?.editingEntryID = nil
         }
-        let complete = if case .completed? = outcome { true } else { false }
+        let complete = Self.isFinal(outcome) // 마친 통화·응급 종료는 그날 기록에 더한다
         let task = Task {
             do {
                 let stored = try await store(record, complete: complete)
@@ -568,7 +572,7 @@ final class CareCallViewModel {
     /// 지금까지 받은 답을 폰에 남긴다. 남기지 못해도 대화는 이어 간다 (서버 저장은 따로 한다)
     private func keep(_ record: SymptomRecord?) {
         guard let record, !isSaved else { return }
-        let complete = if case .completed? = outcome { true } else { false }
+        let complete = Self.isFinal(outcome) // 마친 통화·응급 종료는 그날 기록에 더한다
         try? pending.save(PendingCareCall(id: pendingId, record: record, complete: complete))
     }
 
@@ -587,7 +591,7 @@ final class CareCallViewModel {
         }
     }
 
-    /// 그날 기록은 하루 1건. 이미 있으면 끝까지 마친 통화(다시 거는 통화)는 그 기록에 더하고,
+    /// 그날 기록은 하루 1건. 이미 있으면 끝까지 마친 통화(다시 거는 통화)·응급으로 끝난 통화는 그 기록에 더하고,
     /// 끊긴 통화는 저장하지 않는다 (일부만 답한 기록으로 그날 기록을 바꾸지 않게). 저장했으면 true
     private func store(_ record: SymptomRecord, complete: Bool) async throws -> Bool {
         guard let existing = try await savedRecord(of: record.patientId, on: record.recordedDate) else {

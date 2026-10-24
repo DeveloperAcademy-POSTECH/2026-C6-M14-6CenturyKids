@@ -326,7 +326,7 @@ struct CareCallViewModelTests {
     @Test func 응급으로_끝나면_마지막_안내를_그대로_둔다() async {
         await enterVoiceCall()
         service.activities = [.speaking("응급 안내 문구")]
-        service.outcome = .emergencyEnded
+        service.outcome = .emergencyEnded(record([]))
         await viewModel.startCall()?.value
         #expect(conversation.question?.text == "응급 안내 문구")
         #expect(conversation.summary == nil && conversation.errorMessage == nil)
