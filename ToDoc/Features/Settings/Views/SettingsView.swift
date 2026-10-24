@@ -59,7 +59,7 @@ struct SettingsView: View {
                 SettingsSection(title: "기타") {
                     NavigationLink { notificationSettings() } label: { SettingsRow(title: "알림 설정", chevron: true) }
                     SettingsDivider()
-                    NavigationLink { OpenSourceLicensesView() } label: { SettingsRow(title: "라이선스", chevron: true) }
+                    NavigationLink { OpenSourceLicensesView() } label: { SettingsRow(title: "오픈소스 라이선스", chevron: true) }
                         .accessibilityIdentifier("settings.licenses")
                 }
             }.padding(.horizontal, 20).padding(.bottom, 32)
