@@ -205,6 +205,12 @@ final class InterviewEngine {
         if case .slot(let key, .presence) = current, let absent = absentByNormalAnswer(result, key: key, patientText: patientText) {
             result.mentions.append(absent)
         }
+        // 줄었다는 말 없이 평소대로 한다는 답은 '없음' (모델이 "밥은 한 공기씩 먹어요"를 '있음'으로, "물도 잘 마셔요"를 빈 답으로 읽었다,
+        // 2026-10-24 새 시나리오)
+        if case .slot(let key, .presence) = current, let effect = config.effect(key), reading.saysUsual(effect, patientText) {
+            result.mentions.removeAll { $0.effectId == key }
+            result.mentions.append(Mention(effectId: key, presence: .absent, quote: patientText))
+        }
         // 유무 질문에 모델이 낸 그 항목의 유무가 답의 말과 어긋나면 기록하지 않고 다시 묻는다 (잘못 남기느니 한 번 더 묻는다).
         // 이유 답("입이 아파서요")은 아래 reasonAnswer가 다시 채운다
         if case .slot(let key, .presence) = current {
@@ -495,7 +501,7 @@ final class InterviewEngine {
     /// 식사가 '있음'이 돼 식사 질문을 건너뛰고, 지금 상태("지금은 평소만큼 먹어요")를 묻지 못했다 (2026-10-20 Mac 평가 H16). 그 항목 차례에 직접 묻는다
     private func presentByPhrase(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
         var result = mentions
-        for effect in config.effects where reading.saysPresent(effect, patientText) {
+        for effect in config.effects where reading.saysPresent(effect, patientText, answering: phase.slotKey == effect.id) {
             if let key = phase.slotKey, key != effect.id, ledger[effect.id]?.presence == nil { continue }
             result.removeAll { $0.effectId == effect.id && $0.presence != .present }
             if !result.contains(where: { $0.effectId == effect.id }) {
@@ -716,6 +722,8 @@ final class InterviewEngine {
             recordUnclearOther(patientText, name: config.otherUnclearName)
             return
         }
+        // 끝맺는 말("그게 다예요", "이제 됐어요")은 증상이 아니다: 기타 증상으로 남고 "언제부터"까지 물었다 (2026-10-24 새 시나리오)
+        if phase == .other, isClosing(text) { return }
         guard unchanged, result?.needsClarification != true || keepAnyway,
               saysSymptom(text)
                 || (phase == .other && !reading.soundsNegative(text) && !reading.soundsUnsure(text) && !reading.saysNormal(text))
@@ -724,6 +732,13 @@ final class InterviewEngine {
         ledger.apply(Mention(effectId: "other", otherName: name, presence: .present, quote: patientText),
                      patientText: patientText, knownEffectIds: knownIds)
         ledger.markNeedsReview(Ledger.key(effectId: "other", otherName: name))
+    }
+
+    /// '그 밖에' 답이 더 말할 게 없다는 끝맺음인지 (config.closingEndings). 증상 표현·항목 낱말·몸 부위 낱말이 있으면 아니다
+    private func isClosing(_ text: String) -> Bool {
+        let compact = AnswerReading.normalized(text)
+        return config.closingEndings.contains { compact.hasSuffix(AnswerReading.normalized($0)) }
+            && symptomHints.matches(text) == nil && !config.saysAnyEffect(in: text) && !locationWords.contains { text.contains($0) }
     }
 
     /// 모델만 응급이라고 본 답: 그 답으로 바뀐 기록을 검토 필요로 둔다 (통화는 그대로 이어 가고, 의료진이 기록에서 본다).
@@ -829,7 +844,7 @@ final class InterviewEngine {
         guard !result.mentions.contains(where: { $0.effectId == key }), symptomHints.matches(patientText) == nil,
               !NumberParser.hasNumber(patientText),
               !Self.hasContrast(patientText),
-              let effect = config.effect(key), !reading.saysPresent(effect, patientText),
+              let effect = config.effect(key), !reading.saysPresent(effect, patientText, answering: true),
               !config.effects.contains(where: { $0.id != key && $0.said(in: patientText, minLength: 2) })
         else { return nil }
         let parts = AnswerReading.parts(patientText)

@@ -101,8 +101,9 @@ struct AnswerReading {
         }
     }
 
-    func saysPresent(_ effect: CareCallConfig.Effect, _ patientText: String) -> Bool {
-        (effect.presentPhrases ?? []).contains { phrase in
+    /// answering: 이 항목을 묻는 중 (answerPhrases도 본다)
+    func saysPresent(_ effect: CareCallConfig.Effect, _ patientText: String, answering: Bool = false) -> Bool {
+        ((effect.presentPhrases ?? []) + (answering ? effect.answerPhrases ?? [] : [])).contains { phrase in
             let words = phrase.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }
             guard let regex = try? Regex(words.joined(separator: ".{0,8}?")) else { return false }
             // 한 절 안에서 차례로 나오고, 바로 뒤가 부정("입맛 없는 건 아니에요")이 아닐 때.
@@ -117,13 +118,24 @@ struct AnswerReading {
         }
     }
 
+    /// 이 항목을 물을 때 줄었다는 말 없이 평소대로 한다는 답 (effect.usualAnswer). 증상 표현·대조가 있으면 아니다
+    func saysUsual(_ effect: CareCallConfig.Effect, _ patientText: String) -> Bool {
+        guard let usual = effect.usualAnswer else { return false }
+        let t = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        let compact = Self.normalized(t)
+        return usual.endings.contains { compact.hasSuffix(Self.normalized($0)) }
+            && !usual.unless.contains { compact.contains(Self.normalized($0)) }
+            && t.firstMatch(of: /[가-힣]만\s/) == nil
+            && symptomHints.matches(t) == nil && !Self.hasContrast(t) && !saysPresent(effect, t, answering: true)
+    }
+
     /// 유무 질문에 분명한 '없음' ("아니요 변 잘 봤어요", "설사는 안 했어요"): 없음 표현으로 시작하거나 끝나고,
     /// 지금 항목 밖의 증상 낱말·증상 표현·숫자·연결어("근데", "는데", "지만")가 없을 때만. 하나라도 있으면 모델이 판단
     func isClearNo(_ patientText: String, for key: String) -> Bool {
         guard !key.hasPrefix("other:") else { return false }
         // "입맛이 없어요"는 '없어요'로 끝나도 식사 증상이 있다는 말이다
         let effect = config.effect(key)
-        if let effect, saysPresent(effect, patientText) { return false }
+        if let effect, saysPresent(effect, patientText, answering: true) { return false }
         let t = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         let compact = Self.normalized(t)
         // 없음 표현으로 시작만 하면 뒷말이 번복일 수 있어("아니요 설사 맞아요 설사 했어요") 없음 표현 하나뿐일 때만 인정

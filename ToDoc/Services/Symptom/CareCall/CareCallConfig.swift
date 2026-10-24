@@ -30,6 +30,18 @@ struct CareCallConfig: Decodable, Sendable {
         let absentPhrases: [String]?
         /// 처음·그 밖에 질문에서 모델이 이 항목을 골라도 환자 말에 keywords 낱말이 없으면 기타 증상으로 본다 (저림·피부, 초안)
         let keywordRequired: Bool?
+        /// 이 항목을 물을 때만 '있음'으로 보는 말 ("안 나와" = 변비 있음). 다른 질문에서는 너무 넓어 쓰지 않는다
+        /// ("목소리가 잘 안 나와요"를 변비로 읽지 않게). 바로 뒤가 부정이면 아니다 ("안 나오는 건 없어요", 초안)
+        let answerPhrases: [String]?
+        /// 이 항목을 물을 때 줄었다는 말 없이 평소대로 한다는 답은 '없음' ("밥 두 공기 뚝딱 먹어요", 초안)
+        let usualAnswer: UsualAnswer?
+
+        struct UsualAnswer: Decodable, Sendable {
+            /// 답이 이 말로 끝나야 한다 ("먹어요", "마셔요")
+            let endings: [String]
+            /// 이 말이 있으면 평소대로가 아니다 ("못", "조금", "겨우"). 낱말 뒤 "만"("죽만", "물만")도 아니다
+            let unless: [String]
+        }
 
         struct Detail: Decodable, Sendable {
             /// 기록에 붙이는 이름 ("횟수", "구토 횟수"). 한 항목 안에서 겹치지 않는다
@@ -116,6 +128,9 @@ struct CareCallConfig: Decodable, Sendable {
     let vagueAnswers: [String]
     /// '그 밖에' 질문에 "모르겠어요"·"그냥 그래요"라고 하면 이 이름의 기타 항목에 '모름'으로 원문을 남긴다
     let otherUnclearName: String
+    /// '그 밖에' 질문에 이 말로 끝나는 답은 더 말할 게 없다는 뜻 ("그게 다예요", "할 말은 다 했어요"). 증상 표현·항목 낱말·몸 부위가
+    /// 있으면 아니다 ("허리 쑤시는 게 다예요", 초안)
+    let closingEndings: [String]
     /// 모델 없이 처리하는 짧은 답 (공백·문장부호를 뺀 뒤 완전히 같을 때만). 질문이 긍정형("~있으셨나요?")이라는 전제
     let shortAnswers: ShortAnswers
     /// 처음·그 밖에 답에 이 표현이 있는데 모델이 아무것도 기록하지 않으면 한 번 더 분석한다 (초안, 의료진 확인 필요)
