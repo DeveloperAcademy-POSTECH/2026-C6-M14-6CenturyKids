@@ -194,6 +194,84 @@ struct InterviewEngineTests {
     }
 
     /// 묻는 항목까지 "없어요"로 넘어간다
+    @Test func 유무_질문에_다른_이야기를_한_답도_그_항목에_원문으로_남긴다() async throws {
+        mock.script["숨이 잘 안 쉬어져요"] = .mentions(Mention(effectId: "stomatitis", presence: .present, locations: [], quote: ""))
+        await reach("stomatitis")
+        _ = await engine.handle(patientText: "숨이 잘 안 쉬어져요")
+        #expect(engine.ledger["stomatitis"]?.answers == ["숨이 잘 안 쉬어져요"])
+        let converter = SymptomRecordConverter(config: config, bodyParts: try fixture(BodyPartDictionary.self, "body_parts"))
+        let saved = converter.record(from: engine.ledger, patientId: UUID(), date: Date()).symptoms.first { $0.symptomType == .oralPain }
+        #expect(saved?.detail?.hasPrefix("숨이 잘 안 쉬어져요") == true)
+    }
+
+    @Test func 그냥_없다는_답은_원문으로_남기지_않는다() async {
+        mock.script["입안이 헐어서 따가워요"] = .mentions(Mention(effectId: "stomatitis", presence: .present, locations: [], quote: ""))
+        await reach("stomatitis")
+        _ = await engine.handle(patientText: "입안이 헐어서 따가워요")
+        #expect(engine.ledger["stomatitis"]?.answers == ["입안이 헐어서 따가워요"])
+        // 다음 항목: 모델이 그냥 '없음'으로 본 긴 답
+        mock.script["손발은 아무렇지도 않아요"] = .mentions(Mention(effectId: "neuropathy", presence: .absent, locations: [], quote: ""))
+        for _ in 0..<5 where engine.phase != .slot(key: "neuropathy", step: .presence) { _ = await engine.handle(patientText: "어제부터요") }
+        _ = await engine.handle(patientText: "손발은 아무렇지도 않아요")
+        #expect(engine.ledger["neuropathy"]?.presence == .absent)
+        #expect(engine.ledger["neuropathy"]?.answers.isEmpty == true)
+    }
+
+    @Test func 다른_것이_없다는_답은_모델로_보고_원문을_남긴다() async {
+        await reach("nausea_vomiting")
+        _ = await engine.handle(patientText: "다리에 힘이 하나도 없어요")
+        #expect(mock.requests.last?.patientText == "다리에 힘이 하나도 없어요")
+        #expect(engine.ledger["nausea_vomiting"]?.answers == ["다리에 힘이 하나도 없어요"])
+    }
+
+    @Test(arguments: ["헌 데가 없어요", "그런 적이 없어요", "별 이상이 없어요", "입안에 헌 데가 하나도 없어요"])
+    func 가리키는_말이나_이_항목이_주어면_그냥_없다는_답(answer: String) async {
+        await reach("stomatitis")
+        let asked = mock.requests.count
+        _ = await engine.handle(patientText: answer)
+        #expect(mock.requests.count == asked) // 모델 없이 '없음'
+        #expect(engine.ledger["stomatitis"]?.presence == .absent)
+        #expect(engine.ledger["stomatitis"]?.answers.isEmpty == true)
+    }
+
+    @Test func 없다는_말_뒤에_다른_이야기를_하면_원문을_남긴다() async {
+        mock.script["변비는 모르겠고 소변볼 때 따끔거려요"] = .mentions(Mention(effectId: "constipation", presence: .absent, locations: [], quote: ""))
+        await reach("constipation")
+        _ = await engine.handle(patientText: "변비는 모르겠고 소변볼 때 따끔거려요")
+        #expect(engine.ledger["constipation"]?.answers == ["변비는 모르겠고 소변볼 때 따끔거려요"])
+    }
+
+    @Test func 다른_것이_주어인_답을_모델이_다른_항목으로_골라도_지금_항목으로_옮기지_않는다() async {
+        mock.script["오른쪽 팔에 힘이 없어요"] = .mentions(Mention(effectId: "neuropathy", presence: .present, locations: ["팔"], quote: ""))
+        await reach("dehydration_nutrition")
+        _ = await engine.handle(patientText: "오른쪽 팔에 힘이 없어요")
+        #expect(engine.ledger["dehydration_nutrition"]?.presence != .present)
+        #expect(engine.ledger["neuropathy"]?.presence != .present) // 저림 낱말이 없다
+        let other = engine.ledger["other:오른쪽 팔에 힘이 없어요"]
+        #expect(other?.presence == .present && other?.needsReview == true)
+    }
+
+    @Test func 다른_목록_증상으로_기록된_답은_그_증상에_원문을_남긴다() async {
+        mock.script["발바닥에 감각이 거의 없어요"] = .mentions(Mention(effectId: "neuropathy", presence: .present, locations: ["발"], quote: ""))
+        await reach("diarrhea")
+        _ = await engine.handle(patientText: "발바닥에 감각이 거의 없어요")
+        #expect(engine.ledger["neuropathy"]?.presence == .present)
+        #expect(engine.ledger["neuropathy"]?.answers == ["발바닥에 감각이 거의 없어요"])
+        #expect(engine.ledger["diarrhea"]?.answers.isEmpty != false)
+    }
+
+    @Test func 되물은_답도_원문으로_남긴다() async {
+        var asked = TurnResult.empty
+        asked.needsClarification = true
+        mock.script["목소리가 잘 안 나와요"] = asked
+        await reach("rash_pruritus")
+        let out = await engine.handle(patientText: "목소리가 잘 안 나와요")
+        #expect(out.phase == .slot(key: "rash_pruritus", step: .presence)) // 다시 묻는다
+        _ = await engine.handle(patientText: "아니요")
+        #expect(engine.ledger["rash_pruritus"]?.presence == .absent)
+        #expect(engine.ledger["rash_pruritus"]?.answers == ["목소리가 잘 안 나와요"])
+    }
+
     private func reach(_ key: String) async {
         _ = engine.start()
         for _ in 0..<20 where engine.phase != .slot(key: key, step: .presence) {

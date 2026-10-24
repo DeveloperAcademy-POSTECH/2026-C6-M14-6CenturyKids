@@ -28,6 +28,8 @@ struct Ledger: Sendable {
         var unknownSteps: Set<CareCallStep> = []
         /// 모르겠다·애매하다고 한 답, 두 번 다시 물어도 분명하지 않았던 답의 원문. 부위 질문의 답은 "부위: …"
         var unsureAnswers: [String] = []
+        /// 유무 질문에 한 답의 원문 (짧은 네·아니요와 그냥 없다는 답은 빼고). 저장할 때 내용 앞에 둔다
+        var answers: [String] = []
     }
 
     /// 꼬리질문 답 (환자 말 그대로)과 그 질문 이름
@@ -110,6 +112,15 @@ struct Ledger: Sendable {
     /// 두 번 다시 물어도 분명하지 않아 닫은 항목: 그동안 받은 답을 원문으로 남긴다
     mutating func addUnsure(_ answers: [String], step: CareCallStep, for key: String) {
         entries[key]?.unsureAnswers += answers.map { step == .location ? "부위: " + $0 : $0 }
+    }
+
+    /// 유무 질문 답을 원문으로 남긴다 (기록 요약·검토 표시는 바꾸지 않는다: 모델에 보내는 요약이 그대로여야 대화가 같다)
+    mutating func addAnswer(_ text: String, for key: String) {
+        let said = text.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        // 꼬리질문 답으로 이미 채운 말("구토 횟수: 네 한 번 토했어요")은 또 남기지 않는다
+        guard var entry = entries[key], !said.isEmpty, !entry.details.contains(where: { $0.text == said }) else { return }
+        if !entry.answers.contains(said) { entry.answers.append(said) }
+        entries[key] = entry
     }
 
     mutating func setConditionText(_ text: String) {

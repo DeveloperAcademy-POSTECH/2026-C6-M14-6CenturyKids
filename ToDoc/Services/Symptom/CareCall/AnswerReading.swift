@@ -56,6 +56,25 @@ struct AnswerReading {
             || config.shortAnswers.no.contains(Self.normalized(Self.withoutFillers(text, fillers: config.shortAnswers.fillers)))
     }
 
+    /// '…이/가 (…) 없어요'의 주어가 이 항목 말이 아님 ("다리에 힘이 하나도 없어요", "밤에 잠이 통 없어요", 구토 질문에 "발에 감각이 하나도 없어요").
+    /// 그냥 없다는 답으로 읽으면 다른 증상이 '없음'으로 사라졌다 (2026-10-24 확인 세트). "헌 데가 없어요", "토한 적이 없어요",
+    /// "별 이상이 없어요"처럼 가리키는 말이 주어이거나 이 항목 낱말이 주어("변비가 없어요")면 그냥 없다는 답이다
+    func negatesOtherThing(_ text: String, for key: String) -> Bool {
+        let own = config.effect(key)?.keywords ?? []
+        let pointers: Set<String> = ["게", "거", "것", "데", "적", "곳", "부분", "이상", "문제", "증상", "별일", "아무것", "많", "같", "깊"]
+        return Self.parts(text).contains { clause in
+            soundsNegative(clause) && clause.matches(of: /([가-힣]+)(?:이|가)\s/).contains { m in
+                let noun = String(m.1)
+                return !pointers.contains(noun) && !own.contains { $0.contains(noun) || noun.contains($0) }
+            }
+        }
+    }
+
+    /// 다시 묻는 말 ("어떤 거 말씀이세요?", "뭘요?"). 유무 질문 답으로 남기지 않는다
+    static func asksBack(_ text: String) -> Bool {
+        text.contains("말씀") || text.trimmingCharacters(in: .whitespaces).hasSuffix("?")
+    }
+
     /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다
     func saysNormal(_ text: String) -> Bool {
         let compact = Self.normalized(text)
@@ -114,6 +133,7 @@ struct AnswerReading {
         if Self.hasContrast(t) || t.contains("그리고") { return false }
         if NumberParser.hasNumber(t) { return false }
         if config.effects.contains(where: { $0.id != key && $0.said(in: t) }) { return false }
+        if negatesOtherThing(t, for: key) { return false }
         return symptomHints.matches(t) == nil
     }
 

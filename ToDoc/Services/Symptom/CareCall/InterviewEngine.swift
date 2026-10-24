@@ -134,6 +134,7 @@ final class InterviewEngine {
         }
         let before = ledger
         record(result?.mentions ?? [], during: current, patientText: patientText, since: before)
+        if quick == nil { keepAnswerText(during: current, patientText: patientText, since: before) }
         if let followUp = openingFollowUp(result, during: current, patientText: patientText, since: before) {
             return (Output(utterance: say(followUp), phase: phase), modelEmergency)
         }
@@ -262,6 +263,48 @@ final class InterviewEngine {
         if current == .opening, unasked == nil {
             ledger.setConditionText([openingFirstAnswer, patientText].compactMap { $0 }.joined(separator: " / "))
         }
+    }
+
+    /// 유무 질문 답을 그 항목에 원문으로 남긴다 (짧은 답은 모델 없이 처리해 여기 오지 않는다): 구내염 질문에 "숨이 잘 안 쉬어져요"가
+    /// 구내염 '있음'으로만 남아 환자 말이 기록에서 사라졌다 (2026-10-23 응급 세트). 검토 필요는 붙이지 않는다: 항목 낱말이 없는 답으로 가리면
+    /// 사투리·바꿔 말한 답("네 입병이 났어요", "손이 쪼매 저립니더")까지 걸렸다 (2026-10-24 회귀 세트 29개). 항목과 원문을 함께 보면 어긋남이 보인다
+    /// 남기지 않는 답: 절마다 없다·괜찮다는 말뿐인 답("아니요 그런 건 없어요", "변은 매일 봐요"), 이 항목은 그대로이고 다른 증상으로 기록된 답
+    /// (그 증상의 말), 다시 묻게 된 답 중 되묻는 말·모르겠다는 말("어떤 거 말씀이세요?"은 닫을 때 원문으로 남는다).
+    /// '없음'이어도 다른 말이 있으면 남긴다: "그건 아니고 요즘 머리가 지끈지끈해요"가 구토 '없음'으로만 남았다 (2026-10-24 확인 세트)
+    /// '그 밖에' 답이 목록 증상으로 기록되면 그 항목에 남긴다 ("왼쪽 가슴이 찌릿하게 아프면서 팔까지 저려요" → 저림 '있음'만 남았다)
+    private func keepAnswerText(during current: InterviewPhase, patientText: String, since before: Ledger) {
+        let changed = ledger.changedKeys(since: before)
+        if current == .other {
+            for key in changed where ledger[key]?.presence == .present && config.effect(key) != nil { ledger.addAnswer(patientText, for: key) }
+            return
+        }
+        guard case .slot(let key, .presence) = current, let effect = config.effect(key) else { return }
+        // 묻던 항목은 그대로이고 다른 목록 증상으로 기록되면 그 증상에 남긴다 (설사 질문에 "발바닥에 감각이 거의 없어요" → 저림 '있음')
+        let listed = changed.filter { $0 != key && config.effect($0) != nil && ledger[$0]?.presence == .present }
+        if !changed.contains(key), !listed.isEmpty {
+            for other in listed { ledger.addAnswer(patientText, for: other) }
+            return
+        }
+        switch ledger[key]?.presence {
+        case .present where changed.contains(key): break
+        case .absent where changed.contains(key):
+            // 절 가운데 없다·괜찮다는 말도, 이 항목 말도 아닌 것이 있어야 남긴다. "설사는 안 해요", "손발은 안 저려요"는 그냥 없다는 답이고
+            // "변비는 모르겠고 소변볼 때 따끔거려요"는 뒷절이 다른 이야기다 (2026-10-24 실기기)
+            let content = AnswerReading.parts(patientText).contains { clause in
+                !reading.soundsNegative(clause) && !reading.saysNormal(clause)
+                    && !effect.said(in: clause) && !effect.said(in: AnswerReading.normalized(clause))
+            }
+            let otherSaid = symptomHints.matches(patientText) != nil || config.effects.contains { $0.id != key && $0.said(in: patientText, minLength: 2) }
+            guard content || AnswerReading.hasContrast(patientText) || otherSaid || reading.negatesOtherThing(patientText, for: key) else { return }
+        case .unclear, nil:
+            // 다시 묻게 된 답도 남긴다 ("목소리가 잘 안 나와요", "냄새를 잘 못 맡겠어요"는 증상 낱말이 없어 되물은 뒤 사라졌다).
+            // 되묻는 말·모르겠다는 말·한 낱말 답("그러니까요")은 닫을 때 원문으로 남기는 기존 흐름에 둔다
+            let words = AnswerReading.withoutFillers(patientText, fillers: config.shortAnswers.fillers).split(whereSeparator: \.isWhitespace)
+            guard changed.allSatisfy({ $0 == key }), words.count >= 2, !AnswerReading.asksBack(patientText),
+                  !reading.soundsUnsure(patientText), !reading.isVagueAnswer(patientText), !reading.isRepeatRequest(patientText) else { return }
+        default: return
+        }
+        ledger.addAnswer(patientText, for: key)
     }
 
     /// 첫 질문: 증상 표현이나 컨디션이 나쁘다는 말이 있고 목록 증상은 기록되지 않았으면 한 번 되묻는다. 되물을 말을 돌려준다
@@ -406,17 +449,22 @@ final class InterviewEngine {
     /// (2026-10-22 평가: "허리가 아파서", "무릎이 쑤셔요", "어지러워요"를 저림으로, "옆구리가 결려요"를 피부로). 이름은 normalizedOthers가 원문으로 붙이고,
     /// 그 항목은 차례가 오면 그대로 묻는다
     private func unevidencedAsOther(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
-        guard phase == .opening || phase == .other else { return mentions }
+        // 유무 질문에 다른 것이 주어인 '없다'는 답도: 모델이 낱말 없는 목록 항목("팔에 힘이 없어요" → 저림)을 고르면 기타 증상이다
+        var otherSubject = false
+        if case .slot(let key, .presence) = phase { otherSubject = reading.negatesOtherThing(patientText, for: key) }
+        guard phase == .opening || phase == .other || otherSubject else { return mentions }
         // 목록 낱말이 하나도 없고 증상 표현만 있는 말("요새 어지러워서 자꾸 누워 있어요", "머리가 핑 돌아요")은 어느 항목으로 골랐든 목록 밖 증상이다
         let nonListOnly = symptomHints.matches(patientText) != nil && !config.saysAnyEffect(in: patientText)
         return mentions.map { m in
             // '모름'(다시 확인해 이미 낮춘 것)은 그대로 둔다: 그 항목 차례에 다시 묻는다
             // 낱말을 부정한 말("다리가 저린 건 아니고 쑤셔요")은 근거가 아니다
             guard m.presence == .present, let effect = config.effect(m.effectId),
-                  effect.keywordRequired == true || nonListOnly,
+                  effect.keywordRequired == true || nonListOnly || otherSubject,
                   KeywordMatcher(keywords: effect.keywords, prefixNegation: true).matches(patientText) == nil else { return m }
             convertedToOther = true
-            return Mention(effectId: "other", presence: m.presence, quote: m.quote)
+            // 유무 질문에서는 이름을 정리하는 단계가 없어 환자 말을 이름으로 쓴다
+            let name = otherSubject ? patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) : nil
+            return Mention(effectId: "other", otherName: name, presence: m.presence, quote: m.quote)
         }
     }
 
@@ -799,7 +847,9 @@ final class InterviewEngine {
     /// 유무 질문에 모델이 지금 항목은 비우고 다른 목록 증상을 '있음'으로 골랐는데 환자 말에 그 증상 낱말이 하나도 없으면 지금 항목의 답으로 본다
     /// (2026-10-22 평가: 변비 질문에 "네 사흘째요"·"조금 나오긴 하는데 아직 시원하지 않아요"를 설사로 기록하고 변비를 다시 물었다)
     private func toCurrentSlot(_ mentions: [Mention], key: String, patientText: String) -> [Mention] {
-        guard knownIds.contains(key), !mentions.contains(where: { $0.effectId == key }),
+        // 다른 것이 주어인 '없다'는 답("오른쪽 팔에 힘이 없어요")은 지금 항목의 답이 아니다: 식사 질문에서 모델이 고른 저림을
+        // 식사 '있음'으로 옮겼다 (2026-10-24 PR 4개 합친 평가)
+        guard knownIds.contains(key), !mentions.contains(where: { $0.effectId == key }), !reading.negatesOtherThing(patientText, for: key),
               let i = mentions.firstIndex(where: { m in
                   m.effectId != key && m.presence == .present
                       && config.effect(m.effectId).map { !$0.said(in: patientText) } == true
