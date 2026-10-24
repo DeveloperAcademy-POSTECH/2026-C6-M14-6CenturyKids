@@ -163,7 +163,30 @@ struct PendingCareCallTests {
         #expect(try! pending.findAll(patientId: patientId).map(\.id) == [left.id])
     }
 
-    @Test(arguments: [CareCallOutcome.emergencyEnded, .interrupted(nil)])
+    @Test func 응급으로_끝나면_그날_기록에_더해_저장한다() async {
+        let existing = record(.nauseaVomiting)
+        repository.existing = existing
+        let viewModel = makeViewModel()
+        await enterText(viewModel)
+        service.replies = [turn("응급 안내", .emergencyEnded(record()))]
+        await viewModel.answer(.text("숨이 차요"))?.value
+        await waitUntil { repository.saved.count == 1 }
+        #expect(repository.saved[0].id == existing.id) // 다시 거는 통화처럼 그날 기록에 더한다
+        #expect(Set(repository.saved[0].symptoms.map(\.symptomType)) == [.nauseaVomiting, .diarrhea])
+        #expect(pending.items.isEmpty)
+    }
+
+    @Test func 응급_기록을_올리지_못하면_폰에_남겨_다음에_올린다() async {
+        repository.failNextSave = true
+        let viewModel = makeViewModel()
+        await enterText(viewModel)
+        service.replies = [turn("응급 안내", .emergencyEnded(record()))]
+        await viewModel.answer(.text("숨이 차요"))?.value
+        await waitUntil { !pending.items.isEmpty && repository.saved.isEmpty }
+        #expect(pending.items.values.first?.complete == true)
+    }
+
+    @Test(arguments: [CareCallOutcome.interrupted(nil)])
     func 저장하지_않는_결과면_남긴_기록을_지운다(outcome: CareCallOutcome) async {
         let viewModel = makeViewModel()
         await enterText(viewModel)

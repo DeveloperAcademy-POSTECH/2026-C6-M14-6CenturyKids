@@ -111,12 +111,15 @@ struct CareCallTextModeTests {
         #expect(viewModel.answer(.text("더 말함")) == nil)
     }
 
-    @Test func 응급이면_안내를_남기고_더_받지_않는다() async {
+    @Test func 응급이면_안내를_남기고_더_받지_않으며_기록은_저장한다() async {
         await enterText()
-        service.replies = [turn("응급 안내 문구", nil, .emergencyEnded)]
+        let saved = record()
+        service.replies = [turn("응급 안내 문구", nil, .emergencyEnded(saved))]
         await viewModel.answer(.text("숨이 차요"))?.value
         #expect(conversation.question?.text == "응급 안내 문구" && conversation.summary == nil)
         #expect(viewModel.answer(.text("네")) == nil)
+        await waitUntil { repository.saved.count == 1 }
+        #expect(repository.saved.first?.id == saved.id)
     }
 
     @Test func 문자_대화_중에_떠나면_받은_답까지_저장한다() async {
