@@ -230,12 +230,35 @@ struct InterviewEngineTests {
     }
 
     @Test func 잘_안_된다는_답을_모델이_없음이라_하면_다시_묻는다() async {
-        mock.script["잘 안 나와요"] = .mentions(Mention(effectId: "constipation", presence: .absent))
-        await reach("constipation")
-        let out = await engine.handle(patientText: "잘 안 나와요")
-        #expect(engine.ledger["constipation"]?.presence == nil)
-        #expect(out.phase == .slot(key: "constipation", step: .presence))
+        mock.script["입맛이 영 안 좋아요"] = .mentions(Mention(effectId: "nausea_vomiting", presence: .absent))
+        await reach("nausea_vomiting")
+        let out = await engine.handle(patientText: "입맛이 영 안 좋아요")
+        #expect(engine.ledger["nausea_vomiting"]?.presence == nil)
+        #expect(out.phase == .slot(key: "nausea_vomiting", step: .presence))
         #expect(out.utterance.hasPrefix(config.repeatPrefix))
+    }
+
+    @Test(arguments: ["잘 안 나와요", "사흘째 큰일을 못 봤어요", "배에 힘을 줘도 소식이 없어요"])
+    func 변비_질문에_안_나온다는_답은_모델이_없음이라_해도_있음(answer: String) async {
+        mock.script[answer] = .mentions(Mention(effectId: "constipation", presence: .absent))
+        await reach("constipation")
+        _ = await engine.handle(patientText: answer)
+        #expect(engine.ledger["constipation"]?.presence == .present)
+    }
+
+    @Test(arguments: ["안 나오는 건 없어요", "못 볼 정도는 아니에요"])
+    func 안_나온다는_말을_부정하면_있음이_아니다(answer: String) async {
+        mock.script[answer] = .mentions(Mention(effectId: "constipation", presence: .absent))
+        await reach("constipation")
+        _ = await engine.handle(patientText: answer)
+        #expect(engine.ledger["constipation"]?.presence != .present)
+    }
+
+    @Test func 그_밖에의_안_나온다는_말은_변비로_보지_않는다() async {
+        await reach("constipation")
+        while engine.phase != .other { _ = await engine.handle(patientText: "아니요") }
+        _ = await engine.handle(patientText: "목소리가 잘 안 나와요")
+        #expect(engine.ledger["constipation"]?.presence == .absent)
     }
 
     @Test(arguments: [("밥 두 공기 뚝딱 먹어요", true), ("보리차를 자주 마셔요", true), ("밥을 반 공기만 먹어요", false),

@@ -30,6 +30,9 @@ struct CareCallConfig: Decodable, Sendable {
         let absentPhrases: [String]?
         /// 처음·그 밖에 질문에서 모델이 이 항목을 골라도 환자 말에 keywords 낱말이 없으면 기타 증상으로 본다 (저림·피부, 초안)
         let keywordRequired: Bool?
+        /// 이 항목을 물을 때만 '있음'으로 보는 말 ("안 나와" = 변비 있음). 다른 질문에서는 너무 넓어 쓰지 않는다
+        /// ("목소리가 잘 안 나와요"를 변비로 읽지 않게). 바로 뒤가 부정이면 아니다 ("안 나오는 건 없어요", 초안)
+        let answerPhrases: [String]?
         /// 이 항목을 물을 때 줄었다는 말 없이 평소대로 한다는 답은 '없음' ("밥 두 공기 뚝딱 먹어요", 초안)
         let usualAnswer: UsualAnswer?
 

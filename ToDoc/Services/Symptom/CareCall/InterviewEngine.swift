@@ -451,7 +451,7 @@ final class InterviewEngine {
     /// 식사가 '있음'이 돼 식사 질문을 건너뛰고, 지금 상태("지금은 평소만큼 먹어요")를 묻지 못했다 (2026-10-20 Mac 평가 H16). 그 항목 차례에 직접 묻는다
     private func presentByPhrase(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
         var result = mentions
-        for effect in config.effects where reading.saysPresent(effect, patientText) {
+        for effect in config.effects where reading.saysPresent(effect, patientText, answering: phase.slotKey == effect.id) {
             if let key = phase.slotKey, key != effect.id, ledger[effect.id]?.presence == nil { continue }
             result.removeAll { $0.effectId == effect.id && $0.presence != .present }
             if !result.contains(where: { $0.effectId == effect.id }) {
@@ -785,7 +785,7 @@ final class InterviewEngine {
         guard !result.mentions.contains(where: { $0.effectId == key }), symptomHints.matches(patientText) == nil,
               !NumberParser.hasNumber(patientText),
               !Self.hasContrast(patientText),
-              let effect = config.effect(key), !reading.saysPresent(effect, patientText),
+              let effect = config.effect(key), !reading.saysPresent(effect, patientText, answering: true),
               !config.effects.contains(where: { $0.id != key && $0.said(in: patientText, minLength: 2) })
         else { return nil }
         let parts = AnswerReading.parts(patientText)

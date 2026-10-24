@@ -64,7 +64,7 @@ struct AnswerReading {
         return usual.endings.contains { compact.hasSuffix(Self.normalized($0)) }
             && !usual.unless.contains { compact.contains(Self.normalized($0)) }
             && t.firstMatch(of: /[가-힣]만\s/) == nil
-            && symptomHints.matches(t) == nil && !Self.hasContrast(t) && !saysPresent(effect, t)
+            && symptomHints.matches(t) == nil && !Self.hasContrast(t) && !saysPresent(effect, t, answering: true)
     }
 
     /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다
@@ -93,8 +93,9 @@ struct AnswerReading {
         }
     }
 
-    func saysPresent(_ effect: CareCallConfig.Effect, _ patientText: String) -> Bool {
-        (effect.presentPhrases ?? []).contains { phrase in
+    /// answering: 이 항목을 묻는 중 (answerPhrases도 본다)
+    func saysPresent(_ effect: CareCallConfig.Effect, _ patientText: String, answering: Bool = false) -> Bool {
+        ((effect.presentPhrases ?? []) + (answering ? effect.answerPhrases ?? [] : [])).contains { phrase in
             let words = phrase.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }
             guard let regex = try? Regex(words.joined(separator: ".{0,8}?")) else { return false }
             // 한 절 안에서 차례로 나오고, 바로 뒤가 부정("입맛 없는 건 아니에요")이 아닐 때.
@@ -115,7 +116,7 @@ struct AnswerReading {
         guard !key.hasPrefix("other:") else { return false }
         // "입맛이 없어요"는 '없어요'로 끝나도 식사 증상이 있다는 말이다
         let effect = config.effect(key)
-        if let effect, saysPresent(effect, patientText) { return false }
+        if let effect, saysPresent(effect, patientText, answering: true) { return false }
         let t = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         let compact = Self.normalized(t)
         // 없음 표현으로 시작만 하면 뒷말이 번복일 수 있어("아니요 설사 맞아요 설사 했어요") 없음 표현 하나뿐일 때만 인정
