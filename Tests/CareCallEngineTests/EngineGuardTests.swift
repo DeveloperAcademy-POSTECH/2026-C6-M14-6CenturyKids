@@ -1303,3 +1303,41 @@ extension OpeningMixedTests {
         #expect(engine.ledger.order.contains { $0.hasPrefix("other:") } == recorded)
     }
 }
+
+/// 증상 표현 낱말 없이 몸 부위가 주어로 나온 답 ("눈이 자꾸 침침해요")
+@MainActor
+struct BodyPartSymptomTests {
+    let config = try! fixture(CareCallConfig.self, "side_effects")
+    let rules = try! fixture(EmergencyRules.self, "emergency_rules")
+    let words = try! fixture(BodyPartDictionary.self, "body_parts").parts.values.flatMap { $0 }
+
+    private func atOther(_ mock: MockAnalyzer) async -> InterviewEngine {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: mock, locationWords: words)
+        _ = engine.start()
+        for _ in 0..<10 where engine.phase != .other { _ = await engine.handle(patientText: "없어요") }
+        return engine
+    }
+
+    @Test(arguments: ["눈이 자꾸 침침해요", "귀에서 삐 소리가 나요", "다리에 자꾸 쥐가 나요"])
+    func 부위가_주어인_그_밖에_답은_시작_시점을_묻는다(answer: String) async {
+        let engine = await atOther(MockAnalyzer())
+        let out = await engine.handle(patientText: answer)
+        #expect(out.utterance == config.otherDetail.question)
+    }
+
+    @Test(arguments: ["머리 염색을 새로 했어요", "손주들이 놀러 와서 좋았어요", "목요일에 병원 가는 날이에요", "눈은 괜찮아요"])
+    func 부위_낱말만_든_말에는_묻지_않는다(answer: String) async {
+        let engine = await atOther(MockAnalyzer())
+        let out = await engine.handle(patientText: answer)
+        #expect(out.utterance != config.otherDetail.question)
+    }
+
+    @Test func 첫_답에서_부위가_주어인_증상은_시작_시점을_묻고_기타로_남긴다() async {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer(), locationWords: words)
+        _ = engine.start()
+        let out = await engine.handle(patientText: "허리가 묵직해요")
+        #expect(out.utterance == config.otherDetail.question && out.phase == .opening)
+        _ = await engine.handle(patientText: "어제부터요")
+        #expect(engine.ledger.order.contains { $0.hasPrefix("other:") && engine.ledger[$0]?.presence == .present })
+    }
+}

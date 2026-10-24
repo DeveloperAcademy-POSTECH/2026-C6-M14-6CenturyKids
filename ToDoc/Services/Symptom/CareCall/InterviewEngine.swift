@@ -313,8 +313,8 @@ final class InterviewEngine {
     /// ("피곤해요" → "어떤 점이 그러신지…". "보통이에요", "잠은 잘 자요"는 묻지 않음).
     /// 증상 표현이 있으면 모델이 되물어도 묻는다: "기침이 좀 나요 감기 기운인지"를 되묻기로 내 시작 시점을 묻지 않았다 (2026-10-22 평가)
     private func openingFollowUp(_ result: TurnResult?, during current: InterviewPhase, patientText: String, since before: Ledger) -> String? {
-        guard current == .opening, openingFirstAnswer == nil, result?.needsClarification != true || symptomHints.matches(patientText) != nil,
-              symptomHints.matches(patientText) != nil || openingConcerns.matches(patientText) != nil,
+        guard current == .opening, openingFirstAnswer == nil, result?.needsClarification != true || saysSymptom(patientText),
+              saysSymptom(patientText) || openingConcerns.matches(patientText) != nil,
               !knownIds.contains(where: { ledger[$0]?.presence != before[$0]?.presence }),
               let followUp = openingFollowUpQuestion(patientText) else { return nil }
         openingFirstAnswer = patientText
@@ -386,7 +386,7 @@ final class InterviewEngine {
                 // 새 기타 증상: 무엇인지 이미 되물었거나 언제부터인지 이미 말했으면 바로 마무리, 아니면 시작 시점을 묻는다.
                 // 모델이 증상으로 보지 않아 원문만 남긴 말(증상 표현 없음: "병원비 때문에 걱정이 많아요", "손주가 와서 바빴어요")에는
                 // 시작 시점을 묻지 않는다 (2026-10-22 평가: 증상이 아닌 말 뒤에 "언제부터 그러셨어요?")
-                let verbatimOnly = ledger[key]?.needsReview == true && symptomHints.matches(patientText) == nil
+                let verbatimOnly = ledger[key]?.needsReview == true && !saysSymptom(patientText)
                 if otherYesFollowedUp || reading.mentionsOnset(patientText) || verbatimOnly {
                     otherAsked = true
                     return (nil, config.otherDetail.recorded)
@@ -708,7 +708,7 @@ final class InterviewEngine {
         // ("잘 모르겠는데 머리가 아파요", 2026-10-19 실기기). 남기면 "어떤 점이 그러신지"를 물어 내용을 받는다
         // 첫 질문의 꼬리질문("언제부터 그러셨어요?")에 답하면 모델은 시작 시점만 보고 되묻는다. 첫 답의 증상 표현은 그래도 남긴다
         // ("밤에 잠을 통 못 자요 / 주사 맞고부터요"가 기록 없이 사라졌다, 2026-10-22 평가)
-        let keepAnyway = (phase == .other || (phase == .opening && openingFirstAnswer != nil)) && symptomHints.matches(text) != nil
+        let keepAnyway = (phase == .other || (phase == .opening && openingFirstAnswer != nil)) && saysSymptom(text)
         // '그 밖에'에서 모델이 되물은 말은 먼저 '모름'으로 남긴다: 되물은 답이 "없어요"·"네"면 처음 말이 사라졌다
         // ("이렇게 살아서 뭐하나 싶어요", 2026-10-21 Foundation Models 탐침). '있음'으로는 남기지 않는다
         if phase == .other, unchanged, modelAsked, !keepAnyway,
@@ -717,7 +717,7 @@ final class InterviewEngine {
             return
         }
         guard unchanged, result?.needsClarification != true || keepAnyway,
-              symptomHints.matches(text) != nil
+              saysSymptom(text)
                 || (phase == .other && !reading.soundsNegative(text) && !reading.soundsUnsure(text) && !reading.saysNormal(text))
                 || (phase == .opening && unasked != nil && openingConcerns.matches(text) != nil) else { return }
         let name = text.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
@@ -915,10 +915,22 @@ final class InterviewEngine {
     private static let nowWords = ["지금은", "이제", "요즘은", "뒤로는", "후로는"]
     private static let partialWords = ["아직", "덜", "조금", "좀", "가끔", "여전"]
 
+    /// 첫 답·'그 밖에' 답이 증상을 말한 것인지: 증상 표현 낱말이 있거나, 몸 부위가 주어로 나온다("눈이 자꾸 침침해요", "귀에서 삐 소리가 나요",
+    /// "다리에 쥐가 나요"). 증상 표현 낱말로만 가려 "눈이 침침해요"에 시작 시점을 묻지 않았다 (2026-10-24 확인 세트).
+    /// 부위 낱말만 든 말("머리 염색을 했어요", "손주들이 왔어요", "목요일에 병원 가요")과 없다는 절("눈은 괜찮아요")은 아니다
+    private func saysSymptom(_ text: String) -> Bool {
+        if symptomHints.matches(text) != nil { return true }
+        return AnswerReading.parts(text).contains { clause in
+            !reading.soundsNegative(clause) && !reading.saysNormal(clause) && locationWords.contains { word in
+                clause.range(of: NSRegularExpression.escapedPattern(for: word) + #"(?:이|가|은|는|에서|에)(?=\s|$)"#, options: .regularExpression) != nil
+            }
+        }
+    }
+
     /// 첫 답을 한 번 되물을 말. 증상을 말했으면 시작 시점(이미 말했으면 nil: 되묻지 않는다), 컨디션이 나쁘다는 말뿐이면 무엇이 불편한지,
     /// 다시 거는 통화면 무엇이 달라졌는지. 막연한 "어떤 점이 그러신지 조금 더"는 무엇을 더 말할지 막막했다 (2026-10-22 사용자 피드백)
     private func openingFollowUpQuestion(_ patientText: String) -> String? {
-        if symptomHints.matches(patientText) != nil { return reading.mentionsOnset(patientText) ? nil : config.otherDetail.question }
+        if saysSymptom(patientText) { return reading.mentionsOnset(patientText) ? nil : config.otherDetail.question }
         return unasked == nil ? config.openingFollowUp : config.followUpCall.followUp
     }
 
