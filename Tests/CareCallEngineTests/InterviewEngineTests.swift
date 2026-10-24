@@ -355,6 +355,15 @@ struct InterviewEngineTests {
         #expect(engine.ledger["constipation"]?.presence == .absent)
     }
 
+    @Test(arguments: [("한 그릇 싹 비워요", true), ("밥이랑 반찬 다 비우고 있어요", true), ("반 그릇도 못 비워요", false),
+                      ("겨우 반만 비워요", false)])
+    func 식사_질문에_그릇을_비운다는_답은_없음(answer: String, usual: Bool) async {
+        mock.script[answer] = .mentions(Mention(effectId: "dehydration_nutrition", presence: .present))
+        await reach("dehydration_nutrition")
+        _ = await engine.handle(patientText: answer)
+        #expect((engine.ledger["dehydration_nutrition"]?.presence == .absent) == usual)
+    }
+
     @Test(arguments: [("밥 두 공기 뚝딱 먹어요", true), ("보리차를 자주 마셔요", true), ("밥을 반 공기만 먹어요", false),
                       ("죽만 조금 먹어요", false), ("먹긴 먹는데 많이 못 먹어요", false), ("입맛이 없어서 겨우 먹어요", false)])
     func 식사_질문에_줄었다는_말_없이_먹는다고만_하면_없음(answer: String, usual: Bool) async {
