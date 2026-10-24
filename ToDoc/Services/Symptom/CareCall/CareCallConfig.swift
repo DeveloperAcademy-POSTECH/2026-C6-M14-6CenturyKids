@@ -30,6 +30,15 @@ struct CareCallConfig: Decodable, Sendable {
         let absentPhrases: [String]?
         /// 처음·그 밖에 질문에서 모델이 이 항목을 골라도 환자 말에 keywords 낱말이 없으면 기타 증상으로 본다 (저림·피부, 초안)
         let keywordRequired: Bool?
+        /// 이 항목을 물을 때 줄었다는 말 없이 평소대로 한다는 답은 '없음' ("밥 두 공기 뚝딱 먹어요", 초안)
+        let usualAnswer: UsualAnswer?
+
+        struct UsualAnswer: Decodable, Sendable {
+            /// 답이 이 말로 끝나야 한다 ("먹어요", "마셔요")
+            let endings: [String]
+            /// 이 말이 있으면 평소대로가 아니다 ("못", "조금", "겨우"). 낱말 뒤 "만"("죽만", "물만")도 아니다
+            let unless: [String]
+        }
 
         struct Detail: Decodable, Sendable {
             /// 기록에 붙이는 이름 ("횟수", "구토 횟수"). 한 항목 안에서 겹치지 않는다

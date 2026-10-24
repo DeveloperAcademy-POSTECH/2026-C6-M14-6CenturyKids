@@ -202,6 +202,12 @@ final class InterviewEngine {
         if case .slot(let key, .presence) = current, let absent = absentByNormalAnswer(result, key: key, patientText: patientText) {
             result.mentions.append(absent)
         }
+        // 줄었다는 말 없이 평소대로 한다는 답은 '없음' (모델이 "밥은 한 공기씩 먹어요"를 '있음'으로, "물도 잘 마셔요"를 빈 답으로 읽었다,
+        // 2026-10-24 새 시나리오)
+        if case .slot(let key, .presence) = current, let effect = config.effect(key), reading.saysUsual(effect, patientText) {
+            result.mentions.removeAll { $0.effectId == key }
+            result.mentions.append(Mention(effectId: key, presence: .absent, quote: patientText))
+        }
         // 유무 질문에 모델이 낸 그 항목의 유무가 답의 말과 어긋나면 기록하지 않고 다시 묻는다 (잘못 남기느니 한 번 더 묻는다).
         // 이유 답("입이 아파서요")은 아래 reasonAnswer가 다시 채운다
         if case .slot(let key, .presence) = current {

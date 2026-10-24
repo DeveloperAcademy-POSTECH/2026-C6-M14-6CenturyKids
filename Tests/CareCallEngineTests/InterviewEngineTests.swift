@@ -238,6 +238,15 @@ struct InterviewEngineTests {
         #expect(out.utterance.hasPrefix(config.repeatPrefix))
     }
 
+    @Test(arguments: [("밥 두 공기 뚝딱 먹어요", true), ("보리차를 자주 마셔요", true), ("밥을 반 공기만 먹어요", false),
+                      ("죽만 조금 먹어요", false), ("먹긴 먹는데 많이 못 먹어요", false), ("입맛이 없어서 겨우 먹어요", false)])
+    func 식사_질문에_줄었다는_말_없이_먹는다고만_하면_없음(answer: String, usual: Bool) async {
+        mock.script[answer] = .mentions(Mention(effectId: "dehydration_nutrition", presence: .present))
+        await reach("dehydration_nutrition")
+        _ = await engine.handle(patientText: answer)
+        #expect((engine.ledger["dehydration_nutrition"]?.presence == .absent) == usual)
+    }
+
     @Test func 다른_증상_이야기에_지금_항목을_있음이라_하면_다시_묻는다() async {
         mock.script["입맛이 없어서 조금밖에 못 먹어요"] = .mentions(Mention(effectId: "stomatitis", presence: .present))
         mock.script["네, 입맛도 없어요"] = .mentions(Mention(effectId: "stomatitis", presence: .present))

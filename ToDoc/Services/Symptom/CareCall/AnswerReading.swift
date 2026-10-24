@@ -56,6 +56,17 @@ struct AnswerReading {
             || config.shortAnswers.no.contains(Self.normalized(Self.withoutFillers(text, fillers: config.shortAnswers.fillers)))
     }
 
+    /// 이 항목을 물을 때 줄었다는 말 없이 평소대로 한다는 답 (effect.usualAnswer). 증상 표현·대조가 있으면 아니다
+    func saysUsual(_ effect: CareCallConfig.Effect, _ patientText: String) -> Bool {
+        guard let usual = effect.usualAnswer else { return false }
+        let t = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        let compact = Self.normalized(t)
+        return usual.endings.contains { compact.hasSuffix(Self.normalized($0)) }
+            && !usual.unless.contains { compact.contains(Self.normalized($0)) }
+            && t.firstMatch(of: /[가-힣]만\s/) == nil
+            && symptomHints.matches(t) == nil && !Self.hasContrast(t) && !saysPresent(effect, t)
+    }
+
     /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다
     func saysNormal(_ text: String) -> Bool {
         let compact = Self.normalized(text)
