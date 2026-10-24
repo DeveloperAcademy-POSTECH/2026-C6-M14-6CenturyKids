@@ -241,6 +241,25 @@ struct InterviewEngineTests {
         #expect(engine.ledger["constipation"]?.answers == ["변비는 모르겠고 소변볼 때 따끔거려요"])
     }
 
+    @Test func 다른_것이_주어인_답을_모델이_다른_항목으로_골라도_지금_항목으로_옮기지_않는다() async {
+        mock.script["오른쪽 팔에 힘이 없어요"] = .mentions(Mention(effectId: "neuropathy", presence: .present, locations: ["팔"], quote: ""))
+        await reach("dehydration_nutrition")
+        _ = await engine.handle(patientText: "오른쪽 팔에 힘이 없어요")
+        #expect(engine.ledger["dehydration_nutrition"]?.presence != .present)
+        #expect(engine.ledger["neuropathy"]?.presence != .present) // 저림 낱말이 없다
+        let other = engine.ledger["other:오른쪽 팔에 힘이 없어요"]
+        #expect(other?.presence == .present && other?.needsReview == true)
+    }
+
+    @Test func 다른_목록_증상으로_기록된_답은_그_증상에_원문을_남긴다() async {
+        mock.script["발바닥에 감각이 거의 없어요"] = .mentions(Mention(effectId: "neuropathy", presence: .present, locations: ["발"], quote: ""))
+        await reach("diarrhea")
+        _ = await engine.handle(patientText: "발바닥에 감각이 거의 없어요")
+        #expect(engine.ledger["neuropathy"]?.presence == .present)
+        #expect(engine.ledger["neuropathy"]?.answers == ["발바닥에 감각이 거의 없어요"])
+        #expect(engine.ledger["diarrhea"]?.answers.isEmpty != false)
+    }
+
     @Test func 되물은_답도_원문으로_남긴다() async {
         var asked = TurnResult.empty
         asked.needsClarification = true

@@ -279,6 +279,12 @@ final class InterviewEngine {
             return
         }
         guard case .slot(let key, .presence) = current, let effect = config.effect(key) else { return }
+        // 묻던 항목은 그대로이고 다른 목록 증상으로 기록되면 그 증상에 남긴다 (설사 질문에 "발바닥에 감각이 거의 없어요" → 저림 '있음')
+        let listed = changed.filter { $0 != key && config.effect($0) != nil && ledger[$0]?.presence == .present }
+        if !changed.contains(key), !listed.isEmpty {
+            for other in listed { ledger.addAnswer(patientText, for: other) }
+            return
+        }
         switch ledger[key]?.presence {
         case .present where changed.contains(key): break
         case .absent where changed.contains(key):
@@ -443,17 +449,22 @@ final class InterviewEngine {
     /// (2026-10-22 평가: "허리가 아파서", "무릎이 쑤셔요", "어지러워요"를 저림으로, "옆구리가 결려요"를 피부로). 이름은 normalizedOthers가 원문으로 붙이고,
     /// 그 항목은 차례가 오면 그대로 묻는다
     private func unevidencedAsOther(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
-        guard phase == .opening || phase == .other else { return mentions }
+        // 유무 질문에 다른 것이 주어인 '없다'는 답도: 모델이 낱말 없는 목록 항목("팔에 힘이 없어요" → 저림)을 고르면 기타 증상이다
+        var otherSubject = false
+        if case .slot(let key, .presence) = phase { otherSubject = reading.negatesOtherThing(patientText, for: key) }
+        guard phase == .opening || phase == .other || otherSubject else { return mentions }
         // 목록 낱말이 하나도 없고 증상 표현만 있는 말("요새 어지러워서 자꾸 누워 있어요", "머리가 핑 돌아요")은 어느 항목으로 골랐든 목록 밖 증상이다
         let nonListOnly = symptomHints.matches(patientText) != nil && !config.saysAnyEffect(in: patientText)
         return mentions.map { m in
             // '모름'(다시 확인해 이미 낮춘 것)은 그대로 둔다: 그 항목 차례에 다시 묻는다
             // 낱말을 부정한 말("다리가 저린 건 아니고 쑤셔요")은 근거가 아니다
             guard m.presence == .present, let effect = config.effect(m.effectId),
-                  effect.keywordRequired == true || nonListOnly,
+                  effect.keywordRequired == true || nonListOnly || otherSubject,
                   KeywordMatcher(keywords: effect.keywords, prefixNegation: true).matches(patientText) == nil else { return m }
             convertedToOther = true
-            return Mention(effectId: "other", presence: m.presence, quote: m.quote)
+            // 유무 질문에서는 이름을 정리하는 단계가 없어 환자 말을 이름으로 쓴다
+            let name = otherSubject ? patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) : nil
+            return Mention(effectId: "other", otherName: name, presence: m.presence, quote: m.quote)
         }
     }
 
@@ -836,7 +847,9 @@ final class InterviewEngine {
     /// 유무 질문에 모델이 지금 항목은 비우고 다른 목록 증상을 '있음'으로 골랐는데 환자 말에 그 증상 낱말이 하나도 없으면 지금 항목의 답으로 본다
     /// (2026-10-22 평가: 변비 질문에 "네 사흘째요"·"조금 나오긴 하는데 아직 시원하지 않아요"를 설사로 기록하고 변비를 다시 물었다)
     private func toCurrentSlot(_ mentions: [Mention], key: String, patientText: String) -> [Mention] {
-        guard knownIds.contains(key), !mentions.contains(where: { $0.effectId == key }),
+        // 다른 것이 주어인 '없다'는 답("오른쪽 팔에 힘이 없어요")은 지금 항목의 답이 아니다: 식사 질문에서 모델이 고른 저림을
+        // 식사 '있음'으로 옮겼다 (2026-10-24 PR 4개 합친 평가)
+        guard knownIds.contains(key), !mentions.contains(where: { $0.effectId == key }), !reading.negatesOtherThing(patientText, for: key),
               let i = mentions.firstIndex(where: { m in
                   m.effectId != key && m.presence == .present
                       && config.effect(m.effectId).map { !$0.said(in: patientText) } == true
