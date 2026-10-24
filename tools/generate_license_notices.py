@@ -90,8 +90,8 @@ def render(pins, dirs):
             sections.append((f"{name} — {os.path.basename(path)}", read_notice(os.path.join(folder, path))))
 
     lines = [
+        # 앱 화면에 그대로 보이므로 개발 안내 문구(직접 고치지 말 것)는 넣지 않는다
         "Third-party notices: Swift packages",
-        "이 파일은 tools/generate_license_notices.py로 만듭니다. 직접 고치지 마세요.",
         "Texts below are copied from each package's own LICENSE/NOTICE files at the versions pinned in Package.resolved.",
         "",
         "Components",
