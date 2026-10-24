@@ -1354,7 +1354,15 @@ struct BodyPartSymptomTests {
         #expect(out.utterance == config.otherDetail.question)
     }
 
-    @Test(arguments: ["머리 염색을 새로 했어요", "손주들이 놀러 와서 좋았어요", "목요일에 병원 가는 날이에요", "눈은 괜찮아요"])
+    @Test(arguments: ["눈 밑이 파르르 떨려요", "눈꺼풀이 자꾸 무거워요", "발톱 주변이 곪았어요", "혀끝이 얼얼해요"])
+    func 증상_표현이나_몸_부위가_있는_첫_답은_시작_시점을_묻는다(answer: String) async {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer(), locationWords: words)
+        _ = engine.start()
+        let out = await engine.handle(patientText: answer)
+        #expect(out.utterance == config.otherDetail.question && out.phase == .opening)
+    }
+
+    @Test(arguments: ["머리 염색을 새로 했어요", "손주들이 놀러 와서 좋았어요", "목요일에 병원 가는 날이에요", "눈은 괜찮아요", "손톱을 깎고 왔어요"])
     func 부위_낱말만_든_말에는_묻지_않는다(answer: String) async {
         let engine = await atOther(MockAnalyzer())
         let out = await engine.handle(patientText: answer)
