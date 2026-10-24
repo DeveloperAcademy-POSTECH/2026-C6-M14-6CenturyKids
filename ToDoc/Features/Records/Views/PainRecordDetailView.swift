@@ -27,23 +27,16 @@ struct PainRecordDetailView: View {
 private struct RecordPainChart: View {
     let state: RecordDetailScreenState
     let data: RecordPainDetail
+    /// 일별: 한 화면에 나란히 놓는 기록 수. 더 많으면 옆으로 밀어 봅니다
+    private static let visibleRecords = 6
+    private static let timeGap: CGFloat = 12
+    @ScaledMetric private var timeHeight: CGFloat = 18
     private var width: CGFloat { switch state.period { case .month: 4; case .week: 18; case .day: 12 } }
     var body: some View {
         VStack(spacing: 12) {
             RecordPlot { size in
                 if state.period == .day {
-                    ForEach(0...24, id: \.self) { hour in
-                        Rectangle().fill(RecordChartStyle.green).frame(width: 1, height: 6)
-                            .position(x: size.width * CGFloat(hour) / 24, y: size.height)
-                    }.accessibilityHidden(true)
-                    ForEach(data.records ?? [], id: \.id) { record in
-                        // 실제 기록 시각을 시간축에 표시합니다. 날짜만 주어진 집계를 임의 시각으로 만들지 않습니다.
-                        let parts = state.calendar.dateComponents([.hour, .minute], from: record.recordedDate)
-                        let hour = Double(parts.hour ?? 0) + Double(parts.minute ?? 0) / 60
-                        mark(before: Double(record.painBefore), after: Double(record.painAfter), size: size)
-                            .frame(width: width, height: size.height).position(x: size.width * hour / 24, y: size.height/2)
-                            .accessibilityLabel("\(parts.hour ?? 0)시 \(parts.minute ?? 0)분, 복용 전 \(record.painBefore)점, 복용 후 \(record.painAfter)점")
-                    }
+                    dayRecords(size)
                 } else {
                     HStack(alignment: .bottom, spacing: 0) {
                         ForEach(state.days, id: \.self) { date in
@@ -59,15 +52,39 @@ private struct RecordPainChart: View {
                     }.frame(width: size.width, height: size.height)
                 }
             }
-            if state.period == .day {
-                HStack(spacing: 0) {
-                    ForEach([0, 12, 24], id: \.self) { hour in
-                        Text("\(hour)").modifier(RecordTextStyle(size: 12)).fixedSize()
-                        if hour < 24 { Spacer(minLength: 0) }
-                    }
-                }.padding(.leading, 20).foregroundStyle(.secondary).accessibilityHidden(true)
-            } else { RecordDateAxis(state: state) }
+            // 일별 기록 시각은 막대 아래(그래프 밖)에 그려서 그 자리를 비워 둡니다
+            .padding(.bottom, state.period == .day ? Self.timeGap + timeHeight : 0)
+            if state.period != .day { RecordDateAxis(state: state) }
         }
+    }
+    /// 일별: 기록 시각 위치가 아니라 기록 순서대로 나란히 놓고, 막대 아래에 기록 시각을 씁니다
+    /// (비슷한 시각에 여러 번 기록해도 겹치지 않게). 기록이 하나면 가운데, 6개를 넘으면 옆으로 밀어 봅니다
+    private func dayRecords(_ size: CGSize) -> some View {
+        let records = data.records ?? []
+        let column = size.width / CGFloat(min(max(records.count, 1), Self.visibleRecords))
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 0) {
+                ForEach(records, id: \.id) { record in
+                    VStack(spacing: Self.timeGap) {
+                        mark(before: Double(record.painBefore), after: Double(record.painAfter), size: size)
+                            .frame(width: width, height: size.height)
+                        Text(time(record.recordedDate)).modifier(RecordTextStyle(size: 12)).fixedSize()
+                            .foregroundStyle(.secondary).frame(height: timeHeight)
+                    }
+                    .frame(width: column)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(time(record.recordedDate)), 복용 전 \(record.painBefore)점, 복용 후 \(record.painAfter)점")
+                }
+            }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(width: size.width, height: size.height + Self.timeGap + timeHeight, alignment: .topLeading)
+    }
+    private func time(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = state.calendar.timeZone
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
     }
     /// 복용 전·후 점수 사이를 막대로 그립니다. 주간은 점수 위치에 따라 색이 바뀌고, 낮은 점수 아래로 바탕 막대를 깝니다.
     private func mark(before: Double, after: Double, size: CGSize) -> some View {
