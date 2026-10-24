@@ -672,6 +672,8 @@ final class InterviewEngine {
             recordUnclearOther(patientText, name: config.otherUnclearName)
             return
         }
+        // 끝맺는 말("그게 다예요", "이제 됐어요")은 증상이 아니다: 기타 증상으로 남고 "언제부터"까지 물었다 (2026-10-24 새 시나리오)
+        if phase == .other, isClosing(text) { return }
         guard unchanged, result?.needsClarification != true || keepAnyway,
               symptomHints.matches(text) != nil
                 || (phase == .other && !reading.soundsNegative(text) && !reading.soundsUnsure(text) && !reading.saysNormal(text))
@@ -680,6 +682,13 @@ final class InterviewEngine {
         ledger.apply(Mention(effectId: "other", otherName: name, presence: .present, quote: patientText),
                      patientText: patientText, knownEffectIds: knownIds)
         ledger.markNeedsReview(Ledger.key(effectId: "other", otherName: name))
+    }
+
+    /// '그 밖에' 답이 더 말할 게 없다는 끝맺음인지 (config.closingEndings). 증상 표현·항목 낱말·몸 부위 낱말이 있으면 아니다
+    private func isClosing(_ text: String) -> Bool {
+        let compact = AnswerReading.normalized(text)
+        return config.closingEndings.contains { compact.hasSuffix(AnswerReading.normalized($0)) }
+            && symptomHints.matches(text) == nil && !config.saysAnyEffect(in: text) && !locationWords.contains { text.contains($0) }
     }
 
     /// 모델만 응급이라고 본 답: 그 답으로 바뀐 기록을 검토 필요로 둔다 (통화는 그대로 이어 가고, 의료진이 기록에서 본다).

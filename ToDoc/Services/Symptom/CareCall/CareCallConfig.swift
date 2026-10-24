@@ -128,6 +128,9 @@ struct CareCallConfig: Decodable, Sendable {
     let vagueAnswers: [String]
     /// '그 밖에' 질문에 "모르겠어요"·"그냥 그래요"라고 하면 이 이름의 기타 항목에 '모름'으로 원문을 남긴다
     let otherUnclearName: String
+    /// '그 밖에' 질문에 이 말로 끝나는 답은 더 말할 게 없다는 뜻 ("그게 다예요", "할 말은 다 했어요"). 증상 표현·항목 낱말·몸 부위가
+    /// 있으면 아니다 ("허리 쑤시는 게 다예요", 초안)
+    let closingEndings: [String]
     /// 모델 없이 처리하는 짧은 답 (공백·문장부호를 뺀 뒤 완전히 같을 때만). 질문이 긍정형("~있으셨나요?")이라는 전제
     let shortAnswers: ShortAnswers
     /// 처음·그 밖에 답에 이 표현이 있는데 모델이 아무것도 기록하지 않으면 한 번 더 분석한다 (초안, 의료진 확인 필요)

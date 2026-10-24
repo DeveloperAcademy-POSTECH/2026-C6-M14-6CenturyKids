@@ -292,6 +292,7 @@
   "unknownAnswers": ["모르겠", "잘 모르", "모름", "기억이 안", "기억 안", "기억이 잘 안", "기억이 가물", "생각이 안", "헷갈"],
   "vagueAnswers": ["그냥 그래", "좀 그래", "그저 그래", "그럭저럭", "글쎄", "애매", "같기도", "긴가민가", "아마"],
   "otherUnclearName": "그 밖에 불편한 점",
+  "closingEndings": ["다예요", "다에요", "다입니다", "전부예요", "전부입니다", "끝이에요", "끝입니다", "뿐이에요", "뿐입니다", "됐어요", "됐습니다", "정도예요", "다 했어요", "말씀드렸어요", "얘기했어요", "얘기한 것 같아요", "딱히요"],
   "draftNote": "requiresLocation, ask(긍정형 질문), locationPrompt, keywords, shortAnswers는 초안. 의료진 확인 후 수정 (HANDOFF 4-a, 11장). aiVoiceNotice는 디자인 팀 확인 전 초안",
   "shortAnswers": {
     "yes": [
