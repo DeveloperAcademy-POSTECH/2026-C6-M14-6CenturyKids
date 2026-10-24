@@ -723,7 +723,8 @@ final class InterviewEngine {
             return
         }
         // 끝맺는 말("그게 다예요", "이제 됐어요")은 증상이 아니다: 기타 증상으로 남고 "언제부터"까지 물었다 (2026-10-24 새 시나리오)
-        if phase == .other, isClosing(text) { return }
+        // 정상이라는 말만 한 답("다른 데는 멀쩡해요")도 증상이 아니다 (2026-10-25 보류 세트)
+        if phase == .other, isClosing(text) || reading.soundsFine(text) { return }
         guard unchanged, result?.needsClarification != true || keepAnyway,
               saysSymptom(text)
                 || (phase == .other && !reading.soundsNegative(text) && !reading.soundsUnsure(text) && !reading.saysNormal(text))

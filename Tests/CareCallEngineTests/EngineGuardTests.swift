@@ -810,6 +810,20 @@ struct EmergencySafetyTests {
         #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
     }
 
+    @Test(arguments: ["다른 데는 멀쩡해요", "몸은 대체로 편안해요", "그거 빼면 말짱해요"])
+    func 그_밖에의_정상이라는_말은_증상으로_남기지_않는다(answer: String) async {
+        let engine = await atOther(MockAnalyzer())
+        let out = await engine.handle(patientText: answer)
+        #expect(out.phase == .saved)
+        #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
+    }
+
+    @Test func 정상이라는_말_뒤에_증상이_있으면_기타로_남긴다() async {
+        let engine = await atOther(MockAnalyzer())
+        let out = await engine.handle(patientText: "다른 데는 멀쩡한데 어깨가 결려요")
+        #expect(out.utterance == config.otherDetail.question)
+    }
+
     @Test func 끝맺는_말이어도_증상_표현이_있으면_기타로_남긴다() async {
         let engine = await atOther(MockAnalyzer())
         let out = await engine.handle(patientText: "허리 쑤시는 게 다예요")
@@ -1340,7 +1354,15 @@ struct BodyPartSymptomTests {
         #expect(out.utterance == config.otherDetail.question)
     }
 
-    @Test(arguments: ["머리 염색을 새로 했어요", "손주들이 놀러 와서 좋았어요", "목요일에 병원 가는 날이에요", "눈은 괜찮아요"])
+    @Test(arguments: ["눈 밑이 파르르 떨려요", "눈꺼풀이 자꾸 무거워요", "발톱 주변이 곪았어요", "혀끝이 얼얼해요"])
+    func 증상_표현이나_몸_부위가_있는_첫_답은_시작_시점을_묻는다(answer: String) async {
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: MockAnalyzer(), locationWords: words)
+        _ = engine.start()
+        let out = await engine.handle(patientText: answer)
+        #expect(out.utterance == config.otherDetail.question && out.phase == .opening)
+    }
+
+    @Test(arguments: ["머리 염색을 새로 했어요", "손주들이 놀러 와서 좋았어요", "목요일에 병원 가는 날이에요", "눈은 괜찮아요", "손톱을 깎고 왔어요"])
     func 부위_낱말만_든_말에는_묻지_않는다(answer: String) async {
         let engine = await atOther(MockAnalyzer())
         let out = await engine.handle(patientText: answer)
