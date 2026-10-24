@@ -4,6 +4,11 @@ struct PainRecordNavigation {
     let showRecord: (PainRecord) -> Void
 }
 
+struct CareCallNavigation {
+    let home: () -> Void
+    let showRecord: (Date) -> Void
+}
+
 /// 환자 화면의 이동 경계. 새 ViewModel을 연결할 때 완성한 View를 주입합니다.
 struct PatientFlowView: View {
     @State private var tab = Tab.home
@@ -12,7 +17,9 @@ struct PatientFlowView: View {
     var pain: (PainRecordNavigation) -> PainRecordView
     var preparePainDetail: (Date) -> Void
     var painDetail: () -> PainRecordDetailView
-    var careCall: () -> CareCallFlowView = { .init() }
+    var careCall: (CareCallNavigation) -> CareCallFlowView = { _ in .init() }
+    var prepareSymptomDetail: (Date) -> Void = { _ in }
+    var symptomDetail: () -> SymptomRecordDetailView = { .init() }
     var notifications: () -> NotificationView = { .init() }
     var records: () -> RecordsFlowView = { .init() }
     var settings: () -> SettingsFlowView
@@ -21,7 +28,9 @@ struct PatientFlowView: View {
         pain: @escaping (PainRecordNavigation) -> PainRecordView,
         preparePainDetail: @escaping (Date) -> Void,
         painDetail: @escaping () -> PainRecordDetailView,
-        careCall: @escaping () -> CareCallFlowView = { .init() },
+        careCall: @escaping (CareCallNavigation) -> CareCallFlowView = { _ in .init() },
+        prepareSymptomDetail: @escaping (Date) -> Void = { _ in },
+        symptomDetail: @escaping () -> SymptomRecordDetailView = { .init() },
         notifications: @escaping () -> NotificationView = { .init() },
         records: @escaping () -> RecordsFlowView = { .init() },
         settings: @escaping () -> SettingsFlowView
@@ -30,6 +39,8 @@ struct PatientFlowView: View {
         self.preparePainDetail = preparePainDetail
         self.painDetail = painDetail
         self.careCall = careCall
+        self.prepareSymptomDetail = prepareSymptomDetail
+        self.symptomDetail = symptomDetail
         self.notifications = notifications
         self.records = records
         self.settings = settings
@@ -48,7 +59,14 @@ struct PatientFlowView: View {
                                     path = [.painDetail]
                                 }))
                             case .painDetail: painDetail()
-                            case .symptom: careCall()
+                            case .symptom:
+                                careCall(CareCallNavigation(home: {
+                                    path.removeAll(); tab = .home
+                                }, showRecord: { date in
+                                    prepareSymptomDetail(date)
+                                    path = [.symptomDetail]
+                                }))
+                            case .symptomDetail: symptomDetail()
                             case .notifications: notifications()
                             }
                         }.toolbar(.hidden, for: .tabBar)

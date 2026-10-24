@@ -40,7 +40,15 @@ struct PatientFlowCompositionView: View {
             painDetail: {
                 PainRecordDetailView(state: recordDetailViewModel.pain)
             },
-            careCall: { CareCallFlowView(makeViewModel: container.makeCareCallViewModel) },
+            careCall: { navigation in
+                CareCallFlowView(makeViewModel: container.makeCareCallViewModel,
+                                 onShowRecord: navigation.showRecord, onHome: navigation.home)
+            },
+            prepareSymptomDetail: { date in
+                recordDetailViewModel.symptom.period = .day
+                recordDetailViewModel.show(.symptom, at: date)
+            },
+            symptomDetail: { SymptomRecordDetailView(state: recordDetailViewModel.symptom) },
             records: {
                 RecordsFlowView(state: recordsViewModel.state,
                                 pain:{ PainRecordDetailView(state: recordDetailViewModel.pain) },
