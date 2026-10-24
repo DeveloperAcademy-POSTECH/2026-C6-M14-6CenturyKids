@@ -189,6 +189,8 @@ struct EmergencyRules: Decodable, Sendable {
     let reviewName: String
     /// 위기 표현을 원문으로 남기는 기타 항목 이름 (유무 '모름', 검토 필요)
     let crisisName: String
+    /// 응급 키워드·체온·확인 질문으로 통화를 끝낸 말을 원문으로 남기는 기타 항목 이름 (유무 '모름', 검토 필요)
+    let endedName: String
     /// 정상 종료 때 마무리 인사
     let closingMessage: String
 

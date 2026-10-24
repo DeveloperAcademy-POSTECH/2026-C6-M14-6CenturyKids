@@ -71,5 +71,6 @@
   "confirmQuestion": "혹시 지금 숨쉬기 힘들거나 정신이 흐려지는 것처럼 바로 도움이 필요한 상황이세요?",
   "reviewName": "응급 확인 필요",
   "crisisName": "위기 표현",
+  "endedName": "응급 안내로 종료",
   "closingMessage": "지금까지 답해 주셔서 감사합니다. 말씀하신 내용은 담당 의료진에게 전달할게요."
 }

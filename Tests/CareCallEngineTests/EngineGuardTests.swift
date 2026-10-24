@@ -821,6 +821,9 @@ struct EmergencySafetyTests {
         let out = await engine.handle(patientText: reply)
         #expect((out.phase == .emergencyEnded) == ends)
         if !ends { #expect(out.utterance != rules.confirmQuestion && !out.utterance.isEmpty) }
+        // 응급으로 끝나면 응급으로 본 답과 확인 답을 함께 원문으로 남긴다
+        let ended = engine.ledger[Ledger.key(effectId: "other", otherName: rules.endedName)]
+        #expect((ended?.unsureAnswers == ["\(answer) / \(reply)"]) == ends)
     }
 }
 

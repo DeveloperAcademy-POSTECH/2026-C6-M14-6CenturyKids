@@ -44,8 +44,8 @@ final class InterviewEngine {
     private var openingOtherName: String?
     /// 마지막으로 한 말 = 답을 기다리는 질문 (음성·문자를 바꿔도 이 질문부터 이어 간다)
     private(set) var lastQuestion: String
-    /// 모델만 응급이라고 본 답 뒤에 확인 질문을 했으면, '아니요'일 때 이어 갈 말과 단계
-    private var pendingEmergencyCheck: (output: Output, phase: InterviewPhase)?
+    /// 모델만 응급이라고 본 답 뒤에 확인 질문을 했으면, '아니요'일 때 이어 갈 말과 단계, 응급으로 끝낼 때 남길 그 답
+    private var pendingEmergencyCheck: (output: Output, phase: InterviewPhase, patientText: String)?
     /// 이번 답에서 근거 없이 고른 목록 증상을 기타로 돌렸음 (새 기타 항목을 검토 필요로 둔다)
     private var convertedToOther = false
     /// 같은 날 다시 거는 통화면 오늘 기록에 아직 없는 항목(지난 통화가 끊겨 못 물음), 처음 통화면 nil.
@@ -89,16 +89,18 @@ final class InterviewEngine {
         // 위기 표현(자살 생각·자해·약 과다 복용)은 모델 판단 없이 안내하고 끝낸다. 말은 원문으로 남긴다
         // (2026-10-21 Foundation Models: "죽고 싶다는 생각이 들어요"를 되묻기만 해 기록 없이 사라졌다)
         if crisisDetector.matches(patientText) != nil {
-            recordUnclearOther(patientText, name: rules.crisisName)
-            return endWithEmergency(message: rules.crisisMessage)
+            return endWithEmergency(patientText, name: rules.crisisName, message: rules.crisisMessage)
         }
         if isEmergencyText(patientText) {
-            return endWithEmergency()
+            return endWithEmergency(patientText, name: rules.endedName)
         }
         if let pending = pendingEmergencyCheck {
             pendingEmergencyCheck = nil
             // 확인 질문에 아니라고 하면 하던 대로 잇는다. 그렇다고 하거나 분명하지 않으면 응급 안내로 끝낸다
-            guard reading.soundsNegative(patientText) else { return endWithEmergency() }
+            // 끝내면 응급으로 본 답과 확인 답을 함께 남긴다 ("대변 볼 때 시뻘건 피가 쏟아졌어요 / 네")
+            guard reading.soundsNegative(patientText) else {
+                return endWithEmergency(pending.patientText + " / " + patientText, name: rules.endedName)
+            }
             phase = pending.phase
             say(pending.output.utterance)
             return pending.output
@@ -111,7 +113,7 @@ final class InterviewEngine {
         // (2026-10-21 Mac 평가, Foundation Models: 모델만 응급이라고 한 3번 중 1번이 거짓 응급, 2번은 혈변·실신)
         guard modelEmergency else { return out }
         markForReview(patientText, since: before)
-        pendingEmergencyCheck = (out, phase)
+        pendingEmergencyCheck = (out, phase, patientText)
         phase = current
         return Output(utterance: say(rules.confirmQuestion), phase: phase)
     }
@@ -975,7 +977,10 @@ final class InterviewEngine {
         detector.matches(text) != nil || rules.mentionsFever(text)
     }
 
-    private func endWithEmergency(message: String? = nil) -> Output {
+    /// 응급 안내로 끝낸다. 끝낸 말은 기타 항목(name)에 원문으로 남긴다 (2026-10-24 사용자 결정: 응급으로 끝나도 그때까지의 기록과 함께 저장).
+    /// 그 답은 분석하지 않는다: 묻던 항목은 답이 없어 저장하지 않는다
+    private func endWithEmergency(_ patientText: String, name: String, message: String? = nil) -> Output {
+        recordUnclearOther(patientText, name: name)
         phase = .emergencyEnded
         let text = message ?? rules.message
         say(text)

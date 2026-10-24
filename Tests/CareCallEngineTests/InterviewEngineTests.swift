@@ -129,6 +129,22 @@ struct InterviewEngineTests {
         #expect(engine.ledger["nausea_vomiting"]?.needsReview == true)
     }
 
+    @Test func 응급으로_끝나도_그때까지의_답과_응급으로_끝낸_말을_저장한다() async throws {
+        _ = engine.start()
+        _ = await engine.handle(patientText: "괜찮아요")
+        _ = await engine.handle(patientText: "네 있어요") // 구토 있음
+        while engine.phase != .slot(key: "constipation", step: .presence) { _ = await engine.handle(patientText: "어제부터요") }
+        let out = await engine.handle(patientText: "변 볼 때 빨간 피가 묻어 나와요")
+        #expect(out.phase == .emergencyEnded)
+        let converter = SymptomRecordConverter(config: config, bodyParts: try fixture(BodyPartDictionary.self, "body_parts"))
+        let record = converter.record(from: engine.ledger, patientId: UUID(), date: Date())
+        #expect(record.conditionText == "괜찮아요")
+        #expect(record.symptoms.map(\.symptomType) == [.nauseaVomiting, .other]) // 묻던 변비는 답이 없어 빼고
+        #expect(record.symptoms.first?.presence == .present)
+        #expect(record.symptoms.last?.presence == .unknown)
+        #expect(record.symptoms.last?.detail == "[검토 필요] \(rules.endedName): 변 볼 때 빨간 피가 묻어 나와요")
+    }
+
     @Test func 응급_키워드면_고정문구로_종료하고_플래그를_남긴다() async {
         _ = engine.start()
         let out = await engine.handle(patientText: "어제부터 숨이 차고 열이 39도까지 났어요")
