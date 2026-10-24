@@ -75,6 +75,13 @@ struct AnswerReading {
         text.contains("말씀") || text.trimmingCharacters(in: .whitespaces).hasSuffix("?")
     }
 
+    /// 절마다 없다·괜찮다·정상이라는 말뿐인 답 ("다른 데는 멀쩡해요", "몸은 대체로 편안해요"). 증상 표현이 있으면 아니다
+    func soundsFine(_ text: String) -> Bool {
+        symptomHints.matches(text) == nil && Self.parts(text).allSatisfy { clause in
+            soundsNegative(clause) || saysNormal(clause) || config.normalWords.contains { Self.normalized(clause).contains(Self.normalized($0)) }
+        }
+    }
+
     /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다
     func saysNormal(_ text: String) -> Bool {
         let compact = Self.normalized(text)

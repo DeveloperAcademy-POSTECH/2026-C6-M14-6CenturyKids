@@ -810,6 +810,20 @@ struct EmergencySafetyTests {
         #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
     }
 
+    @Test(arguments: ["다른 데는 멀쩡해요", "몸은 대체로 편안해요", "그거 빼면 말짱해요"])
+    func 그_밖에의_정상이라는_말은_증상으로_남기지_않는다(answer: String) async {
+        let engine = await atOther(MockAnalyzer())
+        let out = await engine.handle(patientText: answer)
+        #expect(out.phase == .saved)
+        #expect(!engine.ledger.order.contains { $0.hasPrefix("other:") })
+    }
+
+    @Test func 정상이라는_말_뒤에_증상이_있으면_기타로_남긴다() async {
+        let engine = await atOther(MockAnalyzer())
+        let out = await engine.handle(patientText: "다른 데는 멀쩡한데 어깨가 결려요")
+        #expect(out.utterance == config.otherDetail.question)
+    }
+
     @Test func 끝맺는_말이어도_증상_표현이_있으면_기타로_남긴다() async {
         let engine = await atOther(MockAnalyzer())
         let out = await engine.handle(patientText: "허리 쑤시는 게 다예요")
