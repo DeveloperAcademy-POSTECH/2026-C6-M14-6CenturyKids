@@ -181,8 +181,17 @@ final class InterviewEngine {
         return result
     }
 
-    /// 모델이 낸 기록을 환자 말과 맞춰 고친다 (차례가 결과를 바꾸므로 이 순서를 지킨다)
+    /// 모델 결과를 환자 말로 고친다. 차례가 결과를 바꾸므로 세 단계를 차례대로 부른다
+    /// 1. answerFixes: 지금 묻는 항목의 답 (다른 항목으로 고른 답 옮기기, 부위 질문, 그냥 없다·평소대로, 어긋나면 다시 묻기, 절 단위, 이유 답)
+    /// 2. choiceFixes: 어느 항목인지 (낱말 없는 목록 항목 → 기타, 기타 이름, 낱말로 옮기기, 있다는 말, 목록 밖 절, 다시 거는 통화의 그쳤다는 말)
+    /// 3. filtered: 거르기 (묻지 않은 항목의 근거 없는 '없음', 같은 항목의 있음·없음)
     private func correctedMentions(_ analyzed: TurnResult, during current: InterviewPhase, patientText: String) -> [Mention] {
+        let answered = answerFixes(analyzed, during: current, patientText: patientText)
+        let chosen = choiceFixes(answered, during: current, patientText: patientText)
+        return filtered(chosen, during: current, patientText: patientText)
+    }
+
+    private func answerFixes(_ analyzed: TurnResult, during current: InterviewPhase, patientText: String) -> [Mention] {
         var result = analyzed
         if case .slot(let key, .presence) = current {
             result.mentions = toCurrentSlot(result.mentions, key: key, patientText: patientText)
@@ -229,28 +238,37 @@ final class InterviewEngine {
         if let reason = reasonAnswer(result, during: current, patientText: patientText) {
             result.mentions.append(reason)
         }
-        result.mentions = presentByPhrase(reassignedByKeywords(normalizedOthers(unevidencedAsOther(result.mentions, during: current, patientText: patientText),
-                                                                                during: current, patientText: patientText),
-                                                               during: current, patientText: patientText),
-                                          during: current, patientText: patientText)
-        result.mentions = otherClausesBesideListed(result.mentions, during: current, patientText: patientText)
+        return result.mentions
+    }
+
+    private func choiceFixes(_ mentions: [Mention], during current: InterviewPhase, patientText: String) -> [Mention] {
+        var mentions = unevidencedAsOther(mentions, during: current, patientText: patientText)
+        mentions = normalizedOthers(mentions, during: current, patientText: patientText)
+        mentions = reassignedByKeywords(mentions, during: current, patientText: patientText)
+        mentions = presentByPhrase(mentions, during: current, patientText: patientText)
+        mentions = otherClausesBesideListed(mentions, during: current, patientText: patientText)
         if current == .opening, unasked != nil {
-            result.mentions = stoppedOverride(result.mentions, patientText: patientText)
+            mentions = stoppedOverride(mentions, patientText: patientText)
         }
+        return mentions
+    }
+
+    private func filtered(_ mentions: [Mention], during current: InterviewPhase, patientText: String) -> [Mention] {
+        var result = mentions
         // 지금 묻지 않은 항목의 '없음'은 환자가 그 항목 낱말을 말했을 때만 받는다. 모델이 상관없는 말("잠은 잘 자요",
         // "음 좀 어지러웠어요")을 근거로 식사를 '없음'으로 채워 식사 질문이 통째로 빠졌다 (2026-10-08 평가).
         // '있음'은 거르지 않는다: 낱말 목록이 초안이라 실제 증상을 놓칠 수 있고, '있음'은 횟수를 물으며 환자가 바로잡을 수 있다
-        result.mentions.removeAll { m in
+        result.removeAll { m in
             m.presence == .absent && m.effectId != current.slotKey
                 && config.effect(m.effectId).map { !$0.said(in: patientText) } == true
         }
         // 한 답 안에서 같은 항목이 있음·없음으로 함께 나오면 있음만 받는다. 차례로 넣으면 번복으로 처리돼 마지막 '없음'이 남고
         // 그 증상을 다시 묻지 않는다 ("어제 좀 토했어요, 그거 말고는 괜찮아요" → 구토 있음+없음, 2026-10-13 실기기 평가).
         // '있음'은 횟수를 물으며 환자가 바로잡을 수 있다. 근거 없는 '있음'(Ledger가 버림)으로 '없음'을 지우지 않는다
-        let presentKeys = Set(result.mentions.filter { $0.presence == .present && Ledger.grounded($0.quote, in: patientText) }
+        let presentKeys = Set(result.filter { $0.presence == .present && Ledger.grounded($0.quote, in: patientText) }
             .map { Ledger.key(effectId: $0.effectId, otherName: $0.otherName) })
-        result.mentions.removeAll { $0.presence == .absent && presentKeys.contains(Ledger.key(effectId: $0.effectId, otherName: $0.otherName)) }
-        return result.mentions
+        result.removeAll { $0.presence == .absent && presentKeys.contains(Ledger.key(effectId: $0.effectId, otherName: $0.otherName)) }
+        return result
     }
 
     /// 고친 기록을 Ledger에 넣고, 숫자 답을 꼬리질문 답으로 미리 채우고, 첫 질문 답을 컨디션 문장으로 남긴다
