@@ -14,6 +14,7 @@ final class SettingsViewModel {
     let patientId: UUID
     let screenState = SettingsScreenState()
     let personalInfoState = PersonalInfoScreenState()
+    let passwordChangeState = PasswordChangeScreenState()
     let carcinomaState = DiagnosisScreenState()
     let stageState = DiagnosisScreenState()
     let hospitalConnectionState = HospitalConnectionScreenState()
@@ -57,6 +58,16 @@ final class SettingsViewModel {
 
         personalInfoState.onCancel = { [weak self] in
             self?.discardPersonalInfoChanges()
+        }
+
+        passwordChangeState.onSave = { [weak self] in
+            Task { [weak self] in
+                await self?.changePassword()
+            }
+        }
+
+        passwordChangeState.onCancel = { [weak self] in
+            self?.discardPasswordChange()
         }
 
         carcinomaState.onLoad = { [weak self] in
@@ -413,6 +424,44 @@ final class SettingsViewModel {
         } catch {
             personalInfoState.errorMessage = "개인 정보를 저장하지 못했어요. 다시 시도해 주세요."
         }
+    }
+
+    func changePassword() async {
+        let state = passwordChangeState
+        guard !state.isSaving else { return }
+
+        state.didSave = false
+        state.errorMessage = nil
+        state.validationMessage = AuthFormValidation.passwordError(state.newPassword)
+        guard state.validationMessage == nil else { return }
+
+        guard state.newPassword == state.passwordConfirmation else {
+            state.validationMessage = "새 비밀번호가 일치하지 않아요."
+            return
+        }
+
+        let newPassword = state.newPassword
+        state.isSaving = true
+        defer { state.isSaving = false }
+
+        do {
+            try await authRepository.updatePassword(to: newPassword, nonce: nil)
+            state.newPassword = ""
+            state.passwordConfirmation = ""
+            state.didSave = true
+        } catch {
+            state.errorMessage = "비밀번호를 변경하지 못했어요. 다시 시도해 주세요."
+        }
+    }
+
+    func discardPasswordChange() {
+        guard !passwordChangeState.isSaving else { return }
+
+        passwordChangeState.newPassword = ""
+        passwordChangeState.passwordConfirmation = ""
+        passwordChangeState.didSave = false
+        passwordChangeState.validationMessage = nil
+        passwordChangeState.errorMessage = nil
     }
 
     func beginCustomCarcinomaEntry() {

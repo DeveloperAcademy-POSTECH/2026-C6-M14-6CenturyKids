@@ -34,6 +34,16 @@ struct DoctorDisplayData {
     @ObservationIgnored var onSave: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }
+@Observable final class PasswordChangeScreenState {
+    var newPassword = ""
+    var passwordConfirmation = ""
+    var isSaving = false
+    var didSave = false
+    var validationMessage: String?
+    var errorMessage: String?
+    @ObservationIgnored var onSave: (() -> Void)?
+    @ObservationIgnored var onCancel: (() -> Void)?
+}
 @Observable final class DiagnosisScreenState {
     var selection: DiagnosisChange?
     var customCancerName = ""
