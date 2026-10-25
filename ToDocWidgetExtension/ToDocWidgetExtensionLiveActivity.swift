@@ -32,16 +32,18 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
                     .padding(.trailing, 16)
                 
                 VStack(alignment: .leading) {
-                    Text(context.state.sentence)
                     Text(context.attributes.name)
                         .fontWeight(.bold)
+                    Text(context.state.sentence)
                 }
                 
                 Spacer()
                 
-                Button(action: {
-                    
-                }) {
+                Link(
+                    destination: URL(
+                    string: "todoc://record/symptoms?mode=voice"
+                )!
+                ) {
                     Image(systemName: "stethoscope")
                         .fontWeight(.bold)
                         .frame(width: 56, height: 56)
@@ -63,24 +65,47 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
                 // various regions, like leading/trailing/center/bottom
                 DynamicIslandExpandedRegion(.leading) {
                     Image(context.attributes.image)
-                    Text(context.attributes.name)
+                        .resizable()
+                        .frame(width: 60, height: 60)
+                        .scaledToFit()
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text(context.state.sentence)
-                        .foregroundStyle(.gray)
+                    VStack(alignment: .leading) {
+                        Text(context.attributes.name)
+                            .fontWeight(.bold)
+                        Text(context.state.sentence)
+                    }
                 }
-                DynamicIslandExpandedRegion(.bottom) {
-                    
+                DynamicIslandExpandedRegion(.trailing) {
+                    Link(
+                        destination: URL(
+                        string: "todoc://record/symptoms?mode=voice"
+                    )!
+                    ) {
+                        Image(systemName: "stethoscope")
+                            .fontWeight(.bold)
+                            .frame(width: 60, height: 60)
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 56, height: 56)
+                    .background(Color("LiveActivityGreen"))
+                    .clipShape(.circle)
                 }
             } compactLeading: {
-                Image("DynamicIslandCompactLeading")
+                Image("HangnoWithoutBackground")
+                    .resizable()
+                    .frame(width: 30, height: 30)
+                    .scaledToFit()
             } compactTrailing: {
                 Image(systemName: "stethoscope")
             } minimal: {
-                Image("DynamicIslandMinimal")
+                Image("HangnoWithoutBackground")
+                    .resizable()
+                    .frame(width: 30, height: 30)
+                    .scaledToFit()
             }
             .widgetURL(symptomURL)
-            .keylineTint(Color.red)
+            .keylineTint(Color("LiveActivityGreen"))
             .contentMargins(.all, 20, for: .expanded)
             .contentMargins(.horizontal, 11, for: .minimal)
             .contentMargins(.vertical, 7, for: .minimal)
