@@ -13,6 +13,8 @@ struct AnswerReading {
     let config: CareCallConfig
     let symptomHints: KeywordMatcher
     let openingConcerns: KeywordMatcher
+    /// 몸 부위 사전 낱말 (부위 주어로 증상을 가릴 때)
+    let locationWords: [String]
 
     /// "잘 모르겠어요", "기억이 안 나요" 같은 답. 숫자·없음 표현·연결어·증상 낱말이 함께 있으면 아니다
     /// ("모르겠는데 3번쯤", "잘 모르겠지만 좀 메스꺼웠어요"는 모델이 본다)
@@ -80,6 +82,25 @@ struct AnswerReading {
         symptomHints.matches(text) == nil && Self.parts(text).allSatisfy { clause in
             soundsNegative(clause) || saysNormal(clause) || config.normalWords.contains { Self.normalized(clause).contains(Self.normalized($0)) }
         }
+    }
+
+    /// 첫 답·'그 밖에' 답이 증상을 말한 것인지: 증상 표현 낱말이 있거나, 몸 부위가 주어로 나온다("눈이 자꾸 침침해요", "귀에서 삐 소리가 나요",
+    /// "다리에 쥐가 나요"). 증상 표현 낱말로만 가려 "눈이 침침해요"에 시작 시점을 묻지 않았다 (2026-10-24 확인 세트).
+    /// 부위 낱말만 든 말("머리 염색을 했어요", "손주들이 왔어요", "목요일에 병원 가요")과 없다는 절("눈은 괜찮아요")은 아니다
+    func saysSymptom(_ text: String) -> Bool {
+        if symptomHints.matches(text) != nil { return true }
+        return AnswerReading.parts(text).contains { clause in
+            !soundsNegative(clause) && !saysNormal(clause) && locationWords.contains { word in
+                clause.range(of: NSRegularExpression.escapedPattern(for: word) + #"(?:이|가|은|는|에서|에)(?=\s|$)"#, options: .regularExpression) != nil
+            }
+        }
+    }
+
+    /// '그 밖에' 답이 더 말할 게 없다는 끝맺음인지 (config.closingEndings). 증상 표현·항목 낱말·몸 부위 낱말이 있으면 아니다
+    func isClosing(_ text: String) -> Bool {
+        let compact = Self.normalized(text)
+        return config.closingEndings.contains { compact.hasSuffix(Self.normalized($0)) }
+            && symptomHints.matches(text) == nil && !config.saysAnyEffect(in: text) && !locationWords.contains { text.contains($0) }
     }
 
     /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다
