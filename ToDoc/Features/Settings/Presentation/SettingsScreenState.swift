@@ -17,6 +17,9 @@ struct DoctorDisplayData {
     var loadState: SettingsLoadState = .unavailable
     var isLoading = false
     var canEdit = false
+    var isSigningOut = false
+    var logoutErrorMessage: String?
+    @ObservationIgnored var onLogout: (() -> Void)?
     @ObservationIgnored var onReload: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }
