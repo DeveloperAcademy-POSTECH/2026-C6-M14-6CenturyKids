@@ -70,6 +70,20 @@ final class SettingsViewModel {
             self?.discardDiagnosisChanges(.carcinoma)
         }
 
+        carcinomaState.onBeginCustomCancer = { [weak self] in
+            self?.beginCustomCarcinomaEntry()
+        }
+
+        carcinomaState.onCancelCustomCancer = { [weak self] in
+            self?.cancelCustomCarcinomaEntry()
+        }
+
+        carcinomaState.onSaveCustomCancer = { [weak self] in
+            Task { [weak self] in
+                await self?.saveCustomCarcinoma()
+            }
+        }
+
         stageState.onLoad = { [weak self] in
             Task { await self?.loadDiagnosis(.stage) }
         }
@@ -398,6 +412,32 @@ final class SettingsViewModel {
         }
     }
 
+    func beginCustomCarcinomaEntry() {
+        guard carcinomaState.canSave, !carcinomaState.isSaving else { return }
+
+        if case .carcinoma(let type)? = carcinomaState.selection,
+           !CarcinomaType.allCases.contains(type) {
+            carcinomaState.customCancerName = type.rawValue
+        } else {
+            carcinomaState.customCancerName = ""
+        }
+        carcinomaState.errorMessage = nil
+    }
+
+    func cancelCustomCarcinomaEntry() {
+        guard !carcinomaState.isSaving else { return }
+
+        carcinomaState.customCancerName = ""
+        carcinomaState.errorMessage = nil
+    }
+
+    func saveCustomCarcinoma() async {
+        guard carcinomaState.canSaveCustomCancer,
+              let type = CarcinomaType(name: carcinomaState.customCancerName) else { return }
+
+        await persistDiagnosis(.carcinoma, selection: .carcinoma(type))
+    }
+
     func saveDiagnosis(_ field: DiagnosisField) async {
         let state: DiagnosisScreenState
         switch field {
@@ -405,8 +445,19 @@ final class SettingsViewModel {
         case .stage: state = stageState
         }
 
-        guard state.canSave, !state.isSaving,
-              let selection = state.selection else { return }
+        guard state.canSave, let selection = state.selection else { return }
+
+        await persistDiagnosis(field, selection: selection)
+    }
+
+    private func persistDiagnosis(_ field: DiagnosisField, selection: DiagnosisChange) async {
+        let state: DiagnosisScreenState
+        switch field {
+        case .carcinoma: state = carcinomaState
+        case .stage: state = stageState
+        }
+
+        guard !state.isSaving else { return }
 
         state.isSaving = true
         state.didSave = false
@@ -443,6 +494,7 @@ final class SettingsViewModel {
 
             screenState.profile?.cancerName = disease.carcinoma.displayName
             screenState.profile?.stageName = disease.stage.displayName
+            state.selection = selection
             state.didSave = true
         } catch {
             state.errorMessage = "진단 정보를 저장하지 못했어요. 다시 시도해 주세요."
