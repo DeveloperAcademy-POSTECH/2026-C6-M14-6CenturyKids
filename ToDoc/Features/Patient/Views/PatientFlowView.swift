@@ -11,9 +11,12 @@ struct CareCallNavigation {
 
 /// 환자 화면의 이동 경계. 새 ViewModel을 연결할 때 완성한 View를 주입합니다.
 struct PatientFlowView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var tab = Tab.home
     @State private var path: [HomeDestination] = []
-    @State var home = HomeScreenState()
+    let home: HomeScreenState
+    var onHomeContextChange: (Bool, Bool) -> Void
+    var onReloadHome: (() -> Void)?
     var pain: (PainRecordNavigation) -> PainRecordView
     var preparePainDetail: (Date) -> Void
     var painDetail: () -> PainRecordDetailView
@@ -25,6 +28,9 @@ struct PatientFlowView: View {
     var settings: () -> SettingsFlowView
 
     init(
+        home: HomeScreenState? = nil,
+        onHomeContextChange: @escaping (Bool, Bool) -> Void = { _, _ in },
+        onReloadHome: (() -> Void)? = nil,
         pain: @escaping (PainRecordNavigation) -> PainRecordView,
         preparePainDetail: @escaping (Date) -> Void,
         painDetail: @escaping () -> PainRecordDetailView,
@@ -35,6 +41,9 @@ struct PatientFlowView: View {
         records: @escaping () -> RecordsFlowView = { .init() },
         settings: @escaping () -> SettingsFlowView
     ) {
+        self.home = home ?? .init()
+        self.onHomeContextChange = onHomeContextChange
+        self.onReloadHome = onReloadHome
         self.pain = pain
         self.preparePainDetail = preparePainDetail
         self.painDetail = painDetail
@@ -49,7 +58,7 @@ struct PatientFlowView: View {
     var body: some View {
         TabView(selection: $tab) {
             NavigationStack(path: $path) {
-                HomeView(state: home, onSelect: { path.append($0) })
+                HomeView(state: home, onSelect: { path.append($0) }, onReload: onReloadHome)
                     .navigationDestination(for: HomeDestination.self) { destination in
                         Group {
                             switch destination {
@@ -75,6 +84,15 @@ struct PatientFlowView: View {
             records().tabItem { Label("기록확인", systemImage: "chart.bar.fill") }.tag(Tab.records)
             settings().tabItem { Label("설정", systemImage: "gearshape.fill") }.tag(Tab.settings)
         }
+        .onAppear { updateHomeContext() }
+        .onChange(of: isHomeVisible) { updateHomeContext() }
+        .onChange(of: scenePhase) { updateHomeContext() }
+        .onDisappear { onHomeContextChange(false, false) }
+    }
+
+    private var isHomeVisible: Bool { tab == .home && path.isEmpty }
+    private func updateHomeContext() {
+        onHomeContextChange(isHomeVisible, scenePhase == .active)
     }
 }
 

@@ -16,4 +16,10 @@ nonisolated struct HomeGreeting: Identifiable, Equatable, Sendable {
         .init(id: 8, text: "벌써 잘 시간이네요."),
         .init(id: 9, text: "오늘은 어떤 하루를 보내고 계세요?")
     ]
+    static func pick(excluding previous: HomeGreeting?, chooseIndex: (Int) -> Int) -> HomeGreeting {
+        let candidates = all.filter { $0.id != previous?.id }
+        let index = chooseIndex(candidates.count)
+        precondition(candidates.indices.contains(index), "Greeting chooser must return a candidate index")
+        return candidates[index]
+    }
 }
