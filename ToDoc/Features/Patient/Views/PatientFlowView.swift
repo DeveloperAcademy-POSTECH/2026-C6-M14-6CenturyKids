@@ -2,6 +2,8 @@ import SwiftUI
 
 /// 환자 화면의 이동 경계. 새 ViewModel을 연결할 때 완성한 View를 주입합니다.
 struct PatientFlowView: View {
+    @Environment(AppRouter.self) private var router
+    
     @State private var tab = Tab.home
     @State private var path: [HomeDestination] = []
     @State var home = HomeScreenState()
@@ -42,9 +44,25 @@ struct PatientFlowView: View {
             records().tabItem { Label("기록확인", systemImage: "chart.bar.fill") }.tag(Tab.records)
             settings().tabItem { Label("설정", systemImage: "gearshape.fill") }.tag(Tab.settings)
         }
+        .onChange(of: router.pendingDeepLink, initial: true) { _, deepLink in
+            guard let deepLink else { return }
+            
+            switch deepLink {
+            case .careCall:
+                tab = .home
+                
+                if path != [.symptom] {
+                    path = [.symptom]
+                }
+            }
+            
+            router.pendingDeepLink = nil
+        }
     }
 }
 
 #if DEBUG
-#Preview { PatientFlowView(pain: { .preview() }) }
+#Preview { PatientFlowView(pain: { .preview() })
+        .environment(AppRouter())
+}
 #endif
