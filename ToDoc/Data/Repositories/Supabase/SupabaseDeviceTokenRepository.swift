@@ -25,10 +25,7 @@ final class SupabaseDeviceTokenRepository: DeviceTokenRepository {
             .execute()
     }
     
-    func delete(token: DeviceTokenDTO) async throws {
-        let userId = token.userId
-        let installationId = token.installationId
-        
+    func removeToken(userId: UUID, installationId: String) async throws {
         try await client
             .from("device_tokens")
             .delete()
