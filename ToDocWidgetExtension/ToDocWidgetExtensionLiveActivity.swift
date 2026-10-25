@@ -21,6 +21,8 @@ struct ToDocWidgetExtensionAttributes: ActivityAttributes {
 }
 
 struct ToDocWidgetExtensionLiveActivity: Widget {
+    let symptomURL = URL(string: "todoc://record/symptoms")
+    
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ToDocWidgetExtensionAttributes.self) { context in
             // Lock screen/banner UI goes here
@@ -36,10 +38,24 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
                 }
                 
                 Spacer()
+                
+                Button(action: {
+                    
+                }) {
+                    Image(systemName: "stethoscope")
+                        .fontWeight(.bold)
+                        .frame(width: 56, height: 56)
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 56, height: 56)
+                .background(Color("LiveActivityGreen"))
+                .clipShape(.circle)
+                .padding(.trailing, 20)
             }
             .frame(height: 96)
             .activityBackgroundTint(Color.black)
             .activitySystemActionForegroundColor(Color.white)
+            .widgetURL(symptomURL)
 
         } dynamicIsland: { context in
             DynamicIsland {
@@ -63,7 +79,7 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
             } minimal: {
                 Image("DynamicIslandMinimal")
             }
-            .widgetURL(URL(string: "http://www.apple.com"))
+            .widgetURL(symptomURL)
             .keylineTint(Color.red)
             .contentMargins(.all, 20, for: .expanded)
             .contentMargins(.horizontal, 11, for: .minimal)
@@ -74,7 +90,7 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
 
 extension ToDocWidgetExtensionAttributes {
     fileprivate static var preview: ToDocWidgetExtensionAttributes {
-        ToDocWidgetExtensionAttributes(name: "Dr.학로", image: "DoctorHangno")
+        ToDocWidgetExtensionAttributes(name: "Dr.학로", image: "HangnoWithoutBackground")
     }
 }
 
@@ -89,6 +105,27 @@ extension ToDocWidgetExtensionAttributes.ContentState {
 }
 
 #Preview("Notification", as: .content, using: ToDocWidgetExtensionAttributes.preview) {
+   ToDocWidgetExtensionLiveActivity()
+} contentStates: {
+    ToDocWidgetExtensionAttributes.ContentState.normal
+    ToDocWidgetExtensionAttributes.ContentState.emergency
+}
+
+#Preview("Expanded", as: .dynamicIsland(.expanded), using: ToDocWidgetExtensionAttributes.preview) {
+   ToDocWidgetExtensionLiveActivity()
+} contentStates: {
+    ToDocWidgetExtensionAttributes.ContentState.normal
+    ToDocWidgetExtensionAttributes.ContentState.emergency
+}
+
+#Preview("Compact", as: .dynamicIsland(.compact), using: ToDocWidgetExtensionAttributes.preview) {
+   ToDocWidgetExtensionLiveActivity()
+} contentStates: {
+    ToDocWidgetExtensionAttributes.ContentState.normal
+    ToDocWidgetExtensionAttributes.ContentState.emergency
+}
+
+#Preview("Minimal", as: .dynamicIsland(.minimal), using: ToDocWidgetExtensionAttributes.preview) {
    ToDocWidgetExtensionLiveActivity()
 } contentStates: {
     ToDocWidgetExtensionAttributes.ContentState.normal
