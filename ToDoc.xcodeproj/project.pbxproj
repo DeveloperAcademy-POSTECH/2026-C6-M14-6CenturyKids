@@ -63,6 +63,8 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				ToDocWidgetExtension.swift,
+				ToDocWidgetExtensionControl.swift,
 			);
 			target = A1E7CD9C3088AA9D007C0049 /* ToDocWidgetExtensionExtension */;
 		};
@@ -463,7 +465,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDoc;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDocWithAPNs;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -507,7 +509,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDoc;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDocWithAPNs;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -625,6 +627,8 @@
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.5.1;
 			};
+			traits = (
+			);
 		};
 		C6A1D0000000000000000003 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */ = {
 			isa = XCRemoteSwiftPackageReference;
