@@ -20,6 +20,7 @@ final class SettingsViewModel {
     let hospitalConnectionState = HospitalConnectionScreenState()
 
     @ObservationIgnored private let authRepository: any AuthRepository
+    @ObservationIgnored private let authSession: AuthSessionState
     @ObservationIgnored private let userRepository: any UserRepository
     @ObservationIgnored private let patientRepository: any PatientRepository
     @ObservationIgnored private let doctorRepository: any DoctorRepository
@@ -28,6 +29,7 @@ final class SettingsViewModel {
     init(
         patientId: UUID,
         authRepository: any AuthRepository,
+        authSession: AuthSessionState,
         userRepository: any UserRepository,
         patientRepository: any PatientRepository,
         doctorRepository: any DoctorRepository,
@@ -35,6 +37,7 @@ final class SettingsViewModel {
     ) {
         self.patientId = patientId
         self.authRepository = authRepository
+        self.authSession = authSession
         self.userRepository = userRepository
         self.patientRepository = patientRepository
         self.doctorRepository = doctorRepository
@@ -47,6 +50,12 @@ final class SettingsViewModel {
         screenState.onReload = { [weak self] in
             Task { [weak self] in
                 await self?.loadProfile()
+            }
+        }
+
+        screenState.onLogout = { [weak self] in
+            Task { [weak self] in
+                await self?.signOut()
             }
         }
 
@@ -423,6 +432,22 @@ final class SettingsViewModel {
             personalInfoState.didSave = true
         } catch {
             personalInfoState.errorMessage = "개인 정보를 저장하지 못했어요. 다시 시도해 주세요."
+        }
+    }
+
+    func signOut() async {
+        guard !screenState.isSigningOut else { return }
+
+        screenState.isSigningOut = true
+        screenState.logoutErrorMessage = nil
+        defer { screenState.isSigningOut = false }
+
+        do {
+            try await authRepository.signOut()
+            authSession.loginPreference.isEnabled = false
+            authSession.patient = nil
+        } catch {
+            screenState.logoutErrorMessage = "로그아웃하지 못했어요. 다시 시도해 주세요."
         }
     }
 

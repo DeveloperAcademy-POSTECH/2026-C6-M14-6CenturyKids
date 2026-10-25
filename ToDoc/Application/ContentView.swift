@@ -12,7 +12,7 @@ struct ContentView: View {
 
     var body: some View {
         AuthRootView(authFlow: authFlow) { patient in
-            PatientFlowCompositionView(container: container, patientId: patient.user.id)
+            PatientFlowCompositionView(container: container,patientId: patient.user.id,authSession: authFlow.session)
         }
     }
 }

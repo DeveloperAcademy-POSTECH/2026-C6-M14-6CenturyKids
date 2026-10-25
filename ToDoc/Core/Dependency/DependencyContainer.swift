@@ -43,10 +43,11 @@ final class DependencyContainer {
     }
 
     @MainActor
-    func makeSettingsViewModel(patientId: UUID) -> SettingsViewModel {
+    func makeSettingsViewModel(patientId: UUID, authSession: AuthSessionState) -> SettingsViewModel {
         SettingsViewModel(
             patientId: patientId,
             authRepository: authRepository,
+            authSession: authSession,
             userRepository: userRepository,
             patientRepository: patientRepository,
             doctorRepository: doctorRepository,
