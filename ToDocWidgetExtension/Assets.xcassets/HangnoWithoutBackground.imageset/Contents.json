@@ -1,10 +1,12 @@
 {
   "images" : [
     {
+      "filename" : "Hangno1x.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
+      "filename" : "Hangno2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
