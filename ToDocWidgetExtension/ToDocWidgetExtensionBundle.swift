@@ -11,8 +11,8 @@ import SwiftUI
 @main
 struct ToDocWidgetExtensionBundle: WidgetBundle {
     var body: some Widget {
-        ToDocWidgetExtension()
-        ToDocWidgetExtensionControl()
+//        ToDocWidgetExtension()
+//        ToDocWidgetExtensionControl()
         ToDocWidgetExtensionLiveActivity()
     }
 }
