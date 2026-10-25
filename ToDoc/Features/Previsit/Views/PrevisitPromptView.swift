@@ -5,8 +5,11 @@ struct PrevisitPromptView: View {
     var completedDraft: PrevisitDraft?
     var doctorName = "선생님"
     var patientName = ""
+    var startTitle: String?
+    var notice: String?
     var onStart: () -> Void = {}
     var onClose: () -> Void = {}
+    var onDiscard: (() -> Void)?
 
     var body: some View {
         ZStack {
@@ -38,11 +41,19 @@ struct PrevisitPromptView: View {
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         }.padding(.horizontal, 10)
                     }
+                    if let notice {
+                        Text(notice).appTextStyle(.caption).multilineTextAlignment(.center)
+                            .foregroundStyle(AppColors.Previsit.promptCaption)
+                    }
                     VStack(spacing: AppSpacing.compact) {
-                        Button(completedDraft == nil ? "진료 전 기록하기" : "닫기", action: completedDraft == nil ? onStart : onClose)
+                        Button(completedDraft == nil ? (startTitle ?? "진료 전 기록하기") : "닫기", action: completedDraft == nil ? onStart : onClose)
                             .buttonStyle(AppButtonStyle())
                         if completedDraft == nil {
                             Button("다음에 다시 볼게요", action: onClose).buttonStyle(AppButtonStyle(kind: .secondary))
+                        }
+                        if let onDiscard, completedDraft == nil {
+                            Button("작성 내용 지우기", role: .destructive, action: onDiscard)
+                                .accessibilityIdentifier("previsit.discard")
                         }
                     }
                 }.padding(24).appSurface(.previsitPrompt)

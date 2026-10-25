@@ -1,24 +1,32 @@
 import SwiftUI
 
-/// Figma 417:19245·417:19189. 전달받은 기록 카드와 입력 화면을 표시합니다.
+/// Figma 417:19245·417:19189. 저장된 하루 기록을 선택한 뒤 이야기를 작성합니다.
 struct PrevisitRecordView: View {
-    let days: [PrevisitDay]
+    let records: PrevisitRecordState
     var doctorName = "선생님"
     var patientName = ""
     var onClose: (() -> Void)?
     var onSubmit: ((PrevisitDraft) -> Void)?
-    @State private var step: PrevisitStep
-    @State private var draft: PrevisitDraft
+    var onReload: (() -> Void)?
+    @State private var session: PrevisitSession
     @FocusState private var writing: Bool
     @Environment(\.dismiss) private var dismiss
 
     init(days: [PrevisitDay] = [], doctorName: String = "선생님", patientName: String = "",
          initialStep: PrevisitStep = .day, initialDraft: PrevisitDraft = .init(),
-         onClose: (() -> Void)? = nil, onSubmit: ((PrevisitDraft) -> Void)? = nil) {
-        self.days = days; self.doctorName = doctorName; self.patientName = patientName
+         onClose: (() -> Void)? = nil, onSubmit: ((PrevisitDraft) -> Void)? = nil,
+         session: PrevisitSession? = nil, records: PrevisitRecordState? = nil,
+         onReload: (() -> Void)? = nil) {
+        self.records = records ?? .loaded(days)
+        self.doctorName = doctorName; self.patientName = patientName
         self.onClose = onClose; self.onSubmit = onSubmit
-        _step = State(initialValue: initialStep); _draft = State(initialValue: initialDraft)
+        self.onReload = onReload
+        let session = session ?? PrevisitSession(step: initialStep, draft: initialDraft)
+        _session = State(initialValue: session)
     }
+
+    private var step: PrevisitStep { session.step }
+    private var draft: PrevisitDraft { session.draft }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,6 +40,7 @@ struct PrevisitRecordView: View {
                 }
             ScrollView {
                 VStack(spacing: 20) {
+                    if step != .day { recordNotice }
                     switch step {
                     case .day: dayList
                     case .letter: letter
@@ -62,23 +71,41 @@ struct PrevisitRecordView: View {
         case .mood: "진료를 앞두고, 지금 어떤 기분인가요?"
         }
     }
-    private var dayList: some View {
-        LazyVStack(spacing: 16) {
+    @ViewBuilder private var dayList: some View {
+        switch records {
+        case .loading, .failed: recordNotice
+        case .loaded(let days):
             if days.isEmpty {
-                Text("표시할 기록이 없어요.").appTextStyle(.caption).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity).padding(.vertical, 40)
+                Text("아직 저장한 기록이 없어요. 통증이나 증상을 기록한 뒤 다시 열어 주세요.")
+                    .appTextStyle(.caption).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("previsit.empty")
             }
+            LazyVStack(spacing: 16) {
             ForEach(days) { day in
-                Button { draft.day = day } label: {
+                Button { session.selectDay(day) } label: {
                     PrevisitDayCard(day: day, selected: draft.day?.id == day.id)
-                }.buttonStyle(.plain).disabled(day.entries.isEmpty)
+                }.buttonStyle(.plain).disabled(!day.isSelectable)
                     .accessibilityValue(draft.day?.id == day.id ? "선택됨" : "선택 안 됨")
                     .accessibilityIdentifier("previsit.day.\(day.id)")
             }
+            }
+        }
+    }
+    @ViewBuilder private var recordNotice: some View {
+        switch records {
+        case .loading:
+            ProgressView("저장한 기록을 불러오고 있어요.")
+                .frame(maxWidth: .infinity).accessibilityIdentifier("previsit.loading")
+        case .failed:
+            Text("기록을 불러오지 못했어요. 다시 시도해 주세요.")
+                .appTextStyle(.caption).accessibilityIdentifier("previsit.loadFailed")
+            Button("다시 불러오기") { onReload?() }.buttonStyle(AppButtonStyle(kind: .secondary))
+        case .loaded: EmptyView()
         }
     }
     private var letter: some View {
-        VStack(spacing: 20) {
+        @Bindable var session = session
+        return VStack(spacing: 20) {
             if let day = draft.day { PrevisitDayCard(day: day) }
             VStack(alignment: .leading, spacing: 28) {
                 Text("To \(doctorName)").appTextStyle(.label).foregroundStyle(AppColors.Previsit.letterSignature)
@@ -88,7 +115,7 @@ struct PrevisitRecordView: View {
                             .appTextStyle(.caption).foregroundStyle(AppColors.Previsit.placeholder)
                             .frame(maxWidth: .infinity).padding(.top, 38).allowsHitTesting(false).accessibilityHidden(true)
                     }
-                    TextEditor(text: $draft.letter).appFont(.body)
+                    TextEditor(text: $session.draft.letter).appFont(.body)
                         .multilineTextAlignment(.center).scrollContentBackground(.hidden).focused($writing)
                         .frame(minHeight: 156).accessibilityLabel("선생님께 전할 이야기")
                         .accessibilityIdentifier("previsit.letter")
@@ -102,7 +129,7 @@ struct PrevisitRecordView: View {
     private var moodList: some View {
         VStack(spacing: AppSpacing.item) {
             ForEach(PrevisitMood.allCases) { mood in
-                Button { draft.mood = mood } label: {
+                Button { session.draft.mood = mood } label: {
                     HStack(spacing: 20) {
                         PrevisitDoctorAvatar(mood: mood, size: 40)
                         VStack(alignment: .leading, spacing: AppSpacing.tight) {
@@ -121,13 +148,13 @@ struct PrevisitRecordView: View {
     private var footer: some View {
         VStack(spacing: AppSpacing.compact) {
             if step == .mood, onSubmit == nil {
-                Text("전송 기능을 준비 중이에요. 입력한 내용은 서버에 저장·전송되지 않아요.")
+                Text("전송 기능을 준비 중이에요. 작성 내용은 이 로그인 동안만 임시로 보관돼요. 앱 종료·로그아웃 시 사라질 수 있어요.")
                     .appTextStyle(.caption).foregroundStyle(.secondary)
                     .accessibilityIdentifier("previsit.unsent")
             }
             HStack(spacing: 20) {
                 if step != .day {
-                    Button("이전") { step = step == .mood ? .letter : .day }
+                    Button("이전") { session.previous() }
                         .buttonStyle(AppButtonStyle(kind: .back)).accessibilityIdentifier("previsit.previous")
                 }
                 Button(action: next) {
@@ -139,19 +166,18 @@ struct PrevisitRecordView: View {
             .background(AppColors.background)
     }
     private var canContinue: Bool {
-        switch step {
-        case .day: days.contains { $0.id == draft.day?.id && !$0.entries.isEmpty }
-        case .letter: true
-        case .mood: draft.mood != nil && onSubmit != nil
+        guard session.canContinue else { return false }
+        guard case .loaded(let days) = records else { return false }
+        if step == .day {
+            return days.contains { $0.id == draft.day?.id && $0.isSelectable }
         }
+        return step != .mood || onSubmit != nil
     }
     private func next() {
         guard canContinue else { return }
-        switch step {
-        case .day: step = .letter
-        case .letter: writing = false; step = .mood
-        case .mood: onSubmit?(draft)
-        }
+        writing = false
+        if step == .mood { onSubmit?(draft) }
+        else { session.next() }
     }
     private func close() { if let onClose { onClose() } else { dismiss() } }
 }

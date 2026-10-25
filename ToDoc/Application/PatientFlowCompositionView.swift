@@ -42,6 +42,16 @@ struct PatientFlowCompositionView: View {
                 homeViewModel.updateContext(.init(patientID: patientId, isVisible: visible, isAppActive: active))
             },
             onReloadHome: { homeViewModel.reload() },
+            previsit: { session in
+                PrevisitFlowView(doctorName: homeViewModel.state.doctorName ?? "선생님", session: session) {
+                    async let pain = container.painRepository.findByPatientId(patientId)
+                    async let symptoms = container.symptomRepository.findByPatientId(patientId)
+                    let records = try await (pain, symptoms)
+                    try Task.checkCancellation()
+                    return try PrevisitRecordedDays.make(pain: records.0, symptoms: records.1, patientID: patientId,
+                                                        calendar: RecordDetailViewModel.calendar)
+                }
+            },
             pain: { navigation in
                 PainRecordView(viewModel: painViewModel, onShowRecord: navigation.showRecord)
             },
