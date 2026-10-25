@@ -8,7 +8,7 @@
 import Foundation
 
 enum DeepLink: Equatable {
-    case careCall
+    case careCall(autoStartVoice: Bool)
     
     init?(url: URL) {
         guard url.scheme == "todoc",
@@ -17,6 +17,15 @@ enum DeepLink: Equatable {
             return nil
         }
         
-        self = .careCall
+        let components = URLComponents(
+            url: url,
+            resolvingAgainstBaseURL: false
+        )
+        
+        let startsVoice = components?.queryItems?.contains {
+            $0.name == "mode" && $0.value == "voice"
+        } == true
+        
+        self = .careCall(autoStartVoice: startsVoice)
     }
 }

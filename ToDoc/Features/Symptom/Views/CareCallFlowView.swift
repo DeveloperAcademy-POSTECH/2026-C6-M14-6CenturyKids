@@ -6,7 +6,10 @@ struct CareCallFlowView: View {
     @State private var viewModel: CareCallViewModel?
     @State private var cannotOpen = false
     @State private var hasEntered = false
+    
     var makeViewModel: (() throws -> CareCallViewModel)?
+    var autoStartVoice: Bool = false
+    
     var onClose: (() -> Void)?
     var onPostpone: (() -> Void)?
     var onShowRecord: (() -> Void)?

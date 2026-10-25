@@ -102,7 +102,7 @@ struct HomeView: View {
         return state.isLoading ? "메시지를 확인하고 있어요." : "메시지 정보를 확인할 수 없어요."
     }
     private var symptomButton: some View {
-        Button { select(.symptom) } label: {
+        Button { select(.symptom(autoStartVoice: false)) } label: {
             HStack(spacing: 2) {
                 Text("증상 대화하기").homeText(16, style: .heading)
                 Image("HomeConversationArrow").frame(width: 10.9326, height: 10.9326).accessibilityHidden(true)

@@ -1,13 +1,20 @@
 import Foundation
 import Observation
 
-enum HomeDestination: String, Hashable { case symptom, pain, notifications }
+enum HomeDestination: Hashable {
+    case symptom(autoStartVoice: Bool)
+    case pain
+    case notifications
+}
+
 enum HomeLoadState { case unavailable, loading, loaded, failed }
+
 struct HomeDoctorMessage: Identifiable {
     let id: UUID
     let body: String
     let createdAt: Date
 }
+
 @Observable final class HomeScreenState {
     var doctorName: String?
     var message: HomeDoctorMessage?

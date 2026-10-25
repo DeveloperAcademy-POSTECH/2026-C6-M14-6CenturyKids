@@ -8,14 +8,14 @@ struct PatientFlowView: View {
     @State private var path: [HomeDestination] = []
     @State var home = HomeScreenState()
     var pain: () -> PainRecordView
-    var careCall: () -> CareCallFlowView = { .init() }
+    var careCall: (Bool) -> CareCallFlowView = { _ in .init() }
     var notifications: () -> NotificationView = { .init() }
     var records: () -> RecordsFlowView = { .init() }
     var settings: () -> SettingsFlowView = { .init() }
 
     init(
         pain: @escaping () -> PainRecordView,
-        careCall: @escaping () -> CareCallFlowView = { .init() },
+        careCall: @escaping (Bool) -> CareCallFlowView = { _ in .init() },
         notifications: @escaping () -> NotificationView = { .init() },
         records: @escaping () -> RecordsFlowView = { .init() },
         settings: @escaping () -> SettingsFlowView = { .init() }
@@ -35,7 +35,8 @@ struct PatientFlowView: View {
                         Group {
                             switch destination {
                             case .pain: pain()
-                            case .symptom: careCall()
+                            case .symptom(let autoStartVoice):
+                                careCall(autoStartVoice)
                             case .notifications: notifications()
                             }
                         }.toolbar(.hidden, for: .tabBar)
@@ -48,12 +49,9 @@ struct PatientFlowView: View {
             guard let deepLink else { return }
             
             switch deepLink {
-            case .careCall:
+            case .careCall(let autoStartVoice):
                 tab = .home
-                
-                if path != [.symptom] {
-                    path = [.symptom]
-                }
+                path = [.symptom(autoStartVoice: autoStartVoice)]
             }
             
             router.pendingDeepLink = nil

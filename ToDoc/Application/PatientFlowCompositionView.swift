@@ -20,7 +20,12 @@ struct PatientFlowCompositionView: View {
     var body: some View {
         PatientFlowView(
             pain: { PainRecordView(viewModel: painViewModel) },
-            careCall: { CareCallFlowView(makeViewModel: container.makeCareCallViewModel) },
+            careCall: { autoStartVoice in
+                CareCallFlowView(
+                    makeViewModel: container.makeCareCallViewModel,
+                    autoStartVoice: autoStartVoice
+                )
+            },
             settings: { SettingsFlowView(viewModel: settingsViewModel) }
         )
     }
