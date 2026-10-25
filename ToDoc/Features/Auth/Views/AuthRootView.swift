@@ -27,7 +27,6 @@ import SwiftUI
         .environment(authFlow.session)
         // 자동 로그인 여부와 저장된 환자 정보의 유효성은 인증 ViewModel이 확인합니다.
         .task { await authFlow.restoreSessionOnce() }
-        .onOpenURL { url in Task { await authFlow.handleURL(url) } }
         .alert("인증 링크 안내", isPresented: Binding(get: { flow.linkMessage != nil }, set: { if !$0 { flow.linkMessage = nil } })) {
             Button("확인") { flow.linkMessage = nil }
         } message: { Text(flow.linkMessage ?? "") }
@@ -40,5 +39,6 @@ import SwiftUI
     AuthRootView(authFlow: AuthFlowViewModel()) { _ in
         PatientFlowView(pain: { .preview() })
     }
+    .environment(AppRouter())
 }
 #endif
