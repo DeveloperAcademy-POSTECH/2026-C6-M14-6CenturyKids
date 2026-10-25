@@ -41,3 +41,9 @@ nonisolated enum HomeDoctorState: Equatable, Sendable {
         return false
     }
 }
+
+nonisolated struct HomeContext: Equatable, Sendable {
+    let patientID: UUID?
+    let isVisible: Bool
+    let isAppActive: Bool
+}
