@@ -62,6 +62,11 @@ struct CareCallConfig: Decodable, Sendable {
             keywords.contains { $0.count >= minLength && text.contains($0) }
         }
 
+        /// 이 항목 낱말을 부정하지 않고 말했는지 ("토는 안 했어요", "저린 건 아니고"는 아니다). minLength는 said와 같다
+        func affirmed(in text: String, minLength: Int = 1) -> Bool {
+            KeywordMatcher(keywords: keywords.filter { $0.count >= minLength }, prefixNegation: true).matches(text) != nil
+        }
+
         /// 이 항목에서 물을 꼬리질문. 낱말이 있는 질문은 환자가 그 말을 했을 때만 묻고("토했어요" → 횟수만),
         /// 어느 쪽인지 말하지 않았으면("네") 전부 묻는다. "토하진 않았어요"처럼 부정한 말은 보지 않는다
         func details(heard quotes: [String]) -> [Detail] {

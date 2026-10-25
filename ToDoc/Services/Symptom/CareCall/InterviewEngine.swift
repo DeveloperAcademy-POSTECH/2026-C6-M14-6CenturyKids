@@ -190,8 +190,7 @@ final class InterviewEngine {
         // 부위 질문의 답("얼굴 말고는 없어요")을 모델이 '없음'으로 읽어 있던 증상이 지워졌다 (2026-10-22 평가). 부위 질문에서는 유무를 바꾸지 않는다.
         // 그 항목 낱말을 직접 부정한 번복("이제 안 가려워요")만 받는다
         if case .slot(let key, .location) = current, let effect = config.effect(key),
-           !(effect.said(in: patientText, minLength: 2)
-             && KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true).matches(patientText) == nil) {
+           !(effect.said(in: patientText, minLength: 2) && !effect.affirmed(in: patientText, minLength: 2)) {
             result.mentions.removeAll { $0.effectId == key && $0.presence != .present && $0.locations.isEmpty }
             for i in result.mentions.indices where result.mentions[i].effectId == key { result.mentions[i].presence = .present }
         }
@@ -451,9 +450,11 @@ final class InterviewEngine {
         return utterance
     }
 
-    /// 처음·그 밖에 질문에서 낱말이 꼭 있어야 하는 항목(keywordRequired: 저림·피부)을 환자 말에 그 낱말 없이 고르면 기타 증상으로 둔다
-    /// (2026-10-22 평가: "허리가 아파서", "무릎이 쑤셔요", "어지러워요"를 저림으로, "옆구리가 결려요"를 피부로). 이름은 normalizedOthers가 원문으로 붙이고,
-    /// 그 항목은 차례가 오면 그대로 묻는다
+    /// 모델이 고른 목록 증상의 낱말이 환자 말에 없으면 기타 증상으로 둔다. 세 경우에만:
+    /// - 처음·그 밖에 질문에서 낱말이 꼭 있어야 하는 항목(keywordRequired: 저림·피부) (2026-10-22 평가: "허리가 아파서", "무릎이 쑤셔요"를 저림으로)
+    /// - 처음·그 밖에 질문에서 목록 낱말 없이 증상 표현만 있는 말 ("요새 어지러워서 자꾸 누워 있어요")
+    /// - 유무 질문에 다른 것이 주어인 '없다'는 답 ("오른쪽 팔에 힘이 없어요" → 저림, 2026-10-24)
+    /// 처음·그 밖에는 normalizedOthers가 원문으로 이름을 붙이고, 그 항목은 차례가 오면 그대로 묻는다
     private func unevidencedAsOther(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
         // 유무 질문에 다른 것이 주어인 '없다'는 답도: 모델이 낱말 없는 목록 항목("팔에 힘이 없어요" → 저림)을 고르면 기타 증상이다
         var otherSubject = false
@@ -466,7 +467,7 @@ final class InterviewEngine {
             // 낱말을 부정한 말("다리가 저린 건 아니고 쑤셔요")은 근거가 아니다
             guard m.presence == .present, let effect = config.effect(m.effectId),
                   effect.keywordRequired == true || nonListOnly || otherSubject,
-                  KeywordMatcher(keywords: effect.keywords, prefixNegation: true).matches(patientText) == nil else { return m }
+                  !effect.affirmed(in: patientText) else { return m }
             convertedToOther = true
             // 유무 질문에서는 이름을 정리하는 단계가 없어 환자 말을 이름으로 쓴다
             let name = otherSubject ? patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) : nil
@@ -793,9 +794,8 @@ final class InterviewEngine {
         let parts = AnswerReading.parts(patientText)
         let missed: [(effect: CareCallConfig.Effect, part: String)] = config.effects.compactMap { effect in
             guard !mentioned.contains(effect.id) else { return nil }
-            let matcher = KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true)
-            guard matcher.matches(patientText) != nil else { return nil }
-            return (effect, parts.first { matcher.matches($0) != nil }?.trimmingCharacters(in: .whitespaces) ?? patientText)
+            guard effect.affirmed(in: patientText, minLength: 2) else { return nil }
+            return (effect, parts.first { effect.affirmed(in: $0, minLength: 2) }?.trimmingCharacters(in: .whitespaces) ?? patientText)
         }
         var added: [Mention] = []
         for (effect, part) in missed.prefix(3) {
@@ -845,9 +845,8 @@ final class InterviewEngine {
         // 그 항목 낱말을 "안"으로 부정한 말도 정상이라는 말이다 ("아니요, 안 저려요"). "좀 저려요"는 아니다
         let ownKeywords = effect.keywords.filter { $0.count >= 2 }
         // 앞부분에서 그 항목을 부정 없이 말했으면("손은 저리고 발은 안 저려요") 마지막 부분이 정상이어도 보지 않는다
-        let ownMatcher = KeywordMatcher(keywords: ownKeywords, prefixNegation: true)
-        guard parts.dropLast().allSatisfy({ ownMatcher.matches($0) == nil || reading.soundsNegative($0) }) else { return nil }
-        let ownNegated = ownKeywords.contains(where: last.contains) && ownMatcher.matches(last) == nil
+        guard parts.dropLast().allSatisfy({ !effect.affirmed(in: $0, minLength: 2) || reading.soundsNegative($0) }) else { return nil }
+        let ownNegated = ownKeywords.contains(where: last.contains) && !effect.affirmed(in: last, minLength: 2)
         guard reading.soundsNegative(last) || ownNegated || config.normalWords.contains(where: { compact.contains(Self.normalized($0)) })
         else { return nil }
         return Mention(effectId: key, presence: .absent, quote: patientText)
@@ -902,9 +901,8 @@ final class InterviewEngine {
             || (Self.nowWords.contains(where: compact.contains) && lastNormal) {
             return (.absent, nil)
         }
-        let own = KeywordMatcher(keywords: effect.keywords.filter { $0.count >= 2 }, prefixNegation: true)
         if parts.count > 1, lastNormal, let clause = parts.dropLast().first(where: {
-            own.matches($0) != nil && !reading.soundsNegative($0) && !$0.contains("않") && $0.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil
+            effect.affirmed(in: $0, minLength: 2) && !reading.soundsNegative($0) && !$0.contains("않") && $0.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil
         }) {
             return (.present, clause)
         }
