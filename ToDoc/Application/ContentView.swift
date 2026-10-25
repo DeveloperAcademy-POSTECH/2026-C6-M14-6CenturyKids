@@ -2,6 +2,8 @@ import SwiftUI
 
 @MainActor
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    
     @State private var authFlow: AuthFlowViewModel
     @State private var router = AppRouter()
     
@@ -15,6 +17,19 @@ struct ContentView: View {
     var body: some View {
         AuthRootView(authFlow: authFlow) { patient in
             PatientFlowCompositionView(container: container, patientId: patient.user.id)
+                .task(id: patient.user.id) {
+                    await syncLiveActivityToken()
+                }
+        }
+        .task {
+            container.liveActivityService.startObserving()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            
+            Task {
+                await syncLiveActivityToken()
+            }
         }
         .environment(router)
         .onOpenURL { url in
@@ -25,6 +40,14 @@ struct ContentView: View {
                     await authFlow.handleURL(url)
                 }
             }
+        }
+    }
+    
+    private func syncLiveActivityToken() async {
+        do {
+            try await container.liveActivityService.syncToken()
+        } catch {
+            print("Live Activity 토큰 동기화 실패: ", error)
         }
     }
 }

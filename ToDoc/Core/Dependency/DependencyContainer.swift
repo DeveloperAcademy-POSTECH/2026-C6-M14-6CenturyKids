@@ -8,7 +8,6 @@
 import Foundation
 
 final class DependencyContainer {
-    // SupabaseClient 보관하는 객체
     let supabaseProvider: SupabaseClientProvider
     let authRepository: any AuthRepository
     let userRepository: any UserRepository
