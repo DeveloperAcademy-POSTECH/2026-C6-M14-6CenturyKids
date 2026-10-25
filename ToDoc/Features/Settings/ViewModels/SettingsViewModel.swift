@@ -18,6 +18,7 @@ final class SettingsViewModel {
     let stageState = DiagnosisScreenState()
     let hospitalConnectionState = HospitalConnectionScreenState()
 
+    @ObservationIgnored private let authRepository: any AuthRepository
     @ObservationIgnored private let userRepository: any UserRepository
     @ObservationIgnored private let patientRepository: any PatientRepository
     @ObservationIgnored private let doctorRepository: any DoctorRepository
@@ -25,12 +26,14 @@ final class SettingsViewModel {
 
     init(
         patientId: UUID,
+        authRepository: any AuthRepository,
         userRepository: any UserRepository,
         patientRepository: any PatientRepository,
         doctorRepository: any DoctorRepository,
         hospitalRepository: any HospitalRepository
     ) {
         self.patientId = patientId
+        self.authRepository = authRepository
         self.userRepository = userRepository
         self.patientRepository = patientRepository
         self.doctorRepository = doctorRepository

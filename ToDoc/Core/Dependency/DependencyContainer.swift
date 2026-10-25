@@ -46,6 +46,7 @@ final class DependencyContainer {
     func makeSettingsViewModel(patientId: UUID) -> SettingsViewModel {
         SettingsViewModel(
             patientId: patientId,
+            authRepository: authRepository,
             userRepository: userRepository,
             patientRepository: patientRepository,
             doctorRepository: doctorRepository,
