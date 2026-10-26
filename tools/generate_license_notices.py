@@ -90,10 +90,7 @@ def render(pins, dirs):
             sections.append((f"{name} — {os.path.basename(path)}", read_notice(os.path.join(folder, path))))
 
     lines = [
-        # 앱 화면에 그대로 보이므로 개발 안내 문구(직접 고치지 말 것)는 넣지 않는다
-        "Third-party notices: Swift packages",
-        "Texts below are copied from each package's own LICENSE/NOTICE files at the versions pinned in Package.resolved.",
-        "",
+        # 앱 화면에 그대로 보이므로 제목·설명·개발 안내 문구는 넣지 않고 구성 요소 목록부터 시작한다
         "Components",
         "----------",
         *components,

@@ -1,6 +1,3 @@
-Third-party notices: Swift packages
-Texts below are copied from each package's own LICENSE/NOTICE files at the versions pinned in Package.resolved.
-
 Components
 ----------
 - supabase-swift 2.55.3 — https://github.com/supabase/supabase-swift
