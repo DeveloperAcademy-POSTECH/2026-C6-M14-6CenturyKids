@@ -69,6 +69,8 @@ final class CareCallViewModel {
     private var hasCalled = false
     /// 대화 중에 대화 화면을 떠남 (끝나면 요약을 볼 사람이 없어 바로 저장한다)
     private var leftCall = false
+    /// 문자 답을 처리하는 중에 음성으로 바꿈 (처리가 끝나면 통화를 건다)
+    private var callAfterTyping = false
     private var saving: Task<Void, Never>?
     private var isSaved = false
 
@@ -213,6 +215,7 @@ final class CareCallViewModel {
 
     private func handle(_ action: SymptomAction) {
         switch action {
+        case .open: open()
         case .switchMode(let mode): switchMode(to: mode)
         case .start: start()
         case .answer(let answer): self.answer(answer)
@@ -229,7 +232,17 @@ final class CareCallViewModel {
         return false
     }
 
-    /// 대화 화면이 보이면 불린다 (끊긴 뒤 "다시 시도"도). 지금 방식으로 대화를 시작하거나 이어 간다
+    /// 대화 화면에 들어오면 불린다. 음성은 첫 질문만 보여 주고 환자가 "대화 시작하기"를 누르면(start) 통화를 건다
+    @discardableResult
+    func open() -> Task<Void, Never>? {
+        guard conversation.mode == .voice else { return start() }
+        guard !began, call == nil, typing == nil, !isOver else { return nil }
+        conversation.errorMessage = nil
+        conversation.isWorking = true
+        return typing(beginConversation) { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
+    }
+
+    /// "대화 시작하기"·"다시 시도". 지금 방식으로 대화를 시작하거나 이어 간다
     @discardableResult
     func start() -> Task<Void, Never>? {
         conversation.mode == .voice ? startCall() : startText()
@@ -250,7 +263,11 @@ final class CareCallViewModel {
                 continueInText()
             }
         case .voice:
-            if began, typing == nil { startCall() } // 문자 답을 처리 중이면 끝난 뒤 이어서 (typing에서)
+            if typing != nil {
+                callAfterTyping = true // 문자 답을 처리 중이면 끝난 뒤 이어서 (typing에서)
+            } else if began {
+                startCall()
+            }
         }
     }
 
@@ -260,6 +277,7 @@ final class CareCallViewModel {
         guard call == nil, typing == nil, !isOver else { return nil }
         conversation.errorMessage = nil
         conversation.isWorking = true // 첫 질문을 말하기 전까지
+        conversation.isCalling = true
         let task = Task {
             if !preparation.canStart { await (prepare() ?? last)?.value }
             var outcome: CareCallOutcome?
@@ -284,6 +302,7 @@ final class CareCallViewModel {
             call = nil
             conversation.isListening = false
             conversation.isWorking = false
+            conversation.isCalling = false
             let switched = switchingMode
             switchingMode = false
             if leftCall, outcome == nil {
@@ -317,15 +336,18 @@ final class CareCallViewModel {
             return nil
         }
         conversation.isWorking = true
-        return typing {
-            // 대기 화면에서 하던 준비가 아직 진행 중일 수 있다 (준비가 겹치지 않게)
-            await self.last?.value
-            try await self.service.loadModel()
-            try Task.checkCancellation()
-            let turn = try self.service.begin(patientId: try self.loadedPatientId(), previous: try await self.today())
-            self.began = true
-            return turn
-        } failed: { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
+        return typing(beginConversation) { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
+    }
+
+    /// 서비스에서 새 대화를 시작하고 첫 질문을 받는다. 문자에는 모델만 있으면 된다
+    private func beginConversation() async throws -> CareCallTurn {
+        // 대기 화면에서 하던 준비가 아직 진행 중일 수 있다 (준비가 겹치지 않게)
+        await last?.value
+        try await service.loadModel()
+        try Task.checkCancellation()
+        let turn = try service.begin(patientId: try loadedPatientId(), previous: try await today())
+        began = true
+        return turn
     }
 
     /// 문자 답을 보낸다. 횟수·지속 시간 입력은 말로 한 답처럼 문장으로 바꿔 같은 엔진에 넣는다
@@ -351,10 +373,12 @@ final class CareCallViewModel {
             }
             conversation.isWorking = false
             typing = nil
+            let wantsCall = callAfterTyping
+            callAfterTyping = false
             // 처리하는 동안 화면을 떠났거나 음성으로 바꿨으면 이어서 한다
             if leftCall {
                 endText()
-            } else if conversation.mode == .voice, began, !isOver {
+            } else if wantsCall, conversation.mode == .voice, began, !isOver {
                 startCall()
             }
         }

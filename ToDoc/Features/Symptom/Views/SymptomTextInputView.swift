@@ -15,7 +15,7 @@ struct SymptomTextInputView: View {
 
     var body: some View {
         SymptomQuestionLayout(question: question,
-                              nextTitle: hasAnswer ? (isLastQuestion ? "완료하기" : "다음") : "답변을 입력해 주세요",
+                              nextTitle: hasAnswer ? (isLastQuestion ? "완료하기" : "이 답변으로 계속") : "답변을 입력해 주세요",
                               canProceed: hasAnswer && !isSubmitting,
                               showsPrevious: showsPrevious, onPrevious: onPrevious, onNext: onNext,
                               onEnd: onEnd, onSwitch: onSwitchToVoice) {

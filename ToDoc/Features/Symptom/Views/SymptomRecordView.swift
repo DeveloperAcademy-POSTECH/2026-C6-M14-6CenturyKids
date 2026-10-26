@@ -13,7 +13,7 @@ struct SymptomRecordView: View {
             } else if let summary = state.summary {
                 SymptomSummaryView(state: summary, onBack: close)
             } else if state.isSummarizing {
-                SymptomSummaryLoadingView(onCancel: close)
+                SymptomSummaryLoadingView()
             } else if let question = state.question {
                 VStack(spacing: 0) {
                     if let error = state.errorMessage { Text(error).foregroundStyle(.red).padding(12) }
@@ -30,7 +30,7 @@ struct SymptomRecordView: View {
                 }.padding(24).buttonStyle(.bordered)
             }
         }.background(.white).toolbar(.hidden, for: .navigationBar)
-            .onAppear { state.onAction?(.start) }
+            .onAppear { state.onAction?(.open) }
             .onDisappear { state.onAction?(.cancel) }
     }
     private func close() { if let onClose { onClose() } else { dismiss() } }
@@ -48,7 +48,8 @@ private struct SymptomConversationContent: View {
         Group {
             if state.mode == .voice {
                 SymptomVoiceInputView(question: question, transcript: state.transcript,
-                                      isListening: state.isListening, isWorking: state.isWorking,
+                                      isListening: state.isListening, isCalling: state.isCalling,
+                                      onStart: state.onAction.map { action in { action(.start) } },
                                       onEnd: onEnd, onSwitchToText: { onSwitch(.text) })
             } else {
                 switch question.input {

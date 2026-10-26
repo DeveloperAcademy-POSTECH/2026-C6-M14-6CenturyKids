@@ -332,6 +332,21 @@ struct CareCallViewModelTests {
         #expect(conversation.summary == nil && conversation.errorMessage == nil)
     }
 
+    @Test func 음성으로_들어오면_첫_질문만_보여_주고_대화_시작하기를_기다린다() async {
+        await enterVoiceCall()
+        await viewModel.open()?.value
+        #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?")
+        #expect(service.beginCount == 1 && !service.calls.contains(.call))
+        #expect(!conversation.isCalling && !conversation.isWorking)
+        service.hold = .call
+        conversation.onAction?(.start) // 대화 시작하기
+        await waitUntilHolding()
+        #expect(conversation.isCalling && service.beginCount == 1) // 같은 대화를 통화로
+        service.release()
+        for _ in 0..<1_000 where conversation.isCalling { await Task.yield() }
+        #expect(!conversation.isCalling)
+    }
+
     // MARK: - 요약 수정·저장
 
     /// 통화를 끝까지 마치고 요약 화면에 온 상태
