@@ -38,10 +38,10 @@ struct DoctorDisplayData {
     @ObservationIgnored var onCancel: (() -> Void)?
 }
 @Observable final class PasswordChangeScreenState {
-    var currentPassword = ""
-    var currentPasswordError: String?
-    var isVerifying = false
-    var isCurrentPasswordVerified = false
+    var verificationCode = ""
+    var codeError: String?
+    var isSendingCode = false
+    var hasSentCode = false
     var newPassword = ""
     var passwordConfirmation = ""
     var newPasswordError: String?
@@ -49,7 +49,7 @@ struct DoctorDisplayData {
     var isSaving = false
     var didSave = false
     var errorMessage: String?
-    @ObservationIgnored var onVerify: (() -> Void)?
+    @ObservationIgnored var onSendCode: (() -> Void)?
     @ObservationIgnored var onSave: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }
