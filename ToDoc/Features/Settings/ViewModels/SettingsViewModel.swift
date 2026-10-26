@@ -477,12 +477,25 @@ final class SettingsViewModel {
 
     func changePassword() async {
         let state = passwordChangeState
-        guard !state.isSaving else { return }
+        guard !state.isSaving, !state.isSendingCode else { return }
 
         state.didSave = false
         state.errorMessage = nil
-        state.newPasswordError = AuthFormValidation.passwordChangeError(state.newPassword)
+        state.codeError = nil
         state.confirmationError = nil
+
+        guard state.hasSentCode else {
+            state.codeError = "인증코드를 먼저 요청해 주세요."
+            return
+        }
+
+        let code = state.verificationCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty else {
+            state.codeError = "인증코드를 입력해 주세요."
+            return
+        }
+
+        state.newPasswordError = AuthFormValidation.passwordChangeError(state.newPassword)
         guard state.newPasswordError == nil else { return }
 
         guard state.newPassword == state.passwordConfirmation else {
@@ -495,7 +508,8 @@ final class SettingsViewModel {
         defer { state.isSaving = false }
 
         do {
-            try await authRepository.updatePassword(to: newPassword, nonce: nil)
+            try await authRepository.updatePassword(to: newPassword, nonce: code)
+            state.verificationCode = ""
             state.newPassword = ""
             state.passwordConfirmation = ""
             state.didSave = true
