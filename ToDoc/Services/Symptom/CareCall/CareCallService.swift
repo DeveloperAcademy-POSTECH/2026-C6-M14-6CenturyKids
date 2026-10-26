@@ -85,6 +85,20 @@ final class CareCallService: CareCalling {
         return turn(out, of: conversation)
     }
 
+    var canGoBack: Bool {
+        conversation?.engine.canGoBack ?? false
+    }
+
+    func back() -> (turn: CareCallTurn, answer: String)? {
+        guard let conversation, let back = conversation.engine.goBack() else { return nil }
+        return (turn(back.output, of: conversation), back.answer)
+    }
+
+    func continueAfterEmergency() -> CareCallTurn? {
+        guard let conversation, let out = conversation.engine.continueAfterEmergency() else { return nil }
+        return turn(out, of: conversation)
+    }
+
     func end() -> CareCallOutcome {
         defer { conversation = nil }
         guard let conversation else { return .interrupted(nil) }
@@ -93,7 +107,9 @@ final class CareCallService: CareCalling {
 
     private func turn(_ out: InterviewEngine.Output, of conversation: Conversation) -> CareCallTurn {
         CareCallTurn(utterance: out.utterance, number: conversation.engine.expectedNumber,
-                     outcome: out.isFinished ? outcome(of: conversation, phase: out.phase) : nil)
+                     outcome: out.isFinished ? outcome(of: conversation, phase: out.phase) : nil,
+                     progress: conversation.engine.progress, asksMore: conversation.engine.asksMore,
+                     isLast: conversation.engine.phase == .other)
     }
 
     /// 마무리 인사까지 마쳤으면 그날 기록, 응급이면 응급 전까지의 기록과 응급으로 끝낸 말, 중간이면 끊긴 곳까지 답한 기록

@@ -16,7 +16,7 @@ struct OpenSourceLicensesView: View {
             }
         }
         .listStyle(.plain)
-        .navigationTitle("라이선스")
+        .navigationTitle("오픈소스 라이선스")
         .navigationBarTitleDisplayMode(.inline)
         .tint(AppColors.Text.primary)
     }

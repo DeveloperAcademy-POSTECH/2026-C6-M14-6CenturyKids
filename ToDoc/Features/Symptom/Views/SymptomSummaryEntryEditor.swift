@@ -64,3 +64,31 @@ struct SymptomSummaryEntryEditor: View {
 
     private func finish() { onFinish(input) }
 }
+
+struct SymptomSummaryRow<Content: View>: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let title: String
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(title)
+                    content().frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            } else {
+                HStack(spacing: 16) {
+                    Text(title).fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    content()
+                }
+            }
+        }
+        .font(.body)
+        .padding(.vertical, 16)
+        .frame(minHeight: 68)
+        .overlay(alignment: .bottom) { Divider() }
+        .padding(.horizontal, 16)
+    }
+}

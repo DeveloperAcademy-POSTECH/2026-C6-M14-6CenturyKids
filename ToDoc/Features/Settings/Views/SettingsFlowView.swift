@@ -10,17 +10,24 @@ struct SettingsFlowView: View {
     var stage: () -> CancerStageEditView
     var hospital: () -> HospitalConnectionView
     var notifications: @MainActor () -> NotificationSettingsView
+    var passwordChange: () -> SettingsPasswordChangeView
+    var withdrawal: () -> AccountWithdrawalView
     init(state: SettingsScreenState = .init(), personal: @escaping () -> PersonalInfoEditView = { .init() },
          cancer: @escaping () -> CancerTypeEditView = { .init() }, stage: @escaping () -> CancerStageEditView = { .init() },
          hospital: @escaping () -> HospitalConnectionView = { .init() },
+         passwordChange: @escaping () -> SettingsPasswordChangeView = { .init() },
+         withdrawal: @escaping () -> AccountWithdrawalView = { .init() },
          notifications: @escaping @MainActor () -> NotificationSettingsView) {
         viewModel = nil
         _state = State(initialValue: state); self.personal = personal; self.cancer = cancer
         self.stage = stage; self.hospital = hospital; self.notifications = notifications
+        self.passwordChange = passwordChange; self.withdrawal = withdrawal
     }
 
     init(
         viewModel: SettingsViewModel,
+        passwordChange: @escaping () -> SettingsPasswordChangeView = { .init() },
+        withdrawal: @escaping () -> AccountWithdrawalView = { .init() },
         notifications: @escaping @MainActor () -> NotificationSettingsView
     ) {
         self.viewModel = viewModel
@@ -30,6 +37,7 @@ struct SettingsFlowView: View {
         stage = { CancerStageEditView(state: viewModel.stageState) }
         hospital = { HospitalConnectionView(state: viewModel.hospitalConnectionState) }
         self.notifications = notifications
+        self.passwordChange = passwordChange; self.withdrawal = withdrawal
     }
 
     var body: some View {
@@ -37,6 +45,19 @@ struct SettingsFlowView: View {
             settingsRoot
                 .navigationDestination(for: Destination.self) { destination in
                     destinationView(for: destination)
+            SettingsView(state: state, onPersonalInfo: { path.append(.personal) }, onCancerType: { path.append(.cancer) },
+                         onCancerStage: { path.append(.stage) }, onHospital: { path.append(.hospital) },
+                         onPasswordChange: { path.append(.password) }, onWithdrawal: { path.append(.withdrawal) },
+                         notificationSettings: notifications)
+                .navigationDestination(for: Destination.self) { destination in
+                    switch destination {
+                    case .personal: personal()
+                    case .cancer: cancer()
+                    case .stage: stage()
+                    case .hospital: hospital()
+                    case .password: passwordChange()
+                    case .withdrawal: withdrawal()
+                    }
                 }
         }
         .onChange(of: viewModel?.passwordChangeState.didSave, handlePasswordSaved)

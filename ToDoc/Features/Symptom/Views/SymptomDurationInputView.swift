@@ -4,6 +4,8 @@ struct SymptomDurationInputView: View {
     let question: SymptomConversationQuestion
     @Binding var durationMinutes: Int?
     var isSubmitting = false
+    var showsPrevious = false
+    var onPrevious: (() -> Void)?
     var onSubmit: ((Int) -> Void)?
     var onEnd: (() -> Void)?
     var onSwitchToVoice: (() -> Void)?
@@ -23,7 +25,8 @@ struct SymptomDurationInputView: View {
 
     var body: some View {
         SymptomQuestionLayout(question: question, nextTitle: canSubmit ? "다음" : "답변을 입력해 주세요",
-                              canProceed: canSubmit, onNext: { if let durationMinutes { onSubmit?(durationMinutes) } },
+                              canProceed: canSubmit, showsPrevious: showsPrevious,
+                              onPrevious: onPrevious, onNext: { if let durationMinutes { onSubmit?(durationMinutes) } },
                               onEnd: onEnd, onSwitch: onSwitchToVoice) {
             HStack(spacing: 20) {
                 VStack(spacing: 30) {

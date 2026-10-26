@@ -170,6 +170,7 @@ struct PendingCareCallTests {
         await enterText(viewModel)
         service.replies = [turn("응급 안내", .emergencyEnded(record()))]
         await viewModel.answer(.text("숨이 차요"))?.value
+        viewModel.conversation.onAction?(.stopForEmergency) // 응급 팝업의 기록 중단
         await waitUntil { repository.saved.count == 1 }
         #expect(repository.saved[0].id == existing.id) // 다시 거는 통화처럼 그날 기록에 더한다
         #expect(Set(repository.saved[0].symptoms.map(\.symptomType)) == [.nauseaVomiting, .diarrhea])
@@ -182,6 +183,7 @@ struct PendingCareCallTests {
         await enterText(viewModel)
         service.replies = [turn("응급 안내", .emergencyEnded(record()))]
         await viewModel.answer(.text("숨이 차요"))?.value
+        viewModel.conversation.onAction?(.stopForEmergency)
         await waitUntil { !pending.items.isEmpty && repository.saved.isEmpty }
         #expect(pending.items.values.first?.complete == true)
     }
@@ -209,4 +211,20 @@ struct PendingCareCallTests {
         #expect(viewModel.conversation.question?.text == "하루에 몇 번 정도 하셨나요?")
         #expect(viewModel.conversation.errorMessage == nil)
     }
+
+    @Test func 기록_중단에서_그만하면_저장하지_않고_폰에서도_지운다() async {
+        let viewModel = makeViewModel()
+        await enterText(viewModel)
+        service.progress = record()
+        service.replies = [turn("변비는 있으셨나요?")]
+        await viewModel.answer(.text("설사를 했어요"))?.value
+        #expect(!pending.items.isEmpty)
+        service.endOutcome = .interrupted(record())
+        viewModel.conversation.onAction?(.pause)
+        viewModel.conversation.onAction?(.discard)
+        viewModel.conversation.onAction?(.cancel) // 화면을 떠나도 저장하지 않는다
+        for _ in 0..<200 { await Task.yield() }
+        #expect(repository.saved.isEmpty && pending.items.isEmpty)
+    }
+
 }

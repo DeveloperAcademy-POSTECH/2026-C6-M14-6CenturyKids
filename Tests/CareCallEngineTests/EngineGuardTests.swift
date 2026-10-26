@@ -528,7 +528,7 @@ struct CasualAnswerTests {
         ("아 아파요", "아파요"),
     ])
     func 군말은_낱말_단위로만_뗀다(text: String, expected: String) {
-        #expect(InterviewEngine.withoutFillers(text, fillers: Self.fillers) == expected)
+        #expect(AnswerReading.withoutFillers(text, fillers: Self.fillers) == expected)
     }
 
     private func makeEngine(_ mock: MockAnalyzer) throws -> InterviewEngine {
@@ -978,7 +978,7 @@ struct N100FindingsTests {
     @Test(arguments: [("있긴 한데 심하진 않아요", true), ("깨끗한데 가려워요", true), ("아프지만 참을 만해요", true),
                       ("없어요", false), ("괜찮아요", false), ("전혀요", false)])
     func 대조_표현(text: String, contrast: Bool) {
-        #expect(InterviewEngine.hasContrast(text) == contrast)
+        #expect(AnswerReading.hasContrast(text) == contrast)
     }
 
     @Test func 있긴_한데로_시작한_부정은_모델이_본다() async {
@@ -1059,7 +1059,7 @@ struct FastPathGuardTests {
 
     @Test(arguments: [("저리긴 한데요, 괜찮아요", true), ("따가운데요 괜찮아요", true), ("가려운 데는 없어요", false)])
     func 데요로_맺은_대조(text: String, contrast: Bool) {
-        #expect(InterviewEngine.hasContrast(text) == contrast)
+        #expect(AnswerReading.hasContrast(text) == contrast)
     }
 
     /// 앞부분에서 그 항목을 말했으면 끝이 정상이라는 말이어도 엔진이 '없음'으로 채우지 않는다

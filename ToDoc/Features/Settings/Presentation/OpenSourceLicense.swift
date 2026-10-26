@@ -21,6 +21,9 @@ nonisolated struct OpenSourceLicense: Identifiable, Sendable {
 
     static let bundled: [Self] = [
         .init(name: "Pretendard", licenseName: "SIL Open Font License 1.1",
-              resourceName: "Pretendard-LICENSE", resourceDirectory: "Fonts")
+              resourceName: "Pretendard-LICENSE", resourceDirectory: "Fonts"),
+        // Swift 패키지(Supabase 등) 고지는 tools/generate_license_notices.py로 만든다
+        .init(name: "Supabase 등 오픈소스 패키지", licenseName: "MIT · Apache License 2.0",
+              resourceName: "ThirdPartyNotices-Packages", resourceDirectory: "Licenses")
     ]
 }

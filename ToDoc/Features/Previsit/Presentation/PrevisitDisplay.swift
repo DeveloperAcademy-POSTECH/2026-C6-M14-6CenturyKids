@@ -1,11 +1,20 @@
 import Foundation
 
-/// 화면 표시/입력 계약. 실제 기록 조회·전송은 추후 연결합니다.
+/// 저장된 하루 기록의 표시 값과 원본 식별자입니다. 전송 계약은 별도입니다.
 struct PrevisitDay: Identifiable, Hashable {
     let id: String
     let dateLabel: String
     let weekday: String
     let entries: [String]
+    var recordedDate: Date? = nil
+    var painRecordIDs: [UUID] = []
+    var symptomRecordIDs: [UUID] = []
+
+    var isSelectable: Bool { !entries.isEmpty }
+}
+
+enum PrevisitRecordState: Equatable {
+    case loading, loaded([PrevisitDay]), failed
 }
 enum PrevisitMood: String, CaseIterable, Identifiable {
     case candid, comfortable, slowly, carefully, unsure
@@ -29,9 +38,9 @@ enum PrevisitMood: String, CaseIterable, Identifiable {
         }
     }
 }
-struct PrevisitDraft {
+struct PrevisitDraft: Equatable {
     var day: PrevisitDay?
     var letter = ""
     var mood: PrevisitMood?
 }
-enum PrevisitStep { case day, letter, mood }
+enum PrevisitStep: Equatable { case day, letter, mood }

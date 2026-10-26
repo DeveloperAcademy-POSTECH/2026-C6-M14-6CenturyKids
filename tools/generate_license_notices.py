@@ -90,10 +90,7 @@ def render(pins, dirs):
             sections.append((f"{name} — {os.path.basename(path)}", read_notice(os.path.join(folder, path))))
 
     lines = [
-        "Third-party notices: Swift packages",
-        "이 파일은 tools/generate_license_notices.py로 만듭니다. 직접 고치지 마세요.",
-        "Texts below are copied from each package's own LICENSE/NOTICE files at the versions pinned in Package.resolved.",
-        "",
+        # 앱 화면에 그대로 보이므로 제목·설명·개발 안내 문구는 넣지 않고 구성 요소 목록부터 시작한다
         "Components",
         "----------",
         *components,

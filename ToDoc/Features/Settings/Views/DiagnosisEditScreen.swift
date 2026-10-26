@@ -7,19 +7,18 @@ struct DiagnosisEditScreen: View {
     @Environment(\.dismiss) private var dismiss
     let field: DiagnosisField
     private let onSaved: () -> Void
-    init(state: DiagnosisScreenState?, field: DiagnosisField, onSaved: @escaping () -> Void) {
+    private let onAddCancer: (() -> Void)?
+    init(state: DiagnosisScreenState?, field: DiagnosisField, onSaved: @escaping () -> Void,
+         onAddCancer: (() -> Void)? = nil) {
         _state = State(initialValue: state); self.field = field; self.onSaved = onSaved
+        self.onAddCancer = onAddCancer
     }
     var body: some View {
         SettingsScreen(title: field == .carcinoma ? "암종" : "병기", canSave: state?.canSave == true && state?.onSave != nil,
                        isSaving: state?.isSaving == true, save: save, cancel: { dismiss() }) {
             if let state {
                 if field == .carcinoma {
-                    cancerSection("호흡기 및 흉부", values: [.lung, .larynx, .thymus], state: state)
-                    cancerSection("소화기계", values: [.stomach, .colorectal, .liver, .pancreas, .gallbladderAndBileDuct, .esophagus, .smallIntestine, .anus], state: state)
-                    // 기존 가입 계약의 나머지 암종은 원본에 그룹이 없어 기본 목록으로 보존합니다.
-                    cancerSection("그 외 암종", values: [.thyroid, .kidney, .breast, .prostate], state: state)
-                    Text("진단받은 내용을 기준으로 선택해 주세요.").settingsText(13).foregroundStyle(SettingsPalette.caption).padding(.horizontal, 16)
+                    cancerSection(state: state)
                     SettingsSection(title: "기타") {
                         Button {
                             state.onBeginCustomCancer?()
@@ -53,25 +52,33 @@ struct DiagnosisEditScreen: View {
             if saved == true && !isCustomCancerFlow { onSaved(); dismiss() }
         }
     }
-    private func cancerSection(_ title: String, values: [CarcinomaType], state: DiagnosisScreenState) -> some View {
-        SettingsSection(title: title) {
+    private func cancerSection(state: DiagnosisScreenState) -> some View {
+        var values = CarcinomaType.allCases
+        if case .carcinoma(let selected)? = state.selection, !values.contains(selected) { values.append(selected) }
+        return SettingsSection(title: "") {
             ForEach(Array(values.enumerated()), id: \.element.rawValue) { index, value in
                 if index > 0 { SettingsDivider() }
-                choice(.carcinoma(value), title: displayName(value), subtitle: value == .lung ? "비소세포폐암 · 소세포폐암" : nil, state: state)
+                choice(.carcinoma(value), title: value.displayName, state: state)
             }
-        }
-    }
-    private func displayName(_ cancer: CarcinomaType) -> String {
-        switch cancer {
-        case .colorectal: "대장암 (결장암·직장암)"
-        case .gallbladderAndBileDuct: "담도·담낭암"
-        default: cancer.displayName
         }
     }
     private func choice(_ value: DiagnosisChange, title: String, subtitle: String? = nil, state: DiagnosisScreenState) -> some View {
         let selected = state.selection == value
         return Button { state.selection = value } label: {
-            SettingsRow(title: title, subtitle: subtitle, selected: selected)
+            if field == .carcinoma {
+                HStack(spacing: 12) {
+                    ZStack {
+                        if selected {
+                            Circle().fill(SettingsPalette.action)
+                            Image("SettingsCheck").resizable().renderingMode(.template)
+                                .foregroundStyle(.white).frame(width: 11, height: 9)
+                        } else { Circle().strokeBorder(SettingsPalette.secondary.opacity(0.4), lineWidth: 1.5) }
+                    }.frame(width: 20, height: 20).accessibilityHidden(true)
+                    Text(title).settingsText().fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }.padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
+                    .contentShape(Rectangle())
+            } else { SettingsRow(title: title, subtitle: subtitle, selected: selected) }
         }.disabled(state.isSaving).accessibilityAddTraits(selected ? .isSelected : [])
             .accessibilityIdentifier("settings.choice.\(identifier(value))")
     }

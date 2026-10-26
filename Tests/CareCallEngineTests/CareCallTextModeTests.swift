@@ -111,15 +111,55 @@ struct CareCallTextModeTests {
         #expect(viewModel.answer(.text("더 말함")) == nil)
     }
 
-    @Test func 응급이면_안내를_남기고_더_받지_않으며_기록은_저장한다() async {
+    @Test func 응급이면_안내를_남기고_팝업으로_묻고_기록_중단하면_저장한다() async {
         await enterText()
         let saved = record()
         service.replies = [turn("응급 안내 문구", nil, .emergencyEnded(saved))]
         await viewModel.answer(.text("숨이 차요"))?.value
         #expect(conversation.question?.text == "응급 안내 문구" && conversation.summary == nil)
+        #expect(conversation.isEmergency)
         #expect(viewModel.answer(.text("네")) == nil)
+        for _ in 0..<100 { await Task.yield() }
+        #expect(repository.saved.isEmpty) // 고르기 전에는 저장하지 않는다 (폰에는 남긴다)
+        conversation.onAction?(.stopForEmergency)
+        #expect(!conversation.isEmergency)
         await waitUntil { repository.saved.count == 1 }
         #expect(repository.saved.first?.id == saved.id)
+    }
+
+    @Test func 응급_뒤_기록을_이어_가면_응급_전_질문부터_다시_묻고_끝나면_더해_저장한다() async {
+        await enterText()
+        let emergency = record()
+        service.replies = [turn("응급 안내 문구", nil, .emergencyEnded(emergency))]
+        await viewModel.answer(.text("숨이 차요"))?.value
+        service.resumeTurn = turn("변비는 있으셨나요?")
+        conversation.onAction?(.continueAfterEmergency)
+        #expect(!conversation.isEmergency && viewModel.outcome == nil)
+        #expect(conversation.question?.text == "변비는 있으셨나요?")
+        let finished = record()
+        service.replies = [turn("오늘 기록을 마쳤어요.", nil, .completed(finished))]
+        await viewModel.answer(.text("없어요"))?.value
+        #expect(service.answers.last == "없어요")
+        #expect(conversation.summary?.record.id == finished.id)
+    }
+
+    @Test func 응급_뒤_이어_가다_그만해도_응급으로_남긴_말은_저장한다() async {
+        await enterText()
+        service.replies = [turn("응급 안내 문구", nil, .emergencyEnded(record()))]
+        await viewModel.answer(.text("숨이 차요"))?.value
+        service.resumeTurn = turn("변비는 있으셨나요?")
+        conversation.onAction?(.continueAfterEmergency)
+        service.endOutcome = .interrupted(record())
+        conversation.onAction?(.discard)
+        await waitUntil { repository.saved.count == 1 }
+    }
+
+    @Test func 응급_팝업에서_고르지_않고_떠나도_저장한다() async {
+        await enterText()
+        service.replies = [turn("응급 안내 문구", nil, .emergencyEnded(record()))]
+        await viewModel.answer(.text("숨이 차요"))?.value
+        conversation.onAction?(.cancel)
+        await waitUntil { repository.saved.count == 1 }
     }
 
     @Test func 문자_대화_중에_떠나면_받은_답까지_저장한다() async {
@@ -247,6 +287,78 @@ struct CareCallTextModeTests {
         await waitUntil { conversation.mode == .text }
         #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?")
         #expect(conversation.errorMessage == "음성 통화를 준비하지 못했어요. 문자로 이어서 답해 주세요.")
+        #expect(conversation.needsMicrophone) // 마이크 팝업으로 알린다
         #expect(!service.calls.contains(.call))
+    }
+
+    // MARK: - 진행률·안내 문구·마지막 질문
+
+    @Test func 진행률_안내_문구_마지막_질문을_질문에_싣는다() async {
+        await enterText()
+        service.replies = [CareCallTurn(utterance: "구토는 하루에 몇 번 정도 하셨나요?", number: .count, outcome: nil, progress: 0.4, asksMore: true),
+                           CareCallTurn(utterance: "그 밖에 불편한 점은 없으셨나요?", number: nil, outcome: nil, progress: 0.9, isLast: true)]
+        await viewModel.answer(.text("토했어요"))?.value
+        #expect(conversation.question?.progress == 0.4)
+        #expect(conversation.question?.guidance == "말씀해 주신 내용에 대해 조금 더 여쭤볼게요")
+        #expect(conversation.question?.isLastQuestion == false)
+        await viewModel.answer(.frequency(.count(2)))?.value
+        #expect(conversation.question?.guidance == nil && conversation.question?.isLastQuestion == true)
+    }
+
+    @Test func 마지막_질문에_답하면_처리하는_동안_정리_화면을_보여_준다() async {
+        await enterText()
+        service.replies = [CareCallTurn(utterance: "그 밖에 불편한 점은 없으셨나요?", number: nil, outcome: nil, isLast: true),
+                           turn("오늘 기록을 마쳤어요.", nil, .completed(record()))]
+        await viewModel.answer(.text("없어요"))?.value
+        service.hold = .answer
+        let task = viewModel.answer(.text("없어요"))
+        #expect(conversation.isSummarizing)
+        await waitUntil { service.isHolding }
+        service.release()
+        await task?.value
+        #expect(!conversation.isSummarizing && conversation.summary != nil)
+    }
+
+    // MARK: - 이전 질문
+
+    @Test func 이전_질문으로_돌아가면_그때_한_답을_다시_채운다() async {
+        await enterText()
+        #expect(!conversation.canGoPrevious && conversation.question?.allowsPrevious == false)
+        let opening = conversation.question!
+        let count = turn("구토는 하루에 몇 번 정도 하셨나요?", .count)
+        service.replies = [count, turn("변비는 있으셨나요?")]
+        service.backTurns = [(turn(opening.text), "토했어요")]
+        await viewModel.answer(.text("토했어요"))?.value
+        #expect(conversation.canGoPrevious && conversation.question?.allowsPrevious == true)
+        service.backTurns.append((count, "3번"))
+        await viewModel.answer(.frequency(.count(3)))?.value
+
+        conversation.onAction?(.previous)
+        #expect(conversation.question?.input == .frequency)
+        #expect(conversation.restoredAnswer == .frequency(.count(3)))
+        conversation.onAction?(.previous)
+        #expect(conversation.question?.text == opening.text && conversation.answerText == "토했어요")
+        #expect(!conversation.canGoPrevious)
+    }
+
+    @Test func 통화_중에는_이전_질문으로_가지_않는다() async {
+        await viewModel.prepare()?.value
+        conversation.onAction?(.switchMode(.voice))
+        service.backTurns = [(turn("오늘 컨디션은 어떠세요?"), "괜찮아요")]
+        await viewModel.open()?.value
+        #expect(!conversation.canGoPrevious)
+        conversation.onAction?(.previous)
+        #expect(service.backTurns.count == 1)
+    }
+
+    @Test(arguments: [
+        ("열 번 넘게", SymptomConversationQuestion.Input.frequency, SymptomConversationAnswer.frequency(.tenPlus)),
+        ("3번", .frequency, .frequency(.count(3))),
+        ("1시간 30분", .duration, .durationMinutes(90)),
+        ("하루 종일요", .duration, .text("하루 종일요")),
+        ("어제부터요", .text, .text("어제부터요")),
+    ])
+    func 되돌린_답은_입력_칸_값으로(text: String, input: SymptomConversationQuestion.Input, expected: SymptomConversationAnswer) {
+        #expect(CareCallViewModel.answer(text, for: input) == expected)
     }
 }

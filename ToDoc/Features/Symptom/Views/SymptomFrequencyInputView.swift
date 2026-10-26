@@ -4,6 +4,8 @@ struct SymptomFrequencyInputView: View {
     let question: SymptomConversationQuestion
     @Binding var frequency: SymptomConversationAnswer.Frequency?
     var isSubmitting = false
+    var showsPrevious = false
+    var onPrevious: (() -> Void)?
     var onSubmit: ((SymptomConversationAnswer.Frequency) -> Void)?
     var onEnd: (() -> Void)?
     var onSwitchToVoice: (() -> Void)?
@@ -18,7 +20,8 @@ struct SymptomFrequencyInputView: View {
 
     var body: some View {
         SymptomQuestionLayout(question: question, nextTitle: canSubmit ? "다음" : "답변을 입력해 주세요",
-                              canProceed: canSubmit, onNext: { if let frequency { onSubmit?(frequency) } },
+                              canProceed: canSubmit, showsPrevious: showsPrevious,
+                              onPrevious: onPrevious, onNext: { if let frequency { onSubmit?(frequency) } },
                               onEnd: onEnd, onSwitch: onSwitchToVoice) {
             VStack(spacing: 30) {
                 SymptomNumberWheel(title: "횟수", labels: (0...10).map(String.init) + ["10+"],
