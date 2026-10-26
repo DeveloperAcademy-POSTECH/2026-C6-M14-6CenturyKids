@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SymptomRecordView: View {
     @State var state = SymptomScreenState()
+    /// 대화 중 종료하기를 눌러 기록 중단 팝업을 띄움
+    @State private var confirmsEnd = false
     @Environment(\.dismiss) private var dismiss
     var onClose: (() -> Void)?
     var onShowRecord: (() -> Void)?
@@ -17,9 +19,10 @@ struct SymptomRecordView: View {
             } else if let question = state.question {
                 VStack(spacing: 0) {
                     if let error = state.errorMessage { Text(error).foregroundStyle(.red).padding(12) }
-                    SymptomConversationContent(state: state, question: question, onEnd: close,
+                    SymptomConversationContent(state: state, question: question, onEnd: askEnd,
                         onSwitch: { state.onAction?(.switchMode($0)) }).id(question.id)
                 }
+                .overlay { popup }
             } else {
                 VStack(spacing: 20) {
                     Text("대화 기능 연결 전이에요").font(.headline)
@@ -33,6 +36,21 @@ struct SymptomRecordView: View {
             .onAppear { state.onAction?(.open) }
             .onDisappear { state.onAction?(.cancel) }
     }
+    /// 질문 화면 위에 띄우는 팝업
+    @ViewBuilder
+    private var popup: some View {
+        if confirmsEnd {
+            SymptomPopup.end(progress: state.question?.progress,
+                             onContinue: { confirmsEnd = false; state.onAction?(.resume) },
+                             onQuit: { confirmsEnd = false; state.onAction?(.discard); close() })
+        }
+    }
+
+    private func askEnd() {
+        confirmsEnd = true
+        state.onAction?(.pause)
+    }
+
     private func close() { if let onClose { onClose() } else { dismiss() } }
 }
 
