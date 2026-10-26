@@ -7,6 +7,7 @@
 
 import Foundation
 import Observation
+import enum Auth.AuthError
 
 @MainActor
 @Observable
@@ -514,7 +515,18 @@ final class SettingsViewModel {
             state.passwordConfirmation = ""
             state.didSave = true
         } catch {
-            state.errorMessage = "비밀번호를 변경하지 못했어요. 다시 시도해 주세요."
+            switch (error as? AuthError)?.errorCode {
+            case .some(.reauthenticationNotValid):
+                state.codeError = "인증코드가 올바르지 않아요. 다시 확인해 주세요."
+            case .some(.reauthenticationNeeded):
+                state.codeError = "인증코드를 다시 요청해 주세요."
+            case .some(.samePassword):
+                state.newPasswordError = "기존 비밀번호와 다른 비밀번호를 입력해 주세요."
+            case .some(.weakPassword):
+                state.newPasswordError = "비밀번호 조건에 맞게 다시 입력해 주세요."
+            default:
+                state.errorMessage = "비밀번호를 변경하지 못했어요. 다시 시도해 주세요."
+            }
         }
     }
 
