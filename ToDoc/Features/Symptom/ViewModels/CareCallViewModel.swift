@@ -220,8 +220,7 @@ final class CareCallViewModel {
         case .start: start()
         case .answer(let answer): self.answer(answer)
         case .cancel: endCall()
-        // 엔진이 지난 답을 되돌리지 못해 이전 질문으로 가지 않는다 (canGoPrevious는 늘 false)
-        case .previous: break
+        case .previous: goBack()
         }
     }
 
@@ -406,15 +405,43 @@ final class CareCallViewModel {
         conversation.question = question(turn.utterance, of: turn, input: input)
         conversation.answerText = ""
         conversation.transcript = ""
+        conversation.restoredAnswer = nil
         if let outcome = turn.outcome { finish(outcome) }
     }
 
     private static let moreGuidance = "말씀해 주신 내용에 대해 조금 더 여쭤볼게요"
 
-    /// 화면에 보일 질문: 진행률, 꼬리질문이면 안내 문구, 마지막 질문 표시
+    /// 화면에 보일 질문: 진행률, 꼬리질문이면 안내 문구, 마지막 질문 표시. 이전 질문은 문자 대화에서만 (통화는 말로 이어 간다)
     private func question(_ text: String, of turn: CareCallTurn?, input: SymptomConversationQuestion.Input) -> SymptomConversationQuestion {
-        SymptomConversationQuestion(id: UUID(), text: text, guidance: turn?.asksMore == true ? Self.moreGuidance : nil,
-                                    progress: turn?.progress, input: input, isLastQuestion: turn?.isLast ?? false)
+        let canGoBack = conversation.mode == .text && service.canGoBack
+        conversation.canGoPrevious = canGoBack
+        return SymptomConversationQuestion(id: UUID(), text: text, guidance: turn?.asksMore == true ? Self.moreGuidance : nil,
+                                           progress: turn?.progress, input: input, isLastQuestion: turn?.isLast ?? false,
+                                           allowsPrevious: canGoBack)
+    }
+
+    /// 이전 질문으로 돌아간다 (문자 대화). 그 질문에 받은 답을 지우고, 입력 칸에는 그때 한 답을 다시 채운다
+    private func goBack() {
+        guard conversation.mode == .text, began, call == nil, typing == nil, !isOver, let back = service.back() else { return }
+        conversation.errorMessage = nil
+        show(back.turn)
+        let restored = Self.answer(back.answer, for: conversation.question?.input ?? .text)
+        conversation.restoredAnswer = restored
+        if case .text(let text) = restored { conversation.answerText = text }
+    }
+
+    /// 엔진에 넣었던 문장 → 입력 칸 값. 숫자 칸인데 숫자로 읽지 못하면 글자 그대로 (숫자 칸은 비워 둔다)
+    static func answer(_ text: String, for input: SymptomConversationQuestion.Input) -> SymptomConversationAnswer {
+        switch input {
+        case .frequency:
+            if text == sentence(for: .frequency(.tenPlus)) { return .frequency(.tenPlus) }
+            if let count = NumberParser.count(in: text), (0...10).contains(count) { return .frequency(.count(count)) }
+        case .duration:
+            if let minutes = NumberParser.minutes(in: text), (10...1440).contains(minutes) { return .durationMinutes(minutes) }
+        case .text:
+            break
+        }
+        return .text(text)
     }
 
     /// 문자 입력 → 엔진에 넣을 문장. "10+"는 정확한 횟수로 저장되지 않게 "열 번 넘게"로 (NumberParser가 읽지 않는다)

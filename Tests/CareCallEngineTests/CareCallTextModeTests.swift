@@ -277,4 +277,47 @@ struct CareCallTextModeTests {
         await task?.value
         #expect(!conversation.isSummarizing && conversation.summary != nil)
     }
+
+    // MARK: - 이전 질문
+
+    @Test func 이전_질문으로_돌아가면_그때_한_답을_다시_채운다() async {
+        await enterText()
+        #expect(!conversation.canGoPrevious && conversation.question?.allowsPrevious == false)
+        let opening = conversation.question!
+        let count = turn("구토는 하루에 몇 번 정도 하셨나요?", .count)
+        service.replies = [count, turn("변비는 있으셨나요?")]
+        service.backTurns = [(turn(opening.text), "토했어요")]
+        await viewModel.answer(.text("토했어요"))?.value
+        #expect(conversation.canGoPrevious && conversation.question?.allowsPrevious == true)
+        service.backTurns.append((count, "3번"))
+        await viewModel.answer(.frequency(.count(3)))?.value
+
+        conversation.onAction?(.previous)
+        #expect(conversation.question?.input == .frequency)
+        #expect(conversation.restoredAnswer == .frequency(.count(3)))
+        conversation.onAction?(.previous)
+        #expect(conversation.question?.text == opening.text && conversation.answerText == "토했어요")
+        #expect(!conversation.canGoPrevious)
+    }
+
+    @Test func 통화_중에는_이전_질문으로_가지_않는다() async {
+        await viewModel.prepare()?.value
+        conversation.onAction?(.switchMode(.voice))
+        service.backTurns = [(turn("오늘 컨디션은 어떠세요?"), "괜찮아요")]
+        await viewModel.open()?.value
+        #expect(!conversation.canGoPrevious)
+        conversation.onAction?(.previous)
+        #expect(service.backTurns.count == 1)
+    }
+
+    @Test(arguments: [
+        ("열 번 넘게", SymptomConversationQuestion.Input.frequency, SymptomConversationAnswer.frequency(.tenPlus)),
+        ("3번", .frequency, .frequency(.count(3))),
+        ("1시간 30분", .duration, .durationMinutes(90)),
+        ("하루 종일요", .duration, .text("하루 종일요")),
+        ("어제부터요", .text, .text("어제부터요")),
+    ])
+    func 되돌린_답은_입력_칸_값으로(text: String, input: SymptomConversationQuestion.Input, expected: SymptomConversationAnswer) {
+        #expect(CareCallViewModel.answer(text, for: input) == expected)
+    }
 }
