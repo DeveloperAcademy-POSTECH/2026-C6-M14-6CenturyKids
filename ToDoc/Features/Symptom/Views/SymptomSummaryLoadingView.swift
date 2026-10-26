@@ -4,7 +4,6 @@ import SwiftUI
 struct SymptomSummaryLoadingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var rotating = false
-    var onCancel: (() -> Void)?
 
     var body: some View {
         GeometryReader { geometry in
@@ -21,10 +20,6 @@ struct SymptomSummaryLoadingView: View {
                             .foregroundStyle(Color(white: 114 / 255))
                     }
                     .multilineTextAlignment(.center)
-                    if let onCancel {
-                        // 장시간 대기/취소는 디자인 대기 중인 기본 동작입니다.
-                        Button("종료하기", action: onCancel).buttonStyle(.bordered)
-                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, max(24, geometry.size.height * 0.27))
