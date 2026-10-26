@@ -34,7 +34,7 @@ struct PatientFlowView: View {
     var prepareSymptomDetail: (Date) -> Void = { _ in }
     var symptomDetail: () -> SymptomRecordDetailView = { .init() }
     var notifications: () -> NotificationView = { .init() }
-    var records: () -> RecordsFlowView = { .init() }
+    var records: (_ home: @escaping () -> Void) -> RecordsFlowView = { _ in .init() }
     var settings: () -> SettingsFlowView
 
     init(
@@ -49,7 +49,7 @@ struct PatientFlowView: View {
         prepareSymptomDetail: @escaping (Date) -> Void = { _ in },
         symptomDetail: @escaping () -> SymptomRecordDetailView = { .init() },
         notifications: @escaping () -> NotificationView = { .init() },
-        records: @escaping () -> RecordsFlowView = { .init() },
+        records: @escaping (_ home: @escaping () -> Void) -> RecordsFlowView = { _ in .init() },
         settings: @escaping () -> SettingsFlowView
     ) {
         self.home = home ?? .init()
@@ -94,7 +94,7 @@ struct PatientFlowView: View {
                         }.toolbar(.hidden, for: .tabBar)
                     }
             }.tabItem { Label("홈", systemImage: "house.fill") }.tag(Tab.home)
-            records().tabItem { Label("기록확인", systemImage: "chart.bar.fill") }.tag(Tab.records)
+            records({ path.removeAll(); tab = .home }).tabItem { Label("기록확인", systemImage: "chart.bar.fill") }.tag(Tab.records)
             settings().tabItem { Label("설정", systemImage: "gearshape.fill") }.tag(Tab.settings)
         }
         .onChange(of: router.pendingDeepLink, initial: true) { _, deepLink in

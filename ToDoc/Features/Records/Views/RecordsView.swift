@@ -9,6 +9,9 @@ struct RecordsView: View {
     var onMoveDay: ((Int) -> Void)?
     var onSelect: ((RecordOverviewKind) -> Void)?
     var onRetry: (() -> Void)?
+    /// 진료 전 기록 카드 부제 (nil이면 카드를 숨김)
+    var previsitSubtitle: String?
+    var onSelectPrevisit: (() -> Void)?
     @Environment(\.dynamicTypeSize) private var typeSize
     private var data: RecordOverviewSnapshot? { state.isLoaded ? snapshot : nil }
 
@@ -31,6 +34,11 @@ struct RecordsView: View {
                 VStack(spacing: 22) {
                     painCard
                     symptomCard
+                    if let previsitSubtitle {
+                        RecordOverviewCard(label: "진료 전 기록", value: previsitSubtitle, action: onSelectPrevisit, graphic: { Color.clear }) {
+                            card("진료 전 기록", previsitSubtitle)
+                        }.accessibilityIdentifier("records.previsit")
+                    }
                 }
                 status
             }
@@ -95,5 +103,6 @@ struct RecordsView: View {
     RecordsView(dateLabel: "10월 2일 화요일",
                 snapshot: .init(pain: .init(averageBefore: 7, averageAfter: 5, difference: 2, previousDayDifference: 3),
                                 symptom: .init(presentCount: 2, types: [.nauseaVomiting, .dehydrationNutrition])),
-                state: .loaded, onMoveDay: { _ in }, onSelect: { _ in })
+                state: .loaded, onMoveDay: { _ in }, onSelect: { _ in },
+                previsitSubtitle: "10월 26일 마지막 기록", onSelectPrevisit: { })
 }
