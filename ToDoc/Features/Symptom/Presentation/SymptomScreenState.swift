@@ -52,6 +52,8 @@ enum SymptomAction {
     case open, start, previous, cancel
     case answer(SymptomConversationAnswer)
     case switchMode(SymptomConversationMode)
+    /// 기록 중단 팝업: 띄우면 통화를 잠시 멈추고, 계속 작성하면 잇고, 그만하면 저장하지 않은 기록을 버린다
+    case pause, resume, discard
 }
 @Observable final class SymptomScreenState {
     // 음성 통화는 자동 진행합니다. ViewModel이 AI 발화·듣기·전사 상태를 전달합니다.

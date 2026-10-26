@@ -12,7 +12,8 @@ import Foundation
 import Observation
 
 /// 케어콜 화면(CareCallFlowView)의 상태를 보관한다: 준비(대기 화면) → 대화(음성 통화·문자 답) → 요약 수정·저장.
-/// 음성과 문자를 오가도 서비스의 같은 대화를 이어 간다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장한다.
+/// 음성과 문자를 오가도 서비스의 같은 대화를 이어 간다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장하고,
+/// 기록 중단 팝업에서 그만하면 저장하지 않은 기록을 버린다.
 /// 받은 답은 답마다 폰에도 남겨, 앱이 꺼지거나 저장이 실패하면 다음에 케어콜에 들어갈 때 조용히 올린다.
 /// 화면에 들어오면 loadPatient()로 로그인 환자를 찾는다 (PainRecordViewModel과 같은 방식)
 @MainActor
@@ -71,6 +72,8 @@ final class CareCallViewModel {
     private var leftCall = false
     /// 문자 답을 처리하는 중에 음성으로 바꿈 (처리가 끝나면 통화를 건다)
     private var callAfterTyping = false
+    /// 기록 중단 팝업을 띄워 통화를 잠시 끊음 (계속 작성하면 다시 건다)
+    private var paused = false
     private var saving: Task<Void, Never>?
     private var isSaved = false
 
@@ -221,6 +224,9 @@ final class CareCallViewModel {
         case .answer(let answer): self.answer(answer)
         case .cancel: endCall()
         case .previous: goBack()
+        case .pause: pause()
+        case .resume: resume()
+        case .discard: discard()
         }
     }
 
@@ -307,7 +313,9 @@ final class CareCallViewModel {
             if leftCall, outcome == nil {
                 endText() // 통화를 걸기 전에 떠남: 문자로 받은 답이 있으면 그것까지 저장한다
             } else if switched, !leftCall, !Self.isFinal(outcome) {
-                start() // 방식을 바꿈: 끝까지 마친 게 아니면 같은 대화를 바꾼 방식으로 이어 간다 (끊는 중에 다시 바꿨으면 그 방식)
+                // 방식을 바꿈: 끝까지 마친 게 아니면 같은 대화를 바꾼 방식으로 이어 간다 (끊는 중에 다시 바꿨으면 그 방식).
+                // 기록 중단 팝업으로 잠시 끊었으면 환자의 선택을 기다린다 (resume)
+                if !paused { start() }
             } else if let outcome {
                 finish(outcome)
             } else if case CareCallServiceError.notPrepared? = failure, began {
@@ -479,6 +487,30 @@ final class CareCallViewModel {
         guard began, !isOver else { return }
         began = false // 서비스가 대화를 닫는다 (두 번 끝내지 않게)
         finish(service.end())
+    }
+
+    /// 기록 중단 팝업을 띄움: 통화 중이면 끊어 두고(받은 답은 대화에 남는다) 환자의 선택을 기다린다
+    private func pause() {
+        guard let call else { return }
+        paused = true
+        switchingMode = true
+        call.cancel()
+        Task { await service.stop() }
+    }
+
+    /// 계속 작성하기: 잠시 끊은 통화를 지금 질문부터 다시 건다 (끊는 중이면 끝난 뒤 startCall에서)
+    private func resume() {
+        guard paused else { return }
+        paused = false
+        if call == nil, !isOver { start() }
+    }
+
+    /// 그만하기: 저장하지 않은 기록을 버리고 대화를 끝낸다
+    private func discard() {
+        paused = false
+        forget()
+        isSaved = true // 끝낸 대화의 기록을 저장하지도 폰에 남기지도 않는다
+        endCall()
     }
 
     private func show(_ activity: CareCallActivity) {

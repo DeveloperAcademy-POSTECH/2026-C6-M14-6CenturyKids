@@ -209,4 +209,20 @@ struct PendingCareCallTests {
         #expect(viewModel.conversation.question?.text == "하루에 몇 번 정도 하셨나요?")
         #expect(viewModel.conversation.errorMessage == nil)
     }
+
+    @Test func 기록_중단에서_그만하면_저장하지_않고_폰에서도_지운다() async {
+        let viewModel = makeViewModel()
+        await enterText(viewModel)
+        service.progress = record()
+        service.replies = [turn("변비는 있으셨나요?")]
+        await viewModel.answer(.text("설사를 했어요"))?.value
+        #expect(!pending.items.isEmpty)
+        service.endOutcome = .interrupted(record())
+        viewModel.conversation.onAction?(.pause)
+        viewModel.conversation.onAction?(.discard)
+        viewModel.conversation.onAction?(.cancel) // 화면을 떠나도 저장하지 않는다
+        for _ in 0..<200 { await Task.yield() }
+        #expect(repository.saved.isEmpty && pending.items.isEmpty)
+    }
+
 }

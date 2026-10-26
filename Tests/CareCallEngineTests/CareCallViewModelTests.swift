@@ -371,6 +371,39 @@ struct CareCallViewModelTests {
         #expect(!conversation.isSummarizing)
     }
 
+    @Test func 기록_중단_팝업을_띄우면_통화를_멈추고_계속하면_다시_건다() async {
+        await enterVoiceCall()
+        await viewModel.open()?.value
+        service.hold = .call
+        service.outcome = .interrupted(record([entry(.diarrhea, .present)]))
+        conversation.onAction?(.start)
+        await waitUntilHolding()
+        conversation.onAction?(.pause)
+        for _ in 0..<1_000 where conversation.isCalling { await Task.yield() }
+        #expect(service.stopCount == 1)
+        #expect(conversation.summary == nil && conversation.question != nil) // 멈춘 통화를 요약으로 넘기지 않는다
+        service.outcome = .completed(record([entry(.diarrhea, .present)]))
+        conversation.onAction?(.resume) // 계속 작성하기
+        for _ in 0..<1_000 where conversation.summary == nil { await Task.yield() }
+        #expect(service.calls.filter { $0 == .call }.count == 2)
+        #expect(service.beginCount == 1)
+    }
+
+    @Test func 통화_중에_그만하면_받은_답을_저장하지_않는다() async {
+        await enterVoiceCall()
+        await viewModel.open()?.value
+        service.hold = .call
+        service.outcome = .interrupted(record([entry(.diarrhea, .present)]))
+        conversation.onAction?(.start)
+        await waitUntilHolding()
+        conversation.onAction?(.pause)
+        conversation.onAction?(.discard) // 그만하기
+        conversation.onAction?(.cancel) // 화면을 떠남
+        for _ in 0..<1_000 where conversation.isCalling { await Task.yield() }
+        for _ in 0..<200 { await Task.yield() }
+        #expect(repository.saved.isEmpty)
+    }
+
     // MARK: - 요약 수정·저장
 
     /// 통화를 끝까지 마치고 요약 화면에 온 상태
