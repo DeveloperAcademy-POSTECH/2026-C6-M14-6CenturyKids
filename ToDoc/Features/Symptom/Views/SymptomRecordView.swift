@@ -57,21 +57,24 @@ private struct SymptomConversationContent: View {
                     SymptomTextInputView(question: question, text: $state.answerText,
                                          isSubmitting: state.isWorking || state.onAction == nil, isLastQuestion: question.isLastQuestion,
                                          showsPrevious: question.allowsPrevious,
-                                         onPrevious: state.canGoPrevious ? { state.onAction?(.previous) } : nil,
+                                         onPrevious: previous,
                                          onNext: { state.onAction?(.answer(.text(state.answerText))) }, onEnd: onEnd,
                                          onSwitchToVoice: { onSwitch(.voice) })
                 case .frequency:
                     SymptomFrequencyInputView(question: question, frequency: $frequency, isSubmitting: state.isWorking || state.onAction == nil,
+                                              showsPrevious: question.allowsPrevious, onPrevious: previous,
                                               onSubmit: { value in state.onAction?(.answer(.frequency(value))) },
                                               onEnd: onEnd, onSwitchToVoice: { onSwitch(.voice) })
                 case .duration:
                     SymptomDurationInputView(question: question, durationMinutes: $duration, isSubmitting: state.isWorking || state.onAction == nil,
+                                             showsPrevious: question.allowsPrevious, onPrevious: previous,
                                              onSubmit: { value in state.onAction?(.answer(.durationMinutes(value))) },
                                              onEnd: onEnd, onSwitchToVoice: { onSwitch(.voice) })
                 }
             }
         }
         .onAppear {
+            // 이전 질문으로 돌아오면 그때 한 답을 다시 채운다
             switch state.restoredAnswer {
             case .frequency(let value): frequency = value
             case .durationMinutes(let value): duration = value
@@ -80,6 +83,9 @@ private struct SymptomConversationContent: View {
         }
     }
 
+    private var previous: (() -> Void)? {
+        state.canGoPrevious && !state.isWorking ? { state.onAction?(.previous) } : nil
+    }
 }
 
 #Preview("서비스 미연결") { SymptomRecordView() }
