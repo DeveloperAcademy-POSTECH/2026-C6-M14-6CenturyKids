@@ -76,6 +76,10 @@ final class SettingsViewModel {
             }
         }
 
+        passwordChangeState.onContinue = { [weak self] in
+            self?.continuePasswordChange() ?? false
+        }
+
         passwordChangeState.onSave = { [weak self] in
             Task { [weak self] in
                 await self?.changePassword()
@@ -474,6 +478,27 @@ final class SettingsViewModel {
         } catch {
             state.errorMessage = "인증코드를 보내지 못했어요. 다시 시도해 주세요."
         }
+    }
+
+    func continuePasswordChange() -> Bool {
+        let state = passwordChangeState
+        guard !state.isSendingCode, !state.isSaving else { return false }
+
+        state.codeError = nil
+
+        guard state.hasSentCode else {
+            state.codeError = "인증코드를 먼저 요청해 주세요."
+            return false
+        }
+
+        guard !state.verificationCode
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty else {
+            state.codeError = "인증코드를 입력해 주세요."
+            return false
+        }
+
+        return true
     }
 
     func changePassword() async {

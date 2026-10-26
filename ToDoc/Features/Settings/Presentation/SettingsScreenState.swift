@@ -50,6 +50,7 @@ struct DoctorDisplayData {
     var didSave = false
     var errorMessage: String?
     @ObservationIgnored var onSendCode: (() -> Void)?
+    @ObservationIgnored var onContinue: (() -> Bool)?
     @ObservationIgnored var onSave: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }
