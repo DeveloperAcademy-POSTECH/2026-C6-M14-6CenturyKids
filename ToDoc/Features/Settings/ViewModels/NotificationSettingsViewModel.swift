@@ -25,6 +25,11 @@ final class NotificationSettingsViewModel {
     private(set) var didSave = false
     private(set) var errorMessage: String?
 
+    /// 저장된 알림 시간을 "HH:mm:ss" 문자열로 돌려준다. 예: "22:59:00"
+    var savedTimeString: String {
+        String(format: "%02d:%02d:00", savedTime.hour ?? 20, savedTime.minute ?? 0)
+    }
+
     var hasChanges: Bool { selectedTime != savedTime }
     var canSave: Bool {
         hasLoaded && !isLoading && !isSaving && (!hasStoredTime || hasChanges)
