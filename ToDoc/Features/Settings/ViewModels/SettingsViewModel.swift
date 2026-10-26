@@ -69,6 +69,12 @@ final class SettingsViewModel {
             self?.discardPersonalInfoChanges()
         }
 
+        passwordChangeState.onSendCode = { [weak self] in
+            Task { [weak self] in
+                await self?.sendPasswordChangeCode()
+            }
+        }
+
         passwordChangeState.onSave = { [weak self] in
             Task { [weak self] in
                 await self?.changePassword()
@@ -448,6 +454,24 @@ final class SettingsViewModel {
             authSession.patient = nil
         } catch {
             screenState.logoutErrorMessage = "로그아웃하지 못했어요. 다시 시도해 주세요."
+        }
+    }
+
+    func sendPasswordChangeCode() async {
+        let state = passwordChangeState
+        guard !state.isSendingCode, !state.isSaving else { return }
+
+        state.isSendingCode = true
+        state.errorMessage = nil
+        state.codeError = nil
+        defer { state.isSendingCode = false }
+
+        do {
+            try await authRepository.requestPasswordChangeVerification()
+            state.verificationCode = ""
+            state.hasSentCode = true
+        } catch {
+            state.errorMessage = "인증코드를 보내지 못했어요. 다시 시도해 주세요."
         }
     }
 
