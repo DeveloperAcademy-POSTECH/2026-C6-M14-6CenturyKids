@@ -8,6 +8,8 @@ struct CareCallFlowView: View {
     @State private var hasEntered = false
     @State private var completionNavigation = CareCallCompletionNavigation()
     var makeViewModel: (() throws -> CareCallViewModel)?
+    var autoStartVoice: Bool = false
+    
     var onClose: (() -> Void)?
     var onPostpone: (() -> Void)?
     var onShowRecord: ((Date) -> Void)?

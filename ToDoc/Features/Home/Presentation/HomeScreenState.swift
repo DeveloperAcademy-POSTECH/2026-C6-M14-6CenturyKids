@@ -1,7 +1,21 @@
 import Foundation
 import Observation
 
-enum HomeDestination: String, Hashable { case symptom, symptomDetail, pain, painDetail, notifications }
+enum HomeDestination: Hashable {
+    case symptom(autoStartVoice: Bool)
+    case symptomDetail
+    case pain
+    case painDetail
+    case notifications
+}
+
+enum HomeLoadState { case unavailable, loading, loaded, failed }
+
+struct HomeDoctorMessage: Identifiable {
+    let id: UUID
+    let body: String
+    let createdAt: Date
+}
 
 @MainActor @Observable final class HomeScreenState {
     var doctor: HomeDoctorState = .unavailable

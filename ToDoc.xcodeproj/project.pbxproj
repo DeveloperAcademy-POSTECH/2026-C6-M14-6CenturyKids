@@ -8,10 +8,38 @@
 
 /* Begin PBXBuildFile section */
 		A1B02669307B83AE00547CD2 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A1B02668307B83AE00547CD2 /* Supabase */; };
+		A1E7CDA03088AA9D007C0049 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E7CD9F3088AA9D007C0049 /* WidgetKit.framework */; };
+		A1E7CDA23088AA9D007C0049 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E7CDA13088AA9D007C0049 /* SwiftUI.framework */; };
+		A1E7CDB33088AA9E007C0049 /* ToDocWidgetExtensionExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1E7CD9D3088AA9D007C0049 /* ToDocWidgetExtensionExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A1E7CDB13088AA9E007C0049 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A13BCAF23077425800901BFD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1E7CD9C3088AA9D007C0049;
+			remoteInfo = ToDocWidgetExtensionExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A1E7CDB43088AA9E007C0049 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				A1E7CDB33088AA9E007C0049 /* ToDocWidgetExtensionExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A13BCAFA3077425800901BFD /* ToDoc.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ToDoc.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1E7CD9D3088AA9D007C0049 /* ToDocWidgetExtensionExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ToDocWidgetExtensionExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1E7CD9F3088AA9D007C0049 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		A1E7CDA13088AA9D007C0049 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -25,6 +53,23 @@
 				Data/Supabase/EdgeFunction/.gitkeep,
 				Domain/Exercise/Enums/.gitkeep,
 				Domain/Hospital/Enums/.gitkeep,
+				Info.plist,
+			);
+			target = A13BCAF93077425800901BFD /* ToDoc */;
+		};
+		A1E7CDB83088AA9E007C0049 /* Exceptions for "ToDocWidgetExtension" folder in "ToDocWidgetExtensionExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				ToDocWidgetExtension.swift,
+				ToDocWidgetExtensionControl.swift,
+			);
+			target = A1E7CD9C3088AA9D007C0049 /* ToDocWidgetExtensionExtension */;
+		};
+		A1E7E8123089270A007C0049 /* Exceptions for "ToDocWidgetExtension" folder in "ToDoc" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ToDocWidgetExtensionLiveActivity.swift,
 			);
 			target = A13BCAF93077425800901BFD /* ToDoc */;
 		};
@@ -39,6 +84,15 @@
 			path = ToDoc;
 			sourceTree = "<group>";
 		};
+		A1E7CDA33088AA9D007C0049 /* ToDocWidgetExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A1E7E8123089270A007C0049 /* Exceptions for "ToDocWidgetExtension" folder in "ToDoc" target */,
+				A1E7CDB83088AA9E007C0049 /* Exceptions for "ToDocWidgetExtension" folder in "ToDocWidgetExtensionExtension" target */,
+			);
+			path = ToDocWidgetExtension;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -48,6 +102,13 @@
 				A1B02669307B83AE00547CD2 /* Supabase in Frameworks */,
 			);
 		};
+		A1E7CD9A3088AA9D007C0049 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				A1E7CDA23088AA9D007C0049 /* SwiftUI.framework in Frameworks */,
+				A1E7CDA03088AA9D007C0049 /* WidgetKit.framework in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -55,6 +116,8 @@
 			isa = PBXGroup;
 			children = (
 				A13BCAFC3077425800901BFD /* ToDoc */,
+				A1E7CDA33088AA9D007C0049 /* ToDocWidgetExtension */,
+				A1E7CD9E3088AA9D007C0049 /* Frameworks */,
 				A13BCAFB3077425800901BFD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -63,8 +126,18 @@
 			isa = PBXGroup;
 			children = (
 				A13BCAFA3077425800901BFD /* ToDoc.app */,
+				A1E7CD9D3088AA9D007C0049 /* ToDocWidgetExtensionExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E7CD9E3088AA9D007C0049 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A1E7CD9F3088AA9D007C0049 /* WidgetKit.framework */,
+				A1E7CDA13088AA9D007C0049 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -77,8 +150,12 @@
 				A13BCAF63077425800901BFD /* Sources */,
 				A13BCAF73077425800901BFD /* Frameworks */,
 				A13BCAF83077425800901BFD /* Resources */,
+				A1E7CDB43088AA9E007C0049 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				A1E7CDB23088AA9E007C0049 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A13BCAFC3077425800901BFD /* ToDoc */,
@@ -91,6 +168,24 @@
 			productReference = A13BCAFA3077425800901BFD /* ToDoc.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A1E7CD9C3088AA9D007C0049 /* ToDocWidgetExtensionExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1E7CDB73088AA9E007C0049 /* Build configuration list for PBXNativeTarget "ToDocWidgetExtensionExtension" */;
+			buildPhases = (
+				A1E7CD993088AA9D007C0049 /* Sources */,
+				A1E7CD9A3088AA9D007C0049 /* Frameworks */,
+				A1E7CD9B3088AA9D007C0049 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				A1E7CDA33088AA9D007C0049 /* ToDocWidgetExtension */,
+			);
+			name = ToDocWidgetExtensionExtension;
+			productName = ToDocWidgetExtensionExtension;
+			productReference = A1E7CD9D3088AA9D007C0049 /* ToDocWidgetExtensionExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -98,11 +193,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2700;
+				LastSwiftUpdateCheck = 2710;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					A13BCAF93077425800901BFD = {
 						CreatedOnToolsVersion = 27.0;
+					};
+					A1E7CD9C3088AA9D007C0049 = {
+						CreatedOnToolsVersion = 27.1;
 					};
 				};
 			};
@@ -124,12 +222,18 @@
 			projectRoot = "";
 			targets = (
 				A13BCAF93077425800901BFD /* ToDoc */,
+				A1E7CD9C3088AA9D007C0049 /* ToDocWidgetExtensionExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		A13BCAF83077425800901BFD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		A1E7CD9B3088AA9D007C0049 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -142,7 +246,20 @@
 			files = (
 			);
 		};
+		A1E7CD993088AA9D007C0049 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A1E7CDB23088AA9E007C0049 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1E7CD9C3088AA9D007C0049 /* ToDocWidgetExtensionExtension */;
+			targetProxy = A1E7CDB13088AA9E007C0049 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A13BCB033077425900901BFD /* Debug configuration for PBXProject "ToDoc" */ = {
@@ -272,6 +389,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ToDoc/ToDoc.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
@@ -280,8 +398,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ToDoc/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "증상 확인 대화를 듣기 위해 마이크를 사용합니다. 음성은 기기 안에서만 처리됩니다.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "말씀하신 내용을 글로 바꾸기 위해 기기 안의 음성 인식을 사용합니다.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -296,7 +416,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDoc;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDocWithAPNs;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -313,6 +433,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ToDoc/ToDoc.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
@@ -321,8 +442,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ToDoc/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "증상 확인 대화를 듣기 위해 마이크를 사용합니다. 음성은 기기 안에서만 처리됩니다.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "말씀하신 내용을 글로 바꾸기 위해 기기 안의 음성 인식을 사용합니다.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -337,10 +460,80 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDoc;
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDocWithAPNs;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1E7CDB53088AA9E007C0049 /* Debug configuration for PBXNativeTarget "ToDocWidgetExtensionExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 53H2JY443C;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ToDocWidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ToDocWidgetExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDocWidget;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1E7CDB63088AA9E007C0049 /* Release configuration for PBXNativeTarget "ToDocWidgetExtensionExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 53H2JY443C;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ToDocWidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ToDocWidgetExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDocWidget;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
@@ -367,6 +560,14 @@
 			);
 			defaultConfigurationName = Release;
 		};
+		A1E7CDB73088AA9E007C0049 /* Build configuration list for PBXNativeTarget "ToDocWidgetExtensionExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1E7CDB53088AA9E007C0049 /* Debug configuration for PBXNativeTarget "ToDocWidgetExtensionExtension" */,
+				A1E7CDB63088AA9E007C0049 /* Release configuration for PBXNativeTarget "ToDocWidgetExtensionExtension" */,
+			);
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -377,6 +578,8 @@
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.5.1;
 			};
+			traits = (
+			);
 		};
 /* End XCRemoteSwiftPackageReference section */
 

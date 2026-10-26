@@ -8,19 +8,21 @@
 import Foundation
 
 struct DeviceTokenDTO: Codable {
-    let id: UUID
     let userId: UUID
-    let updatedAt: Date
+    let installationId: String
+    let tokenType: DeviceTokenType
     let token: String
-    let platform: String
+    let platform: String?
+    let environment: String
 }
 
 extension DeviceTokenDTO {
     enum CodingKeys: String, CodingKey {
-        case id = "id"
         case userId = "user_id"
-        case updatedAt = "updated_at"
+        case installationId = "installation_id"
+        case tokenType = "token_type"
         case token = "token"
         case platform = "platform"
+        case environment
     }
 }

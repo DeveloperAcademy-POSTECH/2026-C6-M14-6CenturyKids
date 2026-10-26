@@ -8,7 +8,6 @@
 import Foundation
 
 final class DependencyContainer {
-    // SupabaseClient 보관하는 객체
     let supabaseProvider: SupabaseClientProvider
     let authRepository: any AuthRepository
     let userRepository: any UserRepository
@@ -17,6 +16,9 @@ final class DependencyContainer {
     let patientRepository: any PatientRepository
     let symptomRepository: any SymptomRepository
     let painRepository: any PainRepository
+    let deviceTokenRepository: any DeviceTokenRepository
+    
+    let liveActivityService: LiveActivityService
     
     init(configuration: SupabaseConfiguration) {
         let provider = SupabaseClientProvider(
@@ -32,6 +34,9 @@ final class DependencyContainer {
         patientRepository = SupabasePatientRepository(client: client)
         symptomRepository = SupabaseSymptomRepository(client: client)
         painRepository = SupabasePainRepository(client: client)
+        deviceTokenRepository = SupabaseDeviceTokenRepository(client: client)
+        
+        self.liveActivityService = LiveActivityService(tokenRepository: deviceTokenRepository, authRepository: authRepository)
     }
 
     func makePainRecordViewModel() -> PainRecordViewModel {

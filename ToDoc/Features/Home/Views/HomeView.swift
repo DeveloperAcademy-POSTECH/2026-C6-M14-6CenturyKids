@@ -101,7 +101,7 @@ struct HomeView: View {
         VStack(spacing: 14) {
             HomeEntryCard(title: "복용 후 통증 기록", subtitle: "약 복용 후 통증의 전후 비교", primary: true, verticalPadding: verticalPadding) { select(.pain) }
                 .disabled(!canOpen).accessibilityIdentifier("home.pain")
-            HomeEntryCard(title: "증상 대화하기", subtitle: "오늘 하루 증상 기록하기", primary: false, verticalPadding: verticalPadding) { select(.symptom) }
+            HomeEntryCard(title: "증상 대화하기", subtitle: "오늘 하루 증상 기록하기", primary: false, verticalPadding: verticalPadding) { select(.symptom(autoStartVoice: false)) }
                 .disabled(!canOpen).accessibilityIdentifier("home.symptom")
             if showsLoadStatus { loadStatus }
         }.padding(.horizontal, AppSpacing.item).padding(.top, AppSpacing.item).padding(.bottom, AppSpacing.section)

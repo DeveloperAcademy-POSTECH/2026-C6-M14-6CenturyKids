@@ -7,22 +7,29 @@ struct PainRecordNavigation {
 struct CareCallNavigation {
     let home: () -> Void
     let showRecord: (Date) -> Void
+    
+    var autoStartVoice: Bool = false
 }
 
 /// 환자 화면의 이동 경계. 새 ViewModel을 연결할 때 완성한 View를 주입합니다.
 struct PatientFlowView: View {
+    @Environment(AppRouter.self) private var router
     @Environment(\.scenePhase) private var scenePhase
+  
     @State private var tab = Tab.home
     @State private var path: [HomeDestination] = []
     @State private var showsPrevisit = false
     @State private var previsitSession = PrevisitSession()
+  
     let home: HomeScreenState
     var onHomeContextChange: (Bool, Bool) -> Void
     var onReloadHome: (() -> Void)?
     var previsit: (PrevisitSession) -> PrevisitFlowView
+  
     var pain: (PainRecordNavigation) -> PainRecordView
     var preparePainDetail: (Date) -> Void
     var painDetail: () -> PainRecordDetailView
+  
     var careCall: (CareCallNavigation) -> CareCallFlowView = { _ in .init() }
     var prepareSymptomDetail: (Date) -> Void = { _ in }
     var symptomDetail: () -> SymptomRecordDetailView = { .init() }
@@ -90,6 +97,19 @@ struct PatientFlowView: View {
             records().tabItem { Label("기록확인", systemImage: "chart.bar.fill") }.tag(Tab.records)
             settings().tabItem { Label("설정", systemImage: "gearshape.fill") }.tag(Tab.settings)
         }
+        .onChange(of: router.pendingDeepLink, initial: true) { _, deepLink in
+            guard let deepLink else { return }
+            
+            switch deepLink {
+            case .careCall(let autoStartVoice):
+                showsPrevisit = false
+              
+                tab = .home
+                path = [.symptom(autoStartVoice: autoStartVoice)]
+            }
+            
+            router.pendingDeepLink = nil
+        }
         .fullScreenCover(isPresented: $showsPrevisit, onDismiss: { previsitSession.pause() }) {
             NavigationStack { previsit(previsitSession) }
         }
@@ -124,5 +144,7 @@ extension PatientFlowView {
     }
 }
 
-#Preview { PatientFlowView.preview() }
+#Preview { PatientFlowView.preview()
+    .environment(AppRouter())
+}
 #endif
