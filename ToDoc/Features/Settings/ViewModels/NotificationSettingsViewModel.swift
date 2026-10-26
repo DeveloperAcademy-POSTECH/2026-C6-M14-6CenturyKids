@@ -13,6 +13,8 @@ import Observation
 final class NotificationSettingsViewModel {
     @ObservationIgnored private let defaults: UserDefaults
     private static let timeKey = "notification.liveActivityTimeMinutes"
+    /// 선택 가능한 알림 시간: 20:00~23:59 (자정부터 분 단위)
+    static let allowedMinutes = (20 * 60)..<(24 * 60)
 
     private(set) var savedTime = DateComponents(hour: 20, minute: 0)
     private(set) var selectedTime = DateComponents(hour: 20, minute: 0)
@@ -22,6 +24,11 @@ final class NotificationSettingsViewModel {
     private(set) var isSaving = false
     private(set) var didSave = false
     private(set) var errorMessage: String?
+
+    /// 저장된 알림 시간을 "HH:mm:ss" 문자열로 돌려준다. 예: "22:59:00"
+    var savedTimeString: String {
+        String(format: "%02d:%02d:00", savedTime.hour ?? 20, savedTime.minute ?? 0)
+    }
 
     var hasChanges: Bool { selectedTime != savedTime }
     var canSave: Bool {
@@ -61,6 +68,15 @@ final class NotificationSettingsViewModel {
             return
         }
 
+        // 범위가 생기기 전에 저장된 값은 기본값으로 보여 주고 다시 저장할 수 있게 둔다.
+        guard Self.allowedMinutes.contains(minutes) else {
+            savedTime = defaultTime
+            selectedTime = defaultTime
+            hasStoredTime = false
+            hasLoaded = true
+            return
+        }
+
         let time = DateComponents(hour: minutes / 60, minute: minutes % 60)
         savedTime = time
         selectedTime = time
@@ -72,7 +88,8 @@ final class NotificationSettingsViewModel {
         guard hasLoaded, !isLoading, !isSaving else { return }
 
         guard let hour = time.hour, (0..<24).contains(hour),
-              let minute = time.minute, (0..<60).contains(minute) else {
+              let minute = time.minute, (0..<60).contains(minute),
+              Self.allowedMinutes.contains(hour * 60 + minute) else {
             errorMessage = "알림 시간을 다시 선택해 주세요."
             return
         }
