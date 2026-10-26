@@ -43,7 +43,10 @@ struct PasswordCodeEntryView: View {
             }
             .scrollDismissesKeyboard(.interactively)
 
-            Button(action: onConfirm) {
+            Button {
+                guard state.onContinue?() == true else { return }
+                onConfirm()
+            } label: {
                 Text("확인")
                     .settingsText(17, bold: true)
                     .frame(maxWidth: .infinity, minHeight: 54)
@@ -68,6 +71,7 @@ struct PasswordCodeEntryView: View {
                     .frame(width: 10, height: 19)
                     .frame(width: 44, height: 44)
             }
+            .disabled(state.isSendingCode || state.isSaving)
             .accessibilityLabel("뒤로 가기")
             .accessibilityIdentifier("settings.password.back")
 

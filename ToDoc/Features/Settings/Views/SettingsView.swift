@@ -2,17 +2,21 @@ import SwiftUI
 
 struct SettingsView: View {
     @State private var state: SettingsScreenState
+    @State private var showsPasswordChangeNotice = false
     private let onPersonalInfo: (() -> Void)?
     private let onCancerType: (() -> Void)?
     private let onCancerStage: (() -> Void)?
     private let onHospital: (() -> Void)?
+    private let onPasswordChange: (() -> Void)?
     private let notificationSettings: @MainActor () -> NotificationSettingsView
     init(state: SettingsScreenState? = nil, onPersonalInfo: (() -> Void)? = nil,
          onCancerType: (() -> Void)? = nil, onCancerStage: (() -> Void)? = nil,
          onHospital: (() -> Void)? = nil,
+         onPasswordChange: (() -> Void)? = nil,
          notificationSettings: @escaping @MainActor () -> NotificationSettingsView) {
         _state = State(initialValue: state ?? .init()); self.onPersonalInfo = onPersonalInfo
         self.onCancerType = onCancerType; self.onCancerStage = onCancerStage; self.onHospital = onHospital
+        self.onPasswordChange = onPasswordChange
         self.notificationSettings = notificationSettings
     }
     var body: some View {
@@ -56,6 +60,13 @@ struct SettingsView: View {
                             .disabled(state.onReload == nil).accessibilityIdentifier("settings.reloadProfile")
                     }
                 }
+                SettingsSection(title: "계정") {
+                    Button { showsPasswordChangeNotice = true } label: {
+                        SettingsRow(title: "비밀번호 재설정", chevron: true)
+                    }
+                    .disabled(onPasswordChange == nil)
+                    .accessibilityIdentifier("settings.password.change")
+                }
                 SettingsSection(title: "기타") {
                     NavigationLink { notificationSettings() } label: { SettingsRow(title: "알림 설정", chevron: true) }
                     SettingsDivider()
@@ -65,6 +76,10 @@ struct SettingsView: View {
             }.padding(.horizontal, 20).padding(.bottom, 32)
         }.background(SettingsPalette.background.ignoresSafeArea()).foregroundStyle(SettingsPalette.primary)
             .buttonStyle(.plain).toolbar(.hidden, for: .navigationBar)
+            .alert("이메일로 인증코드가 전송됩니다", isPresented: $showsPasswordChangeNotice) {
+                Button("취소", role: .cancel) {}
+                Button("확인") { onPasswordChange?() }
+            }
             .onAppear { state.onReload?() }
             .onDisappear { state.onCancel?() }
     }

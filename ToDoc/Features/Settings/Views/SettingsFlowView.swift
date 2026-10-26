@@ -34,17 +34,75 @@ struct SettingsFlowView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            SettingsView(state: state, onPersonalInfo: { path.append(.personal) }, onCancerType: { path.append(.cancer) },
-                         onCancerStage: { path.append(.stage) }, onHospital: { path.append(.hospital) }, notificationSettings: notifications)
+            settingsRoot
                 .navigationDestination(for: Destination.self) { destination in
-                    switch destination {
-                    case .personal: personal()
-                    case .cancer: cancer()
-                    case .stage: stage()
-                    case .hospital: hospital()
-                    }
+                    destinationView(for: destination)
                 }
         }
+        .onChange(of: viewModel?.passwordChangeState.didSave, handlePasswordSaved)
+        .onChange(of: viewModel?.passwordChangeState.codeError, handlePasswordCodeError)
+        .onChange(of: path, handlePathChange)
+    }
+
+    private var settingsRoot: some View {
+        SettingsView(
+            state: state,
+            onPersonalInfo: { path.append(.personal) },
+            onCancerType: { path.append(.cancer) },
+            onCancerStage: { path.append(.stage) },
+            onHospital: { path.append(.hospital) },
+            onPasswordChange: passwordChangeAction,
+            notificationSettings: notifications
+        )
+    }
+
+    private var passwordChangeAction: (() -> Void)? {
+        guard viewModel != nil else { return nil }
+        return { startPasswordChange() }
+    }
+
+    @ViewBuilder
+    private func destinationView(for destination: Destination) -> some View {
+        switch destination {
+        case .personal: personal()
+        case .cancer: cancer()
+        case .stage: stage()
+        case .hospital: hospital()
+        case .passwordCode:
+            if let viewModel {
+                PasswordCodeEntryView(state: viewModel.passwordChangeState) {
+                    path.append(.newPassword)
+                }
+            }
+        case .newPassword:
+            if let viewModel {
+                NewPasswordEntryView(state: viewModel.passwordChangeState)
+            }
+        }
+    }
+
+    private func handlePasswordSaved(_ oldValue: Bool?, _ didSave: Bool?) {
+        if didSave == true { path = [] }
+    }
+
+    private func handlePasswordCodeError(_ oldValue: String?, _ codeError: String?) {
+        if codeError != nil && path.last == .newPassword { path.removeLast() }
+    }
+
+    private func handlePathChange(_ oldPath: [Destination], _ newPath: [Destination]) {
+        let wasInPasswordChange = oldPath.contains(.passwordCode) || oldPath.contains(.newPassword)
+        let isInPasswordChange = newPath.contains(.passwordCode) || newPath.contains(.newPassword)
+        if wasInPasswordChange && !isInPasswordChange && viewModel?.passwordChangeState.didSave != true {
+            viewModel?.passwordChangeState.onCancel?()
+        }
+    }
+
+    private func startPasswordChange() {
+        guard let viewModel else { return }
+
+        viewModel.discardPasswordChange()
+        path.append(.passwordCode)
+        viewModel.passwordChangeState.onSendCode?()
     }
 }
 #Preview {
