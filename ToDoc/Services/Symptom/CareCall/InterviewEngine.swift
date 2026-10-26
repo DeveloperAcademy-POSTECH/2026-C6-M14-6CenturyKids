@@ -1060,6 +1060,27 @@ final class InterviewEngine {
         return Output(utterance: text, phase: phase)
     }
 
+    // MARK: - 화면 표시
+
+    /// 대화 진행 정도 (0~1): 첫 질문, 물을 항목마다 하나, '그 밖에' 중 끝난 것. 다시 거는 통화는 묻는 항목만 센다
+    var progress: Double {
+        if phase == .saved { return 1 }
+        let only = unasked.map { $0.union(ledger.order) }
+        let effects = config.effects.filter { only?.contains($0.id) ?? true }
+        let settled = effects.filter { ledger[$0.id] != nil && SlotPlanner.pendingStep(ledger[$0.id], effect: $0) == nil }.count
+        let done = settled + (phase == .opening ? 0 : 1) + (otherAsked ? 1 : 0)
+        return Double(done) / Double(effects.count + 2)
+    }
+
+    /// 말한 증상을 더 묻는 꼬리질문 (횟수·시작 시점·지속 시간·부위, 기타 증상의 시작 시점)
+    var asksMore: Bool {
+        switch phase {
+        case .slot(_, let step): step != .presence
+        case .other: otherDetailKey != nil
+        default: false
+        }
+    }
+
     /// 할 말을 마지막 질문으로 기억한다 (다음 분석 요청의 질문, 같은 질문 반복 판단에 쓴다)
     @discardableResult
     private func say(_ text: String) -> String {

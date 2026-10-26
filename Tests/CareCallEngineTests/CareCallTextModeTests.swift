@@ -249,4 +249,32 @@ struct CareCallTextModeTests {
         #expect(conversation.errorMessage == "음성 통화를 준비하지 못했어요. 문자로 이어서 답해 주세요.")
         #expect(!service.calls.contains(.call))
     }
+
+    // MARK: - 진행률·안내 문구·마지막 질문
+
+    @Test func 진행률_안내_문구_마지막_질문을_질문에_싣는다() async {
+        await enterText()
+        service.replies = [CareCallTurn(utterance: "구토는 하루에 몇 번 정도 하셨나요?", number: .count, outcome: nil, progress: 0.4, asksMore: true),
+                           CareCallTurn(utterance: "그 밖에 불편한 점은 없으셨나요?", number: nil, outcome: nil, progress: 0.9, isLast: true)]
+        await viewModel.answer(.text("토했어요"))?.value
+        #expect(conversation.question?.progress == 0.4)
+        #expect(conversation.question?.guidance == "말씀해 주신 내용에 대해 조금 더 여쭤볼게요")
+        #expect(conversation.question?.isLastQuestion == false)
+        await viewModel.answer(.frequency(.count(2)))?.value
+        #expect(conversation.question?.guidance == nil && conversation.question?.isLastQuestion == true)
+    }
+
+    @Test func 마지막_질문에_답하면_처리하는_동안_정리_화면을_보여_준다() async {
+        await enterText()
+        service.replies = [CareCallTurn(utterance: "그 밖에 불편한 점은 없으셨나요?", number: nil, outcome: nil, isLast: true),
+                           turn("오늘 기록을 마쳤어요.", nil, .completed(record()))]
+        await viewModel.answer(.text("없어요"))?.value
+        service.hold = .answer
+        let task = viewModel.answer(.text("없어요"))
+        #expect(conversation.isSummarizing)
+        await waitUntil { service.isHolding }
+        service.release()
+        await task?.value
+        #expect(!conversation.isSummarizing && conversation.summary != nil)
+    }
 }

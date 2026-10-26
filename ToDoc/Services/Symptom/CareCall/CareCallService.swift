@@ -93,7 +93,9 @@ final class CareCallService: CareCalling {
 
     private func turn(_ out: InterviewEngine.Output, of conversation: Conversation) -> CareCallTurn {
         CareCallTurn(utterance: out.utterance, number: conversation.engine.expectedNumber,
-                     outcome: out.isFinished ? outcome(of: conversation, phase: out.phase) : nil)
+                     outcome: out.isFinished ? outcome(of: conversation, phase: out.phase) : nil,
+                     progress: conversation.engine.progress, asksMore: conversation.engine.asksMore,
+                     isLast: conversation.engine.phase == .other)
     }
 
     /// 마무리 인사까지 마쳤으면 그날 기록, 응급이면 응급 전까지의 기록과 응급으로 끝낸 말, 중간이면 끊긴 곳까지 답한 기록
