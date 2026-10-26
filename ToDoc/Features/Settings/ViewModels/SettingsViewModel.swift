@@ -519,16 +519,18 @@ final class SettingsViewModel {
     }
 
     func discardPasswordChange() {
-        guard !passwordChangeState.isSaving else { return }
+        guard !passwordChangeState.isSaving, !passwordChangeState.isSendingCode else { return }
 
-        passwordChangeState.currentPassword = ""
+        passwordChangeState.verificationCode = ""
+        passwordChangeState.hasSentCode = false
+        passwordChangeState.codeError = nil
+
         passwordChangeState.newPassword = ""
         passwordChangeState.passwordConfirmation = ""
-        passwordChangeState.isCurrentPasswordVerified = false
-        passwordChangeState.didSave = false
-        passwordChangeState.currentPasswordError = nil
         passwordChangeState.newPasswordError = nil
         passwordChangeState.confirmationError = nil
+
+        passwordChangeState.didSave = false
         passwordChangeState.errorMessage = nil
     }
 
