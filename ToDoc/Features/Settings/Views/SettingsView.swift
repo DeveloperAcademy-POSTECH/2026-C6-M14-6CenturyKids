@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @State private var state: SettingsScreenState
     @State private var showsPasswordChangeNotice = false
+    @State private var showsLogoutConfirmation = false
     private let onPersonalInfo: (() -> Void)?
     private let onCancerType: (() -> Void)?
     private let onCancerStage: (() -> Void)?
@@ -60,12 +61,31 @@ struct SettingsView: View {
                             .disabled(state.onReload == nil).accessibilityIdentifier("settings.reloadProfile")
                     }
                 }
-                SettingsSection(title: "계정") {
-                    Button { showsPasswordChangeNotice = true } label: {
-                        SettingsRow(title: "비밀번호 재설정", chevron: true)
+                VStack(alignment: .leading, spacing: 8) {
+                    SettingsSection(title: "계정") {
+                        Button { showsPasswordChangeNotice = true } label: {
+                            SettingsRow(title: "비밀번호 재설정", chevron: true)
+                        }
+                        .disabled(onPasswordChange == nil)
+                        .accessibilityIdentifier("settings.password.change")
+
+                        SettingsDivider()
+
+                        Button { showsLogoutConfirmation = true } label: {
+                            SettingsRow(title: "로그아웃")
+                        }
+                        .disabled(state.isSigningOut || state.onLogout == nil)
+                        .accessibilityIdentifier("settings.logout")
+                        .alert("로그아웃 하시겠습니까?", isPresented: $showsLogoutConfirmation) {
+                            Button("취소", role: .cancel) {}
+                            Button("로그아웃", role: .destructive) { state.onLogout?() }
+                        }
                     }
-                    .disabled(onPasswordChange == nil)
-                    .accessibilityIdentifier("settings.password.change")
+
+                    if state.isSigningOut || state.logoutErrorMessage != nil {
+                        SettingsFeedback(busy: state.isSigningOut, error: state.logoutErrorMessage)
+                            .padding(.horizontal, 16)
+                    }
                 }
                 SettingsSection(title: "기타") {
                     NavigationLink { notificationSettings() } label: { SettingsRow(title: "알림 설정", chevron: true) }
