@@ -85,6 +85,15 @@ final class CareCallService: CareCalling {
         return turn(out, of: conversation)
     }
 
+    var canGoBack: Bool {
+        conversation?.engine.canGoBack ?? false
+    }
+
+    func back() -> (turn: CareCallTurn, answer: String)? {
+        guard let conversation, let back = conversation.engine.goBack() else { return nil }
+        return (turn(back.output, of: conversation), back.answer)
+    }
+
     func end() -> CareCallOutcome {
         defer { conversation = nil }
         guard let conversation else { return .interrupted(nil) }
