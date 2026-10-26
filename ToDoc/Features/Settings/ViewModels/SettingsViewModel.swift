@@ -457,11 +457,12 @@ final class SettingsViewModel {
 
         state.didSave = false
         state.errorMessage = nil
-        state.validationMessage = AuthFormValidation.passwordError(state.newPassword)
-        guard state.validationMessage == nil else { return }
+        state.newPasswordError = AuthFormValidation.passwordChangeError(state.newPassword)
+        state.confirmationError = nil
+        guard state.newPasswordError == nil else { return }
 
         guard state.newPassword == state.passwordConfirmation else {
-            state.validationMessage = "새 비밀번호가 일치하지 않아요."
+            state.confirmationError = "새 비밀번호가 일치하지 않아요."
             return
         }
 
@@ -482,10 +483,14 @@ final class SettingsViewModel {
     func discardPasswordChange() {
         guard !passwordChangeState.isSaving else { return }
 
+        passwordChangeState.currentPassword = ""
         passwordChangeState.newPassword = ""
         passwordChangeState.passwordConfirmation = ""
+        passwordChangeState.isCurrentPasswordVerified = false
         passwordChangeState.didSave = false
-        passwordChangeState.validationMessage = nil
+        passwordChangeState.currentPasswordError = nil
+        passwordChangeState.newPasswordError = nil
+        passwordChangeState.confirmationError = nil
         passwordChangeState.errorMessage = nil
     }
 
