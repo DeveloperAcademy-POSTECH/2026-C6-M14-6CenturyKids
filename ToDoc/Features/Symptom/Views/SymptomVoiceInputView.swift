@@ -1,20 +1,20 @@
 import SwiftUI
 
+/// Figma 음성 입력. 통화 전에는 "대화 시작하기"를 눌러 통화를 걸고, 통화 중에는 같은 자리에 "음성 인식 중 .."을 보여 줍니다.
 struct SymptomVoiceInputView: View {
     let question: SymptomConversationQuestion
     var transcript = ""
     var isListening = false
-    var isWorking = false
+    var isCalling = false
+    var onStart: (() -> Void)?
     var onEnd: (() -> Void)?
     var onSwitchToText: (() -> Void)?
 
     var body: some View {
-        SymptomQuestionLayout(question: question, switchTitle: "채팅 전환", showsNext: false,
-                              onEnd: onEnd, onSwitch: onSwitchToText) {
+        SymptomQuestionLayout(question: question, nextTitle: isCalling ? "음성 인식 중 .." : "대화 시작하기",
+                              canProceed: !isCalling, switchTitle: "채팅 전환", nextIsStatus: isCalling,
+                              onNext: onStart, onEnd: onEnd, onSwitch: onSwitchToText) {
             VStack(spacing: 40) {
-                Text(isListening ? "듣고 있어요. 편하게 말씀해 주세요." : isWorking ? "답변을 확인하고 있어요." : "안내를 듣고 답해 주세요.")
-                    .modifier(SymptomTextStyle(size: 16)).multilineTextAlignment(.center)
-                    .accessibilityIdentifier("symptom.voice.status")
                 GeometryReader { geometry in
                     RoundedRectangle(cornerRadius: 40)
                         .fill(LinearGradient(colors: [Color(white: 241 / 255), Color(white: 230 / 255)],
@@ -43,5 +43,5 @@ struct SymptomVoiceInputView: View {
 #Preview("Figma 음성 입력") {
     SymptomVoiceInputView(question: .init(id: UUID(), text: "오늘 몸 상태는 좀 어떠셨어요?",
                                           guidance: nil, progress: 0.243, input: .text),
-                          isListening: true, onEnd: {}, onSwitchToText: {})
+                          onStart: {}, onEnd: {}, onSwitchToText: {})
 }
