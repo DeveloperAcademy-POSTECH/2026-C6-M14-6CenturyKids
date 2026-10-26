@@ -285,6 +285,7 @@ final class CareCallViewModel {
     func startCall() -> Task<Void, Never>? {
         guard call == nil, typing == nil, !isOver else { return nil }
         conversation.errorMessage = nil
+        conversation.needsMicrophone = false
         conversation.isWorking = true // 첫 질문을 말하기 전까지
         conversation.isCalling = true
         let task = Task {
@@ -327,6 +328,7 @@ final class CareCallViewModel {
                 conversation.mode = .text
                 continueInText()
                 conversation.errorMessage = "음성 통화를 준비하지 못했어요. 문자로 이어서 답해 주세요."
+                conversation.needsMicrophone = preparation.preparation == .microphoneDenied
             } else if case CareCallServiceError.notPrepared? = failure {
                 conversation.errorMessage = "통화 준비가 끝나지 않았어요. 다시 시도해 주세요."
             } else if let failure {
