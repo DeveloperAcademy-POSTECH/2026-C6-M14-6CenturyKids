@@ -21,6 +21,7 @@ class LiveActivityService {
     }
     
     func startObserving() {
+        print("토큰 관찰 시작")
         guard observationTask == nil else { return }
         
         observationTask = Task { [weak self] in
@@ -30,6 +31,8 @@ class LiveActivityService {
                 
                 currentToken = token.map { String(format: "%02x", $0) }
                     .joined()
+                
+                print("시작용 토큰 수신")
                 
                 do {
                     try await syncToken()
@@ -48,18 +51,30 @@ class LiveActivityService {
     }
     
     func syncToken() async throws {
+        #if DEBUG
+        let environment = "sandbox"
+        #else
+        let environment = "production"
+        #endif
+        
         guard let token = currentToken else { return }
         
         let userId = try await authRepository.getCurrentUserId()
+        print("사용자 조회 성공: ", userId)
         
-        let tokenDTO = DeviceTokenDTO(userId: userId, installationId: InstallationId.value, updatedAt: .now, tokenType: .liveActivityStart, token: token, platform: "iOS")
+        let tokenDTO = DeviceTokenDTO(userId: userId, installationId: InstallationId.value, tokenType: .liveActivityStart, token: token, platform: "iOS", environment: environment)
         
         try await tokenRepository.save(token: tokenDTO)
+        print("DB 저장 성공")
     }
     
     func removeToken() async throws {
         let userId = try await authRepository.getCurrentUserId()
         
         try await tokenRepository.removeToken(userId: userId, installationId: InstallationId.value)
+    }
+    
+    func testStartLiveActivity() async throws {
+        try await tokenRepository.testStartLiveActivity()
     }
 }

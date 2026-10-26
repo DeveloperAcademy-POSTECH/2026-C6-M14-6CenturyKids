@@ -9,4 +9,6 @@ protocol DeviceTokenRepository {
     func save(token: DeviceTokenDTO) async throws
 
     func removeToken(userId: UUID, installationId: String) async throws
+    
+    func testStartLiveActivity() async throws
 }
