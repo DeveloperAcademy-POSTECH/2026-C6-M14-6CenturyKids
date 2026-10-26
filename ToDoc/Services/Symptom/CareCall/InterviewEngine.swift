@@ -51,6 +51,8 @@ final class InterviewEngine {
     /// 같은 날 다시 거는 통화면 오늘 기록에 아직 없는 항목(지난 통화가 끊겨 못 물음), 처음 통화면 nil.
     /// 다시 거는 통화는 "달라졌거나 새로 불편한 점"을 묻고, 그 답에서 나온 증상과 이 항목만 묻는다
     private let unasked: Set<String>?
+    /// 응급으로 끝냈을 때 이어 갈 단계와 질문 (환자가 기록을 이어 가기로 하면 이 질문부터 다시 묻는다)
+    private var resumePoint: (phase: InterviewPhase, question: String)?
     /// 답 한 턴마다 그 답을 받기 전 상태 (이전 질문으로 돌아갈 때). 분석기는 턴마다 새로 묻기 때문에 엔진 상태만 되돌리면 된다
     private var history: [Snapshot] = []
     /// 부위 낱말 (body_parts.json). 절 판단으로 '있음'이 된 답에서 그 절의 부위를 찾을 때만 쓴다
@@ -100,7 +102,9 @@ final class InterviewEngine {
             // 확인 질문에 아니라고 하면 하던 대로 잇는다. 그렇다고 하거나 분명하지 않으면 응급 안내로 끝낸다
             // 끝내면 응급으로 본 답과 확인 답을 함께 남긴다 ("대변 볼 때 시뻘건 피가 쏟아졌어요 / 네")
             guard reading.soundsNegative(patientText) else {
-                return endWithEmergency(pending.patientText + " / " + patientText, name: rules.endedName)
+                // 이어 가면 확인 전에 정한 다음 질문부터 (응급으로 본 답은 이미 기록했다)
+                return endWithEmergency(pending.patientText + " / " + patientText, name: rules.endedName,
+                                        resumeTo: (pending.phase, pending.output.utterance))
             }
             phase = pending.phase
             say(pending.output.utterance)
@@ -1055,12 +1059,25 @@ final class InterviewEngine {
 
     /// 응급 안내로 끝낸다. 끝낸 말은 기타 항목(name)에 원문으로 남긴다 (2026-10-24 사용자 결정: 응급으로 끝나도 그때까지의 기록과 함께 저장).
     /// 그 답은 분석하지 않는다: 묻던 항목은 답이 없어 저장하지 않는다
-    private func endWithEmergency(_ patientText: String, name: String, message: String? = nil) -> Output {
+    /// resumeTo: 이어 갈 때 다시 물을 단계와 질문 (기본은 응급 답을 받은 지금 질문)
+    private func endWithEmergency(_ patientText: String, name: String, message: String? = nil,
+                                  resumeTo: (phase: InterviewPhase, question: String)? = nil) -> Output {
         recordUnclearOther(patientText, name: name)
+        resumePoint = resumeTo ?? (phase, lastQuestion)
+        // 응급으로 남긴 말이 지워지지 않게 그 전으로는 돌아가지 않는다
+        history.removeAll()
         phase = .emergencyEnded
         let text = message ?? rules.message
         say(text)
         return Output(utterance: text, phase: phase)
+    }
+
+    /// 응급 안내 뒤 환자가 기록을 이어 가기로 함: 응급 전 질문부터 다시 묻는다 (응급으로 남긴 말은 그대로 둔다)
+    func continueAfterEmergency() -> Output? {
+        guard phase == .emergencyEnded, let point = resumePoint else { return nil }
+        resumePoint = nil
+        phase = point.phase
+        return Output(utterance: say(point.question), phase: phase)
     }
 
     // MARK: - 이전 질문

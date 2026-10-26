@@ -36,10 +36,13 @@ struct SymptomRecordView: View {
             .onAppear { state.onAction?(.open) }
             .onDisappear { state.onAction?(.cancel) }
     }
-    /// 질문 화면 위에 띄우는 팝업
+    /// 질문 화면 위에 띄우는 팝업. 응급 → 기록 중단 순으로 하나만
     @ViewBuilder
     private var popup: some View {
-        if confirmsEnd {
+        if state.isEmergency {
+            SymptomPopup.emergency(onStop: { state.onAction?(.stopForEmergency); close() },
+                                   onContinue: { state.onAction?(.continueAfterEmergency) })
+        } else if confirmsEnd {
             SymptomPopup.end(progress: state.question?.progress,
                              onContinue: { confirmsEnd = false; state.onAction?(.resume) },
                              onQuit: { confirmsEnd = false; state.onAction?(.discard); close() })

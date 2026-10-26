@@ -13,7 +13,7 @@ import Observation
 
 /// 케어콜 화면(CareCallFlowView)의 상태를 보관한다: 준비(대기 화면) → 대화(음성 통화·문자 답) → 요약 수정·저장.
 /// 음성과 문자를 오가도 서비스의 같은 대화를 이어 간다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장하고,
-/// 기록 중단 팝업에서 그만하면 저장하지 않은 기록을 버린다.
+/// 기록 중단 팝업에서 그만하면 저장하지 않은 기록을 버린다 (응급으로 남긴 말이 있으면 버리지 않는다).
 /// 받은 답은 답마다 폰에도 남겨, 앱이 꺼지거나 저장이 실패하면 다음에 케어콜에 들어갈 때 조용히 올린다.
 /// 화면에 들어오면 loadPatient()로 로그인 환자를 찾는다 (PainRecordViewModel과 같은 방식)
 @MainActor
@@ -74,6 +74,8 @@ final class CareCallViewModel {
     private var callAfterTyping = false
     /// 기록 중단 팝업을 띄워 통화를 잠시 끊음 (계속 작성하면 다시 건다)
     private var paused = false
+    /// 이 대화에서 응급으로 판단된 적이 있음. 이어 간 뒤에도 그 말을 버리지 않고 그날 기록에 더한다
+    private var hadEmergency = false
     private var saving: Task<Void, Never>?
     private var isSaved = false
 
@@ -227,6 +229,8 @@ final class CareCallViewModel {
         case .pause: pause()
         case .resume: resume()
         case .discard: discard()
+        case .stopForEmergency: stopForEmergency()
+        case .continueAfterEmergency: continueAfterEmergency()
         }
     }
 
@@ -471,9 +475,14 @@ final class CareCallViewModel {
         }
     }
 
-    /// 대화 화면을 떠날 때 불린다. 통화 중이면 끊고(끊긴 곳까지의 기록은 outcome에 남는다), 문자 대화면 받은 답까지 끝낸다
+    /// 대화 화면을 떠날 때 불린다. 통화 중이면 끊고(끊긴 곳까지의 기록은 outcome에 남는다), 문자 대화면 받은 답까지 끝낸다.
+    /// 응급 팝업에서 고르지 않고 떠나면 응급으로 끝난 기록을 저장한다
     func endCall() {
         leftCall = true
+        if conversation.isEmergency {
+            conversation.isEmergency = false
+            save(showingResult: false)
+        }
         if let call {
             call.cancel()
             Task { await service.stop() }
@@ -505,12 +514,29 @@ final class CareCallViewModel {
         if call == nil, !isOver { start() }
     }
 
-    /// 그만하기: 저장하지 않은 기록을 버리고 대화를 끝낸다
+    /// 그만하기: 저장하지 않은 기록을 버리고 대화를 끝낸다. 응급으로 남긴 말이 있으면 버리지 않고 저장한다
     private func discard() {
         paused = false
-        forget()
-        isSaved = true // 끝낸 대화의 기록을 저장하지도 폰에 남기지도 않는다
+        if !hadEmergency {
+            forget()
+            isSaved = true // 끝낸 대화의 기록을 저장하지도 폰에 남기지도 않는다
+        }
         endCall()
+    }
+
+    /// 응급 팝업의 기록 중단: 응급 전까지의 기록과 응급으로 끝낸 말을 저장한다 (실패하면 폰에 남겨 다음 케어콜에 올린다)
+    private func stopForEmergency() {
+        conversation.isEmergency = false
+        save(showingResult: false)
+    }
+
+    /// 응급 팝업의 기록 이어가기: 응급 전 질문부터 다시 묻는다. 통화였으면 다시 건다
+    private func continueAfterEmergency() {
+        guard case .emergencyEnded? = outcome, let turn = service.continueAfterEmergency() else { return }
+        outcome = nil
+        conversation.isEmergency = false
+        show(turn)
+        if conversation.mode == .voice { startCall() }
     }
 
     private func show(_ activity: CareCallActivity) {
@@ -557,11 +583,12 @@ final class CareCallViewModel {
             conversation.question = nil
             conversation.errorMessage = "통화가 끊겼어요. 다시 시도해 주세요."
         case .emergencyEnded(let record):
-            // 요약 화면 없이 바로 저장한다 (실패하면 폰에 남겨 다음 케어콜에 올린다). 마지막으로 말한 응급 안내가 화면에 남는다
-            // (응급 화면은 디자인 팀과 정할 예정)
+            // 응급 팝업으로 기록 중단·이어가기를 묻는다 (마지막으로 말한 응급 안내가 뒤에 남는다). 고르기 전에 앱이 꺼져도
+            // 폰에 남긴 기록을 다음 케어콜에 올린다. 대화 중에 떠났으면 묻지 않고 바로 저장한다
             self.record = record
+            hadEmergency = true
             keep(record)
-            save(showingResult: false)
+            if leftCall { save(showingResult: false) } else { conversation.isEmergency = true }
         }
     }
 
@@ -632,7 +659,7 @@ final class CareCallViewModel {
             summary?.errorMessage = nil
             summary?.editingEntryID = nil
         }
-        let complete = Self.isFinal(outcome) // 마친 통화·응급 종료는 그날 기록에 더한다
+        let complete = Self.isFinal(outcome) || hadEmergency // 마친 통화·응급 종료는 그날 기록에 더한다
         let task = Task {
             do {
                 let stored = try await store(record, complete: complete)
@@ -670,7 +697,7 @@ final class CareCallViewModel {
     /// 지금까지 받은 답을 폰에 남긴다. 남기지 못해도 대화는 이어 간다 (서버 저장은 따로 한다)
     private func keep(_ record: SymptomRecord?) {
         guard let record, !isSaved else { return }
-        let complete = Self.isFinal(outcome) // 마친 통화·응급 종료는 그날 기록에 더한다
+        let complete = Self.isFinal(outcome) || hadEmergency // 마친 통화·응급 종료는 그날 기록에 더한다
         try? pending.save(PendingCareCall(id: pendingId, record: record, complete: complete))
     }
 

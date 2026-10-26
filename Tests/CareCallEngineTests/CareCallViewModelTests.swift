@@ -80,6 +80,14 @@ final class FakeCareCall: CareCalling {
         return last
     }
 
+    /// 응급 뒤 기록을 이어 가면 다시 물을 질문
+    var resumeTurn: CareCallTurn?
+
+    func continueAfterEmergency() -> CareCallTurn? {
+        if let resumeTurn { current = resumeTurn }
+        return resumeTurn
+    }
+
     func release() {
         held?.resume()
         held = nil
@@ -402,6 +410,20 @@ struct CareCallViewModelTests {
         for _ in 0..<1_000 where conversation.isCalling { await Task.yield() }
         for _ in 0..<200 { await Task.yield() }
         #expect(repository.saved.isEmpty)
+    }
+
+    @Test func 통화_중_응급_뒤_이어_가면_다시_건다() async {
+        await enterVoiceCall()
+        service.outcome = .emergencyEnded(record([]))
+        await viewModel.startCall()?.value
+        #expect(conversation.isEmergency && repository.saved.isEmpty)
+        service.resumeTurn = CareCallTurn(utterance: "변비는 있으셨나요?", number: nil, outcome: nil)
+        service.outcome = .completed(record([entry(.diarrhea, .present)]))
+        conversation.onAction?(.continueAfterEmergency)
+        #expect(!conversation.isEmergency)
+        for _ in 0..<1_000 where conversation.summary == nil { await Task.yield() }
+        #expect(service.calls.filter { $0 == .call }.count == 2)
+        #expect(repository.saved.isEmpty) // 요약에서 저장한다
     }
 
     // MARK: - 요약 수정·저장

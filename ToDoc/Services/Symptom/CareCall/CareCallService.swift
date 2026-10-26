@@ -94,6 +94,11 @@ final class CareCallService: CareCalling {
         return (turn(back.output, of: conversation), back.answer)
     }
 
+    func continueAfterEmergency() -> CareCallTurn? {
+        guard let conversation, let out = conversation.engine.continueAfterEmergency() else { return nil }
+        return turn(out, of: conversation)
+    }
+
     func end() -> CareCallOutcome {
         defer { conversation = nil }
         guard let conversation else { return .interrupted(nil) }

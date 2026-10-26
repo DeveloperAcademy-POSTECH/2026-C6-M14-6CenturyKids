@@ -111,15 +111,55 @@ struct CareCallTextModeTests {
         #expect(viewModel.answer(.text("더 말함")) == nil)
     }
 
-    @Test func 응급이면_안내를_남기고_더_받지_않으며_기록은_저장한다() async {
+    @Test func 응급이면_안내를_남기고_팝업으로_묻고_기록_중단하면_저장한다() async {
         await enterText()
         let saved = record()
         service.replies = [turn("응급 안내 문구", nil, .emergencyEnded(saved))]
         await viewModel.answer(.text("숨이 차요"))?.value
         #expect(conversation.question?.text == "응급 안내 문구" && conversation.summary == nil)
+        #expect(conversation.isEmergency)
         #expect(viewModel.answer(.text("네")) == nil)
+        for _ in 0..<100 { await Task.yield() }
+        #expect(repository.saved.isEmpty) // 고르기 전에는 저장하지 않는다 (폰에는 남긴다)
+        conversation.onAction?(.stopForEmergency)
+        #expect(!conversation.isEmergency)
         await waitUntil { repository.saved.count == 1 }
         #expect(repository.saved.first?.id == saved.id)
+    }
+
+    @Test func 응급_뒤_기록을_이어_가면_응급_전_질문부터_다시_묻고_끝나면_더해_저장한다() async {
+        await enterText()
+        let emergency = record()
+        service.replies = [turn("응급 안내 문구", nil, .emergencyEnded(emergency))]
+        await viewModel.answer(.text("숨이 차요"))?.value
+        service.resumeTurn = turn("변비는 있으셨나요?")
+        conversation.onAction?(.continueAfterEmergency)
+        #expect(!conversation.isEmergency && viewModel.outcome == nil)
+        #expect(conversation.question?.text == "변비는 있으셨나요?")
+        let finished = record()
+        service.replies = [turn("오늘 기록을 마쳤어요.", nil, .completed(finished))]
+        await viewModel.answer(.text("없어요"))?.value
+        #expect(service.answers.last == "없어요")
+        #expect(conversation.summary?.record.id == finished.id)
+    }
+
+    @Test func 응급_뒤_이어_가다_그만해도_응급으로_남긴_말은_저장한다() async {
+        await enterText()
+        service.replies = [turn("응급 안내 문구", nil, .emergencyEnded(record()))]
+        await viewModel.answer(.text("숨이 차요"))?.value
+        service.resumeTurn = turn("변비는 있으셨나요?")
+        conversation.onAction?(.continueAfterEmergency)
+        service.endOutcome = .interrupted(record())
+        conversation.onAction?(.discard)
+        await waitUntil { repository.saved.count == 1 }
+    }
+
+    @Test func 응급_팝업에서_고르지_않고_떠나도_저장한다() async {
+        await enterText()
+        service.replies = [turn("응급 안내 문구", nil, .emergencyEnded(record()))]
+        await viewModel.answer(.text("숨이 차요"))?.value
+        conversation.onAction?(.cancel)
+        await waitUntil { repository.saved.count == 1 }
     }
 
     @Test func 문자_대화_중에_떠나면_받은_답까지_저장한다() async {

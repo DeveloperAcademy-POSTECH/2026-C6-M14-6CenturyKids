@@ -65,6 +65,36 @@ extension SymptomPopup {
             .padding(.bottom, 28)
         }
     }
+
+    /// Figma 547:23175 응급상황 (Dialog: 메인 버튼 + 글자 버튼)
+    static func emergency(onStop: @escaping () -> Void, onContinue: @escaping () -> Void) -> SymptomPopup {
+        SymptomPopup {
+            VStack(spacing: 0) {
+                VStack(spacing: 12) {
+                    Text("응급상황으로 판단되었습니다").modifier(SymptomTextStyle(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(red: 43 / 255, green: 40 / 255, blue: 43 / 255))
+                        .accessibilityAddTraits(.isHeader)
+                    Text("기록을 잠시 멈추고 의료진과 연락해 보세요").modifier(SymptomTextStyle(size: 14))
+                        .foregroundStyle(Color(red: 104 / 255, green: 100 / 255, blue: 104 / 255))
+                }
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 24).padding(.top, 32).padding(.bottom, 24)
+                VStack(spacing: 4) {
+                    Button(action: onStop) { AppForwardLabel(title: "기록 중단", asset: "CareConversationNext") }
+                        .buttonStyle(AppButtonStyle())
+                    Button(action: onContinue) {
+                        Text("기록 이어가기").modifier(SymptomTextStyle(size: 16, weight: .semibold))
+                            .foregroundStyle(Color(red: 71 / 255, green: 109 / 255, blue: 23 / 255))
+                            .padding(.horizontal, 16).frame(minHeight: 44).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 20).padding(.bottom, 20)
+            }
+        }
+    }
 }
 
 #Preview("기록 중단") { SymptomPopup.end(progress: 0.63, onContinue: {}, onQuit: {}) }
+#Preview("응급") { SymptomPopup.emergency(onStop: {}, onContinue: {}) }
