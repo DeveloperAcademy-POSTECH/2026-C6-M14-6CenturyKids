@@ -2,11 +2,11 @@ import SwiftUI
 
 /// 설정 하이파이의 그룹형 행 스타일. 공통 디자인 시스템 파일은 변경하지 않습니다.
 enum SettingsPalette {
-    static let background = Color(red: 241 / 255, green: 241 / 255, blue: 247 / 255)
+    static let background = Color(red: 248 / 255, green: 248 / 255, blue: 248 / 255)
     static let primary = Color(red: 28 / 255, green: 28 / 255, blue: 30 / 255)
     static let secondary = Color(red: 142 / 255, green: 142 / 255, blue: 147 / 255)
     static let caption = Color(red: 109 / 255, green: 109 / 255, blue: 114 / 255)
-    static let action = Color(red: 100 / 255, green: 130 / 255, blue: 56 / 255)
+    static let action = Color.blue
 }
 private struct SettingsTextStyle: ViewModifier {
     @ScaledMetric private var size: CGFloat
@@ -30,48 +30,37 @@ struct SettingsScreen<Content: View>: View {
     var save: (() -> Void)?
     let cancel: () -> Void
     @ViewBuilder let content: () -> Content
-    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
-        VStack(spacing: 0) {
-            header.padding(.horizontal, 20).padding(.vertical, 4)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24, content: content)
-                    .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 32)
-            }.scrollDismissesKeyboard(.interactively)
-        }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28, content: content)
+                .padding(.horizontal, 24).padding(.top, 30).padding(.bottom, 32).buttonStyle(.plain)
+        }.scrollDismissesKeyboard(.interactively)
         .foregroundStyle(SettingsPalette.primary).background(SettingsPalette.background.ignoresSafeArea())
-        .toolbar(.hidden, for: .navigationBar).buttonStyle(.plain)
-    }
-    @ViewBuilder private var header: some View {
-        if typeSize.isAccessibilitySize {
-            VStack(spacing: 0) {
-                titleLabel
-                HStack { cancelButton; Spacer(); saveButton }
+        .navigationBarBackButtonHidden().navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(title).settingsText(20, bold: true).accessibilityAddTraits(.isHeader)
             }
-        } else {
-            HStack(spacing: 10) { cancelButton; Spacer(minLength: 0); titleLabel; Spacer(minLength: 0); saveButton }
+            ToolbarItem(placement: .cancellationAction) {
+                Button(action: cancel) {
+                    if cancelTitle == "이전" { Image(systemName: "chevron.backward") }
+                    else { Text(cancelTitle) }
+                }.tint(SettingsPalette.primary).disabled(isSaving).accessibilityLabel(cancelTitle).accessibilityIdentifier("settings.cancel")
+            }
+            ToolbarItem(placement: .confirmationAction) { saveButton }
         }
-    }
-    private var titleLabel: some View {
-        Text(title).settingsText(17, bold: true).multilineTextAlignment(.center).accessibilityAddTraits(.isHeader)
-    }
-    private var cancelButton: some View {
-        Button(action: cancel) {
-            HStack(spacing: 6) {
-                if cancelTitle == "이전" { Image("SettingsBack").resizable().frame(width: 10, height: 19).accessibilityHidden(true) }
-                Text(cancelTitle).settingsText()
-            }.frame(minWidth: 44, minHeight: 44)
-        }.accessibilityIdentifier("settings.cancel")
+        .tint(SettingsPalette.action)
     }
     @ViewBuilder private var saveButton: some View {
         if let save {
             Button(action: save) {
                 Group { if isSaving { ProgressView().accessibilityLabel("저장 중") }
-                    else { Text("완료").settingsText(17, bold: true) } }
+                    else { Image(systemName: "checkmark").accessibilityLabel("완료") } }
                     .frame(minWidth: 44, minHeight: 44)
             }.foregroundStyle(canSave ? SettingsPalette.action : SettingsPalette.secondary)
                 .disabled(!canSave).accessibilityIdentifier("settings.done")
-        } else { Color.clear.frame(width: 44, height: 44).accessibilityHidden(true) }
+        }
     }
 
 }
@@ -81,8 +70,8 @@ struct SettingsSection<Content: View>: View {
     @ViewBuilder let content: () -> Content
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !title.isEmpty { Text(title).settingsText(13).foregroundStyle(SettingsPalette.caption).padding(.horizontal, 16) }
-            VStack(spacing: 0, content: content).background(.white, in: RoundedRectangle(cornerRadius: 14))
+            if !title.isEmpty { Text(title).settingsText(16, bold: true).foregroundStyle(SettingsPalette.caption) }
+            VStack(spacing: 0, content: content).background(.white, in: RoundedRectangle(cornerRadius: 26))
             if let footer { Text(footer).settingsText(13).foregroundStyle(SettingsPalette.caption).padding(.horizontal, 16) }
         }
     }
