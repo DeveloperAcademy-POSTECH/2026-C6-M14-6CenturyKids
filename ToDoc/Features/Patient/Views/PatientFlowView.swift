@@ -14,9 +14,12 @@ struct PatientFlowView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var tab = Tab.home
     @State private var path: [HomeDestination] = []
+    @State private var showsPrevisit = false
+    @State private var previsitSession = PrevisitSession()
     let home: HomeScreenState
     var onHomeContextChange: (Bool, Bool) -> Void
     var onReloadHome: (() -> Void)?
+    var previsit: (PrevisitSession) -> PrevisitFlowView
     var pain: (PainRecordNavigation) -> PainRecordView
     var preparePainDetail: (Date) -> Void
     var painDetail: () -> PainRecordDetailView
@@ -31,6 +34,7 @@ struct PatientFlowView: View {
         home: HomeScreenState? = nil,
         onHomeContextChange: @escaping (Bool, Bool) -> Void = { _, _ in },
         onReloadHome: (() -> Void)? = nil,
+        previsit: @escaping (PrevisitSession) -> PrevisitFlowView = { .init(session: $0) },
         pain: @escaping (PainRecordNavigation) -> PainRecordView,
         preparePainDetail: @escaping (Date) -> Void,
         painDetail: @escaping () -> PainRecordDetailView,
@@ -44,6 +48,7 @@ struct PatientFlowView: View {
         self.home = home ?? .init()
         self.onHomeContextChange = onHomeContextChange
         self.onReloadHome = onReloadHome
+        self.previsit = previsit
         self.pain = pain
         self.preparePainDetail = preparePainDetail
         self.painDetail = painDetail
@@ -58,7 +63,8 @@ struct PatientFlowView: View {
     var body: some View {
         TabView(selection: $tab) {
             NavigationStack(path: $path) {
-                HomeView(state: home, onSelect: { path.append($0) }, onReload: onReloadHome)
+                HomeView(state: home, onSelect: { path.append($0) },
+                         onPrevisit: { showsPrevisit = true }, onReload: onReloadHome)
                     .navigationDestination(for: HomeDestination.self) { destination in
                         Group {
                             switch destination {
@@ -84,13 +90,16 @@ struct PatientFlowView: View {
             records().tabItem { Label("기록확인", systemImage: "chart.bar.fill") }.tag(Tab.records)
             settings().tabItem { Label("설정", systemImage: "gearshape.fill") }.tag(Tab.settings)
         }
+        .fullScreenCover(isPresented: $showsPrevisit, onDismiss: { previsitSession.pause() }) {
+            NavigationStack { previsit(previsitSession) }
+        }
         .onAppear { updateHomeContext() }
         .onChange(of: isHomeVisible) { updateHomeContext() }
         .onChange(of: scenePhase) { updateHomeContext() }
         .onDisappear { onHomeContextChange(false, false) }
     }
 
-    private var isHomeVisible: Bool { tab == .home && path.isEmpty }
+    private var isHomeVisible: Bool { tab == .home && path.isEmpty && !showsPrevisit }
     private func updateHomeContext() {
         onHomeContextChange(isHomeVisible, scenePhase == .active)
     }
