@@ -47,7 +47,7 @@ final class SettingsViewModel {
         personalInfoState.onLoad = { [weak self] in
             Task { await self?.loadPersonalInfo() }
         }
-
+        
         screenState.onReload = { [weak self] in
             Task { [weak self] in
                 await self?.loadProfile()

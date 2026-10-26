@@ -2,6 +2,8 @@ import SwiftUI
 
 struct DiagnosisEditScreen: View {
     @State private var state: DiagnosisScreenState?
+    @State private var showsCustomCancerEntry = false
+    @State private var isCustomCancerFlow = false
     @Environment(\.dismiss) private var dismiss
     let field: DiagnosisField
     private let onSaved: () -> Void
@@ -18,6 +20,17 @@ struct DiagnosisEditScreen: View {
                     // 기존 가입 계약의 나머지 암종은 원본에 그룹이 없어 기본 목록으로 보존합니다.
                     cancerSection("그 외 암종", values: [.thyroid, .kidney, .breast, .prostate], state: state)
                     Text("진단받은 내용을 기준으로 선택해 주세요.").settingsText(13).foregroundStyle(SettingsPalette.caption).padding(.horizontal, 16)
+                    SettingsSection(title: "기타") {
+                        Button {
+                            state.onBeginCustomCancer?()
+                            isCustomCancerFlow = true
+                            showsCustomCancerEntry = true
+                        } label: {
+                            SettingsRow(title: "암종 추가", chevron: true)
+                        }
+                        .disabled(!state.canSave || state.isSaving || state.onBeginCustomCancer == nil)
+                        .accessibilityIdentifier("settings.carcinoma.custom")
+                    }
                 } else {
                     SettingsSection(title: "진단받은 병기", footer: "진단받은 병기를 선택해 주세요.\n정확한 병기는 담당 의료진에게 확인할 수 있어요.") {
                         ForEach(Array(CarcinomaStage.allCases.enumerated()), id: \.element.rawValue) { index, stage in
@@ -29,9 +42,16 @@ struct DiagnosisEditScreen: View {
                 SettingsFeedback(error: state.errorMessage)
             } else { Text("환자 정보를 먼저 불러와 주세요.").settingsText() }
         }
-        .onAppear { state?.onLoad?() }
-        .onDisappear { state?.onCancel?() }
-        .onChange(of: state?.didSave) { _, saved in if saved == true { onSaved(); dismiss() } }
+        .fullScreenCover(isPresented: $showsCustomCancerEntry, onDismiss: finishCustomCancerEntry) {
+            if let state {
+                CustomCarcinomaEntryView(state: state)
+            }
+        }
+        .onAppear { if !isCustomCancerFlow { state?.onLoad?() } }
+        .onDisappear { if !isCustomCancerFlow { state?.onCancel?() } }
+        .onChange(of: state?.didSave) { _, saved in
+            if saved == true && !isCustomCancerFlow { onSaved(); dismiss() }
+        }
     }
     private func cancerSection(_ title: String, values: [CarcinomaType], state: DiagnosisScreenState) -> some View {
         SettingsSection(title: title) {
@@ -59,4 +79,13 @@ struct DiagnosisEditScreen: View {
         switch value { case .carcinoma(let cancer): cancer.rawValue; case .stage(let stage): stage.rawValue }
     }
     private func save() { state?.onSave?() }
+    private func finishCustomCancerEntry() {
+        if state?.didSave == true {
+            onSaved()
+            dismiss()
+        } else {
+            state?.onCancelCustomCancer?()
+            isCustomCancerFlow = false
+        }
+    }
 }
