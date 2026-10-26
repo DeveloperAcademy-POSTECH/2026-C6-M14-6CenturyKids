@@ -1,10 +1,12 @@
 import SwiftUI
+import UIKit
 
 struct SymptomRecordView: View {
     @State var state = SymptomScreenState()
     /// 대화 중 종료하기를 눌러 기록 중단 팝업을 띄움
     @State private var confirmsEnd = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     var onClose: (() -> Void)?
     var onShowRecord: (() -> Void)?
     var onHome: (() -> Void)?
@@ -17,26 +19,21 @@ struct SymptomRecordView: View {
             } else if state.isSummarizing {
                 SymptomSummaryLoadingView()
             } else if let question = state.question {
-                VStack(spacing: 0) {
-                    if let error = state.errorMessage { Text(error).foregroundStyle(.red).padding(12) }
-                    SymptomConversationContent(state: state, question: question, onEnd: askEnd,
-                        onSwitch: { state.onAction?(.switchMode($0)) }).id(question.id)
-                }
-                .overlay { popup }
+                SymptomConversationContent(state: state, question: question, onEnd: askEnd,
+                    onSwitch: { state.onAction?(.switchMode($0)) }).id(question.id)
+                    .overlay { popup }
+            } else if state.errorMessage != nil, !state.isWorking {
+                SymptomServiceErrorView(onRetry: state.onAction.map { action in { action(.start) } })
             } else {
-                VStack(spacing: 20) {
-                    Text("대화 기능 연결 전이에요").font(.headline)
-                    if state.isWorking { ProgressView("질문을 준비하고 있어요") }
-                    if let error = state.errorMessage { Text(error) }
-                    Button("다시 시도") { state.onAction?(.start) }.disabled(state.isWorking || state.onAction == nil)
-                    Button("종료하기", action: close)
-                }.padding(24).buttonStyle(.bordered)
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityLabel("질문을 준비하고 있어요")
             }
         }.background(.white).toolbar(.hidden, for: .navigationBar)
             .onAppear { state.onAction?(.open) }
             .onDisappear { state.onAction?(.cancel) }
     }
-    /// 질문 화면 위에 띄우는 팝업. 응급 → 기록 중단 순으로 하나만
+
+    /// 질문 화면 위에 띄우는 팝업. 응급 → 기록 중단 → 오류 순으로 하나만
     @ViewBuilder
     private var popup: some View {
         if state.isEmergency {
@@ -46,12 +43,26 @@ struct SymptomRecordView: View {
             SymptomPopup.end(progress: state.question?.progress,
                              onContinue: { confirmsEnd = false; state.onAction?(.resume) },
                              onQuit: { confirmsEnd = false; state.onAction?(.discard); close() })
+        } else if state.errorMessage != nil, state.needsMicrophone {
+            SymptomPopup.microphone(onConfirm: clearError, onSettings: openSettings)
+        } else if state.errorMessage != nil {
+            SymptomPopup.service(onConfirm: clearError, onSettings: openSettings)
         }
     }
 
     private func askEnd() {
         confirmsEnd = true
         state.onAction?(.pause)
+    }
+
+    private func clearError() {
+        state.errorMessage = nil
+        state.needsMicrophone = false
+    }
+
+    private func openSettings() {
+        clearError()
+        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
     }
 
     private func close() { if let onClose { onClose() } else { dismiss() } }

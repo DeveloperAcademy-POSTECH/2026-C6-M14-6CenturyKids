@@ -94,7 +94,61 @@ extension SymptomPopup {
             }
         }
     }
+
+    /// Figma 316:6916 마이크 비활성화 안내 (케어콜 마이크 거부)
+    static func microphone(onConfirm: @escaping () -> Void, onSettings: @escaping () -> Void) -> SymptomPopup {
+        alert(title: "오디오 녹음이 비활성화됨",
+              message: "ToDoc에서 마이크에 접근하는 것을 허용하지 않았기 때문에 현재 마이크 또는 다른 소스로 오디오 녹음을 할 수 없습니다. "
+                + "오디오를 녹음하려면 설정 앱을 열고 ToDoc을 탭한 다음 마이크를 탭하십시오",
+              showsWarning: false, onConfirm: onConfirm, onSettings: onSettings)
+    }
+
+    /// Figma 316:6941 준비 실패·미연결
+    static func service(onConfirm: @escaping () -> Void, onSettings: @escaping () -> Void) -> SymptomPopup {
+        alert(title: "서비스 이용이 원활하지 않아요", message: "불편을 드려 죄송합니다.\n잠시 후에 다시 시도해 주세요",
+              showsWarning: true, onConfirm: onConfirm, onSettings: onSettings)
+    }
+
+    /// 글자 버튼 두 개(확인·설정)인 알림
+    private static func alert(title: String, message: String, showsWarning: Bool,
+                              onConfirm: @escaping () -> Void, onSettings: @escaping () -> Void) -> SymptomPopup {
+        SymptomPopup {
+            VStack(spacing: 0) {
+                VStack(spacing: 16) {
+                    if showsWarning {
+                        Image("CareWarningSmall").resizable().frame(width: 72, height: 72).accessibilityHidden(true)
+                    }
+                    Text(title).modifier(SymptomTextStyle(size: 16, weight: .semibold)).foregroundStyle(.black)
+                        .accessibilityAddTraits(.isHeader)
+                    Text(message).modifier(SymptomTextStyle(size: 14, weight: .medium)).foregroundStyle(SymptomPopupStyle.message)
+                }
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 23)
+                .padding(.top, showsWarning ? 25 : 43)
+                .padding(.bottom, 24)
+                Divider()
+                HStack(spacing: 0) {
+                    pairButton("확인", action: onConfirm)
+                    Divider()
+                    pairButton("설정", action: onSettings)
+                }
+                .frame(height: 60)
+            }
+        }
+    }
+
+    private static func pairButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).modifier(SymptomTextStyle(size: 16, weight: .semibold)).foregroundStyle(.black)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 #Preview("기록 중단") { SymptomPopup.end(progress: 0.63, onContinue: {}, onQuit: {}) }
 #Preview("응급") { SymptomPopup.emergency(onStop: {}, onContinue: {}) }
+#Preview("마이크") { SymptomPopup.microphone(onConfirm: {}, onSettings: {}) }
+#Preview("서비스") { SymptomPopup.service(onConfirm: {}, onSettings: {}) }
