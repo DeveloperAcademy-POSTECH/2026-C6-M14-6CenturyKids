@@ -96,7 +96,7 @@ struct SettingsView: View {
             }.padding(.horizontal, 20).padding(.bottom, 32)
         }.background(SettingsPalette.background.ignoresSafeArea()).foregroundStyle(SettingsPalette.primary)
             .buttonStyle(.plain).toolbar(.hidden, for: .navigationBar)
-            .alert("이메일로 인증코드가 전송됩니다", isPresented: $showsPasswordChangeNotice) {
+            .alert("비밀번호 변경을 위한 인증코드를 가입한 이메일로 보내드릴게요.", isPresented: $showsPasswordChangeNotice) {
                 Button("취소", role: .cancel) {}
                 Button("확인") { onPasswordChange?() }
             }
