@@ -73,10 +73,12 @@ struct SettingsFlowView: View {
                 PasswordCodeEntryView(state: viewModel.passwordChangeState) {
                     path.append(.newPassword)
                 }
+                .toolbar(.hidden, for: .tabBar)
             }
         case .newPassword:
             if let viewModel {
                 NewPasswordEntryView(state: viewModel.passwordChangeState)
+                    .toolbar(.hidden, for: .tabBar)
             }
         }
     }
