@@ -80,6 +80,14 @@ final class FakeCareCall: CareCalling {
         return last
     }
 
+    /// 응급 뒤 기록을 이어 가면 다시 물을 질문
+    var resumeTurn: CareCallTurn?
+
+    func continueAfterEmergency() -> CareCallTurn? {
+        if let resumeTurn { current = resumeTurn }
+        return resumeTurn
+    }
+
     func release() {
         held?.resume()
         held = nil
