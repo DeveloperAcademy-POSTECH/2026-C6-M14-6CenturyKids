@@ -60,7 +60,7 @@ struct NumberGuardTests {
         _ = call.start()
         let out = await call.handle(patientText: "글쎄요 두 번?")
         #expect(mock.requests.count == 1) // 숫자가 섞이면 모델이 본다
-        #expect(out.phase == .opening && out.utterance == config.openingFollowUp) // 바로 끝내지 않고 되묻는다
+        #expect(out.phase == .opening && out.utterance == config.followUpCall.followUp) // 바로 끝내지 않고 되묻는다
         let key = Ledger.key(effectId: "other", otherName: config.followUpCall.unclearName)
         #expect(call.ledger[key]?.presence == .unclear)
         #expect(call.ledger[key]?.unsureAnswers == ["글쎄요 두 번"])

@@ -70,6 +70,24 @@ final class FakeCareCall: CareCalling {
         release()
     }
 
+    /// 이전 질문: 돌아갈 질문과 그때 한 답 (마지막 것부터 돌아간다)
+    var backTurns: [(turn: CareCallTurn, answer: String)] = []
+    var canGoBack: Bool { !backTurns.isEmpty }
+
+    func back() -> (turn: CareCallTurn, answer: String)? {
+        guard let last = backTurns.popLast() else { return nil }
+        current = last.turn
+        return last
+    }
+
+    /// 응급 뒤 기록을 이어 가면 다시 물을 질문
+    var resumeTurn: CareCallTurn?
+
+    func continueAfterEmergency() -> CareCallTurn? {
+        if let resumeTurn { current = resumeTurn }
+        return resumeTurn
+    }
+
     func release() {
         held?.resume()
         held = nil
@@ -150,7 +168,7 @@ struct CareCallViewModelTests {
     @Test(arguments: [
         (FakeCareCall.Step.microphone, AudioRecorderError.microphoneDenied as Error, CareCallPreparationState.microphoneDenied),
         (.model, LanguageModelError.modelMissing, .modelMissing),
-        (.model, LanguageModelError.loadFailed(CancellationError()), .modelLoadFailed),
+        (.model, LanguageModelError.modelNotReady, .modelLoadFailed),
         (.speech, SpeechRecognizerError.koreanUnsupported, .speechRecognitionUnsupported),
         (.speech, SpeechRecognizerError.noAudioFormat, .failed),
     ])
@@ -162,7 +180,7 @@ struct CareCallViewModelTests {
     }
 
     @Test func 실패하면_다시_준비할_수_있다() async {
-        service.errors[.model] = LanguageModelError.loadFailed(CancellationError())
+        service.errors[.model] = LanguageModelError.modelNotReady
         await viewModel.prepare()?.value
         #expect(state.preparation == .modelLoadFailed)
         await viewModel.prepare()?.value
@@ -326,10 +344,86 @@ struct CareCallViewModelTests {
     @Test func 응급으로_끝나면_마지막_안내를_그대로_둔다() async {
         await enterVoiceCall()
         service.activities = [.speaking("응급 안내 문구")]
-        service.outcome = .emergencyEnded
+        service.outcome = .emergencyEnded(record([]))
         await viewModel.startCall()?.value
         #expect(conversation.question?.text == "응급 안내 문구")
         #expect(conversation.summary == nil && conversation.errorMessage == nil)
+    }
+
+    @Test func 음성으로_들어오면_첫_질문만_보여_주고_대화_시작하기를_기다린다() async {
+        await enterVoiceCall()
+        await viewModel.open()?.value
+        #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?")
+        #expect(service.beginCount == 1 && !service.calls.contains(.call))
+        #expect(!conversation.isCalling && !conversation.isWorking)
+        service.hold = .call
+        conversation.onAction?(.start) // 대화 시작하기
+        await waitUntilHolding()
+        #expect(conversation.isCalling && service.beginCount == 1) // 같은 대화를 통화로
+        service.release()
+        for _ in 0..<1_000 where conversation.isCalling { await Task.yield() }
+        #expect(!conversation.isCalling)
+    }
+
+    @Test func 통화_중_마무리_인사를_하는_동안_정리_화면을_보여_준다() async {
+        await enterVoiceCall()
+        service.questionAfterCall = nil
+        service.opening = CareCallTurn(utterance: "오늘 기록을 마쳤어요.", number: nil, outcome: .completed(record([])))
+        service.activities = [.speaking("오늘 기록을 마쳤어요.")]
+        service.hold = .call
+        let task = viewModel.startCall()
+        await waitUntilHolding()
+        #expect(conversation.isSummarizing)
+        service.release()
+        await task?.value
+        #expect(!conversation.isSummarizing)
+    }
+
+    @Test func 기록_중단_팝업을_띄우면_통화를_멈추고_계속하면_다시_건다() async {
+        await enterVoiceCall()
+        await viewModel.open()?.value
+        service.hold = .call
+        service.outcome = .interrupted(record([entry(.diarrhea, .present)]))
+        conversation.onAction?(.start)
+        await waitUntilHolding()
+        conversation.onAction?(.pause)
+        for _ in 0..<1_000 where conversation.isCalling { await Task.yield() }
+        #expect(service.stopCount == 1)
+        #expect(conversation.summary == nil && conversation.question != nil) // 멈춘 통화를 요약으로 넘기지 않는다
+        service.outcome = .completed(record([entry(.diarrhea, .present)]))
+        conversation.onAction?(.resume) // 계속 작성하기
+        for _ in 0..<1_000 where conversation.summary == nil { await Task.yield() }
+        #expect(service.calls.filter { $0 == .call }.count == 2)
+        #expect(service.beginCount == 1)
+    }
+
+    @Test func 통화_중에_그만하면_받은_답을_저장하지_않는다() async {
+        await enterVoiceCall()
+        await viewModel.open()?.value
+        service.hold = .call
+        service.outcome = .interrupted(record([entry(.diarrhea, .present)]))
+        conversation.onAction?(.start)
+        await waitUntilHolding()
+        conversation.onAction?(.pause)
+        conversation.onAction?(.discard) // 그만하기
+        conversation.onAction?(.cancel) // 화면을 떠남
+        for _ in 0..<1_000 where conversation.isCalling { await Task.yield() }
+        for _ in 0..<200 { await Task.yield() }
+        #expect(repository.saved.isEmpty)
+    }
+
+    @Test func 통화_중_응급_뒤_이어_가면_다시_건다() async {
+        await enterVoiceCall()
+        service.outcome = .emergencyEnded(record([]))
+        await viewModel.startCall()?.value
+        #expect(conversation.isEmergency && repository.saved.isEmpty)
+        service.resumeTurn = CareCallTurn(utterance: "변비는 있으셨나요?", number: nil, outcome: nil)
+        service.outcome = .completed(record([entry(.diarrhea, .present)]))
+        conversation.onAction?(.continueAfterEmergency)
+        #expect(!conversation.isEmergency)
+        for _ in 0..<1_000 where conversation.summary == nil { await Task.yield() }
+        #expect(service.calls.filter { $0 == .call }.count == 2)
+        #expect(repository.saved.isEmpty) // 요약에서 저장한다
     }
 
     // MARK: - 요약 수정·저장
@@ -372,7 +466,7 @@ struct CareCallViewModelTests {
         #expect(summary.record.presentSymptoms.map(\.symptomType) == [.numbness]) // 요약에는 '있음'만
         let saved = viewModel.record!.symptoms
         #expect(saved.map(\.presence) == [.absent, .present])
-        #expect(saved[0].detail == "[검토 필요] 환자가 요약에서 지움: 구토 횟수: 두 번")
+        #expect(saved[0].detail == "[검토 필요] 환자가 지움: 구토 횟수: 두 번")
         #expect(saved[1].bodyPart == .legFoot)
     }
 
@@ -515,6 +609,8 @@ final class FakePatients: PatientRepository {
     func save(patient: Patient) async throws {}
     func findByName(_ name: String) async throws -> [Patient] { [] }
     func findByDoctorId(_ doctorId: UUID) async throws -> [Patient] { [] }
+    func connectToDoctor(code: String) async throws {}
+    func disconnectFromDoctor() async throws {}
 }
 
 /// 화면에 들어오면 ViewModel이 로그인 환자를 찾는다 (PainRecordViewModel과 같은 방식)

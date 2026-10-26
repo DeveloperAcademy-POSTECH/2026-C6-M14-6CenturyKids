@@ -48,9 +48,14 @@ enum CareCallAction { case prepare, cancel }
     @ObservationIgnored var onAction: ((CareCallAction) -> Void)?
 }
 enum SymptomAction {
-    case start, previous, cancel
+    /// open: 화면에 들어옴 (음성은 첫 질문만 보여 주고 "대화 시작하기"를 기다린다). start: 지금 방식으로 대화를 시작하거나 잇는다
+    case open, start, previous, cancel
     case answer(SymptomConversationAnswer)
     case switchMode(SymptomConversationMode)
+    /// 기록 중단 팝업: 띄우면 통화를 잠시 멈추고, 계속 작성하면 잇고, 그만하면 저장하지 않은 기록을 버린다
+    case pause, resume, discard
+    /// 응급 팝업: 기록 중단(저장하고 끝냄) 또는 기록 이어가기
+    case stopForEmergency, continueAfterEmergency
 }
 @Observable final class SymptomScreenState {
     // 음성 통화는 자동 진행합니다. ViewModel이 AI 발화·듣기·전사 상태를 전달합니다.
@@ -61,10 +66,16 @@ enum SymptomAction {
     var transcript = ""
     var isWorking = false
     var isListening = false
+    /// 음성 통화를 거는 중이거나 통화 중 (음성 화면 아래 버튼이 "음성 인식 중 ..")
+    var isCalling = false
     var isSummarizing = false
     var canGoPrevious = false
     var restoredAnswer: SymptomConversationAnswer?
     var errorMessage: String?
+    /// errorMessage가 마이크 권한 때문 (마이크 팝업으로 보여 준다)
+    var needsMicrophone = false
+    /// 응급으로 판단되어 환자의 선택(기록 중단·이어가기)을 기다림
+    var isEmergency = false
     var summary: SymptomSummaryScreenState?
     var didSave = false
     @ObservationIgnored var onAction: ((SymptomAction) -> Void)?

@@ -37,7 +37,7 @@ import SwiftUI
 #if DEBUG
 #Preview {
     AuthRootView(authFlow: AuthFlowViewModel()) { _ in
-        PatientFlowView(pain: { .preview() })
+        PatientFlowView.preview()
     }
     .environment(AppRouter())
 }

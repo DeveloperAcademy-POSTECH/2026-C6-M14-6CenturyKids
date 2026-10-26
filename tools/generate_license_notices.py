@@ -19,15 +19,11 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RESOLVED = os.path.join(ROOT, "ToDoc.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved")
 OUTPUT = os.path.join(ROOT, "ToDoc/Resources/Licenses/ThirdPartyNotices-Packages.txt")
-# ONNX Runtime 바이너리 안에 든 라이브러리 고지는 패키지 원본에 없어 Microsoft 파일을 받아 둔다. ONNX Runtime을 올리면 그 버전 태그의
-# ThirdPartyNotices.txt로 ONNXRuntime-ThirdPartyNotices.txt를 바꾸고 이 값을 맞춘다
-ONNX_RUNTIME_NOTICES_VERSION = "1.24.2"
 LICENSE_FILE = re.compile(r"^(LICEN[CS]E|NOTICE|COPYING)", re.IGNORECASE)
 
 # 고지하지 않는 패키지와 이유. 새 패키지는 기본으로 고지에 들어간다
 EXCLUDED = {
     "swift-asn1": "iOS 앱에는 빌드되지 않는다 (swift-crypto가 Apple 플랫폼에서는 CryptoKit을 쓴다)",
-    "swift-collections": "Apache 2.0 Runtime Library Exception: 바이너리에 들어간 부분은 고지 의무가 없다",
 }
 
 # 패키지 맨 위 LICENSE 말고, 패키지 안에 함께 빌드되는 코드의 고지 (패키지 identity → [(이름, 경로)])
@@ -35,20 +31,13 @@ BUNDLED_INSIDE = {
     "supabase-swift": [
         ("SwiftPhoenixClient (supabase-swift Realtime)", "Sources/Realtime/Deprecated/Delegated.swift"),  # 라이선스는 파일 맨 위 주석
     ],
-    "xgrammar": [
-        ("dlpack (xgrammar 3rdparty/dlpack)", "3rdparty/dlpack/LICENSE"),
-        ("picojson (xgrammar 3rdparty/picojson)", "3rdparty/picojson/picojson.h"),  # 라이선스는 헤더 맨 위 주석
-    ],
 }
 
 
 def read_notice(path):
     with open(path, encoding="utf-8") as f:
         text = f.read()
-    if path.endswith(".h"):  # 맨 위 /* ... */ 주석만
-        comment = text[: text.index("*/")].removeprefix("/*")
-        text = "\n".join(re.sub(r"^ ?\* ?", "", line) for line in comment.splitlines())
-    elif path.endswith(".swift"):  # 맨 위 // 주석만
+    if path.endswith(".swift"):  # 맨 위 // 주석만
         lines = []
         for line in text.splitlines():
             if not line.startswith("//"):
@@ -101,10 +90,7 @@ def render(pins, dirs):
             sections.append((f"{name} — {os.path.basename(path)}", read_notice(os.path.join(folder, path))))
 
     lines = [
-        "Third-party notices: Swift packages",
-        "이 파일은 tools/generate_license_notices.py로 만듭니다. 직접 고치지 마세요.",
-        "Texts below are copied from each package's own LICENSE/NOTICE files at the versions pinned in Package.resolved.",
-        "",
+        # 앱 화면에 그대로 보이므로 제목·설명·개발 안내 문구는 넣지 않고 구성 요소 목록부터 시작한다
         "Components",
         "----------",
         *components,
@@ -126,10 +112,6 @@ def main():
 
     with open(RESOLVED, encoding="utf-8") as f:
         pins = json.load(f)["pins"]
-    onnx = next((p["state"].get("version") for p in pins if p["identity"] == "onnxruntime-swift-package-manager"), None)
-    if onnx and onnx != ONNX_RUNTIME_NOTICES_VERSION:
-        sys.exit(f"ONNX Runtime이 {onnx}로 바뀌었어요. ONNXRuntime-ThirdPartyNotices.txt를 v{onnx} 파일로 바꾸고 "
-                 "ONNX_RUNTIME_NOTICES_VERSION을 맞춰 주세요.")
     text = render(pins, find_checkouts(pins, args.checkouts))
 
     if args.check:

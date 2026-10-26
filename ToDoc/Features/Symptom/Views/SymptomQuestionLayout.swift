@@ -8,6 +8,8 @@ struct SymptomQuestionLayout<Content: View>: View {
     var switchTitle = "음성 전환"
     var showsPrevious = false
     var showsNext = true
+    /// 아래 버튼이 진행 상태만 보여 준다 (음성 인식 중). 누를 수 없지만 흐리게 하지 않는다
+    var nextIsStatus = false
     var onPrevious: (() -> Void)?
     var onNext: (() -> Void)?
     var onEnd: (() -> Void)?
@@ -62,7 +64,9 @@ struct SymptomQuestionLayout<Content: View>: View {
                             }
                         }
                         .buttonStyle(AppButtonStyle())
-                        .disabled(!canProceed || onNext == nil)
+                        .disabled(!nextIsStatus && (!canProceed || onNext == nil))
+                        .allowsHitTesting(!nextIsStatus)
+                        .accessibilityRemoveTraits(nextIsStatus ? .isButton : [])
                         .accessibilityIdentifier("symptom.next")
                     }
                 }

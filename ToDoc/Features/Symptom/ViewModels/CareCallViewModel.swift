@@ -12,7 +12,8 @@ import Foundation
 import Observation
 
 /// 케어콜 화면(CareCallFlowView)의 상태를 보관한다: 준비(대기 화면) → 대화(음성 통화·문자 답) → 요약 수정·저장.
-/// 음성과 문자를 오가도 서비스의 같은 대화를 이어 간다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장한다.
+/// 음성과 문자를 오가도 서비스의 같은 대화를 이어 간다. 저장하지 않고 떠나면 받은 답까지 자동으로 저장하고,
+/// 기록 중단 팝업에서 그만하면 저장하지 않은 기록을 버린다 (응급으로 남긴 말이 있으면 버리지 않는다).
 /// 받은 답은 답마다 폰에도 남겨, 앱이 꺼지거나 저장이 실패하면 다음에 케어콜에 들어갈 때 조용히 올린다.
 /// 화면에 들어오면 loadPatient()로 로그인 환자를 찾는다 (PainRecordViewModel과 같은 방식)
 @MainActor
@@ -69,6 +70,12 @@ final class CareCallViewModel {
     private var hasCalled = false
     /// 대화 중에 대화 화면을 떠남 (끝나면 요약을 볼 사람이 없어 바로 저장한다)
     private var leftCall = false
+    /// 문자 답을 처리하는 중에 음성으로 바꿈 (처리가 끝나면 통화를 건다)
+    private var callAfterTyping = false
+    /// 기록 중단 팝업을 띄워 통화를 잠시 끊음 (계속 작성하면 다시 건다)
+    private var paused = false
+    /// 이 대화에서 응급으로 판단된 적이 있음. 이어 간 뒤에도 그 말을 버리지 않고 그날 기록에 더한다
+    private var hadEmergency = false
     private var saving: Task<Void, Never>?
     private var isSaved = false
 
@@ -155,7 +162,7 @@ final class CareCallViewModel {
         show(.preparing(.permissions))
         let previous = last
         let task = Task {
-            // 화면을 떠났다 바로 돌아오면 취소한 준비가 아직 모델을 불러오는 중일 수 있다 (2.4GB를 두 번 불러오지 않게)
+            // 화면을 떠났다 바로 돌아오면 취소한 준비가 아직 진행 중일 수 있다 (준비가 겹치지 않게)
             await previous?.value
             do {
                 try advance(to: .preparing(.permissions), current)
@@ -203,7 +210,7 @@ final class CareCallViewModel {
         switch error {
         case AudioRecorderError.microphoneDenied: .microphoneDenied
         case LanguageModelError.modelMissing: .modelMissing
-        case LanguageModelError.loadFailed: .modelLoadFailed
+        case LanguageModelError.modelNotReady: .modelLoadFailed
         case SpeechRecognizerError.koreanUnsupported: .speechRecognitionUnsupported
         default: .failed
         }
@@ -213,12 +220,17 @@ final class CareCallViewModel {
 
     private func handle(_ action: SymptomAction) {
         switch action {
+        case .open: open()
         case .switchMode(let mode): switchMode(to: mode)
         case .start: start()
         case .answer(let answer): self.answer(answer)
         case .cancel: endCall()
-        // 엔진이 지난 답을 되돌리지 못해 이전 질문으로 가지 않는다 (canGoPrevious는 늘 false)
-        case .previous: break
+        case .previous: goBack()
+        case .pause: pause()
+        case .resume: resume()
+        case .discard: discard()
+        case .stopForEmergency: stopForEmergency()
+        case .continueAfterEmergency: continueAfterEmergency()
         }
     }
 
@@ -229,7 +241,17 @@ final class CareCallViewModel {
         return false
     }
 
-    /// 대화 화면이 보이면 불린다 (끊긴 뒤 "다시 시도"도). 지금 방식으로 대화를 시작하거나 이어 간다
+    /// 대화 화면에 들어오면 불린다. 음성은 첫 질문만 보여 주고 환자가 "대화 시작하기"를 누르면(start) 통화를 건다
+    @discardableResult
+    func open() -> Task<Void, Never>? {
+        guard conversation.mode == .voice else { return start() }
+        guard !began, call == nil, typing == nil, !isOver else { return nil }
+        conversation.errorMessage = nil
+        conversation.isWorking = true
+        return typing(beginConversation) { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
+    }
+
+    /// "대화 시작하기"·"다시 시도". 지금 방식으로 대화를 시작하거나 이어 간다
     @discardableResult
     func start() -> Task<Void, Never>? {
         conversation.mode == .voice ? startCall() : startText()
@@ -250,7 +272,11 @@ final class CareCallViewModel {
                 continueInText()
             }
         case .voice:
-            if began, typing == nil { startCall() } // 문자 답을 처리 중이면 끝난 뒤 이어서 (typing에서)
+            if typing != nil {
+                callAfterTyping = true // 문자 답을 처리 중이면 끝난 뒤 이어서 (typing에서)
+            } else if began {
+                startCall()
+            }
         }
     }
 
@@ -259,7 +285,9 @@ final class CareCallViewModel {
     func startCall() -> Task<Void, Never>? {
         guard call == nil, typing == nil, !isOver else { return nil }
         conversation.errorMessage = nil
+        conversation.needsMicrophone = false
         conversation.isWorking = true // 첫 질문을 말하기 전까지
+        conversation.isCalling = true
         let task = Task {
             if !preparation.canStart { await (prepare() ?? last)?.value }
             var outcome: CareCallOutcome?
@@ -284,12 +312,15 @@ final class CareCallViewModel {
             call = nil
             conversation.isListening = false
             conversation.isWorking = false
+            conversation.isCalling = false
             let switched = switchingMode
             switchingMode = false
             if leftCall, outcome == nil {
                 endText() // 통화를 걸기 전에 떠남: 문자로 받은 답이 있으면 그것까지 저장한다
             } else if switched, !leftCall, !Self.isFinal(outcome) {
-                start() // 방식을 바꿈: 끝까지 마친 게 아니면 같은 대화를 바꾼 방식으로 이어 간다 (끊는 중에 다시 바꿨으면 그 방식)
+                // 방식을 바꿈: 끝까지 마친 게 아니면 같은 대화를 바꾼 방식으로 이어 간다 (끊는 중에 다시 바꿨으면 그 방식).
+                // 기록 중단 팝업으로 잠시 끊었으면 환자의 선택을 기다린다 (resume)
+                if !paused { start() }
             } else if let outcome {
                 finish(outcome)
             } else if case CareCallServiceError.notPrepared? = failure, began {
@@ -297,6 +328,7 @@ final class CareCallViewModel {
                 conversation.mode = .text
                 continueInText()
                 conversation.errorMessage = "음성 통화를 준비하지 못했어요. 문자로 이어서 답해 주세요."
+                conversation.needsMicrophone = preparation.preparation == .microphoneDenied
             } else if case CareCallServiceError.notPrepared? = failure {
                 conversation.errorMessage = "통화 준비가 끝나지 않았어요. 다시 시도해 주세요."
             } else if let failure {
@@ -317,15 +349,18 @@ final class CareCallViewModel {
             return nil
         }
         conversation.isWorking = true
-        return typing {
-            // 대기 화면에서 하던 준비가 모델을 불러오는 중일 수 있다 (2.4GB를 두 번 불러오지 않게)
-            await self.last?.value
-            try await self.service.loadModel()
-            try Task.checkCancellation()
-            let turn = try self.service.begin(patientId: try self.loadedPatientId(), previous: try await self.today())
-            self.began = true
-            return turn
-        } failed: { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
+        return typing(beginConversation) { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
+    }
+
+    /// 서비스에서 새 대화를 시작하고 첫 질문을 받는다. 문자에는 모델만 있으면 된다
+    private func beginConversation() async throws -> CareCallTurn {
+        // 대기 화면에서 하던 준비가 아직 진행 중일 수 있다 (준비가 겹치지 않게)
+        await last?.value
+        try await service.loadModel()
+        try Task.checkCancellation()
+        let turn = try service.begin(patientId: try loadedPatientId(), previous: try await today())
+        began = true
+        return turn
     }
 
     /// 문자 답을 보낸다. 횟수·지속 시간 입력은 말로 한 답처럼 문장으로 바꿔 같은 엔진에 넣는다
@@ -335,6 +370,8 @@ final class CareCallViewModel {
         guard conversation.mode == .text, began, call == nil, typing == nil, !isOver, !text.isEmpty else { return nil }
         conversation.errorMessage = nil
         conversation.isWorking = true
+        // 마지막 질문의 답이면 정리하는 화면을 보여 준다 (더 물을 게 생기면 다음 질문으로 돌아간다)
+        conversation.isSummarizing = conversation.question?.isLastQuestion == true
         return typing {
             try await self.service.answer(text)
         } failed: { "답을 전하지 못했어요. 다시 보내 주세요." }
@@ -350,11 +387,14 @@ final class CareCallViewModel {
                 conversation.errorMessage = message()
             }
             conversation.isWorking = false
+            conversation.isSummarizing = false
             typing = nil
+            let wantsCall = callAfterTyping
+            callAfterTyping = false
             // 처리하는 동안 화면을 떠났거나 음성으로 바꿨으면 이어서 한다
             if leftCall {
                 endText()
-            } else if conversation.mode == .voice, began, !isOver {
+            } else if wantsCall, conversation.mode == .voice, began, !isOver {
                 startCall()
             }
         }
@@ -376,10 +416,46 @@ final class CareCallViewModel {
         case .minutes?: .duration
         case nil: .text
         }
-        conversation.question = SymptomConversationQuestion(id: UUID(), text: turn.utterance, guidance: nil, progress: nil, input: input)
+        conversation.question = question(turn.utterance, of: turn, input: input)
         conversation.answerText = ""
         conversation.transcript = ""
+        conversation.restoredAnswer = nil
         if let outcome = turn.outcome { finish(outcome) }
+    }
+
+    private static let moreGuidance = "말씀해 주신 내용에 대해 조금 더 여쭤볼게요"
+
+    /// 화면에 보일 질문: 진행률, 꼬리질문이면 안내 문구, 마지막 질문 표시. 이전 질문은 문자 대화에서만 (통화는 말로 이어 간다)
+    private func question(_ text: String, of turn: CareCallTurn?, input: SymptomConversationQuestion.Input) -> SymptomConversationQuestion {
+        let canGoBack = conversation.mode == .text && service.canGoBack
+        conversation.canGoPrevious = canGoBack
+        return SymptomConversationQuestion(id: UUID(), text: text, guidance: turn?.asksMore == true ? Self.moreGuidance : nil,
+                                           progress: turn?.progress, input: input, isLastQuestion: turn?.isLast ?? false,
+                                           allowsPrevious: canGoBack)
+    }
+
+    /// 이전 질문으로 돌아간다 (문자 대화). 그 질문에 받은 답을 지우고, 입력 칸에는 그때 한 답을 다시 채운다
+    private func goBack() {
+        guard conversation.mode == .text, began, call == nil, typing == nil, !isOver, let back = service.back() else { return }
+        conversation.errorMessage = nil
+        show(back.turn)
+        let restored = Self.answer(back.answer, for: conversation.question?.input ?? .text)
+        conversation.restoredAnswer = restored
+        if case .text(let text) = restored { conversation.answerText = text }
+    }
+
+    /// 엔진에 넣었던 문장 → 입력 칸 값. 숫자 칸인데 숫자로 읽지 못하면 글자 그대로 (숫자 칸은 비워 둔다)
+    static func answer(_ text: String, for input: SymptomConversationQuestion.Input) -> SymptomConversationAnswer {
+        switch input {
+        case .frequency:
+            if text == sentence(for: .frequency(.tenPlus)) { return .frequency(.tenPlus) }
+            if let count = NumberParser.count(in: text), (0...10).contains(count) { return .frequency(.count(count)) }
+        case .duration:
+            if let minutes = NumberParser.minutes(in: text), (10...1440).contains(minutes) { return .durationMinutes(minutes) }
+        case .text:
+            break
+        }
+        return .text(text)
     }
 
     /// 문자 입력 → 엔진에 넣을 문장. "10+"는 정확한 횟수로 저장되지 않게 "열 번 넘게"로 (NumberParser가 읽지 않는다)
@@ -401,9 +477,14 @@ final class CareCallViewModel {
         }
     }
 
-    /// 대화 화면을 떠날 때 불린다. 통화 중이면 끊고(끊긴 곳까지의 기록은 outcome에 남는다), 문자 대화면 받은 답까지 끝낸다
+    /// 대화 화면을 떠날 때 불린다. 통화 중이면 끊고(끊긴 곳까지의 기록은 outcome에 남는다), 문자 대화면 받은 답까지 끝낸다.
+    /// 응급 팝업에서 고르지 않고 떠나면 응급으로 끝난 기록을 저장한다
     func endCall() {
         leftCall = true
+        if conversation.isEmergency {
+            conversation.isEmergency = false
+            save(showingResult: false)
+        }
         if let call {
             call.cancel()
             Task { await service.stop() }
@@ -419,11 +500,55 @@ final class CareCallViewModel {
         finish(service.end())
     }
 
+    /// 기록 중단 팝업을 띄움: 통화 중이면 끊어 두고(받은 답은 대화에 남는다) 환자의 선택을 기다린다
+    private func pause() {
+        guard let call else { return }
+        paused = true
+        switchingMode = true
+        call.cancel()
+        Task { await service.stop() }
+    }
+
+    /// 계속 작성하기: 잠시 끊은 통화를 지금 질문부터 다시 건다 (끊는 중이면 끝난 뒤 startCall에서)
+    private func resume() {
+        guard paused else { return }
+        paused = false
+        if call == nil, !isOver { start() }
+    }
+
+    /// 그만하기: 저장하지 않은 기록을 버리고 대화를 끝낸다. 응급으로 남긴 말이 있으면 버리지 않고 저장한다
+    private func discard() {
+        paused = false
+        if !hadEmergency {
+            forget()
+            isSaved = true // 끝낸 대화의 기록을 저장하지도 폰에 남기지도 않는다
+        }
+        endCall()
+    }
+
+    /// 응급 팝업의 기록 중단: 응급 전까지의 기록과 응급으로 끝낸 말을 저장한다 (실패하면 폰에 남겨 다음 케어콜에 올린다)
+    private func stopForEmergency() {
+        conversation.isEmergency = false
+        save(showingResult: false)
+    }
+
+    /// 응급 팝업의 기록 이어가기: 응급 전 질문부터 다시 묻는다. 통화였으면 다시 건다
+    private func continueAfterEmergency() {
+        guard case .emergencyEnded? = outcome, let turn = service.continueAfterEmergency() else { return }
+        outcome = nil
+        conversation.isEmergency = false
+        show(turn)
+        if conversation.mode == .voice { startCall() }
+    }
+
     private func show(_ activity: CareCallActivity) {
         switch activity {
         case .speaking(let text):
             keep(service.progress) // 답을 분석한 뒤 다음 질문을 말한다
-            conversation.question = SymptomConversationQuestion(id: UUID(), text: text, guidance: nil, progress: nil, input: .text)
+            let turn = service.current
+            conversation.question = question(text, of: turn, input: .text)
+            // 마무리 인사를 하는 동안 정리 화면을 보여 준다
+            if case .completed? = turn?.outcome { conversation.isSummarizing = true }
             conversation.transcript = ""
             conversation.isListening = false
             conversation.isWorking = false
@@ -440,6 +565,7 @@ final class CareCallViewModel {
         self.outcome = outcome
         conversation.isListening = false
         conversation.isWorking = false
+        conversation.isSummarizing = false
         switch outcome {
         case .completed(let record) where record.symptoms.isEmpty:
             // 다시 거는 통화에서 달라진 게 없음: 더할 것이 없어 바로 완료 화면 (이때 보여 줄 화면은 화면 담당과 정할 예정)
@@ -458,8 +584,13 @@ final class CareCallViewModel {
             forget()
             conversation.question = nil
             conversation.errorMessage = "통화가 끊겼어요. 다시 시도해 주세요."
-        case .emergencyEnded:
-            forget() // 응급 종료는 저장하지 않는다. 마지막으로 말한 응급 안내가 화면에 남는다 (응급 화면은 디자인 팀과 정할 예정)
+        case .emergencyEnded(let record):
+            // 응급 팝업으로 기록 중단·이어가기를 묻는다 (마지막으로 말한 응급 안내가 뒤에 남는다). 고르기 전에 앱이 꺼져도
+            // 폰에 남긴 기록을 다음 케어콜에 올린다. 대화 중에 떠났으면 묻지 않고 바로 저장한다
+            self.record = record
+            hadEmergency = true
+            keep(record)
+            if leftCall { save(showingResult: false) } else { conversation.isEmergency = true }
         }
     }
 
@@ -493,52 +624,26 @@ final class CareCallViewModel {
         }
     }
 
-    /// 고친 횟수·지속 시간·내용을 검증해 반영한다. 비운 칸은 값 없음. 검증에 걸리면 이유를 보여 주고 고치는 중으로 둔다
+    /// 고친 횟수·지속 시간·내용을 검증해 반영한다. 검증에 걸리면 이유를 보여 주고 고치는 중으로 둔다
     private func finishEdit(_ id: UUID, _ input: SymptomEntryEditInput, in summary: SymptomSummaryScreenState) {
-        guard let record, let entry = record.symptoms.first(where: { $0.id == id }) else { return }
+        guard let record else { return }
         do {
-            let detail = input.detail.trimmingCharacters(in: .whitespacesAndNewlines)
-            let edited = try SymptomEntry(
-                id: entry.id, symptomType: entry.symptomType, presence: entry.presence, bodyPart: entry.bodyPart, bodySide: entry.bodySide,
-                rawLocationText: entry.rawLocationText, durationMinutes: try Self.number(input.durationText, else: .invalidDuration),
-                occurrenceCount: try Self.number(input.occurrenceText, else: .invalidOccurrenceCount), detail: detail.isEmpty ? nil : detail)
-            update(record.symptoms.map { $0.id == id ? edited : $0 }, in: summary)
+            update(try record.editingEntry(id, with: input), in: summary)
             summary.editingEntryID = nil
             summary.editErrorMessage = nil
         } catch {
-            summary.editErrorMessage = switch error {
-            case SymptomValueError.invalidDuration: "지속 시간은 10분에서 1440분 사이 숫자로 입력해 주세요."
-            case SymptomValueError.invalidOccurrenceCount: "횟수는 1에서 100 사이 숫자로 입력해 주세요."
-            case SymptomValueError.detailTooLong: "내용은 \(SymptomEntry.detailLimit)자까지 쓸 수 있어요."
-            default: "입력한 내용을 확인해 주세요."
-            }
+            summary.editErrorMessage = SymptomRecord.editErrorMessage(error)
         }
     }
 
-    /// 환자가 요약에서 지운 증상은 '없음'으로 바꾸고 의료진이 알 수 있게 검토 필요로 남긴다.
-    /// 같은 증상의 다른 부위 항목이 남아 있으면 그 항목만 뺀다
+    /// 지운 증상은 '없음'으로 바뀐다 (SymptomRecord.removingEntry)
     private func delete(_ id: UUID, in summary: SymptomSummaryScreenState) {
-        guard let record, let index = record.symptoms.firstIndex(where: { $0.id == id }) else { return }
-        var symptoms = record.symptoms
-        let removed = symptoms.remove(at: index)
-        if !symptoms.contains(where: { $0.symptomType == removed.symptomType && $0.presence == .present }) {
-            // 원래 내용에 이미 검토 필요 표시가 있으면 한 번만 쓴다
-            let original = removed.detail.map { $0.hasPrefix("[검토 필요] ") ? String($0.dropFirst("[검토 필요] ".count)) : $0 }
-            let note = ["[검토 필요] 환자가 요약에서 지움", original].compactMap(\.self).joined(separator: ": ")
-            if let absent = try? SymptomEntry(id: UUID(), symptomType: removed.symptomType, presence: .absent, bodyPart: nil, bodySide: nil,
-                                              durationMinutes: nil, occurrenceCount: nil,
-                                              detail: String(note.prefix(SymptomEntry.detailLimit))) {
-                symptoms.insert(absent, at: index)
-            }
-        }
-        update(symptoms, in: summary)
+        guard let record else { return }
+        update(record.removingEntry(id), in: summary)
         summary.editingEntryID = nil
     }
 
-    private func update(_ symptoms: [SymptomEntry], in summary: SymptomSummaryScreenState) {
-        guard let record else { return }
-        let updated = SymptomRecord(id: record.id, patientId: record.patientId, recordedDate: record.recordedDate,
-                                    conditionText: record.conditionText, symptoms: symptoms)
+    private func update(_ updated: SymptomRecord, in summary: SymptomSummaryScreenState) {
         self.record = updated
         keep(updated)
         summary.record = SymptomRecordDisplay(record: updated)
@@ -556,7 +661,7 @@ final class CareCallViewModel {
             summary?.errorMessage = nil
             summary?.editingEntryID = nil
         }
-        let complete = if case .completed? = outcome { true } else { false }
+        let complete = Self.isFinal(outcome) || hadEmergency // 마친 통화·응급 종료는 그날 기록에 더한다
         let task = Task {
             do {
                 let stored = try await store(record, complete: complete)
@@ -594,7 +699,7 @@ final class CareCallViewModel {
     /// 지금까지 받은 답을 폰에 남긴다. 남기지 못해도 대화는 이어 간다 (서버 저장은 따로 한다)
     private func keep(_ record: SymptomRecord?) {
         guard let record, !isSaved else { return }
-        let complete = if case .completed? = outcome { true } else { false }
+        let complete = Self.isFinal(outcome) || hadEmergency // 마친 통화·응급 종료는 그날 기록에 더한다
         try? pending.save(PendingCareCall(id: pendingId, record: record, complete: complete))
     }
 
@@ -613,7 +718,7 @@ final class CareCallViewModel {
         }
     }
 
-    /// 그날 기록은 하루 1건. 이미 있으면 끝까지 마친 통화(다시 거는 통화)는 그 기록에 더하고,
+    /// 그날 기록은 하루 1건. 이미 있으면 끝까지 마친 통화(다시 거는 통화)·응급으로 끝난 통화는 그 기록에 더하고,
     /// 끊긴 통화는 저장하지 않는다 (일부만 답한 기록으로 그날 기록을 바꾸지 않게). 저장했으면 true
     private func store(_ record: SymptomRecord, complete: Bool) async throws -> Bool {
         guard let existing = try await savedRecord(of: record.patientId, on: record.recordedDate) else {
@@ -631,7 +736,7 @@ final class CareCallViewModel {
     /// - 전에도 있음 → 같은 부위면 기존 값을 두고 빈 칸만 채우고 내용에 "다시 통화: …"를 덧붙인다, 다른 부위면 추가
     /// - 이번에 없음·모름인데 그날 기록에 이미 있는 증상은 그대로 둔다. 전에 있던 증상을 이번에 없다고 하면(좋아짐)
     ///   환자가 한 말("다시 통화: 구토가 나아졌어요", 말이 없으면 "지금은 없다고 함")을,
-    ///   검토가 필요한 답(요약에서 지움 등)이면 그 내용을 덧붙여 의료진이 보게 한다
+    ///   검토가 필요한 답(환자가 지움 등)이면 그 내용을 덧붙여 의료진이 보게 한다
     static func merge(_ old: SymptomRecord, with new: SymptomRecord) -> SymptomRecord {
         var symptoms = old.symptoms
         for entry in new.symptoms {
@@ -721,12 +826,5 @@ final class CareCallViewModel {
                                        durationMinutes: old.durationMinutes ?? fill?.durationMinutes,
                                        occurrenceCount: old.occurrenceCount ?? fill?.occurrenceCount, detail: detail)
         return merged ?? old
-    }
-
-    private static func number(_ text: String, else error: SymptomValueError) throws -> Int? {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        if trimmed.isEmpty { return nil }
-        guard let value = Int(trimmed) else { throw error }
-        return value
     }
 }

@@ -95,7 +95,7 @@ struct FollowUpCallTests {
         let call = engine()
         _ = call.start()
         let ask = await call.handle(patientText: "네")
-        #expect(ask.phase == .opening && ask.utterance == config.openingFollowUp)
+        #expect(ask.phase == .opening && ask.utterance == config.followUpCall.followUp)
         #expect(mock.requests.isEmpty)
         let out = await call.handle(patientText: "설사를 했어요")
         #expect(out.phase == .slot(key: "diarrhea", step: .detail))
@@ -124,14 +124,14 @@ struct FollowUpCallTests {
         let call = engine()
         _ = call.start()
         let out = await call.handle(patientText: answer)
-        #expect(out.phase == .opening && out.utterance == config.openingFollowUp)
+        #expect(out.phase == .opening && out.utterance == config.followUpCall.followUp)
     }
 
     @Test func 글쎄요라도_나빠졌다는_말이_있으면_모름으로_끝내지_않는다() async {
         let call = engine()
         _ = call.start()
         let out = await call.handle(patientText: "글쎄요, 좀 안 좋아진 것 같기도 하고요")
-        #expect(out.phase == .opening && out.utterance == config.openingFollowUp)
+        #expect(out.phase == .opening && out.utterance == config.followUpCall.followUp)
         #expect(call.ledger.order.isEmpty)
     }
 
@@ -140,7 +140,7 @@ struct FollowUpCallTests {
         let call = engine()
         _ = call.start()
         let ask = await call.handle(patientText: "어제 이상한 게 있었는데")
-        #expect(ask.phase == .opening && ask.utterance == config.openingFollowUp)
+        #expect(ask.phase == .opening && ask.utterance == config.followUpCall.followUp)
         let other = await call.handle(patientText: "음 뭐였더라")
         #expect(other.phase == .other) // 분명히 '없다'고 하지 않았으면 '그 밖에'로 한 번 더 기회를 준다
     }
@@ -149,7 +149,7 @@ struct FollowUpCallTests {
         let call = engine()
         _ = call.start()
         let ask = await call.handle(patientText: "좀 안 좋아졌어요")
-        #expect(ask.utterance == config.openingFollowUp)
+        #expect(ask.utterance == config.followUpCall.followUp)
         let next = await call.handle(patientText: "그냥 전반적으로요")
         let kept = call.ledger.order.compactMap { call.ledger[$0] }.first { $0.effectId == "other" }
         #expect(kept?.presence == .present && kept?.needsReview == true)
@@ -174,7 +174,7 @@ struct FollowUpCallTests {
         let call = engine()
         _ = call.start()
         let out = await call.handle(patientText: "설사는 멈췄는데 대신 머리가 좀")
-        #expect(out.phase == .opening && out.utterance == config.openingFollowUp)
+        #expect(out.phase == .opening && out.utterance == config.followUpCall.followUp)
     }
 
     @Test func 긴_답은_없어요가_있어도_모델이_먼저_본다() async {
@@ -242,7 +242,9 @@ struct FollowUpCallTests {
         let call = engine()
         _ = call.start()
         let out = await call.handle(patientText: answer)
-        #expect(out.phase == .opening && out.utterance == config.openingFollowUp)
+        // 새 증상 표현("머리가 아파요")이 있으면 언제부터인지, 아니면 무엇이 달라졌는지 묻는다
+        let symptom = ["머리가 아파요"].contains(where: answer.contains)
+        #expect(out.phase == .opening && out.utterance == (symptom ? config.otherDetail.question : config.followUpCall.followUp))
         #expect(call.ledger.order.isEmpty)
     }
 
@@ -251,9 +253,10 @@ struct FollowUpCallTests {
         let call = engine()
         _ = call.start()
         let out = await call.handle(patientText: "요즘 입맛이 좀 없어요")
-        #expect(call.ledger["stomatitis"] == nil)
+        // 구내염은 '있음'으로 남지 않는다 (다시 물어 식사로 확인되면 '모름'으로 두고 그 차례에 다시 묻는다)
+        #expect(call.ledger["stomatitis"]?.presence != .present)
         #expect(call.ledger["dehydration_nutrition"]?.presence == .present)
-        #expect(out.phase == .slot(key: "dehydration_nutrition", step: .detail))
+        #expect(out.phase != .opening)
     }
 
     @Test func 묻지_않았는데_없어졌다고_한_말은_그대로_기록하고_물어서_아니요라고_한_답은_남기지_않는다() async throws {

@@ -36,4 +36,10 @@ protocol CareCalling: AnyObject {
     func end() -> CareCallOutcome
     /// 통화를 바로 끝낸다. 진행 중인 run은 끊긴 곳까지의 기록으로 돌아온다
     func stop() async
+    /// 마지막 답을 지우고 그 질문으로 돌아갈 수 있음 (대화 중이고 받은 답이 있음)
+    var canGoBack: Bool { get }
+    /// 마지막 답을 지우고 그 질문으로 돌아간다. 그때 환자가 한 말도 돌려준다
+    func back() -> (turn: CareCallTurn, answer: String)?
+    /// 응급 안내로 끝난 대화를 응급 전 질문부터 잇는다 (응급으로 남긴 말은 기록에 그대로)
+    func continueAfterEmergency() -> CareCallTurn?
 }

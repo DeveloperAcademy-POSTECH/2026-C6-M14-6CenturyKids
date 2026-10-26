@@ -6,13 +6,13 @@ struct CareCallFlowView: View {
     @State private var viewModel: CareCallViewModel?
     @State private var cannotOpen = false
     @State private var hasEntered = false
-    
+    @State private var completionNavigation = CareCallCompletionNavigation()
     var makeViewModel: (() throws -> CareCallViewModel)?
     var autoStartVoice: Bool = false
     
     var onClose: (() -> Void)?
     var onPostpone: (() -> Void)?
-    var onShowRecord: (() -> Void)?
+    var onShowRecord: ((Date) -> Void)?
     var onHome: (() -> Void)?
 
     var body: some View {
@@ -52,7 +52,16 @@ struct CareCallFlowView: View {
     @ViewBuilder
     private func flow(_ viewModel: CareCallViewModel) -> some View {
         if hasEntered {
-            SymptomRecordView(state: viewModel.conversation, onClose: onClose, onShowRecord: onShowRecord, onHome: onHome)
+            SymptomRecordView(
+                state: viewModel.conversation, onClose: onClose,
+                onShowRecord: recordAction(viewModel),
+                onHome: onHome.map { destination in
+                    {
+                        guard completionNavigation.beginHome(didSave: viewModel.conversation.didSave) else { return }
+                        destination()
+                    }
+                }
+            )
         } else {
             SymptomCallWaitingView(state: viewModel.preparation, onStart: { enter(.voice) },
                 onPostpone: onPostpone, onSwitchToText: { enter(.text) }, onClose: onClose)
@@ -61,6 +70,17 @@ struct CareCallFlowView: View {
 
     private func enter(_ mode: SymptomConversationMode) {
         viewModel?.conversation.onAction?(.switchMode(mode)); hasEntered = true
+    }
+
+    private func recordAction(_ viewModel: CareCallViewModel) -> (() -> Void)? {
+        // 달라진 답이 없는 재통화는 새 기록을 저장하지 않습니다. 추측한 날짜로 상세를 열지 않습니다.
+        guard let onShowRecord, viewModel.record != nil else { return nil }
+        return {
+            guard let date = completionNavigation.beginRecord(
+                didSave: viewModel.conversation.didSave, recordedDate: viewModel.record?.recordedDate
+            ) else { return }
+            onShowRecord(date)
+        }
     }
 
     private func loadViewModel() async {

@@ -2,35 +2,46 @@ import SwiftUI
 
 struct SettingsView: View {
     @State private var state: SettingsScreenState
+    @State private var showsLogoutConfirmation = false
     private let onPersonalInfo: (() -> Void)?
     private let onCancerType: (() -> Void)?
     private let onCancerStage: (() -> Void)?
     private let onHospital: (() -> Void)?
+    private let onPasswordChange: (() -> Void)?
+    private let onWithdrawal: (() -> Void)?
+    private let onLogout: (() -> Void)?
+    private let isSigningOut: Bool
+    private let logoutErrorMessage: String?
     private let notificationSettings: @MainActor () -> NotificationSettingsView
     init(state: SettingsScreenState? = nil, onPersonalInfo: (() -> Void)? = nil,
          onCancerType: (() -> Void)? = nil, onCancerStage: (() -> Void)? = nil,
          onHospital: (() -> Void)? = nil,
-         notificationSettings: @escaping @MainActor () -> NotificationSettingsView = { NotificationSettingsView() }) {
+         onPasswordChange: (() -> Void)? = nil, onWithdrawal: (() -> Void)? = nil,
+         onLogout: (() -> Void)? = nil, isSigningOut: Bool = false, logoutErrorMessage: String? = nil,
+         notificationSettings: @escaping @MainActor () -> NotificationSettingsView) {
         _state = State(initialValue: state ?? .init()); self.onPersonalInfo = onPersonalInfo
         self.onCancerType = onCancerType; self.onCancerStage = onCancerStage; self.onHospital = onHospital
         self.notificationSettings = notificationSettings
+        self.onPasswordChange = onPasswordChange; self.onWithdrawal = onWithdrawal
+        self.onLogout = onLogout; self.isSigningOut = isSigningOut; self.logoutErrorMessage = logoutErrorMessage
     }
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                Text("마이페이지").settingsText(32, bold: true).accessibilityAddTraits(.isHeader).padding(.top, 20)
+            VStack(alignment: .leading, spacing: 28) {
+                Text("마이페이지").settingsText(20, bold: true).frame(maxWidth: .infinity)
+                    .accessibilityAddTraits(.isHeader).padding(.vertical, 24)
                 if let patient = state.profile {
                     Button { onPersonalInfo?() } label: {
                         HStack(spacing: 17) {
                             avatar
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(patient.name).settingsText(21)
+                                Text(patient.name).settingsText(17)
                                 Text("개인 정보").settingsText(14).foregroundStyle(SettingsPalette.caption)
                             }
                             Spacer(minLength: 4)
                             Image("SettingsChevron").resizable().frame(width: 6.8, height: 11.8).accessibilityHidden(true)
-                        }.padding(20).frame(maxWidth: .infinity, minHeight: 86, alignment: .leading)
-                            .background(.white, in: RoundedRectangle(cornerRadius: 14)).contentShape(Rectangle())
+                        }.padding(16).frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
+                            .background(.white, in: RoundedRectangle(cornerRadius: 26)).contentShape(Rectangle())
                     }.disabled(!state.canEdit || onPersonalInfo == nil).accessibilityIdentifier("settings.personalInfo")
                     SettingsSection(title: "건강 정보") {
                         Button { onCancerType?() } label: { SettingsRow(title: "암종", value: patient.cancerName ?? "미등록", chevron: true) }
@@ -40,7 +51,7 @@ struct SettingsView: View {
                             .disabled(!state.canEdit || onCancerStage == nil).accessibilityIdentifier("settings.cancerStage")
                     }
                     SettingsSection(title: "병원 정보") {
-                        SettingsRow(title: "치료받는 병원", value: patient.hospitalName ?? "연결된 병원 없음")
+                        SettingsRow(title: "병원", value: patient.hospitalName ?? "연결된 병원 없음")
                         SettingsDivider()
                         SettingsRow(title: "담당의", value: patient.doctorName.map { "\($0) 선생님" } ?? "없음")
                         SettingsDivider()
@@ -59,21 +70,36 @@ struct SettingsView: View {
                 SettingsSection(title: "기타") {
                     NavigationLink { notificationSettings() } label: { SettingsRow(title: "알림 설정", chevron: true) }
                     SettingsDivider()
-                    NavigationLink { OpenSourceLicensesView() } label: { SettingsRow(title: "라이선스", chevron: true) }
+                    NavigationLink { OpenSourceLicensesView() } label: { SettingsRow(title: "오픈소스 라이선스", chevron: true) }
                         .accessibilityIdentifier("settings.licenses")
+                    SettingsDivider()
+                    Button { onPasswordChange?() } label: { SettingsRow(title: "비밀번호 재설정", chevron: true) }
+                        .disabled(onPasswordChange == nil).accessibilityIdentifier("settings.passwordChange")
+                    SettingsDivider()
+                    Button { showsLogoutConfirmation = true } label: { SettingsRow(title: "로그아웃", chevron: true) }
+                        .disabled(isSigningOut).accessibilityIdentifier("settings.logout")
+                    SettingsDivider()
+                    Button { onWithdrawal?() } label: { SettingsRow(title: "회원 탈퇴", chevron: true) }
+                        .disabled(onWithdrawal == nil).accessibilityIdentifier("settings.withdrawal")
                 }
-            }.padding(.horizontal, 20).padding(.bottom, 32)
+                SettingsFeedback(busy: isSigningOut, error: logoutErrorMessage)
+            }.padding(.horizontal, 24).padding(.bottom, 32)
         }.background(SettingsPalette.background.ignoresSafeArea()).foregroundStyle(SettingsPalette.primary)
             .buttonStyle(.plain).toolbar(.hidden, for: .navigationBar)
             .onAppear { state.onReload?() }
             .onDisappear { state.onCancel?() }
+            .alert("정말 로그아웃 하시겠습니까?", isPresented: $showsLogoutConfirmation) {
+                Button("취소", role: .cancel) { }
+                Button("확인", role: .destructive) {
+                    guard !isSigningOut else { return }
+                    onLogout?()
+                }.disabled(onLogout == nil || isSigningOut)
+            } message: {
+                if onLogout == nil { Text("로그아웃 기능 연결 준비 중이에요.") }
+            }
     }
     private var avatar: some View {
-        ZStack(alignment: .topLeading) {
-            Image("SettingsAvatarCircle").resizable().frame(width: 52, height: 52)
-            Image("SettingsAvatarHead").resizable().frame(width: 16, height: 16).offset(x: 18, y: 11)
-            Image("SettingsAvatarBody").resizable().frame(width: 32, height: 16).offset(x: 10, y: 26)
-        }.frame(width: 52, height: 52).accessibilityHidden(true)
+        SettingsProfileAvatar(size: 64)
     }
     private var loadMessage: String? {
         switch state.loadState {
@@ -84,4 +110,12 @@ struct SettingsView: View {
         }
     }
 }
-#Preview { NavigationStack { SettingsView() } }
+#Preview {
+    NavigationStack {
+        SettingsView(
+            notificationSettings: {
+                NotificationSettingsView(viewModel: NotificationSettingsViewModel())
+            }
+        )
+    }
+}

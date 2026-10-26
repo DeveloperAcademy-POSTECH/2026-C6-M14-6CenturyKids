@@ -57,38 +57,29 @@ struct RecordsView: View {
             Button("다시 시도") { onRetry?() }.buttonStyle(.bordered).disabled(onRetry == nil)
         }
     }
+    // 카드 왼쪽 그래프는 시안 확정 전이라 자리만 둡니다.
     private var painCard: some View {
-        let value = data?.pain.map { RecordDisplay.number(abs($0.difference)) + "점" } ?? "기록 없음"
-        let subtitle = data?.pain?.previousDayDifference.map { "어제 " + changeText($0) } ?? "어제 기록 없음"
-        return RecordOverviewCard(label: "통증 기록", value: data?.pain.map { changeText($0.difference) + ", " + subtitle } ?? value,
-                                  action: selection(.pain), graphic: { RecordPainMiniChart(data: data?.pain) }) {
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(spacing: 7) {
-                    heading("통증", value)
-                    if let difference = data?.pain?.difference, difference != 0 {
-                        Image("RecordsChangeTriangle").frame(width: 10.6632, height: 9.5)
-                            .rotationEffect(.degrees(difference > 0 ? 180 : 0))
-                    }
-                }
-                caption(subtitle)
-            }
+        let subtitle = data?.pain.map { pain in
+            pain.previousDayDifference.map { "어제 \(RecordDisplay.number($0))점" } ?? "어제 기록 없음"
+        } ?? "기록 없음"
+        return RecordOverviewCard(label: "통증", value: subtitle, action: selection(.pain), graphic: { Color.clear }) {
+            card("통증", subtitle)
         }.accessibilityIdentifier("records.pain")
     }
     private var symptomCard: some View {
-        let value = data?.symptom?.presentCount.map { "\($0)건" } ?? (data?.symptom == nil ? "기록 없음" : "집계 미제공")
-        let subtitle = data?.symptom?.types.map(\.displayName).joined(separator: ", ") ?? ""
-        return RecordOverviewCard(label: "증상 기록", value: value + ", " + subtitle, action: selection(.symptom),
-                                  graphic: { RecordSymptomCountBadge(count: data?.symptom?.presentCount) }) {
-            VStack(alignment: .leading, spacing: 7) {
-                heading("증상 기록", value)
-                caption("있음으로 답한 항목")
-                if !subtitle.isEmpty { caption(subtitle) }
-            }
+        let subtitle = data?.symptom.map { symptom in
+            symptom.types.isEmpty ? "있음으로 답한 증상 없음" : symptom.types.map(\.displayName).joined(separator: ", ")
+        } ?? "기록 없음"
+        return RecordOverviewCard(label: "증상", value: subtitle, action: selection(.symptom), graphic: { Color.clear }) {
+            card("증상", subtitle)
         }.accessibilityIdentifier("records.symptom")
     }
-    private func heading(_ title: String, _ value: String) -> some View {
-        Text("\(Text(title).fontWeight(.semibold))\(Text(value.isEmpty ? "" : " " + value).fontWeight(.bold))")
-            .modifier(RecordTextStyle(size: 18)).foregroundStyle(.black).fixedSize(horizontal: false, vertical: true)
+    private func card(_ title: String, _ subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title).modifier(RecordTextStyle(size: 18, weight: .semibold)).foregroundStyle(.black)
+                .fixedSize(horizontal: false, vertical: true)
+            caption(subtitle)
+        }
     }
     private func caption(_ text: String) -> some View {
         Text(text).modifier(RecordTextStyle(size: 12)).foregroundStyle(Color(white: 141 / 255)).fixedSize(horizontal: false, vertical: true)
@@ -97,9 +88,12 @@ struct RecordsView: View {
         guard let onSelect, state.isLoaded else { return nil }
         return { onSelect(kind) }
     }
-    private func changeText(_ difference: Double) -> String {
-        RecordDisplay.number(abs(difference)) + "점 " + (difference > 0 ? "감소" : difference < 0 ? "증가" : "변화 없음")
-    }
 }
 
 #Preview("조회 미연결") { RecordsView() }
+#Preview("기록 있음") {
+    RecordsView(dateLabel: "10월 2일 화요일",
+                snapshot: .init(pain: .init(averageBefore: 7, averageAfter: 5, difference: 2, previousDayDifference: 3),
+                                symptom: .init(presentCount: 2, types: [.nauseaVomiting, .dehydrationNutrition])),
+                state: .loaded, onMoveDay: { _ in }, onSelect: { _ in })
+}

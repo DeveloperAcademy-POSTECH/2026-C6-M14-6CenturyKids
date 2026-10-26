@@ -14,4 +14,12 @@ enum InterviewPhase: Equatable, Sendable {
     case emergencyEnded
 
     var slotKey: String? { if case .slot(let key, _) = self { key } else { nil } }
+
+    /// 환자 답을 기다리는 질문 단계 (횟수·시작 시점 질문은 답을 그대로 적으므로 제외)
+    var asksQuestion: Bool {
+        switch self {
+        case .opening, .other, .slot(_, .presence), .slot(_, .location): true
+        case .slot(_, .detail), .saved, .emergencyEnded: false
+        }
+    }
 }

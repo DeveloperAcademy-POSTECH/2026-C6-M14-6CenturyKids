@@ -3,30 +3,25 @@ import Foundation
 import ToDocDomain
 #endif
 
-/// 앱 시작 지점에서 정해 주는 값입니다. 약관과 URL의 임의 기본값을 만들지 않습니다.
+/// 일반 회원가입에서 사용자 확정 약관과 기존 Repository를 사용합니다.
 nonisolated struct AuthConfiguration {
-    var terms: [SignupTerm: String] = [:]
-    var termsVersion: String?
+    var terms: [SignupTerm: String] = SignupTermsContent.provided
+    var termsVersion: String? = SignupTermsContent.version
+    var termsEffectiveDate: String? = SignupTermsContent.effectiveDate
     var redirectURL: URL?
-    /// 실서버 저장/메일 설정과 승인 약관·동의 정책 확인 후에만 명시적으로 허용합니다.
-    /// 기본 제품 경로는 확인 전까지 요청하지 않으며, 로컬 검사는 별도로 활성화합니다.
-    var allowsSignupRequests = false
-
-    /// 승인 약관을 대신하지 않는, 사용자가 명시적으로 선택한 Debug 실서버 검사입니다.
-    var isLocalSignupTest: Bool {
-#if DEBUG
-        localSignupTest
-#else
-        false
-#endif
-    }
-#if DEBUG
-    var localSignupTest = false
-#endif
+    /// 기본 경로에서 가입을 허용하되 필수 약관·Repository·세션 검증은 별도로 유지합니다.
+    /// 명시적으로 false를 주입하면 새 계정 생성만 차단합니다.
+    var allowsSignupRequests = true
 
     var hasRequiredTerms: Bool {
         guard let termsVersion, !termsVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        return SignupTerm.allCases.filter(\.isRequired).allSatisfy { hasContent(for: $0) }
+        guard let termsEffectiveDate, !termsEffectiveDate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return hasRequiredTermsContent && terms.values.allSatisfy {
+            !$0.contains("[서비스명]") && !$0.contains("[운영사명]")
+        }
+    }
+    var hasRequiredTermsContent: Bool {
+        SignupTerm.allCases.filter(\.isRequired).allSatisfy { hasContent(for: $0) }
     }
     func hasContent(for term: SignupTerm) -> Bool {
         !(terms[term]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
@@ -59,7 +54,8 @@ extension SignupTerm {
         case .service: "service"
         case .privacy: "privacy"
         case .sensitiveInformation: "sensitiveInformation"
-        case .notifications: "notifications"
+        case .doctorConnection: "doctorConnection"
+        case .thirdPartyProvision: "thirdPartyProvision"
         }
     }
 }

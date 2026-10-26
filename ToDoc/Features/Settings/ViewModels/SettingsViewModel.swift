@@ -270,13 +270,8 @@ final class SettingsViewModel {
                 return
             }
 
-            guard let doctor = try await doctorRepository.findByCode(code) else {
+            guard let doctor = try await doctorRepository.findConnectionInfoByCode(code) else { //요기바뀜
                 state.errorMessage = "의사 코드를 확인해 주세요."
-                return
-            }
-
-            guard let hospital = try await hospitalRepository.findById(doctor.hospitalId) else {
-                state.errorMessage = "의사의 병원 정보를 찾지 못했어요."
                 return
             }
 
@@ -284,12 +279,12 @@ final class SettingsViewModel {
                 return
             }
 
-            state.candidateDoctorId = doctor.user.id
+            state.candidateDoctorId = doctor.doctorId
             state.candidate = DoctorDisplayData(
-                hospitalName: hospital.name,
-                name: doctor.user.name
+                hospitalName: doctor.hospitalName,
+                name: doctor.doctorName
             )
-            state.canConnect = patient.doctorId != doctor.user.id
+            state.canConnect = patient.doctorId != doctor.doctorId
         } catch {
             state.errorMessage = "연결 정보를 확인하지 못했어요. 다시 시도해 주세요."
         }
@@ -299,8 +294,11 @@ final class SettingsViewModel {
         let state = hospitalConnectionState
         guard !state.isBusy,
               state.canConnect,
-              let doctorId = state.candidateDoctorId,
+              state.candidateDoctorId != nil,
               let candidate = state.candidate else { return }
+
+        let code = state.code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty else { return }
 
         state.isBusy = true
         state.errorMessage = nil
@@ -308,17 +306,7 @@ final class SettingsViewModel {
         defer { state.isBusy = false }
 
         do {
-            guard let patient = try await patientRepository.findById(patientId) else {
-                state.errorMessage = "환자 정보를 찾지 못했어요."
-                return
-            }
-
-            let updatedPatient = Patient(
-                user: patient.user,
-                doctorId: doctorId,
-                disease: patient.disease
-            )
-            try await patientRepository.save(patient: updatedPatient)
+            try await patientRepository.connectToDoctor(code: code)
 
             state.doctor = candidate
             state.candidate = nil
@@ -328,8 +316,7 @@ final class SettingsViewModel {
             state.code = ""
             state.successMessage = "병원 연결이 완료됐어요."
 
-            screenState.profile?.doctorName = candidate.name
-            screenState.profile?.hospitalName = candidate.hospitalName
+            await loadProfile()
         } catch {
             state.errorMessage = "병원을 연결하지 못했어요. 다시 시도해 주세요."
         }
@@ -345,22 +332,7 @@ final class SettingsViewModel {
         defer { state.isBusy = false }
 
         do {
-            guard let patient = try await patientRepository.findById(patientId) else {
-                state.errorMessage = "환자 정보를 찾지 못했어요."
-                return
-            }
-
-            guard patient.doctorId != nil else {
-                state.errorMessage = "연결된 의료진이 없어요."
-                return
-            }
-
-            let updatedPatient = Patient(
-                user: patient.user,
-                doctorId: nil,
-                disease: patient.disease
-            )
-            try await patientRepository.save(patient: updatedPatient)
+            try await patientRepository.disconnectFromDoctor()
 
             state.doctor = nil
             state.candidate = nil
