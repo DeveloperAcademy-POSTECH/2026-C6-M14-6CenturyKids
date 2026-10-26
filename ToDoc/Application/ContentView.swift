@@ -53,7 +53,8 @@ struct ContentView: View {
 }
 
 #if DEBUG
-#Preview { PatientFlowView(pain: { .preview() })
+#Preview {
+    PatientFlowView.preview()
         .environment(AppRouter())
 }
 #endif

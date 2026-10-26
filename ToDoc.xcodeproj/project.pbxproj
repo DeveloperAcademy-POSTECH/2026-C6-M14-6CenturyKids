@@ -11,8 +11,6 @@
 		A1E7CDA03088AA9D007C0049 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E7CD9F3088AA9D007C0049 /* WidgetKit.framework */; };
 		A1E7CDA23088AA9D007C0049 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E7CDA13088AA9D007C0049 /* SwiftUI.framework */; };
 		A1E7CDB33088AA9E007C0049 /* ToDocWidgetExtensionExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1E7CD9D3088AA9D007C0049 /* ToDocWidgetExtensionExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		C6A1D0000000000000000001 /* onnxruntime in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1D0000000000000000002 /* onnxruntime */; };
-		C6A1D0000000000000000011 /* CoreAILM in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1D0000000000000000012 /* CoreAILM */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -152,7 +150,6 @@
 				A13BCAF63077425800901BFD /* Sources */,
 				A13BCAF73077425800901BFD /* Frameworks */,
 				A13BCAF83077425800901BFD /* Resources */,
-				C6A1D0000000000000000004 /* Copy Models */,
 				A1E7CDB43088AA9E007C0049 /* Embed Foundation Extensions */,
 			);
 			buildRules = (

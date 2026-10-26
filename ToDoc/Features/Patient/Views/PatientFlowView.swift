@@ -144,6 +144,7 @@ extension PatientFlowView {
     }
 }
 
-#Preview { PatientFlowView.preview() }
-        .environment(AppRouter())
+#Preview { PatientFlowView.preview()
+    .environment(AppRouter())
+}
 #endif
