@@ -51,6 +51,8 @@ final class InterviewEngine {
     /// 같은 날 다시 거는 통화면 오늘 기록에 아직 없는 항목(지난 통화가 끊겨 못 물음), 처음 통화면 nil.
     /// 다시 거는 통화는 "달라졌거나 새로 불편한 점"을 묻고, 그 답에서 나온 증상과 이 항목만 묻는다
     private let unasked: Set<String>?
+    /// 답 한 턴마다 그 답을 받기 전 상태 (이전 질문으로 돌아갈 때). 분석기는 턴마다 새로 묻기 때문에 엔진 상태만 되돌리면 된다
+    private var history: [Snapshot] = []
     /// 부위 낱말 (body_parts.json). 절 판단으로 '있음'이 된 답에서 그 절의 부위를 찾을 때만 쓴다
 
     init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI, followUp unasked: Set<String>? = nil,
@@ -84,6 +86,7 @@ final class InterviewEngine {
         guard phase != .saved, phase != .emergencyEnded else {
             return Output(utterance: "", phase: phase)
         }
+        history.append(snapshot(answer: patientText))
         // 위기 표현(자살 생각·자해·약 과다 복용)은 모델 판단 없이 안내하고 끝낸다. 말은 원문으로 남긴다
         // (2026-10-21 Foundation Models: "죽고 싶다는 생각이 들어요"를 되묻기만 해 기록 없이 사라졌다)
         if crisisDetector.matches(patientText) != nil {
@@ -1058,6 +1061,52 @@ final class InterviewEngine {
         let text = message ?? rules.message
         say(text)
         return Output(utterance: text, phase: phase)
+    }
+
+    // MARK: - 이전 질문
+
+    private struct Snapshot {
+        let answer: String
+        let phase: InterviewPhase
+        let ledger: Ledger
+        let otherAsked: Bool
+        let otherAttempts: Int
+        let otherDetailKey: String?
+        let unsettledAnswers: [String: [String]]
+        let otherYesFollowedUp: Bool
+        let openingFirstAnswer: String?
+        let openingOtherName: String?
+        let lastQuestion: String
+        let pendingEmergencyCheck: (output: Output, phase: InterviewPhase, patientText: String)?
+        let convertedToOther: Bool
+    }
+
+    private func snapshot(answer: String) -> Snapshot {
+        Snapshot(answer: answer, phase: phase, ledger: ledger, otherAsked: otherAsked, otherAttempts: otherAttempts,
+                 otherDetailKey: otherDetailKey, unsettledAnswers: unsettledAnswers, otherYesFollowedUp: otherYesFollowedUp,
+                 openingFirstAnswer: openingFirstAnswer, openingOtherName: openingOtherName, lastQuestion: lastQuestion,
+                 pendingEmergencyCheck: pendingEmergencyCheck, convertedToOther: convertedToOther)
+    }
+
+    /// 대화 중이고 되돌릴 답이 있음
+    var canGoBack: Bool { !history.isEmpty && phase != .saved && phase != .emergencyEnded }
+
+    /// 마지막 답을 받기 전으로 되돌린다: 그 답으로 기록한 것을 지우고 그 질문을 다시 묻는다. 그때 한 답도 돌려준다
+    func goBack() -> (output: Output, answer: String)? {
+        guard canGoBack, let last = history.popLast() else { return nil }
+        phase = last.phase
+        ledger = last.ledger
+        otherAsked = last.otherAsked
+        otherAttempts = last.otherAttempts
+        otherDetailKey = last.otherDetailKey
+        unsettledAnswers = last.unsettledAnswers
+        otherYesFollowedUp = last.otherYesFollowedUp
+        openingFirstAnswer = last.openingFirstAnswer
+        openingOtherName = last.openingOtherName
+        lastQuestion = last.lastQuestion
+        pendingEmergencyCheck = last.pendingEmergencyCheck
+        convertedToOther = last.convertedToOther
+        return (Output(utterance: lastQuestion, phase: phase), last.answer)
     }
 
     // MARK: - 화면 표시

@@ -70,6 +70,16 @@ final class FakeCareCall: CareCalling {
         release()
     }
 
+    /// 이전 질문: 돌아갈 질문과 그때 한 답 (마지막 것부터 돌아간다)
+    var backTurns: [(turn: CareCallTurn, answer: String)] = []
+    var canGoBack: Bool { !backTurns.isEmpty }
+
+    func back() -> (turn: CareCallTurn, answer: String)? {
+        guard let last = backTurns.popLast() else { return nil }
+        current = last.turn
+        return last
+    }
+
     func release() {
         held?.resume()
         held = nil
