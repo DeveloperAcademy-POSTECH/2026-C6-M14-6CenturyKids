@@ -347,6 +347,20 @@ struct CareCallViewModelTests {
         #expect(!conversation.isCalling)
     }
 
+    @Test func 통화_중_마무리_인사를_하는_동안_정리_화면을_보여_준다() async {
+        await enterVoiceCall()
+        service.questionAfterCall = nil
+        service.opening = CareCallTurn(utterance: "오늘 기록을 마쳤어요.", number: nil, outcome: .completed(record([])))
+        service.activities = [.speaking("오늘 기록을 마쳤어요.")]
+        service.hold = .call
+        let task = viewModel.startCall()
+        await waitUntilHolding()
+        #expect(conversation.isSummarizing)
+        service.release()
+        await task?.value
+        #expect(!conversation.isSummarizing)
+    }
+
     // MARK: - 요약 수정·저장
 
     /// 통화를 끝까지 마치고 요약 화면에 온 상태

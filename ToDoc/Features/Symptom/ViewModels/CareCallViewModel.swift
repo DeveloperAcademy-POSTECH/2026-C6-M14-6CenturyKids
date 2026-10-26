@@ -357,6 +357,8 @@ final class CareCallViewModel {
         guard conversation.mode == .text, began, call == nil, typing == nil, !isOver, !text.isEmpty else { return nil }
         conversation.errorMessage = nil
         conversation.isWorking = true
+        // 마지막 질문의 답이면 정리하는 화면을 보여 준다 (더 물을 게 생기면 다음 질문으로 돌아간다)
+        conversation.isSummarizing = conversation.question?.isLastQuestion == true
         return typing {
             try await self.service.answer(text)
         } failed: { "답을 전하지 못했어요. 다시 보내 주세요." }
@@ -372,6 +374,7 @@ final class CareCallViewModel {
                 conversation.errorMessage = message()
             }
             conversation.isWorking = false
+            conversation.isSummarizing = false
             typing = nil
             let wantsCall = callAfterTyping
             callAfterTyping = false
@@ -400,10 +403,18 @@ final class CareCallViewModel {
         case .minutes?: .duration
         case nil: .text
         }
-        conversation.question = SymptomConversationQuestion(id: UUID(), text: turn.utterance, guidance: nil, progress: nil, input: input)
+        conversation.question = question(turn.utterance, of: turn, input: input)
         conversation.answerText = ""
         conversation.transcript = ""
         if let outcome = turn.outcome { finish(outcome) }
+    }
+
+    private static let moreGuidance = "말씀해 주신 내용에 대해 조금 더 여쭤볼게요"
+
+    /// 화면에 보일 질문: 진행률, 꼬리질문이면 안내 문구, 마지막 질문 표시
+    private func question(_ text: String, of turn: CareCallTurn?, input: SymptomConversationQuestion.Input) -> SymptomConversationQuestion {
+        SymptomConversationQuestion(id: UUID(), text: text, guidance: turn?.asksMore == true ? Self.moreGuidance : nil,
+                                    progress: turn?.progress, input: input, isLastQuestion: turn?.isLast ?? false)
     }
 
     /// 문자 입력 → 엔진에 넣을 문장. "10+"는 정확한 횟수로 저장되지 않게 "열 번 넘게"로 (NumberParser가 읽지 않는다)
@@ -447,7 +458,10 @@ final class CareCallViewModel {
         switch activity {
         case .speaking(let text):
             keep(service.progress) // 답을 분석한 뒤 다음 질문을 말한다
-            conversation.question = SymptomConversationQuestion(id: UUID(), text: text, guidance: nil, progress: nil, input: .text)
+            let turn = service.current
+            conversation.question = question(text, of: turn, input: .text)
+            // 마무리 인사를 하는 동안 정리 화면을 보여 준다
+            if case .completed? = turn?.outcome { conversation.isSummarizing = true }
             conversation.transcript = ""
             conversation.isListening = false
             conversation.isWorking = false
@@ -464,6 +478,7 @@ final class CareCallViewModel {
         self.outcome = outcome
         conversation.isListening = false
         conversation.isWorking = false
+        conversation.isSummarizing = false
         switch outcome {
         case .completed(let record) where record.symptoms.isEmpty:
             // 다시 거는 통화에서 달라진 게 없음: 더할 것이 없어 바로 완료 화면 (이때 보여 줄 화면은 화면 담당과 정할 예정)
