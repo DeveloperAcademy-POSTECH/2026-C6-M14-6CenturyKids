@@ -72,6 +72,8 @@ enum SymptomAction {
     var canGoPrevious = false
     var restoredAnswer: SymptomConversationAnswer?
     var errorMessage: String?
+    /// errorMessage가 마이크 권한 때문 (마이크 팝업으로 보여 준다)
+    var needsMicrophone = false
     /// 응급으로 판단되어 환자의 선택(기록 중단·이어가기)을 기다림
     var isEmergency = false
     var summary: SymptomSummaryScreenState?

@@ -287,6 +287,7 @@ struct CareCallTextModeTests {
         await waitUntil { conversation.mode == .text }
         #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?")
         #expect(conversation.errorMessage == "음성 통화를 준비하지 못했어요. 문자로 이어서 답해 주세요.")
+        #expect(conversation.needsMicrophone) // 마이크 팝업으로 알린다
         #expect(!service.calls.contains(.call))
     }
 
