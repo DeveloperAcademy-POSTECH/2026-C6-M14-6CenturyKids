@@ -54,6 +54,8 @@ enum SymptomAction {
     case switchMode(SymptomConversationMode)
     /// 기록 중단 팝업: 띄우면 통화를 잠시 멈추고, 계속 작성하면 잇고, 그만하면 저장하지 않은 기록을 버린다
     case pause, resume, discard
+    /// 응급 팝업: 기록 중단(저장하고 끝냄) 또는 기록 이어가기
+    case stopForEmergency, continueAfterEmergency
 }
 @Observable final class SymptomScreenState {
     // 음성 통화는 자동 진행합니다. ViewModel이 AI 발화·듣기·전사 상태를 전달합니다.
@@ -70,6 +72,8 @@ enum SymptomAction {
     var canGoPrevious = false
     var restoredAnswer: SymptomConversationAnswer?
     var errorMessage: String?
+    /// 응급으로 판단되어 환자의 선택(기록 중단·이어가기)을 기다림
+    var isEmergency = false
     var summary: SymptomSummaryScreenState?
     var didSave = false
     @ObservationIgnored var onAction: ((SymptomAction) -> Void)?

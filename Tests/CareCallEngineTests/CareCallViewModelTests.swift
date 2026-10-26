@@ -412,6 +412,20 @@ struct CareCallViewModelTests {
         #expect(repository.saved.isEmpty)
     }
 
+    @Test func 통화_중_응급_뒤_이어_가면_다시_건다() async {
+        await enterVoiceCall()
+        service.outcome = .emergencyEnded(record([]))
+        await viewModel.startCall()?.value
+        #expect(conversation.isEmergency && repository.saved.isEmpty)
+        service.resumeTurn = CareCallTurn(utterance: "변비는 있으셨나요?", number: nil, outcome: nil)
+        service.outcome = .completed(record([entry(.diarrhea, .present)]))
+        conversation.onAction?(.continueAfterEmergency)
+        #expect(!conversation.isEmergency)
+        for _ in 0..<1_000 where conversation.summary == nil { await Task.yield() }
+        #expect(service.calls.filter { $0 == .call }.count == 2)
+        #expect(repository.saved.isEmpty) // 요약에서 저장한다
+    }
+
     // MARK: - 요약 수정·저장
 
     /// 통화를 끝까지 마치고 요약 화면에 온 상태

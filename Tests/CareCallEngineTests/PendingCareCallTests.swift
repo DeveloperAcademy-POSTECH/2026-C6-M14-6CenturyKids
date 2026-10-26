@@ -170,6 +170,7 @@ struct PendingCareCallTests {
         await enterText(viewModel)
         service.replies = [turn("응급 안내", .emergencyEnded(record()))]
         await viewModel.answer(.text("숨이 차요"))?.value
+        viewModel.conversation.onAction?(.stopForEmergency) // 응급 팝업의 기록 중단
         await waitUntil { repository.saved.count == 1 }
         #expect(repository.saved[0].id == existing.id) // 다시 거는 통화처럼 그날 기록에 더한다
         #expect(Set(repository.saved[0].symptoms.map(\.symptomType)) == [.nauseaVomiting, .diarrhea])
@@ -182,6 +183,7 @@ struct PendingCareCallTests {
         await enterText(viewModel)
         service.replies = [turn("응급 안내", .emergencyEnded(record()))]
         await viewModel.answer(.text("숨이 차요"))?.value
+        viewModel.conversation.onAction?(.stopForEmergency)
         await waitUntil { !pending.items.isEmpty && repository.saved.isEmpty }
         #expect(pending.items.values.first?.complete == true)
     }
