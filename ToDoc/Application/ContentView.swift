@@ -19,6 +19,7 @@ struct ContentView: View {
             PatientFlowCompositionView(container: container,patientId: patient.user.id,authSession: authFlow.session)
                                           .task(id: patient.user.id) {
                     await syncLiveActivityToken()
+                    await LocalNotificationAdapter.schedulePainReminders()
                 }
         }
         .task {
