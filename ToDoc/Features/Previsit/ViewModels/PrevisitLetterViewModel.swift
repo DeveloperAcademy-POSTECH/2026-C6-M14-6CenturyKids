@@ -152,7 +152,7 @@ final class PrevisitLetterViewModel {
         return firstLine ?? letter.draft.mood?.title ?? "남긴 말 없음"
     }
 
-    /// 통증(그날 마지막 기록)·증상 수. 기록이 없는 쪽은 빼고 보여 준다.
+    /// 통증(PrevisitDay가 고른 그날 기록)·증상 수. 기록이 없는 쪽은 빼고 보여 준다.
     /// 복용 후 점수를 아직 남기지 않은 통증은 복용 전 점수만 보여 준다
     func badges(_ letter: PrevisitLetter) -> [Badge] {
         guard let day = letter.draft.day else { return [] }

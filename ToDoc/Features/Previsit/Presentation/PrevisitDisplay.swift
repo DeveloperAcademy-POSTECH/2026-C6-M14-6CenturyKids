@@ -9,7 +9,7 @@ struct PrevisitDay: Identifiable, Hashable {
     var recordedDate: Date? = nil
     var painRecordIDs: [UUID] = []
     var symptomRecordIDs: [UUID] = []
-    /// 그날 가장 마지막 통증 기록의 복용 전·후 점수 (목록 배지)
+    /// 목록 배지의 통증 점수: 그날 복용 전·후가 다 있는 마지막 기록, 없으면 마지막 기록 (복용 후는 nil)
     var painBefore: Int? = nil
     var painAfter: Int? = nil
     /// 그날 '있음'으로 답한 증상 수 (목록 배지)
