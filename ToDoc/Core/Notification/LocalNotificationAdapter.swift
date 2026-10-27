@@ -28,4 +28,10 @@ enum LocalNotificationAdapter {
             print("통증 기록 알림 예약 실패: ", error)
         }
     }
+
+    /// 로그아웃하면 예약해 둔 통증 기록 알림을 지운다.
+    static func cancelPainReminders() {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: painReminderHours.map { "painReminder.\($0)" })
+    }
 }

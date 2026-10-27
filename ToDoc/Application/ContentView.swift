@@ -25,6 +25,11 @@ struct ContentView: View {
         .task {
             container.liveActivityService.startObserving()
         }
+        // 로그아웃은 모두 session.patient를 비우는 것으로 끝난다.
+        .onChange(of: authFlow.session.patient?.user.id) { oldID, newID in
+            guard oldID != nil, newID == nil else { return }
+            LocalNotificationAdapter.cancelPainReminders()
+        }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             
