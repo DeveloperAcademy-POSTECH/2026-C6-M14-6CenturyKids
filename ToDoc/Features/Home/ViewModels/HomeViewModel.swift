@@ -31,6 +31,9 @@ import ToDocDomain
         }
         context = next
         let enteredHome = next.isVisible && !previous.isVisible
+        if next.isVisible && next.isAppActive && (enteredHome || !previous.isAppActive || patientChanged) {
+            refreshUnreadBadge()
+        }
         if next.isVisible && (enteredHome || state.greeting == nil) {
             state.greeting = HomeGreeting.pick(excluding: state.greeting, chooseIndex: chooseGreetingIndex)
         }
@@ -109,6 +112,16 @@ import ToDocDomain
         }
         request = work
         return work
+    }
+
+    /// 폰에 남긴 알림 중 읽지 않은 것이 있으면 종에 빨간 점을 켭니다.
+    func refreshUnreadBadge() {
+        guard let patientID = context.patientID, let notifications = repositories.notifications else { return }
+        Task { [weak self] in
+            let unread = (try? await notifications.countUnreadByUserId(patientID)) ?? 0
+            guard self?.context.patientID == patientID else { return }
+            self?.state.showsUnreadBadge = unread > 0
+        }
     }
 
     func cancel() {

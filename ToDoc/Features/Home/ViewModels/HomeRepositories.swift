@@ -6,5 +6,6 @@ import ToDocDomain
 struct HomeRepositories {
     var patients: (any PatientRepository)?
     var doctors: (any DoctorRepository)?
+    var notifications: (any NotificationRepository)?
     static let unavailable = HomeRepositories()
 }
