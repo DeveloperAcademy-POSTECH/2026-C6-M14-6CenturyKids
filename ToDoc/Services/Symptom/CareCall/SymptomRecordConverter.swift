@@ -53,6 +53,38 @@ struct SymptomRecordConverter {
         }
         let answers = e.details.filter { !$0.text.isEmpty }
         let questions = effect?.details ?? []
+        let detail = detailText(of: e, presence: presence, answers: answers, questions: questions, followUp: followUp, shared: shared)
+        // 숫자는 그 숫자를 물은 질문의 답에서만 읽는다 ("언제부터"의 "두 시간 전"을 지속 시간으로 읽지 않게)
+        func number(_ kind: CareCallConfig.Effect.Detail.Number, _ read: (String) -> Int?) -> Int? {
+            guard presence == .present else { return nil }
+            let asked = answers.filter { a in questions.contains { $0.label == a.label && $0.number == kind } }
+            return asked.compactMap { read($0.text) }.first
+        }
+        let count = number(.count, NumberParser.count(in:)), minutes = number(.minutes, NumberParser.minutes(in:))
+        // 부위는 부위를 묻는 항목만 ("식사량"에 붙은 "물" 같은 낱말은 버린다)
+        // 좌우를 붙이면 같아지는 낱말("발", "양쪽 발")은 한 항목으로
+        var seen = Set<String>()
+        let spoken = e.locations.map { spokenLocation($0, in: e.quotes) }.filter { seen.insert($0).inserted }
+        let locations: [String?] = presence == .present && effect?.requiresLocation == true && !spoken.isEmpty ? spoken : [nil]
+        let type = Self.types[e.effectId] ?? .other
+        return locations.compactMap { location in
+            let part = location.flatMap(bodyParts.bodyPart(for:)), side = location.flatMap(bodyParts.bodySide(for:))
+            func entry(count: Int?, minutes: Int?) -> SymptomEntry? {
+                try? SymptomEntry(id: UUID(), symptomType: type, presence: presence, bodyPart: part, bodySide: side,
+                                  rawLocationText: location, durationMinutes: minutes, occurrenceCount: count, detail: detail)
+            }
+            // detail은 길이를 맞췄으니 숫자를 빼면 항상 만들어진다
+            return entry(count: count, minutes: minutes) ?? entry(count: nil, minutes: nil)
+        }
+    }
+
+    /// 항목 하나의 저장 내용 (환자 말 원문 + 꼬리질문 답). 차례대로:
+    /// 1. 모으기: 기타 증상의 처음 말 · 다시 거는 통화의 없어졌다는 말 · 유무 질문 답 원문 · 꼬리질문 답 · 모르겠다고 한 답
+    /// 2. 같은 말은 한 번만
+    /// 3. 한도(300자)를 넘으면 유무 답 원문을 줄여 꼬리질문 답을 남기고 검토 필요
+    /// 4. 앞에 검토 필요 표시와 기타 증상 이름
+    private func detailText(of e: Ledger.Entry, presence: SymptomPresence, answers: [Ledger.Detail], questions: [CareCallConfig.Effect.Detail],
+                            followUp: Bool, shared: Set<String>) -> String? {
         // 꼬리질문이 둘인 항목은 어느 질문의 답인지 이름을 붙인다 ("구토 횟수: 하루 세 번이요 / 메스꺼움 시작: 어제부터요")
         // 기타 증상은 처음 말한 문장도 남긴다. 모델이 이름을 못 뽑아 그 문장이 이름이면 한 번만
         let firstSaid = e.effectId == "other" ? e.quotes.first.map { $0.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)) }
@@ -83,29 +115,7 @@ struct SymptomRecordConverter {
         // 검토 필요 → 앞에 표시, 기타 증상 → 앞에 이름 (#84)
         let body = [e.otherName, answerText.isEmpty ? nil : answerText].compactMap(\.self).joined(separator: ": ")
         let text = ([review ? "[검토 필요]" : nil, body.isEmpty ? nil : body].compactMap(\.self)).joined(separator: " ")
-        let detail = text.isEmpty ? nil : String(text.prefix(SymptomEntry.detailLimit))
-        // 숫자는 그 숫자를 물은 질문의 답에서만 읽는다 ("언제부터"의 "두 시간 전"을 지속 시간으로 읽지 않게)
-        func number(_ kind: CareCallConfig.Effect.Detail.Number, _ read: (String) -> Int?) -> Int? {
-            guard presence == .present else { return nil }
-            let asked = answers.filter { a in questions.contains { $0.label == a.label && $0.number == kind } }
-            return asked.compactMap { read($0.text) }.first
-        }
-        let count = number(.count, NumberParser.count(in:)), minutes = number(.minutes, NumberParser.minutes(in:))
-        // 부위는 부위를 묻는 항목만 ("식사량"에 붙은 "물" 같은 낱말은 버린다)
-        // 좌우를 붙이면 같아지는 낱말("발", "양쪽 발")은 한 항목으로
-        var seen = Set<String>()
-        let spoken = e.locations.map { spokenLocation($0, in: e.quotes) }.filter { seen.insert($0).inserted }
-        let locations: [String?] = presence == .present && effect?.requiresLocation == true && !spoken.isEmpty ? spoken : [nil]
-        let type = Self.types[e.effectId] ?? .other
-        return locations.compactMap { location in
-            let part = location.flatMap(bodyParts.bodyPart(for:)), side = location.flatMap(bodyParts.bodySide(for:))
-            func entry(count: Int?, minutes: Int?) -> SymptomEntry? {
-                try? SymptomEntry(id: UUID(), symptomType: type, presence: presence, bodyPart: part, bodySide: side,
-                                  rawLocationText: location, durationMinutes: minutes, occurrenceCount: count, detail: detail)
-            }
-            // detail은 길이를 맞췄으니 숫자를 빼면 항상 만들어진다
-            return entry(count: count, minutes: minutes) ?? entry(count: nil, minutes: nil)
-        }
+        return text.isEmpty ? nil : String(text.prefix(SymptomEntry.detailLimit))
     }
 
     /// 모델이 좌우를 빼고 낱말만 낸 경우 환자 말에서 좌우를 찾아 붙인다 ("왼손이 저려요" → "왼손", "양쪽 발이요" → "양쪽 발").

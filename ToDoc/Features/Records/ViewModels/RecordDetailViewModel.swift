@@ -225,11 +225,28 @@ final class RecordDetailViewModel {
         let days: [RecordPainDay] = grouped.map { date, records in
             let count = Double(records.count)
             let before = Double(records.reduce(0) { $0 + $1.painBefore }) / count
-            let after = Double(records.reduce(0) { $0 + $1.painAfter }) / count
-            return RecordPainDay(date: date, averageBefore: before, averageAfter: after)
+            let afterValues = records.compactMap { $0.painAfter }
+            let after: Double? = afterValues.isEmpty
+                ? nil
+                : Double(afterValues.reduce(0, +)) / Double(afterValues.count)
+
+            return RecordPainDay(
+                date: date,
+                averageBefore: before,
+                averageAfter: after
+            )
         }.sorted { $0.date < $1.date }
-        let differences = days.map { $0.averageBefore - $0.averageAfter }
-        let average: Double? = days.isEmpty ? nil : differences.reduce(0, +) / Double(days.count)
+        let differences = days.compactMap { day -> Double? in
+            guard let averageAfter = day.averageAfter else {
+                return nil
+            }
+
+            return day.averageBefore - averageAfter
+        }
+
+        let average: Double? = differences.isEmpty
+            ? nil
+            : differences.reduce(0, +) / Double(differences.count)
         var displays: [PainRecordDisplay]?
         if period == .day {
             displays = records.sorted { $0.recordedDate < $1.recordedDate }.map {

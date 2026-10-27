@@ -5,8 +5,8 @@ import Observation
 struct PainCompletionData {
     let location: [BodyLocation]
     let painBefore: Int
-    let painAfter: Int
-    let painChange: Int
+    let painAfter: Int?
+    let painChange: Int?
 }
 
 @Observable final class PainScreenState {

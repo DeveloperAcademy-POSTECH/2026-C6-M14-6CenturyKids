@@ -12,7 +12,7 @@ struct PainRecordDTO: Codable {
     let patientId: UUID
     let occurredAt: Date
     let painBefore: Int
-    let painAfter: Int
+    let painAfter: Int?
     
     init(painRecord: PainRecord) {
         id = painRecord.id

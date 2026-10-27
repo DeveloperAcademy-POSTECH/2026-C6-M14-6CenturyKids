@@ -12,7 +12,7 @@ struct SavePainRecordParams: Encodable {
     let pPatientId: UUID
     let pOccurredAt: Date
     let pPainBefore: Int
-    let pPainAfter: Int
+    let pPainAfter: Int?
     let pLocations: [PainLocationParam]
 }
 
