@@ -26,7 +26,9 @@ enum PrevisitRecordedDays {
                 dateLabel: "\(calendar.component(.month, from: date))/\(calendar.component(.day, from: date))",
                 weekday: calendar.weekdaySymbols[calendar.component(.weekday, from: date) - 1],
                 entries: dailySymptoms.flatMap { symptomLines($0) } + dailyPain.map { painLine($0) },
-                recordedDate: date, painRecordIDs: dailyPain.map(\.id), symptomRecordIDs: dailySymptoms.map(\.id)
+                recordedDate: date, painRecordIDs: dailyPain.map(\.id), symptomRecordIDs: dailySymptoms.map(\.id),
+                painBefore: dailyPain.last?.painBefore, painAfter: dailyPain.last?.painAfter,
+                symptomCount: dailySymptoms.flatMap(\.symptoms).filter { $0.presence == .present }.count
             )
         }
     }

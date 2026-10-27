@@ -33,6 +33,8 @@ final class PrevisitCoreTests: XCTestCase {
         XCTAssertEqual(previous.painRecordIDs, [previousPain.id])
         XCTAssertTrue(previous.symptomRecordIDs.isEmpty)
         XCTAssertTrue(current.isSelectable && previous.isSelectable)
+        XCTAssertEqual([current.painBefore, current.painAfter], [7, 3])
+        XCTAssertEqual(current.symptomCount, 0)
         XCTAssertThrowsError(try PrevisitRecordedDays.make(
             pain: [pain(on: today, patientID: UUID())], symptoms: [symptom], patientID: patientID))
         let foreignSymptom = SymptomRecord(id: UUID(), patientId: UUID(), recordedDate: today,
