@@ -35,7 +35,9 @@ struct PainRecordViewModelTests {
 
     @Test func 먹기_전_통증은_복용_후_점수_없이_저장하고_그_기록을_기다린다() async throws {
         let repository = StubPainRepository(latest: nil)
-        let viewModel = PainRecordViewModel(patientId: patientId, painRepository: repository)
+        var reminders: [Date] = []
+        let viewModel = PainRecordViewModel(patientId: patientId, painRepository: repository,
+                                            scheduleAfterReminder: { reminders.append($0) })
         await viewModel.load()
         viewModel.selectLocation(chest)
         viewModel.setBeforeScore(6)
@@ -48,12 +50,15 @@ struct PainRecordViewModelTests {
         #expect(record.painAfter == nil)
         #expect(record.recordedDate == now)
         #expect(viewModel.pendingRecord?.id == record.id)
+        #expect(reminders == [now.addingTimeInterval(60 * 60)])
     }
 
     @Test func 기존_통증을_마저_기록하면_같은_기록에_복용_후_점수를_채운다() async throws {
         let pending = try record(at: Date(timeIntervalSince1970: 1_000_000), after: nil)
         let repository = StubPainRepository(latest: pending)
-        let viewModel = PainRecordViewModel(patientId: patientId, painRepository: repository)
+        var cancelled = 0
+        let viewModel = PainRecordViewModel(patientId: patientId, painRepository: repository,
+                                            cancelAfterReminder: { cancelled += 1 })
         await viewModel.load()
         viewModel.setAfterScore(2)
 
@@ -64,6 +69,7 @@ struct PainRecordViewModelTests {
         #expect(repository.filled.first?.painAfter == 2)
         #expect(record.painChange == 5)
         #expect(viewModel.pendingRecord == nil)
+        #expect(cancelled == 1)
     }
 
     @Test func 새로운_통증을_기록하면_이전_기록은_먹기_전_점수만_남는다() async throws {

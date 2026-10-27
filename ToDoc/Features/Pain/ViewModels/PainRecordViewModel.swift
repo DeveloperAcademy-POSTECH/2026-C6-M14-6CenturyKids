@@ -40,6 +40,9 @@ final class PainRecordViewModel {
     static let afterDelay: TimeInterval = 60 * 60
 
     @ObservationIgnored private let patientSource: PatientSource
+    /// 먹은 뒤 통증을 기록할 시각에 한 번 알리고, 기록하면 지웁니다. 기기 알림은 컨테이너가 넣습니다.
+    @ObservationIgnored private let scheduleAfterReminder: (Date) async -> Void
+    @ObservationIgnored private let cancelAfterReminder: () -> Void
     private var patientId: UUID?
     private let painRepository: any PainRepository
     private var isLoading = false
@@ -60,17 +63,25 @@ final class PainRecordViewModel {
     init(
         authRepository: any AuthRepository,
         patientRepository: any PatientRepository,
-        painRepository: any PainRepository
+        painRepository: any PainRepository,
+        scheduleAfterReminder: @escaping (Date) async -> Void = { _ in },
+        cancelAfterReminder: @escaping () -> Void = {}
     ) {
         patientSource = .repositories(auth: authRepository, patient: patientRepository)
         self.painRepository = painRepository
+        self.scheduleAfterReminder = scheduleAfterReminder
+        self.cancelAfterReminder = cancelAfterReminder
     }
 
     #if DEBUG
-    init(patientId: UUID, painRepository: any PainRepository) {
+    init(patientId: UUID, painRepository: any PainRepository,
+         scheduleAfterReminder: @escaping (Date) async -> Void = { _ in },
+         cancelAfterReminder: @escaping () -> Void = {}) {
         patientSource = .knownPatient(patientId)
         self.patientId = patientId
         self.painRepository = painRepository
+        self.scheduleAfterReminder = scheduleAfterReminder
+        self.cancelAfterReminder = cancelAfterReminder
     }
     #endif
 
@@ -128,7 +139,7 @@ final class PainRecordViewModel {
         painAfter = 0
     }
 
-    /// 먹기 전 통증을 저장합니다. 저장한 시각이 기록 시각입니다.
+    /// 먹기 전 통증을 저장하고 1시간 뒤 알림을 예약합니다. 저장한 시각이 기록 시각입니다.
     func saveBeforeRecord(at date: Date = Date()) async throws -> PainRecord {
         guard !isSaving else { throw SaveError.alreadySaving }
         guard let patientId else { throw SaveError.patientUnavailable }
@@ -148,10 +159,11 @@ final class PainRecordViewModel {
         try await painRepository.save(entity: record)
 
         pendingRecord = record
+        await scheduleAfterReminder(date.addingTimeInterval(Self.afterDelay))
         return record
     }
 
-    /// 기다리던 기록에 먹은 뒤 통증을 채웁니다.
+    /// 기다리던 기록에 먹은 뒤 통증을 채우고 남은 알림을 지웁니다.
     func saveAfterRecord() async throws -> PainRecord {
         guard !isSaving else { throw SaveError.alreadySaving }
         guard let pending = pendingRecord else { throw SaveError.noPendingRecord }
@@ -171,6 +183,7 @@ final class PainRecordViewModel {
         try await painRepository.savePainAfter(recordId: pending.id, painAfter: painAfter)
 
         pendingRecord = nil
+        cancelAfterReminder()
         return record
     }
 

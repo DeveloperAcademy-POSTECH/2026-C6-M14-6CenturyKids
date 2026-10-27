@@ -158,12 +158,9 @@ struct PainRecordView: View {
 
         Task { @MainActor in
             do {
-                let record = try await viewModel.saveBeforeRecord()
+                _ = try await viewModel.saveBeforeRecord()
                 state.errorMessage = nil
                 stage = .beforeSaved
-                await LocalNotificationAdapter.schedulePainAfterReminder(
-                    at: record.recordedDate.addingTimeInterval(PainRecordViewModel.afterDelay)
-                )
             } catch PainRecordViewModel.SaveError.alreadySaving {
                 return
             } catch {
@@ -178,7 +175,6 @@ struct PainRecordView: View {
         Task { @MainActor in
             do {
                 let record = try await viewModel.saveAfterRecord()
-                LocalNotificationAdapter.cancelPainAfterReminder()
                 savedRecord = record
                 state.errorMessage = nil
                 state.completion = PainCompletionData(
