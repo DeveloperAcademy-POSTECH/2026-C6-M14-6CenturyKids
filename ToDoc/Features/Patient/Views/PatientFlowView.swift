@@ -112,17 +112,13 @@ struct PatientFlowView: View {
         }
         .onChange(of: router.pendingDeepLink, initial: true) { _, deepLink in
             guard let deepLink else { return }
-            
-            switch deepLink {
-            case .careCall(let autoStartVoice):
-                showsPrevisit = false
+            // 바텀시트가 떠 있으면 먼저 닫는다. 닫는 중에는 다른 화면을 띄울 수 없어, 닫힌 뒤 openPrevisitNext가 이어서 연다
+            guard !showsPrevisitPrompt else {
+                previsitNext = nil
                 showsPrevisitPrompt = false
-              
-                tab = .home
-                path = [.symptom(autoStartVoice: autoStartVoice)]
+                return
             }
-            
-            router.pendingDeepLink = nil
+            open(deepLink)
         }
         .sheet(isPresented: $showsPrevisitPrompt, onDismiss: openPrevisitNext) {
             PrevisitPromptView(startTitle: previsitSession.hasDraft ? "이어서 작성하기" : nil,
@@ -167,7 +163,24 @@ struct PatientFlowView: View {
         showsPrevisitPrompt = false
     }
 
+    private func open(_ deepLink: DeepLink) {
+        switch deepLink {
+        case .careCall(let autoStartVoice):
+            showsPrevisit = false
+
+            tab = .home
+            path = [.symptom(autoStartVoice: autoStartVoice)]
+        }
+
+        router.pendingDeepLink = nil
+    }
+
     private func openPrevisitNext() {
+        if let deepLink = router.pendingDeepLink {
+            previsitNext = nil
+            open(deepLink)
+            return
+        }
         switch previsitNext {
         case .write:
             previsitSession.start()
