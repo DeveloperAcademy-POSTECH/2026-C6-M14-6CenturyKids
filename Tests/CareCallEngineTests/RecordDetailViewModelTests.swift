@@ -207,6 +207,8 @@ final class FakePainRepository: PainRepository {
     }
     func save(entity: PainRecord) async throws {}
     func findByPatientId(_ patientId: UUID) async throws -> [PainRecord] { records }
+    func findLatestByPatientId(_ patientId: UUID) async throws -> PainRecord? { records.max { $0.recordedDate < $1.recordedDate } }
+    func savePainAfter(recordId: UUID, painAfter: Int) async throws {}
     func findById(_ id: UUID) async throws -> PainRecord? { nil }
     func deleteById(_ id: UUID) async throws {}
 }
