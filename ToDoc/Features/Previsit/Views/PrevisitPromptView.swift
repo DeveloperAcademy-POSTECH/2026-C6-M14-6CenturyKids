@@ -39,18 +39,18 @@ struct PrevisitPromptView: View {
             Capsule().fill(AppColors.Semantic.Border.default).frame(width: 36, height: 5).accessibilityHidden(true)
             HStack(alignment: .top, spacing: 8) {
                 Color.clear.frame(width: 44, height: 44)
-                PrevisitPageTitle(sub: "진료 전 기록하기", title: "진료 받기 전 대기중인가요?")
-                PrevisitIconButton(systemName: "xmark", label: "닫기", action: onClose)
+                AppNavigation.PageTitle("진료 받기 전 대기중인가요?", alignment: .center, overline: "진료 전 기록하기")
+                AppActions.IconButton("닫기", icon: Image(systemName: "xmark"), action: onClose)
+                    .foregroundStyle(AppColors.Semantic.Text.sub)
             }
             VStack(spacing: 32) {
-                Button(action: onStart) { AppForwardLabel(title: startTitle ?? "진료 전 기록하기", asset: "CareConversationNext") }
-                    .buttonStyle(AppButtonStyle()).accessibilityIdentifier("previsit.start")
-                Button("지난 기록 전체보기", action: onRecords).buttonStyle(AppButtonStyle(kind: .secondary))
+                AppActions.Button(startTitle ?? "진료 전 기록하기", action: onStart).accessibilityIdentifier("previsit.start")
+                AppActions.Button("지난 기록 전체보기", kind: .secondary, action: onRecords)
                     .accessibilityIdentifier("previsit.records")
             }
             if let onDiscard {
                 Button("작성 중인 내용 지우기", role: .destructive, action: onDiscard)
-                    .appText(.label).accessibilityIdentifier("previsit.discard")
+                    .appTypography(.label).accessibilityIdentifier("previsit.discard")
             }
         }.padding(.horizontal, 24).padding(.top, 10).padding(.bottom, 40)
     }

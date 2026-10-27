@@ -18,20 +18,28 @@ struct PrevisitLetterView: View {
         let letter = viewModel.letter(id) ?? lastShown
         ScrollView {
             VStack(spacing: 16) {
-                PrevisitScreenHeader(sub: "지난 기록", title: "진료 전 기록", backLabel: onClose == nil ? "뒤로" : "닫기") {
+                PrevisitScreenHeader(overline: "지난 기록", title: "진료 전 기록", backLabel: onClose == nil ? "뒤로" : "닫기") {
                     if let onClose { onClose() } else { dismiss() }
                 }
                 if let letter {
                     if let day = letter.draft.day {
-                        PrevisitRecordDayCard(title: viewModel.recordDayTitle(day), weekday: day.weekday, entries: day.entries)
+                        AppCards.DayRecordCard(day: viewModel.recordDayTitle(day), weekday: day.weekday,
+                                               records: day.entries, emptyText: "기록 없음") {}
+                            .previsitReadOnly()
                     }
-                    if let mood = letter.draft.mood { PrevisitMoodCard(mood: mood) }
-                    PrevisitNoteCard(doctorName: letter.doctorName, letter: letter.draft.letter, patientName: patientName)
+                    if let mood = letter.draft.mood {
+                        AppCards.MoodOption(mood.title, avatar: mood.avatar) {}.previsitReadOnly()
+                    }
+                    AppCards.NoteCard(to: "To. \(letter.doctorName)", from: patientName.isEmpty ? nil : "From. \(patientName)") {
+                        Text(letter.draft.letter.isEmpty ? "남긴 말이 없어요" : letter.draft.letter)
+                            .foregroundStyle(letter.draft.letter.isEmpty ? AppColors.Semantic.Text.placeholder
+                                                                         : AppColors.Semantic.Text.default)
+                    }
                 } else {
-                    Text("진료 전 기록을 찾을 수 없어요.").appText(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
+                    Text("진료 전 기록을 찾을 수 없어요.").appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
                         .accessibilityIdentifier("previsitLetter.missing")
                 }
-            }.padding(.horizontal, AppSpacing.screenHorizontal).padding(.top, 4).padding(.bottom, 24)
+            }.padding(.horizontal, AppLayout.Phone.horizontalMargin).padding(.top, 4).padding(.bottom, 24)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if letter != nil { footer }
@@ -41,10 +49,10 @@ struct PrevisitLetterView: View {
         .onChange(of: viewModel.letter(id), initial: true) { _, current in if let current { lastShown = current } }
         .overlay {
             if showsDelete {
-                PrevisitDialog(title: "이 기록을 삭제할까요?", message: "선생님 화면에서도 사라지고, 다시 되돌릴 수 없어요.",
-                               destructiveTitle: "삭제하기", cancelTitle: "계속 수정하기",
-                               onDestructive: { showsDelete = false; viewModel.delete(id) },
-                               onCancel: { showsDelete = false })
+                PrevisitConfirmDialog(title: "이 기록을 삭제할까요?", message: "선생님 화면에서도 사라지고, 다시 되돌릴 수 없어요.",
+                                      destructiveTitle: "삭제하기", cancelTitle: "계속 수정하기",
+                                      onDestructive: { showsDelete = false; viewModel.delete(id) },
+                                      onCancel: { showsDelete = false })
             }
         }
         .navigationDestination(isPresented: $showsEdit) {
@@ -53,22 +61,17 @@ struct PrevisitLetterView: View {
     }
 
     private var footer: some View {
-        VStack(spacing: 20) {
-            Button { viewModel.beginEdit(id); showsEdit = true } label: {
-                AppForwardLabel(title: "수정하기", asset: "CareConversationNext")
-            }.buttonStyle(AppButtonStyle()).accessibilityIdentifier("previsitLetter.edit")
-            Button("삭제하기") { showsDelete = true }
-                .buttonStyle(AppButtonStyle(kind: .secondary)).accessibilityIdentifier("previsitLetter.delete")
-        }
-        .padding(.horizontal, AppSpacing.screenHorizontal).padding(.top, 12).padding(.bottom, 2)
-        .background(AppColors.Semantic.Background.default)
-        .overlay(alignment: .top) {
-            // Figma 05: 저장한 뒤 상세로 돌아오면 버튼 위에 잠깐 띄웁니다
-            if viewModel.notice == .saved {
-                PrevisitToast(message: PrevisitLetterViewModel.Notice.saved.message) { viewModel.clearNotice() }
-                    .offset(y: -56)
+        AppActions.BottomAction(primary: .init("수정하기") { viewModel.beginEdit(id); showsEdit = true },
+                                secondary: .init("삭제하기") { showsDelete = true })
+            .padding(.top, 12).padding(.bottom, 2)
+            .background(AppColors.Semantic.Background.default)
+            .overlay(alignment: .top) {
+                // Figma 05: 저장한 뒤 상세로 돌아오면 버튼 위에 잠깐 띄웁니다
+                if viewModel.notice == .saved {
+                    PrevisitToast(message: PrevisitLetterViewModel.Notice.saved.message) { viewModel.clearNotice() }
+                        .offset(y: -56)
+                }
             }
-        }
     }
 }
 
@@ -85,25 +88,28 @@ struct PrevisitLetterEditView: View {
         let letter = viewModel.letter(id)
         ScrollView {
             VStack(spacing: 16) {
-                PrevisitScreenHeader(sub: letter.map(viewModel.sentDate) ?? "", title: "기록 수정", backLabel: "뒤로", onBack: back)
+                PrevisitScreenHeader(overline: letter.map(viewModel.sentDate) ?? "", title: "기록 수정", backLabel: "뒤로", onBack: back)
                 if let day = letter?.draft.day {
-                    PrevisitRecordDayCard(title: viewModel.recordDayTitle(day), weekday: day.weekday, entries: day.entries)
-                        .opacity(0.5).accessibilityHint("고를 수 없어요")
+                    AppCards.DayRecordCard(day: viewModel.recordDayTitle(day), weekday: day.weekday,
+                                           records: day.entries, emptyText: "기록 없음") {}
+                        .previsitReadOnly().opacity(0.5).accessibilityHint("고를 수 없어요")
                 }
                 moods
+                // 공용 Text Area는 배경이 아직 background/default라, 시안대로 흰 바탕인 입력칸을 직접 둡니다
                 ZStack(alignment: .topLeading) {
                     if viewModel.editingLetter.isEmpty {
-                        Text("하고싶은말을 자유롭게 작성해주세요.").appText(.body).foregroundStyle(AppColors.Semantic.Text.placeholder)
+                        Text("하고싶은말을 자유롭게 작성해주세요.").appTypography(.body)
+                            .foregroundStyle(AppColors.Semantic.Text.placeholder)
                             .padding(.horizontal, 5).padding(.vertical, 8).allowsHitTesting(false).accessibilityHidden(true)
                     }
-                    TextEditor(text: $viewModel.editingLetter).appText(.body)
+                    TextEditor(text: $viewModel.editingLetter).appTypography(.body)
                         .foregroundStyle(AppColors.Semantic.Text.default).scrollContentBackground(.hidden)
                         .focused($writing).accessibilityLabel("선생님께 전할 이야기")
                         .accessibilityIdentifier("previsitLetterEdit.letter")
                 }
                 .padding(32 - 5).frame(height: 230)
                 .background(AppColors.Semantic.Background.surface, in: RoundedRectangle(cornerRadius: 40))
-            }.padding(.horizontal, AppSpacing.screenHorizontal).padding(.top, 4).padding(.bottom, 24)
+            }.padding(.horizontal, AppLayout.Phone.horizontalMargin).padding(.top, 4).padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
@@ -113,10 +119,10 @@ struct PrevisitLetterEditView: View {
         .onAppear { if viewModel.editingID != id { viewModel.beginEdit(id) } }
         .overlay {
             if showsDiscard {
-                PrevisitDialog(title: "수정을 그만둘까요?", message: "지금까지 고친 내용은 저장되지 않아요",
-                               destructiveTitle: "그만두기", cancelTitle: "계속 수정하기",
-                               onDestructive: { showsDiscard = false; viewModel.cancelEdit(); dismiss() },
-                               onCancel: { showsDiscard = false })
+                PrevisitConfirmDialog(title: "수정을 그만둘까요?", message: "지금까지 고친 내용은 저장되지 않아요",
+                                      destructiveTitle: "그만두기", cancelTitle: "계속 수정하기",
+                                      onDestructive: { showsDiscard = false; viewModel.cancelEdit(); dismiss() },
+                                      onCancel: { showsDiscard = false })
             }
         }
     }
@@ -125,33 +131,34 @@ struct PrevisitLetterEditView: View {
     @ViewBuilder private var moods: some View {
         if choosesMood {
             ForEach(PrevisitMood.allCases) { mood in
-                Button { viewModel.editingMood = mood; choosesMood = false } label: {
-                    PrevisitMoodCard(mood: mood, selected: viewModel.editingMood == mood)
-                }.buttonStyle(.plain).accessibilityValue(viewModel.editingMood == mood ? "선택됨" : "선택 안 됨")
-                    .accessibilityIdentifier("previsitLetterEdit.mood.\(mood.rawValue)")
+                AppCards.MoodOption(mood.title, avatar: mood.avatar, isSelected: viewModel.editingMood == mood) {
+                    viewModel.editingMood = mood
+                    choosesMood = false
+                }.accessibilityIdentifier("previsitLetterEdit.mood.\(mood.rawValue)")
             }
         } else if let mood = viewModel.editingMood {
-            Button { writing = false; choosesMood = true } label: { PrevisitMoodCard(mood: mood, selected: true) }
-                .buttonStyle(.plain).accessibilityHint("눌러서 기분을 바꿀 수 있어요")
-                .accessibilityIdentifier("previsitLetterEdit.mood")
+            AppCards.MoodOption(mood.title, avatar: mood.avatar, isSelected: true) {
+                writing = false
+                choosesMood = true
+            }.accessibilityHint("눌러서 기분을 바꿀 수 있어요").accessibilityIdentifier("previsitLetterEdit.mood")
         }
     }
 
     @ViewBuilder private var footer: some View {
-        Group {
-            if writing {
-                Button { writing = false } label: {
-                    Text("입력 완료").appText(.label).frame(maxWidth: .infinity, minHeight: 44)
-                }.buttonStyle(.bordered).accessibilityIdentifier("previsitLetterEdit.finishWriting")
-            } else {
-                Button { viewModel.saveEdit(); dismiss() } label: {
-                    AppForwardLabel(title: "저장하기", asset: "CareConversationNext")
-                }.buttonStyle(AppButtonStyle()).disabled(!viewModel.hasEditChanges)
-                    .accessibilityIdentifier("previsitLetterEdit.save")
-            }
+        if writing {
+            AppActions.TextButton("입력 완료") { writing = false }
+                .frame(maxWidth: .infinity).padding(.vertical, 8)
+                .background(AppColors.Semantic.Background.default)
+                .accessibilityIdentifier("previsitLetterEdit.finishWriting")
+        } else {
+            AppActions.BottomAction(primary: .init("저장하기", isEnabled: viewModel.hasEditChanges) {
+                viewModel.saveEdit()
+                dismiss()
+            })
+            .padding(.top, 12).padding(.bottom, 2)
+            .background(AppColors.Semantic.Background.default)
+            .accessibilityIdentifier("previsitLetterEdit.save")
         }
-        .padding(.horizontal, AppSpacing.screenHorizontal).padding(.top, 12).padding(.bottom, 2)
-        .background(AppColors.Semantic.Background.default)
     }
 
     private func back() {

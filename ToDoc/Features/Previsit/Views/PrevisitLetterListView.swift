@@ -9,13 +9,13 @@ struct PrevisitLetterListView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                PrevisitScreenHeader(sub: "지난 기록", title: "진료 전 기록", backLabel: "뒤로") { dismiss() }
+                PrevisitScreenHeader(overline: "지난 기록", title: "진료 전 기록", backLabel: "뒤로") { dismiss() }
                 if viewModel.letters.isEmpty {
                     emptyState
                 }
                 ForEach(viewModel.months) { month in
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(month.id).appText(.labelLarge).foregroundStyle(AppColors.Semantic.Text.default)
+                        Text(month.id).appTypography(.labelLarge).foregroundStyle(AppColors.Semantic.Text.default)
                             .accessibilityAddTraits(.isHeader)
                         ForEach(month.letters) { letter in
                             Button { onSelect(letter.id) } label: { row(letter) }
@@ -23,7 +23,7 @@ struct PrevisitLetterListView: View {
                         }
                     }
                 }
-            }.padding(.horizontal, AppSpacing.screenHorizontal).padding(.top, 4).padding(.bottom, 24)
+            }.padding(.horizontal, AppLayout.Phone.horizontalMargin).padding(.top, 4).padding(.bottom, 24)
         }
         .background(AppColors.Semantic.Background.default.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
@@ -31,8 +31,8 @@ struct PrevisitLetterListView: View {
 
     private var emptyState: some View {
         VStack(spacing: 6) {
-            Text("아직 남긴 기록이 없어요").appText(.labelLarge).foregroundStyle(AppColors.Semantic.Text.default)
-            Text("진료 전에 선생님께 하고 싶은 말을 남겨보세요").appText(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
+            Text("아직 남긴 기록이 없어요").appTypography(.labelLarge).foregroundStyle(AppColors.Semantic.Text.default)
+            Text("진료 전에 선생님께 하고 싶은 말을 남겨보세요").appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
         }.multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 32)
             .background(AppColors.Semantic.Background.surface, in: RoundedRectangle(cornerRadius: 30))
             .accessibilityElement(children: .combine).accessibilityIdentifier("previsitLetters.empty")
@@ -41,16 +41,16 @@ struct PrevisitLetterListView: View {
     /// Figma Record List Item: 기분 아바타 + 날짜 + 첫 줄 + 배지 + ›
     private func row(_ letter: PrevisitLetter) -> some View {
         HStack(spacing: 16) {
-            PrevisitDoctorAvatar(mood: letter.draft.mood ?? .unsure, size: 40)
+            (letter.draft.mood ?? .unsure).avatar
             VStack(alignment: .leading, spacing: 2) {
-                Text(viewModel.sentDate(letter)).appText(.labelLarge).foregroundStyle(AppColors.Semantic.Text.default)
-                Text(viewModel.preview(letter)).appText(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
+                Text(viewModel.sentDate(letter)).appTypography(.labelLarge).foregroundStyle(AppColors.Semantic.Text.default)
+                Text(viewModel.preview(letter)).appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
                     .lineLimit(1).truncationMode(.tail)
                 let badges = viewModel.badges(letter)
                 if !badges.isEmpty {
                     HStack(spacing: 6) {
                         ForEach(badges, id: \.self) { badge in
-                            Text(badge.text).appText(.caption)
+                            Text(badge.text).appTypography(.caption)
                                 .foregroundStyle(badge.isAlert ? AppColors.Semantic.Text.error : AppColors.Semantic.Text.sub)
                                 .padding(.horizontal, 8).padding(.vertical, 2)
                                 .background(badge.isAlert ? Self.alertBadge : AppColors.Semantic.Background.secondary, in: Capsule())
@@ -58,7 +58,7 @@ struct PrevisitLetterListView: View {
                     }.padding(.top, 8)
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
-            Image("PrevisitListChevron").frame(width: 16, height: 16).accessibilityHidden(true)
+            AppCards.Chevron()
         }
         .padding(.leading, 20).padding(.trailing, 16).padding(.vertical, 20)
         .frame(maxWidth: .infinity, minHeight: 124)
