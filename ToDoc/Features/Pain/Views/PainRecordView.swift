@@ -84,7 +84,8 @@ struct PainRecordView: View {
             switch stage {
             case .start:
                 if let pending = viewModel.pendingRecord, let availableDate = viewModel.afterAvailableDate {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                    // 대기 화면은 남은 시간을 스스로 세므로, 여기서는 기록할 수 있게 되는 순간에 한 번만 바꿉니다.
+                    TimelineView(.explicit([.now, availableDate])) { context in
                         if context.date < availableDate {
                             PainAfterWaitingView(locations: pending.location, before: pending.painBefore,
                                                  availableDate: availableDate,
