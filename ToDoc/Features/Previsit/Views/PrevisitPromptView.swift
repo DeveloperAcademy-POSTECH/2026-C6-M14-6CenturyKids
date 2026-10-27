@@ -40,8 +40,8 @@ struct PrevisitPromptView: View {
             HStack(alignment: .top, spacing: 8) {
                 Color.clear.frame(width: 44, height: 44)
                 AppNavigation.PageTitle("진료 받기 전 대기중인가요?", alignment: .center, overline: "진료 전 기록하기")
-                AppActions.IconButton("닫기", icon: Image(systemName: "xmark"), action: onClose)
-                    .foregroundStyle(AppColors.Semantic.Text.sub)
+                // Figma 아이콘이 아직 자리만 있어 뒤로가기(Prev)와 같은 굵기·크기로 그린 닫기 아이콘을 씁니다
+                AppActions.IconButton("닫기", icon: Image("PrevisitClose"), action: onClose)
             }
             VStack(spacing: 32) {
                 AppActions.Button(startTitle ?? "진료 전 기록하기", action: onStart).accessibilityIdentifier("previsit.start")
