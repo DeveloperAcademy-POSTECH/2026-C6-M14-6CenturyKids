@@ -19,7 +19,7 @@ import SwiftUI
         Group {
             switch model.screen {
             case .login:
-                LoginFormView(state: model.login.state, onSignup: { model.open(.signup) },
+                LoginFormView(viewModel: model.login, onSignup: { model.open(.signup) },
                               onPasswordReset: { model.open(.passwordReset) }, onBack: close)
             case .signup:
                 SignupFormView(state: model.signup.state, onBack: model.backFromSignup,
