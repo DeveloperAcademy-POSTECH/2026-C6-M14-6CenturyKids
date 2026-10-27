@@ -16,19 +16,26 @@ final class LocalNotificationDelegate: NSObject, UNUserNotificationCenterDelegat
         self.router = router
     }
 
+    // 두 메서드는 async 버전을 쓰지 않습니다: async 버전은 끝났다는 신호를 메인 스레드 밖에서 보내 UIKit이 앱을 종료시킵니다.
+
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
-    ) async {
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
         let link = response.notification.request.content.userInfo[LocalNotificationAdapter.deepLinkKey] as? String
-        await open(link)
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { self.open(link) }
+            completionHandler()
+        }
     }
 
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
-        [.banner, .sound]
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        DispatchQueue.main.async { completionHandler([.banner, .sound]) }
     }
 
     private func open(_ link: String?) {
