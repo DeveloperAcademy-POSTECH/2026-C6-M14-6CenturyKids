@@ -25,10 +25,6 @@ struct ContentView: View {
         }
         .task {
             container.liveActivityService.startObserving()
-            container.localNotifications.onOpen = { type in
-                guard type == .previsitReminder else { return }
-                router.handle(.previsit)
-            }
             // 앱을 끈 사이에 로그인이 끝났으면 복원 뒤에도 환자가 없으니 남은 예약과 병원 감시를 멈춘다.
             await authFlow.restoreSessionOnce()
             if authFlow.session.patient == nil {

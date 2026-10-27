@@ -57,6 +57,22 @@ enum LocalNotificationAdapter {
         center.removeDeliveredNotifications(withIdentifiers: [painAfterReminderID])
     }
 
+    static func requestAuthorization() async {
+        _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+    }
+
+    /// 앱 알림 목록에 남긴 알림을 지금 띄운다. 누르면 deepLink 화면을 연다.
+    static func post(_ notification: AppNotification, deepLink: String) async throws {
+        let content = UNMutableNotificationContent()
+        content.title = notification.title
+        content.body = notification.body
+        content.sound = .default
+        content.userInfo = [deepLinkKey: deepLink]
+        try await UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: notification.id.uuidString, content: content, trigger: nil)
+        )
+    }
+
     /// 로그아웃하면 예약해 둔 통증 기록 알림을 지운다.
     static func cancelPainReminders() {
         UNUserNotificationCenter.current()

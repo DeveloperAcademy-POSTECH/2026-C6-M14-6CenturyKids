@@ -24,6 +24,11 @@ enum DeepLink: Equatable {
             return
         }
 
+        if url.path == "/previsit" {
+            self = .previsit
+            return
+        }
+
         guard url.path == "/symptoms" else {
             return nil
         }

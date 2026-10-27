@@ -14,12 +14,13 @@ import UIKit
 final class HospitalArrivalService {
     static let radius: CLLocationDistance = 200
     static let body = "병원에 가셨나요? 진료 받기 전 기록해보세요"
+    /// 알림을 누르면 진료 전 기록 작성 화면을 연다
+    private static let deepLink = "todoc://record/previsit"
     private static let monitorName = "HospitalArrival"
     /// 지금 이 기기에 로그인한 환자. 다른 환자의 감시가 남아 있어도 그 도착은 저장·알림하지 않는다
     private static let patientKey = "hospitalArrival.patientId"
 
     private let notifications: any NotificationRepository
-    private let localNotifications: LocalNotificationRouter
     private let patients: any PatientRepository
     private let doctors: any DoctorRepository
     private let hospitals: any HospitalRepository
@@ -30,11 +31,10 @@ final class HospitalArrivalService {
     /// 알림을 남긴 뒤 (홈 종 표시를 다시 읽는다)
     var onSaved: (() -> Void)?
 
-    init(notifications: any NotificationRepository, localNotifications: LocalNotificationRouter,
+    init(notifications: any NotificationRepository,
          patients: any PatientRepository, doctors: any DoctorRepository, hospitals: any HospitalRepository,
          defaults: UserDefaults = .standard) {
         self.notifications = notifications
-        self.localNotifications = localNotifications
         self.patients = patients
         self.doctors = doctors
         self.hospitals = hospitals
@@ -146,7 +146,7 @@ final class HospitalArrivalService {
         guard CLLocationManager().authorizationStatus == .authorizedAlways,
               UIApplication.shared.applicationState != .active else { return }
         do {
-            try await localNotifications.post(notification)
+            try await LocalNotificationAdapter.post(notification, deepLink: Self.deepLink)
         } catch {
             print("병원 도착 알림 띄우기 실패: ", error)
         }

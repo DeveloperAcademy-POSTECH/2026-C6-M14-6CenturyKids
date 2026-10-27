@@ -11,15 +11,13 @@ import CoreLocation
 /// '항상 허용'으로 바꾸면 곧바로 알림 권한을 묻는다. 한 번 허용·허용 안 함이면 더 묻지 않는다
 final class LocationPermissionRequester: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
-    private let notifications: LocalNotificationRouter
     private var step = Step.idle
     /// 권한이 바뀔 때마다 (앱이 켜질 때 한 번도 불린다)
     var onChange: ((CLAuthorizationStatus) -> Void)?
 
     private enum Step { case idle, askedWhenInUse, askedAlways }
 
-    init(notifications: LocalNotificationRouter) {
-        self.notifications = notifications
+    override init() {
         super.init()
         manager.delegate = self
     }
@@ -42,7 +40,7 @@ final class LocationPermissionRequester: NSObject, CLLocationManagerDelegate {
             manager.requestAlwaysAuthorization()
         case (.askedAlways, .authorizedAlways):
             step = .idle
-            Task { await notifications.requestAuthorization() }
+            Task { await LocalNotificationAdapter.requestAuthorization() }
         case (_, .notDetermined):
             break
         default:

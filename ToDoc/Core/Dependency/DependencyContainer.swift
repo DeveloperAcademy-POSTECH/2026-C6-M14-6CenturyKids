@@ -21,7 +21,6 @@ final class DependencyContainer {
     let notificationRepository: any NotificationRepository
     
     let liveActivityService: LiveActivityService
-    let localNotifications: LocalNotificationRouter
     let locationPermission: LocationPermissionRequester
     let hospitalArrivalService: HospitalArrivalService
     
@@ -43,11 +42,9 @@ final class DependencyContainer {
         notificationRepository = FileNotificationRepository()
         
         self.liveActivityService = LiveActivityService(tokenRepository: deviceTokenRepository, authRepository: authRepository)
-        let localNotifications = LocalNotificationRouter()
-        self.localNotifications = localNotifications
-        locationPermission = LocationPermissionRequester(notifications: localNotifications)
+        locationPermission = LocationPermissionRequester()
         hospitalArrivalService = HospitalArrivalService(
-            notifications: notificationRepository, localNotifications: localNotifications,
+            notifications: notificationRepository,
             patients: patientRepository, doctors: doctorRepository, hospitals: hospitalRepository
         )
     }
