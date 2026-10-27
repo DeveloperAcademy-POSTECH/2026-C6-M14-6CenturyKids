@@ -30,12 +30,6 @@ final class PrevisitLetterViewModel {
         let letters: [PrevisitLetter]
     }
 
-    /// 목록 줄의 짧은 정보. isAlert는 통증 7점 이상 (빨간 배지)
-    struct Badge: Hashable {
-        let text: String
-        let isAlert: Bool
-    }
-
     /// 최신순
     private(set) var letters: [PrevisitLetter] = []
     /// 고치는 중인 기록 (nil이면 고치는 중이 아님)
@@ -154,14 +148,13 @@ final class PrevisitLetterViewModel {
 
     /// 통증(PrevisitDay가 고른 그날 기록)·증상 수. 기록이 없는 쪽은 빼고 보여 준다.
     /// 복용 후 점수를 아직 남기지 않은 통증은 복용 전 점수만 보여 준다
-    func badges(_ letter: PrevisitLetter) -> [Badge] {
+    func badges(_ letter: PrevisitLetter) -> [String] {
         guard let day = letter.draft.day else { return [] }
-        var result: [Badge] = []
+        var result: [String] = []
         if let before = day.painBefore {
-            let text = day.painAfter.map { "통증 \(before)점→\($0)점" } ?? "통증 \(before)점"
-            result.append(Badge(text: text, isAlert: max(before, day.painAfter ?? 0) >= 7))
+            result.append(day.painAfter.map { "통증 \(before)점→\($0)점" } ?? "통증 \(before)점")
         }
-        if day.symptomCount > 0 { result.append(Badge(text: "증상\(day.symptomCount)건", isAlert: false)) }
+        if day.symptomCount > 0 { result.append("증상\(day.symptomCount)건") }
         return result
     }
 }

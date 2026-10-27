@@ -32,8 +32,8 @@ final class PrevisitLetterViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.recordDayTitle(day), "9월 24일 기록")
         XCTAssertEqual(viewModel.preview(first), "배가 아팠어요")
         XCTAssertEqual(viewModel.preview(viewModel.letters[1]), PrevisitMood.slowly.title)
-        XCTAssertEqual(viewModel.badges(first), [.init(text: "통증 7점→6점", isAlert: true), .init(text: "증상2건", isAlert: false)])
-        XCTAssertEqual(viewModel.badges(viewModel.letters[1]), [.init(text: "통증 3점→2점", isAlert: false)])
+        XCTAssertEqual(viewModel.badges(first), ["통증 7점→6점", "증상2건"])
+        XCTAssertEqual(viewModel.badges(viewModel.letters[1]), ["통증 3점→2점"])
         XCTAssertEqual(viewModel.badges(viewModel.letters[0]), [])
     }
 
@@ -57,7 +57,7 @@ final class PrevisitLetterViewModelTests: XCTestCase {
         let viewModel = PrevisitLetterViewModel(calendar: calendar)
         let waiting = PrevisitDay(id: "d", dateLabel: "10/27", weekday: "화요일", entries: ["e"], painBefore: 8, painAfter: nil)
         viewModel.send(.init(day: waiting, letter: "", mood: .unsure), to: "학로쌤")
-        XCTAssertEqual(viewModel.badges(viewModel.letters[0]), [.init(text: "통증 8점", isAlert: true)])
+        XCTAssertEqual(viewModel.badges(viewModel.letters[0]), ["통증 8점"])
     }
 
     func testEditSavesOnlyChangesAndDeleteRemoves() throws {

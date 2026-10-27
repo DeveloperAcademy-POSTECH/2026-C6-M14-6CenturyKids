@@ -50,10 +50,10 @@ struct PrevisitLetterListView: View {
                 if !badges.isEmpty {
                     HStack(spacing: 6) {
                         ForEach(badges, id: \.self) { badge in
-                            Text(badge.text).appTypography(.caption)
-                                .foregroundStyle(badge.isAlert ? AppColors.Semantic.Text.error : AppColors.Semantic.Text.sub)
+                            Text(badge).appTypography(.caption)
+                                .foregroundStyle(AppColors.Semantic.Text.sub)
                                 .padding(.horizontal, 8).padding(.vertical, 2)
-                                .background(badge.isAlert ? Self.alertBadge : AppColors.Semantic.Background.secondary, in: Capsule())
+                                .background(AppColors.Semantic.Background.secondary, in: Capsule())
                         }
                     }.padding(.top, 8)
                 }
@@ -65,9 +65,6 @@ struct PrevisitLetterListView: View {
         .background(AppColors.Semantic.Background.surface, in: RoundedRectangle(cornerRadius: 30))
         .contentShape(RoundedRectangle(cornerRadius: 30))
     }
-
-    /// Figma badge/error (#FDD4CF). 디자인 시스템 색 목록에 아직 없어 여기 둡니다
-    private static let alertBadge = Color(red: 253 / 255, green: 212 / 255, blue: 207 / 255)
 }
 
 #if DEBUG
