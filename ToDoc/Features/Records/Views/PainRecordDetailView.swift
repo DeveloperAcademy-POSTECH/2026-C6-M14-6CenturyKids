@@ -47,7 +47,7 @@ private struct RecordPainChart: View {
                             }.frame(maxWidth: .infinity)
                                 .accessibilityElement(children: .ignore)
                                 .accessibilityLabel("\(state.calendar.component(.day, from: date))일")
-                                .accessibilityValue(day.map { "복용 전 \(RecordDisplay.number($0.averageBefore))점, 복용 후 \(RecordDisplay.number($0.averageAfter))점" } ?? "기록 없음")
+                                .accessibilityValue(day.map { painDescription(before: $0.averageBefore, after: $0.averageAfter) } ?? "기록 없음")
                         }
                     }.frame(width: size.width, height: size.height)
                 }
@@ -66,14 +66,14 @@ private struct RecordPainChart: View {
             HStack(spacing: 0) {
                 ForEach(records, id: \.id) { record in
                     VStack(spacing: Self.timeGap) {
-                        mark(before: Double(record.painBefore), after: Double(record.painAfter), size: size)
+                        mark(before: Double(record.painBefore), after: record.painAfter.map { Double($0) }, size: size)
                             .frame(width: width, height: size.height)
                         Text(time(record.recordedDate)).modifier(RecordTextStyle(size: 12)).fixedSize()
                             .foregroundStyle(.secondary).frame(height: timeHeight)
                     }
                     .frame(width: column)
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(time(record.recordedDate)), 복용 전 \(record.painBefore)점, 복용 후 \(record.painAfter)점")
+                    .accessibilityLabel("\(time(record.recordedDate)), \(painDescription(before: Double(record.painBefore), after: record.painAfter.map { Double($0) }))")
                 }
             }
         }
@@ -87,7 +87,21 @@ private struct RecordPainChart: View {
         return formatter.string(from: date)
     }
     /// 복용 전·후 점수 사이를 막대로 그립니다. 주간은 점수 위치에 따라 색이 바뀌고, 낮은 점수 아래로 바탕 막대를 깝니다.
-    private func mark(before: Double, after: Double, size: CGSize) -> some View {
+    @ViewBuilder private func mark(before: Double, after: Double?, size: CGSize) -> some View {
+        if let after {
+            measuredMark(before: before, after: after, size: size)
+        } else {
+            // 사후 측정이 없으면 복용 전 점수만 표시하고 변화 막대는 그리지 않습니다.
+            Circle().fill(RecordChartStyle.green).frame(width: width, height: width)
+                .offset(y: size.height * (1 - RecordDisplay.fraction(before, maximum: 10)) - width/2)
+                .frame(height: size.height, alignment: .top)
+        }
+    }
+    private func painDescription(before: Double, after: Double?) -> String {
+        let afterText = after.map { "복용 후 \(RecordDisplay.number($0))점" } ?? "사후 통증 미기록"
+        return "복용 전 \(RecordDisplay.number(before))점, \(afterText)"
+    }
+    private func measuredMark(before: Double, after: Double, size: CGSize) -> some View {
         let top = size.height * (1 - RecordDisplay.fraction(max(before, after), maximum: 10))
         let bottom = size.height * (1 - RecordDisplay.fraction(min(before, after), maximum: 10))
         return ZStack(alignment: .top) {

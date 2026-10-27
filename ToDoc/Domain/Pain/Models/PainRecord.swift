@@ -6,13 +6,18 @@ nonisolated public struct PainRecord: Sendable {
     public let recordedDate: Date
     public private(set) var location: [BodyLocation]
     public let painBefore: Int
-    public let painAfter: Int
-    public var painChange: Int { painBefore - painAfter }
+    public let painAfter: Int?
+    public var painChange: Int? {
+        guard let painAfter else { return nil }
+        return painBefore - painAfter
+    }
 
-    public init(id: UUID, patientId: UUID, recordedDate: Date, location: [BodyLocation], painBefore: Int, painAfter: Int) throws {
+    public init(id: UUID, patientId: UUID, recordedDate: Date, location: [BodyLocation], painBefore: Int, painAfter: Int?) throws {
         guard !location.isEmpty else { throw PainLocationValidationError.empty }
         try Self.validatePain(painBefore)
-        try Self.validatePain(painAfter)
+        if let painAfter {
+            try Self.validatePain(painAfter)
+        }
         self.id = id
         self.patientId = patientId
         self.recordedDate = recordedDate
