@@ -5,13 +5,14 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     
     @State private var authFlow: AuthFlowViewModel
-    @State private var router = AppRouter()
-    
+    @State private var router: AppRouter
+
     private let container: DependencyContainer
 
-    init(container: DependencyContainer) {
+    init(container: DependencyContainer, router: AppRouter) {
         self.container = container
         _authFlow = State(initialValue: container.makeAuthFlow())
+        _router = State(initialValue: router)
     }
 
     var body: some View {

@@ -9,14 +9,23 @@ import Foundation
 
 enum DeepLink: Equatable {
     case careCall(autoStartVoice: Bool)
-    
+    case painRecord
+
     init?(url: URL) {
         guard url.scheme == "todoc",
-              url.host == "record",
-              url.path == "/symptoms" else {
+              url.host == "record" else {
             return nil
         }
-        
+
+        if url.path == "/pain" {
+            self = .painRecord
+            return
+        }
+
+        guard url.path == "/symptoms" else {
+            return nil
+        }
+
         let components = URLComponents(
             url: url,
             resolvingAgainstBaseURL: false
