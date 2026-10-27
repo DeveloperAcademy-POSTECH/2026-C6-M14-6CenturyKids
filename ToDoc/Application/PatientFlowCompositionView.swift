@@ -12,7 +12,7 @@ struct PatientFlowCompositionView: View {
     private let container: DependencyContainer
     private let patientId: UUID
 
-    init(container: DependencyContainer, patientId: UUID) {
+    init(container: DependencyContainer, patientId: UUID, authSession: AuthSessionState) {
         self.container = container
         self.patientId = patientId
         _homeViewModel = State(initialValue: HomeViewModel(
@@ -23,7 +23,7 @@ struct PatientFlowCompositionView: View {
             initialValue: container.makePainRecordViewModel()
         )
         _settingsViewModel = State(
-            initialValue: container.makeSettingsViewModel(patientId: patientId)
+            initialValue: container.makeSettingsViewModel(patientId: patientId, authSession: authSession)
         )
         _notificationSettingsViewModel = State(
             initialValue: container.makeNotificationSettingsViewModel()

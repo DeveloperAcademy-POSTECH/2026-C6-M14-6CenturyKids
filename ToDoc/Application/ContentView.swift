@@ -16,8 +16,8 @@ struct ContentView: View {
 
     var body: some View {
         AuthRootView(authFlow: authFlow) { patient in
-            PatientFlowCompositionView(container: container, patientId: patient.user.id)
-                .task(id: patient.user.id) {
+            PatientFlowCompositionView(container: container,patientId: patient.user.id,authSession: authFlow.session)
+                                          .task(id: patient.user.id) {
                     await syncLiveActivityToken()
                 }
         }
