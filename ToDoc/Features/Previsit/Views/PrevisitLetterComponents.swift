@@ -19,18 +19,13 @@ struct PrevisitScreenHeader: View {
     }
 }
 
-/// 공용 Toast를 2초 띄우고 VoiceOver로도 알립니다
+/// 공용 Toast를 띄우고 VoiceOver로도 알립니다. 사라지는 시간은 ViewModel의 notice가 정합니다
 struct PrevisitToast: View {
     let message: String
-    let onDismiss: () -> Void
 
     var body: some View {
         AppFeedback.Toast(message)
-            .task {
-                AccessibilityNotification.Announcement(message).post()
-                try? await Task.sleep(for: .seconds(2))
-                onDismiss()
-            }
+            .onAppear { AccessibilityNotification.Announcement(message).post() }
     }
 }
 

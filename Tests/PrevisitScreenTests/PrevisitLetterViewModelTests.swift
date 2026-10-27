@@ -69,4 +69,14 @@ final class PrevisitLetterViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.letter(id))
         XCTAssertEqual(viewModel.notice, .deleted)
     }
+
+    func testNoticeClearsItselfAfterDuration() async throws {
+        let viewModel = PrevisitLetterViewModel(noticeDuration: .milliseconds(50))
+        viewModel.send(.init(day: nil, letter: "", mood: .unsure), to: "학로쌤")
+        let id = try XCTUnwrap(viewModel.latest?.id)
+        viewModel.delete(id)
+        XCTAssertEqual(viewModel.notice, .deleted)
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertNil(viewModel.notice, "화면이 지우지 않아도 정해진 시간 뒤 사라진다")
+    }
 }

@@ -68,7 +68,7 @@ struct PrevisitLetterView: View {
             .overlay(alignment: .top) {
                 // Figma 05: 저장한 뒤 상세로 돌아오면 버튼 위에 잠깐 띄웁니다
                 if viewModel.notice == .saved {
-                    PrevisitToast(message: PrevisitLetterViewModel.Notice.saved.message) { viewModel.clearNotice() }
+                    PrevisitToast(message: PrevisitLetterViewModel.Notice.saved.message)
                         .offset(y: -56)
                 }
             }

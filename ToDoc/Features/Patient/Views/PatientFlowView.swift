@@ -148,7 +148,7 @@ struct PatientFlowView: View {
         }
         .overlay(alignment: .top) {
             if previsitLetters.notice == .deleted {
-                PrevisitToast(message: PrevisitLetterViewModel.Notice.deleted.message) { previsitLetters.clearNotice() }
+                PrevisitToast(message: PrevisitLetterViewModel.Notice.deleted.message)
                     .padding(.top, 8)
             }
         }

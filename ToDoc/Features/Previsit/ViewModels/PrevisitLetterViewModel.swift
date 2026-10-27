@@ -42,13 +42,18 @@ final class PrevisitLetterViewModel {
     private(set) var editingID: UUID?
     var editingLetter = ""
     var editingMood: PrevisitMood?
+    /// 잠깐 띄우는 안내. 띄운 뒤 noticeDuration이 지나면 스스로 사라진다
+    /// (화면 전환 중에 토스트 뷰가 잠깐 사라졌다 나타나도 안내가 지워지지 않게 ViewModel이 시간을 잰다)
     private(set) var notice: Notice?
+    @ObservationIgnored private var noticeTask: Task<Void, Never>?
+    private let noticeDuration: Duration
     private let calendar: Calendar
     private let now: () -> Date
 
-    init(calendar: Calendar = .current, now: @escaping () -> Date = Date.init) {
+    init(calendar: Calendar = .current, now: @escaping () -> Date = Date.init, noticeDuration: Duration = .seconds(2)) {
         self.calendar = calendar
         self.now = now
+        self.noticeDuration = noticeDuration
     }
 
     var latest: PrevisitLetter? { letters.first }
@@ -96,7 +101,7 @@ final class PrevisitLetterViewModel {
         letters[index].draft.letter = editingLetter
         letters[index].draft.mood = editingMood
         self.editingID = nil
-        notice = .saved
+        show(.saved)
     }
 
     func cancelEdit() { editingID = nil }
@@ -105,10 +110,23 @@ final class PrevisitLetterViewModel {
         guard letters.contains(where: { $0.id == id }) else { return }
         letters.removeAll { $0.id == id }
         if editingID == id { cancelEdit() }
-        notice = .deleted
+        show(.deleted)
     }
 
-    func clearNotice() { notice = nil }
+    func clearNotice() {
+        noticeTask?.cancel()
+        notice = nil
+    }
+
+    private func show(_ notice: Notice) {
+        noticeTask?.cancel()
+        self.notice = notice
+        noticeTask = Task { [weak self, noticeDuration] in
+            try? await Task.sleep(for: noticeDuration)
+            guard !Task.isCancelled else { return }
+            self?.notice = nil
+        }
+    }
 
     // MARK: - 표시 문구
 
