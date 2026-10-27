@@ -24,7 +24,6 @@ import SwiftUI
         case .login:
             flow.open(.login)
             flow.login.state.email = "preview@example.com"
-            flow.login.state.remembersLogin = true
         case .reset: flow.open(.passwordReset)
         case .recovery:
             flow.open(.passwordReset)

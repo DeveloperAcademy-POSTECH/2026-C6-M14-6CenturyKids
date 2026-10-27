@@ -24,7 +24,7 @@ import ToDocDomain
         isRestoring = true; errorMessage = nil
         defer { isRestoring = false; session.finish(token) }
         do {
-            // 체크하지 않은 로그인은 앱을 종료하고 다시 열면 끝납니다. SDK의 캐시만으로 복원하지 않습니다.
+            // 정상 로그인을 마친 기록이 있어야 복원합니다. 실패·취소·미완료 가입의 SDK 캐시만으로 복원하지 않습니다.
             guard session.loginPreference.isEnabled else {
                 if auth.isSignedIn() { try await auth.signOut() }
                 return
