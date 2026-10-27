@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 #if SWIFT_PACKAGE
 import ToDocDomain
 #endif
@@ -15,6 +16,7 @@ import ToDocDomain
     }
     var onIncompleteSignup: ((UUID, String) -> Void)?
     private var requestID: UUID?
+    private var currentNonce: String?
 
     /// 버튼 → 입력 검사 → 인증 → 기본 사용자를 포함한 환자 조회 → 화면 성공의 순서입니다.
     /// Auth의 UUID만 받았다는 이유로 앱에 들어가지 않습니다. DB 프로필도 같은 사람이어야 합니다.
@@ -78,4 +80,24 @@ import ToDocDomain
     /// 요청 자체를 되돌리는 것은 아닙니다. 늦게 온 응답이 화면을 이동시키지 않도록 표시 권한만 폐기합니다.
     func cancel() { requestID = nil }
     private func isCurrent(_ token: UUID) -> Bool { requestID == token && !Task.isCancelled }
+    
+    func prepareAppleSignIn() -> String {
+        let nonce = NonceCreator.randomNonceString()
+        currentNonce = nonce
+        
+        return NonceCreator.sha256(nonce)
+    }
+    
+    func signInWithApple(idToken: String) async {
+        guard let nonce = currentNonce,
+              let auth = repositories.auth else { return }
+        
+        defer { currentNonce = nil }
+        
+        do {
+            let userId = try await repositories.auth?.signInWithApple(idToken: idToken, nonce: nonce)
+        } catch {
+            state.errorMessage = "Apple 로그인에 실패했어요."
+        }
+    }
 }
