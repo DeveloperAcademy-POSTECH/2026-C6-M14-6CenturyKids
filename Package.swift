@@ -25,7 +25,7 @@ let package = Package(
                     "Data/Repositories/Protocols/HospitalRepository.swift", "Data/Repositories/Protocols/IntakeRepository.swift",
                     "Data/Repositories/Protocols/NotificationRepository.swift",
                     "Data/Repositories/Protocols/UserRepository.swift",
-                    "Features/Auth", "Features/Home", "Features/Notification", "Features/Onboarding", "Features/Pain",
+                    "Features/Auth", "Features/Home", "Features/Notification", "Features/Onboarding", "Features/Pain/Views", "Features/Pain/Presentation",
                     "Features/Patient", "Features/Records/Views", "Features/Settings", "Features/Symptom/Views",
                     "Core/AppIntents", "Core/Dependency", "Core/Errors", "Core/Extensions",
                     "Core/Navigation", "Core/Notification", "Core/UI",
@@ -58,6 +58,8 @@ let package = Package(
                     // 기록 상세 ViewModel (기간·집계)
                     "Features/Records/Presentation", "Features/Records/ViewModels",
                     "Data/Repositories/Protocols/PainRepository.swift",
+                    // 통증 기록 ViewModel (먹기 전·먹은 뒤 두 번 저장)
+                    "Features/Pain/ViewModels",
                     // 케어콜 ViewModel이 로그인 환자를 찾는다
                     "Data/Repositories/Protocols/AuthRepository.swift", "Data/Repositories/Protocols/PatientRepository.swift",
                 ],
