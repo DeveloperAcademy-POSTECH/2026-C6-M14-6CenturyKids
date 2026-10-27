@@ -25,7 +25,7 @@ struct PrevisitFlowView: View {
     var body: some View {
         Group {
             if showsLetter, let letter {
-                PrevisitLetterView(viewModel: letter, showsBack: false, onHome: { dismiss() })
+                PrevisitLetterView(viewModel: letter, onHome: { dismiss() })
             } else if showsCompletion, let sent = letter?.sent {
                 PrevisitPromptView(completedDraft: sent, doctorName: doctorName,
                                    onStart: { showsLetter = true }, onClose: { dismiss() })

@@ -1,27 +1,16 @@
 import SwiftUI
 
-/// 전송한 진료 전 기록을 보고 하고싶은말을 고칩니다. 디자인 확정 전 임시 화면입니다.
+/// 전송 완료 팝업의 '기록 보러가기'에서 열려, 보낸 진료 전 기록을 보고 하고싶은말을 고칩니다.
+/// 팝업으로 되돌아가지 않게 뒤로가기 없이 '홈으로 돌아가기'만 둡니다. 디자인 확정 전 임시 화면입니다.
 struct PrevisitLetterView: View {
     let viewModel: PrevisitLetterViewModel
     var patientName = ""
-    /// 전송 직후 팝업에서 들어오면 돌아갈 곳이 없어 뒤로가기를 숨깁니다
-    var showsBack = true
     var onHome: () -> Void = {}
     @FocusState private var writing: Bool
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
             AppHeader(title: "진료 전 기록", description: "전송한 내용을 확인하고 수정해주세요")
-                .overlay(alignment: .topLeading) {
-                    if showsBack {
-                        Button { dismiss() } label: {
-                            Image(systemName: "chevron.left").font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(AppColors.Previsit.backIcon).frame(width: 40, height: 40)
-                                .background(AppColors.Previsit.backSurface, in: Circle())
-                        }.accessibilityLabel("뒤로").padding(.leading, 24).padding(.top, 5)
-                    }
-                }
             ScrollView {
                 if let sent = viewModel.sent {
                     VStack(spacing: 20) {
@@ -44,7 +33,7 @@ struct PrevisitLetterView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
         .background(AppColors.background.ignoresSafeArea())
-        .toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar)
+        .toolbar(.hidden, for: .navigationBar)
         .onChange(of: writing) { _, focused in if !focused { viewModel.finishEdit() } }
         .onDisappear { viewModel.finishEdit() }
     }
