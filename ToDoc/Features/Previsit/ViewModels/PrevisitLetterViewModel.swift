@@ -74,9 +74,13 @@ final class PrevisitLetterViewModel {
         return result
     }
 
+    /// 보낸 날 기준 하루 1건: 같은 날 다시 보내면 그날 기록을 새 내용으로 덮어쓴다 (같은 기록이라 id는 그대로)
     func send(_ draft: PrevisitDraft, to doctorName: String) {
         cancelEdit()
-        letters.insert(PrevisitLetter(id: UUID(), sentAt: now(), doctorName: doctorName, draft: draft), at: 0)
+        let sentAt = now()
+        let id = letters.first { calendar.isDate($0.sentAt, inSameDayAs: sentAt) }?.id ?? UUID()
+        letters.removeAll { $0.id == id }
+        letters.insert(PrevisitLetter(id: id, sentAt: sentAt, doctorName: doctorName, draft: draft), at: 0)
     }
 
     // MARK: - 수정·삭제

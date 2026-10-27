@@ -37,6 +37,22 @@ final class PrevisitLetterViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.badges(viewModel.letters[0]), [])
     }
 
+    func testSendingAgainOnSameDayOverwritesThatDay() throws {
+        var sendTime = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 27, hour: 9)))
+        let viewModel = PrevisitLetterViewModel(calendar: calendar, now: { sendTime })
+        viewModel.send(.init(day: nil, letter: "어제", mood: .unsure), to: "학로쌤")
+        sendTime = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 28, hour: 9)))
+        viewModel.send(.init(day: nil, letter: "아침", mood: .candid), to: "학로쌤")
+        let morning = try XCTUnwrap(viewModel.latest?.id)
+
+        sendTime = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 28, hour: 23, minute: 59)))
+        viewModel.send(.init(day: nil, letter: "밤", mood: .slowly), to: "학로쌤")
+
+        XCTAssertEqual(viewModel.letters.map(\.draft.letter), ["밤", "어제"])
+        XCTAssertEqual(viewModel.latest?.id, morning, "같은 날 기록을 덮어쓰므로 id는 그대로")
+        XCTAssertEqual(viewModel.latest?.sentAt, sendTime)
+    }
+
     func testPainBadgeShowsBeforeScoreWhenAfterIsMissing() {
         let viewModel = PrevisitLetterViewModel(calendar: calendar)
         let waiting = PrevisitDay(id: "d", dateLabel: "10/27", weekday: "화요일", entries: ["e"], painBefore: 8, painAfter: nil)
