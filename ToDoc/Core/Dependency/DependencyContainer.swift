@@ -56,7 +56,9 @@ final class DependencyContainer {
         PainRecordViewModel(
             authRepository: authRepository,
             patientRepository: patientRepository,
-            painRepository: painRepository
+            painRepository: painRepository,
+            scheduleAfterReminder: LocalNotificationAdapter.schedulePainAfterReminder(at:),
+            cancelAfterReminder: LocalNotificationAdapter.cancelPainAfterReminder
         )
     }
 

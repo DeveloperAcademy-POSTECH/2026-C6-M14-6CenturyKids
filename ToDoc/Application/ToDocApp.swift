@@ -6,11 +6,15 @@
 //
 
 import SwiftUI
+import UserNotifications
 
 @main
 struct ToDocApp: App {
     private let container: DependencyContainer
-    
+    private let router = AppRouter()
+    /// 알림 센터는 delegate를 약하게 잡으므로 앱이 들고 있습니다.
+    private let notificationDelegate: LocalNotificationDelegate
+
     init() {
         let configuration = SupabaseConfiguration(
             url: URL(string: "https://jsvwsiiqijwrraffvatd.supabase.co")!,
@@ -19,8 +23,10 @@ struct ToDocApp: App {
         
         let container = DependencyContainer(configuration: configuration)
         self.container = container
-        // 앱이 꺼진 채 알림을 눌렀거나 병원에 들어가 iOS가 앱을 깨웠을 때도 받도록 화면보다 먼저 연결한다
-        container.localNotifications.becomeDelegate()
+
+        // 알림을 눌러 앱이 켜지는 경우도 받으려면 실행이 끝나기 전에 delegate를 정해야 합니다.
+        notificationDelegate = LocalNotificationDelegate(router: router)
+        UNUserNotificationCenter.current().delegate = notificationDelegate
         container.hospitalArrivalService.start()
     }
     
@@ -30,10 +36,10 @@ struct ToDocApp: App {
             if let screen = AuthScreenCaptureView.requestedScreen {
                 AuthScreenCaptureView(screen: screen)
             } else {
-                ContentView(container: container)
+                ContentView(container: container, router: router)
             }
             #else
-            ContentView(container: container)
+            ContentView(container: container, router: router)
             #endif
         }
     }
