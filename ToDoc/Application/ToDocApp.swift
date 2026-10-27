@@ -19,6 +19,9 @@ struct ToDocApp: App {
         
         let container = DependencyContainer(configuration: configuration)
         self.container = container
+        // 앱이 꺼진 채 알림을 눌렀거나 병원에 들어가 iOS가 앱을 깨웠을 때도 받도록 화면보다 먼저 연결한다
+        container.localNotifications.becomeDelegate()
+        container.hospitalArrivalService.start()
     }
     
     var body: some Scene {

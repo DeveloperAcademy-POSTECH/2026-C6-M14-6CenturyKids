@@ -23,6 +23,21 @@ struct ContentView: View {
         }
         .task {
             container.liveActivityService.startObserving()
+            container.localNotifications.onOpen = { type in
+                guard type == .previsitReminder else { return }
+                router.handle(.previsit)
+            }
+            // 로그인이 풀린 채 앱을 열면 지난 환자의 병원 감시를 멈춘다 (로그아웃은 아래 onChange가 멈춘다)
+            await authFlow.restoreSessionOnce()
+            if authFlow.session.patient == nil {
+                container.hospitalArrivalService.stop()
+            }
+        }
+        .onChange(of: authFlow.session.patient?.user.id) { _, patientId in
+            guard patientId == nil else { return }
+            container.locationPermission.onChange = nil
+            container.hospitalArrivalService.onSaved = nil
+            container.hospitalArrivalService.stop()
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }

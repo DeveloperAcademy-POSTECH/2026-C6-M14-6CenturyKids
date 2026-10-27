@@ -17,8 +17,13 @@ final class DependencyContainer {
     let symptomRepository: any SymptomRepository
     let painRepository: any PainRepository
     let deviceTokenRepository: any DeviceTokenRepository
+    /// 앱 알림 목록은 서버 없이 폰에만 남긴다
+    let notificationRepository: any NotificationRepository
     
     let liveActivityService: LiveActivityService
+    let localNotifications: LocalNotificationRouter
+    let locationPermission: LocationPermissionRequester
+    let hospitalArrivalService: HospitalArrivalService
     
     init(configuration: SupabaseConfiguration) {
         let provider = SupabaseClientProvider(
@@ -35,8 +40,16 @@ final class DependencyContainer {
         symptomRepository = SupabaseSymptomRepository(client: client)
         painRepository = SupabasePainRepository(client: client)
         deviceTokenRepository = SupabaseDeviceTokenRepository(client: client)
+        notificationRepository = FileNotificationRepository()
         
         self.liveActivityService = LiveActivityService(tokenRepository: deviceTokenRepository, authRepository: authRepository)
+        let localNotifications = LocalNotificationRouter()
+        self.localNotifications = localNotifications
+        locationPermission = LocationPermissionRequester(notifications: localNotifications)
+        hospitalArrivalService = HospitalArrivalService(
+            notifications: notificationRepository, localNotifications: localNotifications,
+            patients: patientRepository, doctors: doctorRepository, hospitals: hospitalRepository
+        )
     }
 
     func makePainRecordViewModel() -> PainRecordViewModel {
@@ -63,6 +76,11 @@ final class DependencyContainer {
     @MainActor
     func makeNotificationSettingsViewModel() -> NotificationSettingsViewModel {
         NotificationSettingsViewModel(defaults: .standard)
+    }
+
+    @MainActor
+    func makeNotificationViewModel(patientId: UUID) -> NotificationViewModel {
+        NotificationViewModel(patientId: patientId, repository: notificationRepository)
     }
 
     @MainActor
