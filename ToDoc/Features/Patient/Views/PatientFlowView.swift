@@ -106,6 +106,9 @@ struct PatientFlowView: View {
               
                 tab = .home
                 path = [.symptom(autoStartVoice: autoStartVoice)]
+            case .previsit:
+                tab = .home
+                showsPrevisit = true
             }
             
             router.pendingDeepLink = nil

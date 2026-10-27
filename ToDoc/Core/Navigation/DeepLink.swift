@@ -9,6 +9,8 @@ import Foundation
 
 enum DeepLink: Equatable {
     case careCall(autoStartVoice: Bool)
+    /// 병원 도착 알림을 누르면 진료 전 기록 작성 화면을 연다
+    case previsit
     
     init?(url: URL) {
         guard url.scheme == "todoc",
