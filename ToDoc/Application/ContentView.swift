@@ -19,10 +19,21 @@ struct ContentView: View {
             PatientFlowCompositionView(container: container,patientId: patient.user.id,authSession: authFlow.session)
                                           .task(id: patient.user.id) {
                     await syncLiveActivityToken()
+                    await LocalNotificationAdapter.schedulePainReminders()
                 }
         }
         .task {
             container.liveActivityService.startObserving()
+            // 앱을 끈 사이에 로그인이 끝났으면 복원 뒤에도 환자가 없으니 남은 예약을 지운다.
+            await authFlow.restoreSessionOnce()
+            if authFlow.session.patient == nil {
+                LocalNotificationAdapter.cancelPainReminders()
+            }
+        }
+        // 로그아웃은 모두 session.patient를 비우는 것으로 끝난다.
+        .onChange(of: authFlow.session.patient?.user.id) { oldID, newID in
+            guard oldID != nil, newID == nil else { return }
+            LocalNotificationAdapter.cancelPainReminders()
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
