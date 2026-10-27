@@ -7,6 +7,7 @@
 
 import Foundation
 import Observation
+import enum Auth.AuthError
 
 @MainActor
 @Observable
@@ -14,10 +15,13 @@ final class SettingsViewModel {
     let patientId: UUID
     let screenState = SettingsScreenState()
     let personalInfoState = PersonalInfoScreenState()
+    let passwordChangeState = PasswordChangeScreenState()
     let carcinomaState = DiagnosisScreenState()
     let stageState = DiagnosisScreenState()
     let hospitalConnectionState = HospitalConnectionScreenState()
 
+    @ObservationIgnored private let authRepository: any AuthRepository
+    @ObservationIgnored private let authSession: AuthSessionState
     @ObservationIgnored private let userRepository: any UserRepository
     @ObservationIgnored private let patientRepository: any PatientRepository
     @ObservationIgnored private let doctorRepository: any DoctorRepository
@@ -25,12 +29,16 @@ final class SettingsViewModel {
 
     init(
         patientId: UUID,
+        authRepository: any AuthRepository,
+        authSession: AuthSessionState,
         userRepository: any UserRepository,
         patientRepository: any PatientRepository,
         doctorRepository: any DoctorRepository,
         hospitalRepository: any HospitalRepository
     ) {
         self.patientId = patientId
+        self.authRepository = authRepository
+        self.authSession = authSession
         self.userRepository = userRepository
         self.patientRepository = patientRepository
         self.doctorRepository = doctorRepository
@@ -39,10 +47,16 @@ final class SettingsViewModel {
         personalInfoState.onLoad = { [weak self] in
             Task { await self?.loadPersonalInfo() }
         }
-
+        
         screenState.onReload = { [weak self] in
             Task { [weak self] in
                 await self?.loadProfile()
+            }
+        }
+
+        screenState.onLogout = { [weak self] in
+            Task { [weak self] in
+                await self?.signOut()
             }
         }
 
@@ -54,6 +68,30 @@ final class SettingsViewModel {
 
         personalInfoState.onCancel = { [weak self] in
             self?.discardPersonalInfoChanges()
+        }
+
+        passwordChangeState.onSendCode = { [weak self] in
+            Task { [weak self] in
+                await self?.sendPasswordChangeCode()
+            }
+        }
+
+        passwordChangeState.onContinue = { [weak self] in
+            self?.continuePasswordChange() ?? false
+        }
+
+        passwordChangeState.onInputChanged = { [weak self] in
+            self?.validatePasswordInputs()
+        }
+
+        passwordChangeState.onSave = { [weak self] in
+            Task { [weak self] in
+                await self?.changePassword()
+            }
+        }
+
+        passwordChangeState.onCancel = { [weak self] in
+            self?.discardPasswordChange()
         }
 
         carcinomaState.onLoad = { [weak self] in
@@ -68,6 +106,20 @@ final class SettingsViewModel {
 
         carcinomaState.onCancel = { [weak self] in
             self?.discardDiagnosisChanges(.carcinoma)
+        }
+
+        carcinomaState.onBeginCustomCancer = { [weak self] in
+            self?.beginCustomCarcinomaEntry()
+        }
+
+        carcinomaState.onCancelCustomCancer = { [weak self] in
+            self?.cancelCustomCarcinomaEntry()
+        }
+
+        carcinomaState.onSaveCustomCancer = { [weak self] in
+            Task { [weak self] in
+                await self?.saveCustomCarcinoma()
+            }
         }
 
         stageState.onLoad = { [weak self] in
@@ -398,6 +450,180 @@ final class SettingsViewModel {
         }
     }
 
+    func signOut() async {
+        guard !screenState.isSigningOut else { return }
+
+        screenState.isSigningOut = true
+        screenState.logoutErrorMessage = nil
+        defer { screenState.isSigningOut = false }
+
+        do {
+            try await authRepository.signOut()
+            authSession.loginPreference.isEnabled = false
+            authSession.patient = nil
+        } catch {
+            screenState.logoutErrorMessage = "로그아웃하지 못했어요. 다시 시도해 주세요."
+        }
+    }
+
+    func sendPasswordChangeCode() async {
+        let state = passwordChangeState
+        guard !state.isSendingCode, !state.isSaving else { return }
+
+        state.isSendingCode = true
+        state.errorMessage = nil
+        state.codeError = nil
+        defer { state.isSendingCode = false }
+
+        do {
+            try await authRepository.requestPasswordChangeVerification()
+            state.verificationCode = ""
+            state.hasSentCode = true
+        } catch {
+            state.errorMessage = "인증코드를 보내지 못했어요. 다시 시도해 주세요."
+        }
+    }
+
+    func continuePasswordChange() -> Bool {
+        let state = passwordChangeState
+        guard !state.isSendingCode, !state.isSaving else { return false }
+
+        state.codeError = nil
+
+        guard state.hasSentCode else {
+            state.codeError = "인증코드를 먼저 요청해 주세요."
+            return false
+        }
+
+        guard !state.verificationCode
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty else {
+            state.codeError = "인증코드를 입력해 주세요."
+            return false
+        }
+
+        return true
+    }
+
+    func validatePasswordInputs() {
+        let state = passwordChangeState
+        state.canSubmitPassword = false
+        state.confirmationError = nil
+        state.errorMessage = nil
+        state.newPasswordError = state.newPassword.isEmpty
+            ? nil
+            : AuthFormValidation.passwordChangeError(state.newPassword)
+
+        guard !state.newPassword.isEmpty,
+              state.newPasswordError == nil,
+              !state.passwordConfirmation.isEmpty else { return }
+
+        guard state.newPassword == state.passwordConfirmation else {
+            state.confirmationError = "새 비밀번호가 일치하지 않아요."
+            return
+        }
+
+        state.canSubmitPassword = true
+    }
+
+    func changePassword() async {
+        let state = passwordChangeState
+        guard !state.isSaving, !state.isSendingCode else { return }
+
+        state.didSave = false
+        state.errorMessage = nil
+        state.codeError = nil
+        state.confirmationError = nil
+
+        guard state.hasSentCode else {
+            state.codeError = "인증코드를 먼저 요청해 주세요."
+            return
+        }
+
+        let code = state.verificationCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty else {
+            state.codeError = "인증코드를 입력해 주세요."
+            return
+        }
+
+        state.newPasswordError = AuthFormValidation.passwordChangeError(state.newPassword)
+        guard state.newPasswordError == nil else { return }
+
+        guard state.newPassword == state.passwordConfirmation else {
+            state.confirmationError = "새 비밀번호가 일치하지 않아요."
+            return
+        }
+
+        let newPassword = state.newPassword
+        state.isSaving = true
+        defer { state.isSaving = false }
+
+        do {
+            try await authRepository.updatePassword(to: newPassword, nonce: code)
+            state.verificationCode = ""
+            state.newPassword = ""
+            state.passwordConfirmation = ""
+            state.canSubmitPassword = false
+            state.didSave = true
+        } catch {
+            switch (error as? AuthError)?.errorCode {
+            case .some(.reauthenticationNotValid):
+                state.codeError = "인증코드가 올바르지 않아요. 다시 확인해 주세요."
+            case .some(.reauthenticationNeeded):
+                state.codeError = "인증코드를 다시 요청해 주세요."
+            case .some(.samePassword):
+                state.newPasswordError = "기존 비밀번호와 다른 비밀번호를 입력해 주세요."
+            case .some(.weakPassword):
+                state.newPasswordError = "비밀번호 조건에 맞게 다시 입력해 주세요."
+            default:
+                state.errorMessage = "비밀번호를 변경하지 못했어요. 다시 시도해 주세요."
+            }
+        }
+    }
+
+    func discardPasswordChange() {
+        guard !passwordChangeState.isSaving, !passwordChangeState.isSendingCode else { return }
+
+        passwordChangeState.verificationCode = ""
+        passwordChangeState.hasSentCode = false
+        passwordChangeState.codeError = nil
+
+        passwordChangeState.newPassword = ""
+        passwordChangeState.passwordConfirmation = ""
+        passwordChangeState.newPasswordError = nil
+        passwordChangeState.confirmationError = nil
+        passwordChangeState.canSubmitPassword = false
+
+        passwordChangeState.didSave = false
+        passwordChangeState.errorMessage = nil
+    }
+
+    func beginCustomCarcinomaEntry() {
+        guard carcinomaState.canSave, !carcinomaState.isSaving else { return }
+
+        if case .carcinoma(let type)? = carcinomaState.selection,
+           !CarcinomaType.allCases.contains(type) {
+            carcinomaState.customCancerName = type.rawValue
+        } else {
+            carcinomaState.customCancerName = ""
+        }
+        carcinomaState.errorMessage = nil
+    }
+
+    func cancelCustomCarcinomaEntry() {
+        guard !carcinomaState.isSaving else { return }
+
+        carcinomaState.customCancerName = ""
+        carcinomaState.errorMessage = nil
+    }
+
+    func saveCustomCarcinoma() async {
+        guard carcinomaState.canSaveCustomCancer,
+              let type = CarcinomaType(name: carcinomaState.customCancerName) else { return }
+
+        await persistDiagnosis(.carcinoma, selection: .carcinoma(type))
+    }
+
     func saveDiagnosis(_ field: DiagnosisField) async {
         let state: DiagnosisScreenState
         switch field {
@@ -405,8 +631,19 @@ final class SettingsViewModel {
         case .stage: state = stageState
         }
 
-        guard state.canSave, !state.isSaving,
-              let selection = state.selection else { return }
+        guard state.canSave, let selection = state.selection else { return }
+
+        await persistDiagnosis(field, selection: selection)
+    }
+
+    private func persistDiagnosis(_ field: DiagnosisField, selection: DiagnosisChange) async {
+        let state: DiagnosisScreenState
+        switch field {
+        case .carcinoma: state = carcinomaState
+        case .stage: state = stageState
+        }
+
+        guard !state.isSaving else { return }
 
         state.isSaving = true
         state.didSave = false
@@ -443,6 +680,7 @@ final class SettingsViewModel {
 
             screenState.profile?.cancerName = disease.carcinoma.displayName
             screenState.profile?.stageName = disease.stage.displayName
+            state.selection = selection
             state.didSave = true
         } catch {
             state.errorMessage = "진단 정보를 저장하지 못했어요. 다시 시도해 주세요."

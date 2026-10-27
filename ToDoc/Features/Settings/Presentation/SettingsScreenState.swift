@@ -17,6 +17,9 @@ struct DoctorDisplayData {
     var loadState: SettingsLoadState = .unavailable
     var isLoading = false
     var canEdit = false
+    var isSigningOut = false
+    var logoutErrorMessage: String?
+    @ObservationIgnored var onLogout: (() -> Void)?
     @ObservationIgnored var onReload: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }
@@ -34,15 +37,41 @@ struct DoctorDisplayData {
     @ObservationIgnored var onSave: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }
+@Observable final class PasswordChangeScreenState {
+    var verificationCode = ""
+    var codeError: String?
+    var isSendingCode = false
+    var hasSentCode = false
+    var newPassword = ""
+    var passwordConfirmation = ""
+    var newPasswordError: String?
+    var confirmationError: String?
+    var canSubmitPassword = false
+    var isSaving = false
+    var didSave = false
+    var errorMessage: String?
+    @ObservationIgnored var onSendCode: (() -> Void)?
+    @ObservationIgnored var onContinue: (() -> Bool)?
+    @ObservationIgnored var onInputChanged: (() -> Void)?
+    @ObservationIgnored var onSave: (() -> Void)?
+    @ObservationIgnored var onCancel: (() -> Void)?
+}
 @Observable final class DiagnosisScreenState {
     var selection: DiagnosisChange?
+    var customCancerName = ""
     var isSaving = false
     var canSave = false
+    var canSaveCustomCancer: Bool {
+        !isSaving && CarcinomaType(name: customCancerName) != nil
+    }
     var didSave = false
     var errorMessage: String?
     @ObservationIgnored var onLoad: (() -> Void)?
     @ObservationIgnored var onSave: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
+    @ObservationIgnored var onBeginCustomCancer: (() -> Void)?
+    @ObservationIgnored var onSaveCustomCancer: (() -> Void)?
+    @ObservationIgnored var onCancelCustomCancer: (() -> Void)?
 }
 enum HospitalConnectionAction { case load, verify, connect, disconnect, cancel }
 @Observable final class HospitalConnectionScreenState {
