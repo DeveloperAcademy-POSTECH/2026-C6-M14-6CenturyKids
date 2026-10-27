@@ -31,7 +31,6 @@ private final class ResumeDoctors: DoctorRepository {
         flow.open(.login)
         flow.login.state.email = "  patient@example.com  "
         flow.login.state.password = "existingPassword"
-        flow.login.state.remembersLogin = true
         await flow.login.submit()
     }
     private func acceptTerms(_ flow: AuthFlowViewModel) async {
