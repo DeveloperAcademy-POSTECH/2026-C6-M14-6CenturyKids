@@ -8,7 +8,7 @@
 import CoreLocation
 import UIKit
 
-/// 환자와 연결된 병원 반경에 들어올 때마다 진료 전 기록 알림을 알림 목록에 남긴다.
+/// 환자와 연결된 병원 반경에 들어오면 진료 전 기록 알림을 하루 한 번 알림 목록에 남긴다.
 /// 항상 허용이고 앱을 보고 있지 않으면 잠금화면 알림도 띄운다 (앱이 꺼져 있으면 iOS가 앱을 깨워 넘긴다).
 /// 앱을 사용하는 동안만 허용이면 iOS가 앱을 보고 있을 때만 넘겨 준다
 final class HospitalArrivalService {
@@ -130,6 +130,10 @@ final class HospitalArrivalService {
             await monitor().remove(identifier)
             return
         }
+        // iOS가 한 번 들어온 것을 몇 초 간격으로 여러 번 넘기기도 해서, 하루에 한 번만 남긴다
+        let notifiedToday = (try? await notifications.findByUserId(ids[0]))?
+            .contains { $0.type == .previsitReminder && Calendar.current.isDateInToday($0.createdAt) } ?? false
+        guard !notifiedToday else { return }
         let notification = AppNotification(id: UUID(), type: .previsitReminder,
                                            title: NotificationType.previsitReminder.displayName, body: Self.body,
                                            targetId: ids[1], createdAt: .now, readAt: nil)
