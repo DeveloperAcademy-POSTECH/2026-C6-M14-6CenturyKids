@@ -148,12 +148,14 @@ final class PrevisitLetterViewModel {
         return firstLine ?? letter.draft.mood?.title ?? "남긴 말 없음"
     }
 
-    /// 통증(그날 마지막 기록)·증상 수. 기록이 없는 쪽은 빼고 보여 준다
+    /// 통증(그날 마지막 기록)·증상 수. 기록이 없는 쪽은 빼고 보여 준다.
+    /// 복용 후 점수를 아직 남기지 않은 통증은 복용 전 점수만 보여 준다
     func badges(_ letter: PrevisitLetter) -> [Badge] {
         guard let day = letter.draft.day else { return [] }
         var result: [Badge] = []
-        if let before = day.painBefore, let after = day.painAfter {
-            result.append(Badge(text: "통증 \(before)점→\(after)점", isAlert: max(before, after) >= 7))
+        if let before = day.painBefore {
+            let text = day.painAfter.map { "통증 \(before)점→\($0)점" } ?? "통증 \(before)점"
+            result.append(Badge(text: text, isAlert: max(before, day.painAfter ?? 0) >= 7))
         }
         if day.symptomCount > 0 { result.append(Badge(text: "증상\(day.symptomCount)건", isAlert: false)) }
         return result

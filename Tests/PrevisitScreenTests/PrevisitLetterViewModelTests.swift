@@ -37,6 +37,13 @@ final class PrevisitLetterViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.badges(viewModel.letters[0]), [])
     }
 
+    func testPainBadgeShowsBeforeScoreWhenAfterIsMissing() {
+        let viewModel = PrevisitLetterViewModel(calendar: calendar)
+        let waiting = PrevisitDay(id: "d", dateLabel: "10/27", weekday: "화요일", entries: ["e"], painBefore: 8, painAfter: nil)
+        viewModel.send(.init(day: waiting, letter: "", mood: .unsure), to: "학로쌤")
+        XCTAssertEqual(viewModel.badges(viewModel.letters[0]), [.init(text: "통증 8점", isAlert: true)])
+    }
+
     func testEditSavesOnlyChangesAndDeleteRemoves() throws {
         let viewModel = PrevisitLetterViewModel(calendar: calendar)
         viewModel.send(.init(day: nil, letter: "배가 아팠어요", mood: .comfortable), to: "학로쌤")
