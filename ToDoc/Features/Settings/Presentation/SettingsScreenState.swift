@@ -46,11 +46,13 @@ struct DoctorDisplayData {
     var passwordConfirmation = ""
     var newPasswordError: String?
     var confirmationError: String?
+    var canSubmitPassword = false
     var isSaving = false
     var didSave = false
     var errorMessage: String?
     @ObservationIgnored var onSendCode: (() -> Void)?
     @ObservationIgnored var onContinue: (() -> Bool)?
+    @ObservationIgnored var onInputChanged: (() -> Void)?
     @ObservationIgnored var onSave: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }

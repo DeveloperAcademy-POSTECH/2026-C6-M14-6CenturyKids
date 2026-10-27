@@ -80,6 +80,10 @@ final class SettingsViewModel {
             self?.continuePasswordChange() ?? false
         }
 
+        passwordChangeState.onInputChanged = { [weak self] in
+            self?.validatePasswordInputs()
+        }
+
         passwordChangeState.onSave = { [weak self] in
             Task { [weak self] in
                 await self?.changePassword()
@@ -501,6 +505,27 @@ final class SettingsViewModel {
         return true
     }
 
+    func validatePasswordInputs() {
+        let state = passwordChangeState
+        state.canSubmitPassword = false
+        state.confirmationError = nil
+        state.errorMessage = nil
+        state.newPasswordError = state.newPassword.isEmpty
+            ? nil
+            : AuthFormValidation.passwordChangeError(state.newPassword)
+
+        guard !state.newPassword.isEmpty,
+              state.newPasswordError == nil,
+              !state.passwordConfirmation.isEmpty else { return }
+
+        guard state.newPassword == state.passwordConfirmation else {
+            state.confirmationError = "새 비밀번호가 일치하지 않아요."
+            return
+        }
+
+        state.canSubmitPassword = true
+    }
+
     func changePassword() async {
         let state = passwordChangeState
         guard !state.isSaving, !state.isSendingCode else { return }
@@ -538,6 +563,7 @@ final class SettingsViewModel {
             state.verificationCode = ""
             state.newPassword = ""
             state.passwordConfirmation = ""
+            state.canSubmitPassword = false
             state.didSave = true
         } catch {
             switch (error as? AuthError)?.errorCode {
@@ -566,6 +592,7 @@ final class SettingsViewModel {
         passwordChangeState.passwordConfirmation = ""
         passwordChangeState.newPasswordError = nil
         passwordChangeState.confirmationError = nil
+        passwordChangeState.canSubmitPassword = false
 
         passwordChangeState.didSave = false
         passwordChangeState.errorMessage = nil

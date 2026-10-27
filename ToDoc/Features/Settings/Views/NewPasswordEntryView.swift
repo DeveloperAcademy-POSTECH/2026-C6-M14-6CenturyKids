@@ -62,7 +62,7 @@ struct NewPasswordEntryView: View {
                     .foregroundStyle(.white)
                     .background(.blue, in: Capsule())
             }
-            .disabled(state.isSaving || state.onSave == nil)
+            .disabled(state.isSaving || !state.canSubmitPassword || state.onSave == nil)
             .accessibilityIdentifier("settings.password.changeConfirm")
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
@@ -73,6 +73,12 @@ struct NewPasswordEntryView: View {
         .alert("비밀번호를 변경하시겠습니까?", isPresented: $showsChangeConfirmation) {
             Button("취소", role: .cancel) {}
             Button("확인") { state.onSave?() }
+        }
+        .onChange(of: state.newPassword) { _, _ in
+            state.onInputChanged?()
+        }
+        .onChange(of: state.passwordConfirmation) { _, _ in
+            state.onInputChanged?()
         }
     }
 
