@@ -23,6 +23,41 @@ import ToDocDomain
         state.cancerType = .lung; state.stage = .known(.stage1)
     }
 
+    func testPasswordConfirmationErrorClearsAsSoonAsPasswordsMatch() {
+        let vm = makeViewModel(), state = vm.state
+        state.step = .passwordConfirmation
+        state.passwordConfirmation = "different123"
+        vm.handle(.next)
+        XCTAssertEqual(state.step, .passwordConfirmation)
+        XCTAssertNotNil(state.currentValidationError)
+
+        state.passwordConfirmation = state.password
+        XCTAssertTrue(state.passwordMatches)
+        XCTAssertNil(state.currentValidationError, "다음을 다시 누르기 전에 이전 불일치 오류가 사라져야 합니다.")
+        XCTAssertEqual(state.step, .passwordConfirmation)
+
+        state.passwordConfirmation = "different123"
+        vm.handle(.next)
+        XCTAssertEqual(state.step, .passwordConfirmation)
+        XCTAssertNotNil(state.currentValidationError)
+        state.password = state.passwordConfirmation
+        XCTAssertNil(state.currentValidationError)
+        vm.handle(.next)
+        XCTAssertEqual(state.step, .terms)
+    }
+
+    func testMatchingPasswordsDoesNotClearAnotherStepsValidationError() {
+        let vm = makeViewModel(), state = vm.state
+        state.step = .email; state.email = "invalid"
+        vm.handle(.next)
+        let emailError = state.currentValidationError
+        XCTAssertNotNil(emailError)
+        state.passwordConfirmation = "different123"
+        state.password = state.passwordConfirmation
+        XCTAssertTrue(state.passwordMatches)
+        XCTAssertEqual(state.currentValidationError, emailError)
+    }
+
     func testRequiredProfileAndDiagnosisPrecedeOptionalDoctorCode() async {
         let vm = makeViewModel(); let state = vm.state
         state.step = .terms

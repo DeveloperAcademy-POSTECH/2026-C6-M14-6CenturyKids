@@ -9,17 +9,18 @@ struct AuthCheckboxToggleStyle: ToggleStyle {
             HStack(spacing: AppSpacing.item) {
                 ZStack {
                     Circle()
-                        .fill(configuration.isOn ? AppColors.primary : .clear)
+                        .fill(configuration.isOn ? AppColors.Semantic.Primary.default : AppColors.Semantic.Background.surface)
                     if configuration.isOn {
                         // 고정 원형 체크 안의 SF Symbol 크기를 유지합니다.
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(AppColors.Text.primary)
+                            .foregroundStyle(AppColors.Semantic.Text.action)
                     } else {
-                        Circle().stroke(AppColors.gray, lineWidth: 1.5)
+                        Circle().strokeBorder(AppColors.Semantic.Border.default, lineWidth: 1)
                     }
                 }
                 .frame(width: 20, height: 20)
+                .frame(width: 24, height: 24)
                 .accessibilityHidden(true)
                 configuration.label
                     .multilineTextAlignment(.leading)
