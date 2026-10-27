@@ -12,7 +12,7 @@ struct PainRecordWithLocationsDTO: Decodable {
     let patientId: UUID
     let occurredAt: Date
     let painBefore: Int
-    let painAfter: Int
+    let painAfter: Int?
     let locations: [PainLocationDTO]
     
     func toDomain() throws -> PainRecord {

@@ -12,8 +12,8 @@ struct RecordOverviewSnapshot {
     let symptom: Symptom?
     struct Pain {
         let averageBefore: Double
-        let averageAfter: Double
-        let difference: Double
+        let averageAfter: Double?
+        let difference: Double?
         let previousDayDifference: Double?
     }
     /// presence == .present인 항목 수와 종류만 ViewModel에서 제공합니다.
@@ -32,10 +32,10 @@ struct PainRecordDisplay: Identifiable {
     let id: UUID
     let recordedDate: Date
     let painBefore: Int
-    let painAfter: Int
+    let painAfter: Int?
 }
 struct RecordPainDetail { let averageDifference: Double?; let days: [RecordPainDay]; let records: [PainRecordDisplay]? }
-struct RecordPainDay { let date: Date; let averageBefore: Double; let averageAfter: Double }
+struct RecordPainDay { let date: Date; let averageBefore: Double; let averageAfter: Double? }
 enum RecordDetailContent { case symptom(RecordSymptomDetail), pain(RecordPainDetail) }
 enum RecordsAction { case load, moveDay(Int), select(RecordOverviewKind), cancel }
 @Observable final class RecordsScreenState {

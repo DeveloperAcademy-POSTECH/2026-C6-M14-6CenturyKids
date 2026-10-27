@@ -20,7 +20,7 @@ final class PatientDoctorTests: XCTestCase {
         // 현재 구조는 큰 객체를 서로 품는 대신 ID로 연결합니다.
         // 환자 → doctorId → 의사 → hospitalId → 병원이며, 각 기록은 patientId를 가집니다.
         // 여기서는 실제 Model만 만들며 Repository 조회나 DB 저장은 실행하지 않습니다.
-        let hospital = try Hospital(id: UUID(), name: "토닥 병원", code: "H12345", address: "포항시 남구 중앙로")
+        let hospital = try Hospital(id: UUID(), name: "토닥 병원", code: "H12345", address: "포항시 남구 중앙로", latitude: nil, longitude: nil)
         let doctor = Doctor(user: try user(), code: "D12345", hospitalId: hospital.id)
         let disease = CarcinomaDetail(carcinoma: .thyroid, stage: .stage0)
         let patient = Patient(user: try user(), doctorId: doctor.user.id, disease: disease)

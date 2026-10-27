@@ -36,7 +36,8 @@ enum PrevisitRecordedDays {
             [location.bodySide == .unspecified ? nil : location.bodySide.displayName, location.bodyPart.displayName]
                 .compactMap { $0 }.joined(separator: " ")
         }.joined(separator: ", ")
-        return "\(locations) 통증 \(record.painBefore) → \(record.painAfter)"
+        let after = record.painAfter.map { String($0) } ?? "사후 통증 미기록"
+        return "\(locations) 통증 \(record.painBefore) → \(after)"
     }
 
     private static func symptomLines(_ record: SymptomRecord) -> [String] {

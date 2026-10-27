@@ -41,13 +41,20 @@ struct PainCompletionView: View {
                 Divider().overlay(Color(white: 213 / 255))
                 row("약 복용 전") { Text("\(record.painBefore)/10").modifier(PainTextStyle(size: 18, weight: .semibold)) }
                 Divider().overlay(Color(white: 213 / 255))
-                row("약 복용 후") { Text("\(record.painAfter)/10").modifier(PainTextStyle(size: 18, weight: .semibold)) }
+                row("약 복용 후") {
+                    Text(record.painAfter.map { "\($0)/10" } ?? "미기록")
+                        .modifier(PainTextStyle(size: 18, weight: .semibold))
+                }
             }
             .padding(.horizontal, 20).padding(.top, 28)
             HStack(spacing: 2) {
-                Text(changeDescription).modifier(PainTextStyle(size: 14)).multilineTextAlignment(.center)
-                if record.painChange > 0 {
-                    Image("PainChangeDown").frame(width: 13.2, height: 12.54).accessibilityHidden(true)
+                if let description = changeDescription {
+                    Text(description).modifier(PainTextStyle(size: 14)).multilineTextAlignment(.center)
+                }
+                if let painChange = record.painChange {
+                    if painChange > 0 {
+                        Image("PainChangeDown").frame(width: 13.2, height: 12.54).accessibilityHidden(true)
+                    }
                 }
             }
             .foregroundStyle(.white).padding(.horizontal, 16).padding(.vertical, 12)
@@ -86,10 +93,14 @@ struct PainCompletionView: View {
         .padding(.vertical, 12).frame(minHeight: 64)
     }
 
-    private var changeDescription: String {
-        if record.painChange > 0 { return "복용 전보다 통증이 \(record.painChange)점 줄었어요." }
-        if record.painChange < 0 { return "복용 전보다 통증이 \(-record.painChange)점 늘었어요." }
-        return "복용 전후의 통증 점수가 같아요."
+    private var changeDescription: String? {
+        if let painChange = record.painChange {
+            if painChange > 0 { return "복용 전보다 통증이 \(painChange)점 줄었어요." }
+            if painChange < 0 { return "복용 전보다 통증이 \(-painChange)점 늘었어요." }
+            return "복용 전후의 통증 점수가 같아요."
+        } else {
+            return "아직 사후 통증을 기록하지 않았어요."
+        }
     }
 
     private var actions: some View {

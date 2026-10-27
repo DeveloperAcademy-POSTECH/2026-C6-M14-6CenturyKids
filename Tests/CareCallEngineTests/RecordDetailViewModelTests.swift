@@ -9,7 +9,7 @@ struct RecordDetailViewModelTests {
     func date(_ day: Int, _ hour: Int = 9, month: Int = 9) -> Date {
         calendar.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour))!
     }
-    func pain(_ day: Int, _ hour: Int, _ before: Int, _ after: Int) throws -> PainRecord {
+    func pain(_ day: Int, _ hour: Int, _ before: Int, _ after: Int?) throws -> PainRecord {
         try PainRecord(id: UUID(), patientId: UUID(), recordedDate: date(day, hour),
                        location: [BodyLocation(bodyPart: .headFace, bodySide: .left, bodyView: .front)], painBefore: before, painAfter: after)
     }
@@ -37,6 +37,22 @@ struct RecordDetailViewModelTests {
         #expect(detail.averageDifference == 4)
         #expect(detail.records?.map(\.painBefore) == [8, 6])
         #expect(RecordDetailViewModel.painDetail([], period: .day, calendar: calendar).averageDifference == nil)
+    }
+
+    @Test func 통증_미측정은_사후평균에서_제외하고_측정한_0은_포함한다() throws {
+        let detail = RecordDetailViewModel.painDetail([
+            try pain(17, 9, 8, nil), try pain(17, 12, 6, 0), try pain(17, 15, 4, 4),
+            try pain(18, 9, 9, nil)
+        ], period: .day, calendar: calendar)
+        #expect(detail.days.map(\.averageBefore) == [6, 9])
+        #expect(detail.days.map(\.averageAfter) == [2, nil])
+        #expect(detail.averageDifference == 4)
+        #expect(detail.records?.map(\.painAfter) == [nil, 0, 4, nil])
+        for period in [RecordPeriod.day, .week, .month] {
+            let pending = RecordDetailViewModel.painDetail([try pain(18, 9, 9, nil)], period: period, calendar: calendar)
+            #expect(pending.days.first?.averageAfter == nil)
+            #expect(pending.averageDifference == nil)
+        }
     }
 
     @Test func 하루기록_주월은_증상마다_있음으로_나타난_날_수로_크기를_정한다() throws {
