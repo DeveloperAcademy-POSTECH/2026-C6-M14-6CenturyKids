@@ -236,13 +236,7 @@ final class RecordDetailViewModel {
                 averageAfter: after
             )
         }.sorted { $0.date < $1.date }
-        let differences = days.compactMap { day -> Double? in
-            guard let averageAfter = day.averageAfter else {
-                return nil
-            }
-
-            return day.averageBefore - averageAfter
-        }
+        let differences = grouped.values.compactMap(pairedDifference)
 
         let average: Double? = differences.isEmpty
             ? nil
@@ -254,6 +248,12 @@ final class RecordDetailViewModel {
             }
         }
         return RecordPainDetail(averageDifference: average, days: days, records: displays)
+    }
+
+    /// 복용 전·후가 둘 다 있는 기록끼리의 평균 차이. 복용 후를 아직 적지 않은 기록은 빼고 잰다
+    static func pairedDifference(_ records: [PainRecord]) -> Double? {
+        let changes = records.compactMap(\.painChange)
+        return changes.isEmpty ? nil : Double(changes.reduce(0, +)) / Double(changes.count)
     }
 
     /// 일: 그날 '있음'인 증상을 같은 크기로.
