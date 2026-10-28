@@ -35,7 +35,7 @@ final class LocalNotificationDelegate: NSObject, UNUserNotificationCenterDelegat
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        DispatchQueue.main.async { completionHandler([.banner, .sound]) }
+        DispatchQueue.main.async { completionHandler([.banner, .list, .sound]) }
     }
 
     private func open(_ link: String?) {

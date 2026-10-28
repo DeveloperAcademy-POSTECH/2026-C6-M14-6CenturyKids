@@ -25,16 +25,20 @@ struct ContentView: View {
         }
         .task {
             container.liveActivityService.startObserving()
-            // 앱을 끈 사이에 로그인이 끝났으면 복원 뒤에도 환자가 없으니 남은 예약을 지운다.
+            // 앱을 끈 사이에 로그인이 끝났으면 복원 뒤에도 환자가 없으니 남은 예약과 병원 감시를 멈춘다.
             await authFlow.restoreSessionOnce()
             if authFlow.session.patient == nil {
                 LocalNotificationAdapter.cancelPainReminders()
+                container.hospitalArrivalService.stop()
             }
         }
         // 로그아웃은 모두 session.patient를 비우는 것으로 끝난다.
         .onChange(of: authFlow.session.patient?.user.id) { oldID, newID in
             guard oldID != nil, newID == nil else { return }
             LocalNotificationAdapter.cancelPainReminders()
+            container.locationPermission.onChange = nil
+            container.hospitalArrivalService.onSaved = nil
+            container.hospitalArrivalService.stop()
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }

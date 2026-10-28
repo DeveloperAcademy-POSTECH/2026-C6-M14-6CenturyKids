@@ -17,10 +17,10 @@ enum LocalNotificationAdapter {
 
     /// 돌발성 통증 기록 알림을 매일 8·12·18시에 예약한다.
     /// 같은 식별자로 다시 넣으면 기존 예약이 바뀌므로 앱을 열 때마다 불러도 쌓이지 않는다.
+    /// 권한은 묻지 않는다: 허용 전에 넣은 예약도 남아 있다가 허용하면 뜬다 (권한은 위치 권한 다음에 한 번 묻는다).
     static func schedulePainReminders() async {
         let center = UNUserNotificationCenter.current()
         do {
-            guard try await center.requestAuthorization(options: [.alert, .sound]) else { return }
             for hour in painReminderHours {
                 let content = UNMutableNotificationContent()
                 content.body = "돌발성 통증이 생겼다면 앱에 접속해서 기록해주세요"
@@ -38,7 +38,6 @@ enum LocalNotificationAdapter {
     static func schedulePainAfterReminder(at date: Date) async {
         let center = UNUserNotificationCenter.current()
         do {
-            guard try await center.requestAuthorization(options: [.alert, .sound]) else { return }
             let content = UNMutableNotificationContent()
             content.body = "약을 드신 지 1시간이 지났어요. 복용 후 통증을 기록해 주세요."
             content.sound = .default
@@ -55,6 +54,23 @@ enum LocalNotificationAdapter {
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: [painAfterReminderID])
         center.removeDeliveredNotifications(withIdentifiers: [painAfterReminderID])
+    }
+
+    /// 알림 권한은 환자 화면에 들어와 위치 권한 창이 끝난 뒤 한 번만 묻는다 (LocationPermissionRequester).
+    static func requestAuthorization() async {
+        _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+    }
+
+    /// 앱 알림 목록에 남긴 알림을 지금 띄운다. 누르면 deepLink 화면을 연다.
+    static func post(_ notification: AppNotification, deepLink: String) async throws {
+        let content = UNMutableNotificationContent()
+        content.title = notification.title
+        content.body = notification.body
+        content.sound = .default
+        content.userInfo = [deepLinkKey: deepLink]
+        try await UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: notification.id.uuidString, content: content, trigger: nil)
+        )
     }
 
     /// 로그아웃하면 예약해 둔 통증 기록 알림을 지운다.

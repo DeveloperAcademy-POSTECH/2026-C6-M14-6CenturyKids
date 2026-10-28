@@ -27,6 +27,7 @@ struct ToDocApp: App {
         // 알림을 눌러 앱이 켜지는 경우도 받으려면 실행이 끝나기 전에 delegate를 정해야 합니다.
         notificationDelegate = LocalNotificationDelegate(router: router)
         UNUserNotificationCenter.current().delegate = notificationDelegate
+        container.hospitalArrivalService.start()
     }
     
     var body: some Scene {

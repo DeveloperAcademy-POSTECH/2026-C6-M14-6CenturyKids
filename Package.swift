@@ -67,6 +67,14 @@ let package = Package(
                     "Data/Repositories/Protocols/AuthRepository.swift", "Data/Repositories/Protocols/PatientRepository.swift",
                 ],
                 swiftSettings: [.enableUpcomingFeature("BareSlashRegexLiterals")]),
+        // 알림 목록 (섹션·시간 문구·폰에 남기는 저장소)
+        .target(name: "ToDocNotification", dependencies: ["ToDocDomain"], path: "ToDoc",
+                sources: [
+                    "Features/Notification/Presentation", "Features/Notification/ViewModels",
+                    "Data/Repositories/Protocols/NotificationRepository.swift",
+                    "Data/Repositories/Local/FileNotificationRepository.swift",
+                ]),
+        .testTarget(name: "NotificationTests", dependencies: ["ToDocNotification", "ToDocDomain"], path: "Tests/NotificationTests"),
         .testTarget(name: "CareCallEngineTests", dependencies: ["ToDocCareCall", "ToDocDomain"], path: "Tests/CareCallEngineTests",
                     swiftSettings: [.enableUpcomingFeature("BareSlashRegexLiterals")]),
     ],

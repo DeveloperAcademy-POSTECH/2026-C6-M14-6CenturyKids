@@ -5,6 +5,10 @@
 
 import Foundation
 
+#if canImport(ToDocDomain)
+import ToDocDomain // 테스트 패키지에서는 Domain이 별도 모듈
+#endif
+
 protocol NotificationRepository {
     func save(
         notification: AppNotification,
