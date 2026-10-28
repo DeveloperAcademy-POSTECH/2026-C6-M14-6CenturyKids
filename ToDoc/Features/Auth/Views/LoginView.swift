@@ -102,25 +102,32 @@ struct LoginFormView: View {
 
                 SignInWithAppleButton(.signIn) { request in
                     request.requestedScopes = [.email, .fullName]
+                    do {
+                        request.nonce = try viewModel.prepareAppleSignIn()
+                    } catch {
+                        state.errorMessage = (error as? AuthFlowError)?.message ?? "Apple 로그인 요청을 준비하지 못했어요."
+                    }
                 } onCompletion: { result in
                     switch result {
                     case .success(let authorization):
-                        print("Apple로 로그인 요청 성공")
                         
                         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
                               let tokenData = credential.identityToken,
                               let idToken = String(data: tokenData, encoding: .utf8) else {
-                            print("Apple ID 토큰을 가져오지 못했어요.")
+                            viewModel.cancelAppleSignIn()
+                            state.errorMessage = "Apple ID 토큰을 가져오지 못했어요. 다시 시도해 주세요."
                             return
                         }
                         Task {
                             await viewModel.signInWithApple(idToken: idToken)
                         }
                     case .failure(let error):
+                        viewModel.cancelAppleSignIn()
                         if let appleError = error as? ASAuthorizationError, appleError.code == .canceled { return }
-                        print("Apple로 로그인 요청 실패: ", error.localizedDescription)
+                        state.errorMessage = "Apple 로그인에 실패했어요. 다시 시도해 주세요."
                     }
                 }
+                .disabled(state.isSubmitting || state.didSignIn)
                 .signInWithAppleButtonStyle(.black)
                 .frame(height: 54)
                 .cornerRadius(14)
