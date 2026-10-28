@@ -26,6 +26,8 @@ final class RecordsViewModel {
     /// 보고 있는 날 (그날 0시)
     private var day: Date
     @ObservationIgnored private var load: Task<Void, Never>?
+    /// 카드를 눌러 연 상세. 돌아와 다시 조회할 때 상세에서 옮긴 날로 맞춘다
+    @ObservationIgnored private var openedDetail: RecordOverviewKind?
 
     init(patientId: UUID, painRepository: any PainRepository, symptomRepository: any SymptomRepository,
          detail: RecordDetailViewModel, calendar: Calendar = RecordDetailViewModel.calendar,
@@ -45,6 +47,11 @@ final class RecordsViewModel {
     private func handle(_ action: RecordsAction) {
         switch action {
         case .load:
+            if let kind = openedDetail {
+                openedDetail = nil
+                day = detail.day(of: kind)
+                state.dateLabel = Self.dayLabel(day, calendar: calendar)
+            }
             reload()
         case .moveDay(let offset):
             // 오늘 뒤로는 넘어가지 않는다
@@ -54,6 +61,7 @@ final class RecordsViewModel {
             state.dateLabel = Self.dayLabel(day, calendar: calendar)
             reload()
         case .select(let kind):
+            openedDetail = kind
             detail.show(kind, at: day)
         case .cancel:
             load?.cancel()

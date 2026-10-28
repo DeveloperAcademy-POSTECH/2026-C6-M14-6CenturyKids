@@ -6,8 +6,8 @@ import ToDocDomain
 @MainActor
 struct RecordsViewModelTests {
     let calendar = RecordDetailViewModel.calendar
-    func date(_ day: Int, _ hour: Int = 9) -> Date {
-        calendar.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour))!
+    func date(_ day: Int, _ hour: Int = 9, month: Int = 10) -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour))!
     }
     func pain(_ day: Int, _ hour: Int, _ before: Int, _ after: Int?) throws -> PainRecord {
         try PainRecord(id: UUID(), patientId: UUID(), recordedDate: date(day, hour),
@@ -90,6 +90,35 @@ struct RecordsViewModelTests {
 
         state.onAction?(.select(.pain))
         #expect(detail.pain.periodLabel == "10월 1일")
+    }
+
+    @Test func 상세에서_날짜를_옮기고_돌아오면_목록도_그날로_맞춘다() async throws {
+        let pains = FakePainRepository(records: [])
+        let symptoms = FakeRecordSymptomRepository()
+        let today = { self.date(2, 12) }
+        let detail = RecordDetailViewModel(patientId: UUID(), painRepository: pains, symptomRepository: symptoms,
+                                           calendar: calendar, now: today)
+        let viewModel = RecordsViewModel(patientId: UUID(), painRepository: pains, symptomRepository: symptoms,
+                                         detail: detail, calendar: calendar, now: today)
+        let state = viewModel.state
+        state.onAction?(.moveDay(-1))
+        state.onAction?(.select(.symptom))
+        detail.symptom.onAction?(.movePeriod(-1))
+        #expect(detail.symptom.periodLabel == "9월 30일")
+        // 돌아오면 목록이 다시 나타나며 조회한다
+        state.onAction?(.load)
+        #expect(state.dateLabel == "9월 30일 수요일")
+        await waitUntilLoaded(state)
+        #expect(pains.ranges.last?.from == date(30, 0, month: 9))
+
+        // 주로 바꿔 이번 주에 머물면 기준 날(9월 30일)이 그대로이고, 상세를 열지 않은 조회는 날짜를 바꾸지 않는다
+        state.onAction?(.select(.pain))
+        detail.pain.onAction?(.selectPeriod(.week))
+        state.onAction?(.load)
+        #expect(state.dateLabel == "9월 30일 수요일")
+        state.onAction?(.moveDay(1))
+        state.onAction?(.load)
+        #expect(state.dateLabel == "10월 1일 목요일")
     }
 
     private func waitUntilLoaded(_ state: RecordsScreenState) async {

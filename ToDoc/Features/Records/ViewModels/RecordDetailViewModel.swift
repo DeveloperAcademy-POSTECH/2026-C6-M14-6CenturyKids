@@ -63,6 +63,11 @@ final class RecordDetailViewModel {
         showPeriod(of: state(kind))
     }
 
+    /// 상세에서 마지막으로 보던 날 (기간을 옮기다 오늘을 넘은 기준 날은 오늘). 기록 목록으로 돌아갈 때 그날로 맞춘다
+    func day(of kind: RecordOverviewKind) -> Date {
+        calendar.startOfDay(for: min(anchors[kind] ?? now(), now()))
+    }
+
     private func handle(_ action: RecordDetailAction, for kind: RecordOverviewKind) {
         let state = state(kind)
         // 편집 중에는 보고 있는 기간을 바꾸지 않는다 (편집 중인 카드가 사라지지 않게)
