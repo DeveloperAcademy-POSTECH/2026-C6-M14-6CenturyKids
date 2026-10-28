@@ -51,15 +51,7 @@ struct LoginFormView: View {
                         .onSubmit(submit)
                 }
                 .disabled(state.isSubmitting)
-
-                Toggle("자동 로그인", isOn: $state.remembersLogin)
-                    .appTextStyle(.caption)
-                    .foregroundStyle(AppColors.Text.secondary)
-                    .toggleStyle(AuthCheckboxToggleStyle())
-                    .disabled(state.isSubmitting)
-                    .accessibilityHint("선택하면 다음 앱 실행에서도 로그인을 유지합니다.")
-                    .padding(.top, AppSpacing.item)
-                    .padding(.bottom, AppSpacing.section)
+                .padding(.bottom, AppSpacing.section)
 
                 if state.onSubmit == nil { AuthMessage(text: "로그인 기능 연결 전이에요.").padding(.bottom, AppSpacing.content) }
                 if let error = state.errorMessage {

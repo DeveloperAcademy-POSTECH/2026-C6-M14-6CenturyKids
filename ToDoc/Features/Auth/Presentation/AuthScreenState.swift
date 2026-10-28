@@ -13,7 +13,6 @@ import Observation
     var errorMessage: String?
     var isSubmitting = false
     var didSignIn = false
-    var remembersLogin = false
     @ObservationIgnored var onSubmit: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
 }

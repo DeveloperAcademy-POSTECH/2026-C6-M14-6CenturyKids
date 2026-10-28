@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @State private var state: SettingsScreenState
+    @State private var showsPasswordChangeNotice = false
     @State private var showsLogoutConfirmation = false
     private let onPersonalInfo: (() -> Void)?
     private let onCancerType: (() -> Void)?
@@ -9,21 +10,17 @@ struct SettingsView: View {
     private let onHospital: (() -> Void)?
     private let onPasswordChange: (() -> Void)?
     private let onWithdrawal: (() -> Void)?
-    private let onLogout: (() -> Void)?
-    private let isSigningOut: Bool
-    private let logoutErrorMessage: String?
     private let notificationSettings: @MainActor () -> NotificationSettingsView
     init(state: SettingsScreenState? = nil, onPersonalInfo: (() -> Void)? = nil,
          onCancerType: (() -> Void)? = nil, onCancerStage: (() -> Void)? = nil,
          onHospital: (() -> Void)? = nil,
          onPasswordChange: (() -> Void)? = nil, onWithdrawal: (() -> Void)? = nil,
-         onLogout: (() -> Void)? = nil, isSigningOut: Bool = false, logoutErrorMessage: String? = nil,
          notificationSettings: @escaping @MainActor () -> NotificationSettingsView) {
         _state = State(initialValue: state ?? .init()); self.onPersonalInfo = onPersonalInfo
         self.onCancerType = onCancerType; self.onCancerStage = onCancerStage; self.onHospital = onHospital
+        self.onPasswordChange = onPasswordChange
         self.notificationSettings = notificationSettings
-        self.onPasswordChange = onPasswordChange; self.onWithdrawal = onWithdrawal
-        self.onLogout = onLogout; self.isSigningOut = isSigningOut; self.logoutErrorMessage = logoutErrorMessage
+        self.onWithdrawal = onWithdrawal
     }
     var body: some View {
         ScrollView {
@@ -67,36 +64,50 @@ struct SettingsView: View {
                             .disabled(state.onReload == nil).accessibilityIdentifier("settings.reloadProfile")
                     }
                 }
+                VStack(alignment: .leading, spacing: 8) {
+                    SettingsSection(title: "계정") {
+                        Button { showsPasswordChangeNotice = true } label: {
+                            SettingsRow(title: "비밀번호 재설정", chevron: true)
+                        }
+                        .disabled(onPasswordChange == nil)
+                        .accessibilityIdentifier("settings.password.change")
+
+                        SettingsDivider()
+
+                        Button { showsLogoutConfirmation = true } label: {
+                            SettingsRow(title: "로그아웃")
+                        }
+                        .disabled(state.isSigningOut || state.onLogout == nil)
+                        .accessibilityIdentifier("settings.logout")
+                        .alert("로그아웃 하시겠습니까?", isPresented: $showsLogoutConfirmation) {
+                            Button("취소", role: .cancel) {}
+                            Button("로그아웃", role: .destructive) { state.onLogout?() }
+                        }
+                    }
+
+                    if state.isSigningOut || state.logoutErrorMessage != nil {
+                        SettingsFeedback(busy: state.isSigningOut, error: state.logoutErrorMessage)
+                            .padding(.horizontal, 16)
+                    }
+                }
                 SettingsSection(title: "기타") {
                     NavigationLink { notificationSettings() } label: { SettingsRow(title: "알림 설정", chevron: true) }
                     SettingsDivider()
                     NavigationLink { OpenSourceLicensesView() } label: { SettingsRow(title: "오픈소스 라이선스", chevron: true) }
                         .accessibilityIdentifier("settings.licenses")
                     SettingsDivider()
-                    Button { onPasswordChange?() } label: { SettingsRow(title: "비밀번호 재설정", chevron: true) }
-                        .disabled(onPasswordChange == nil).accessibilityIdentifier("settings.passwordChange")
-                    SettingsDivider()
-                    Button { showsLogoutConfirmation = true } label: { SettingsRow(title: "로그아웃", chevron: true) }
-                        .disabled(isSigningOut).accessibilityIdentifier("settings.logout")
-                    SettingsDivider()
                     Button { onWithdrawal?() } label: { SettingsRow(title: "회원 탈퇴", chevron: true) }
                         .disabled(onWithdrawal == nil).accessibilityIdentifier("settings.withdrawal")
                 }
-                SettingsFeedback(busy: isSigningOut, error: logoutErrorMessage)
             }.padding(.horizontal, 24).padding(.bottom, 32)
         }.background(SettingsPalette.background.ignoresSafeArea()).foregroundStyle(SettingsPalette.primary)
             .buttonStyle(.plain).toolbar(.hidden, for: .navigationBar)
+            .alert("비밀번호 변경을 위한 인증코드를 가입한 이메일로 보내드릴게요.", isPresented: $showsPasswordChangeNotice) {
+                Button("취소", role: .cancel) {}
+                Button("확인") { onPasswordChange?() }
+            }
             .onAppear { state.onReload?() }
             .onDisappear { state.onCancel?() }
-            .alert("정말 로그아웃 하시겠습니까?", isPresented: $showsLogoutConfirmation) {
-                Button("취소", role: .cancel) { }
-                Button("확인", role: .destructive) {
-                    guard !isSigningOut else { return }
-                    onLogout?()
-                }.disabled(onLogout == nil || isSigningOut)
-            } message: {
-                if onLogout == nil { Text("로그아웃 기능 연결 준비 중이에요.") }
-            }
     }
     private var avatar: some View {
         SettingsProfileAvatar(size: 64)

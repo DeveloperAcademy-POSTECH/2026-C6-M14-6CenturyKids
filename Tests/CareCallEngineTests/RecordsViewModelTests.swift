@@ -9,7 +9,7 @@ struct RecordsViewModelTests {
     func date(_ day: Int, _ hour: Int = 9) -> Date {
         calendar.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour))!
     }
-    func pain(_ day: Int, _ hour: Int, _ before: Int, _ after: Int) throws -> PainRecord {
+    func pain(_ day: Int, _ hour: Int, _ before: Int, _ after: Int?) throws -> PainRecord {
         try PainRecord(id: UUID(), patientId: UUID(), recordedDate: date(day, hour),
                        location: [BodyLocation(bodyPart: .headFace, bodySide: .left, bodyView: .front)], painBefore: before, painAfter: after)
     }
@@ -30,6 +30,24 @@ struct RecordsViewModelTests {
         #expect(snapshot.symptom == nil)
         // 그날 통증이 없으면 어제 기록이 있어도 없음
         #expect(RecordsViewModel.snapshot(day: date(3, 0), pains: [try pain(2, 9, 8, 2)], symptoms: [], calendar: calendar).pain == nil)
+    }
+
+    @Test func 사후_미측정이면_오늘과_어제의_변화량도_없다() throws {
+        let snapshot = RecordsViewModel.snapshot(day: date(2), pains: [
+            try pain(2, 9, 8, nil), try pain(1, 9, 5, nil)
+        ], symptoms: [], calendar: calendar)
+        #expect(snapshot.pain != nil)
+        #expect(snapshot.pain?.averageBefore == 8)
+        #expect(snapshot.pain?.averageAfter == nil)
+        #expect(snapshot.pain?.difference == nil)
+        #expect(snapshot.pain?.previousDayDifference == nil)
+
+        let measured = RecordsViewModel.snapshot(day: date(2), pains: [
+            try pain(2, 9, 8, nil), try pain(2, 15, 6, 0), try pain(1, 9, 5, 0)
+        ], symptoms: [], calendar: calendar)
+        #expect(measured.pain?.averageAfter == 0)
+        #expect(measured.pain?.difference == 7)
+        #expect(measured.pain?.previousDayDifference == 5)
     }
 
     @Test func 그날_증상은_있음인_항목_수와_증상_순서대로_종류를_보여준다() throws {

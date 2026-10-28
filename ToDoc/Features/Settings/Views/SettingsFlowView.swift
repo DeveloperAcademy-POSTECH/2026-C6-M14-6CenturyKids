@@ -10,23 +10,20 @@ struct SettingsFlowView: View {
     var stage: () -> CancerStageEditView
     var hospital: () -> HospitalConnectionView
     var notifications: @MainActor () -> NotificationSettingsView
-    var passwordChange: () -> SettingsPasswordChangeView
     var withdrawal: () -> AccountWithdrawalView
     init(state: SettingsScreenState = .init(), personal: @escaping () -> PersonalInfoEditView = { .init() },
          cancer: @escaping () -> CancerTypeEditView = { .init() }, stage: @escaping () -> CancerStageEditView = { .init() },
          hospital: @escaping () -> HospitalConnectionView = { .init() },
-         passwordChange: @escaping () -> SettingsPasswordChangeView = { .init() },
          withdrawal: @escaping () -> AccountWithdrawalView = { .init() },
          notifications: @escaping @MainActor () -> NotificationSettingsView) {
         viewModel = nil
         _state = State(initialValue: state); self.personal = personal; self.cancer = cancer
         self.stage = stage; self.hospital = hospital; self.notifications = notifications
-        self.passwordChange = passwordChange; self.withdrawal = withdrawal
+        self.withdrawal = withdrawal
     }
 
     init(
         viewModel: SettingsViewModel,
-        passwordChange: @escaping () -> SettingsPasswordChangeView = { .init() },
         withdrawal: @escaping () -> AccountWithdrawalView = { .init() },
         notifications: @escaping @MainActor () -> NotificationSettingsView
     ) {
@@ -37,26 +34,84 @@ struct SettingsFlowView: View {
         stage = { CancerStageEditView(state: viewModel.stageState) }
         hospital = { HospitalConnectionView(state: viewModel.hospitalConnectionState) }
         self.notifications = notifications
-        self.passwordChange = passwordChange; self.withdrawal = withdrawal
+        self.withdrawal = withdrawal
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            SettingsView(state: state, onPersonalInfo: { path.append(.personal) }, onCancerType: { path.append(.cancer) },
-                         onCancerStage: { path.append(.stage) }, onHospital: { path.append(.hospital) },
-                         onPasswordChange: { path.append(.password) }, onWithdrawal: { path.append(.withdrawal) },
-                         notificationSettings: notifications)
+            settingsRoot
                 .navigationDestination(for: Destination.self) { destination in
-                    switch destination {
-                    case .personal: personal()
-                    case .cancer: cancer()
-                    case .stage: stage()
-                    case .hospital: hospital()
-                    case .password: passwordChange()
-                    case .withdrawal: withdrawal()
-                    }
+                    destinationView(for: destination)
                 }
         }
+        .onChange(of: viewModel?.passwordChangeState.didSave, handlePasswordSaved)
+        .onChange(of: viewModel?.passwordChangeState.codeError, handlePasswordCodeError)
+        .onChange(of: path, handlePathChange)
+    }
+
+    private var settingsRoot: some View {
+        SettingsView(
+            state: state,
+            onPersonalInfo: { path.append(.personal) },
+            onCancerType: { path.append(.cancer) },
+            onCancerStage: { path.append(.stage) },
+            onHospital: { path.append(.hospital) },
+            onPasswordChange: passwordChangeAction,
+            onWithdrawal: { path.append(.withdrawal) },
+            notificationSettings: notifications
+        )
+    }
+
+    private var passwordChangeAction: (() -> Void)? {
+        guard viewModel != nil else { return nil }
+        return { startPasswordChange() }
+    }
+
+    @ViewBuilder
+    private func destinationView(for destination: Destination) -> some View {
+        switch destination {
+        case .personal: personal()
+        case .cancer: cancer()
+        case .stage: stage()
+        case .hospital: hospital()
+        case .withdrawal: withdrawal()
+        case .passwordCode:
+            if let viewModel {
+                PasswordCodeEntryView(state: viewModel.passwordChangeState) {
+                    path.append(.newPassword)
+                }
+                .toolbar(.hidden, for: .tabBar)
+            }
+        case .newPassword:
+            if let viewModel {
+                NewPasswordEntryView(state: viewModel.passwordChangeState)
+                    .toolbar(.hidden, for: .tabBar)
+            }
+        }
+    }
+
+    private func handlePasswordSaved(_ oldValue: Bool?, _ didSave: Bool?) {
+        if didSave == true { path = [] }
+    }
+
+    private func handlePasswordCodeError(_ oldValue: String?, _ codeError: String?) {
+        if codeError != nil && path.last == .newPassword { path.removeLast() }
+    }
+
+    private func handlePathChange(_ oldPath: [Destination], _ newPath: [Destination]) {
+        let wasInPasswordChange = oldPath.contains(.passwordCode) || oldPath.contains(.newPassword)
+        let isInPasswordChange = newPath.contains(.passwordCode) || newPath.contains(.newPassword)
+        if wasInPasswordChange && !isInPasswordChange && viewModel?.passwordChangeState.didSave != true {
+            viewModel?.passwordChangeState.onCancel?()
+        }
+    }
+
+    private func startPasswordChange() {
+        guard let viewModel else { return }
+
+        viewModel.discardPasswordChange()
+        path.append(.passwordCode)
+        viewModel.passwordChangeState.onSendCode?()
     }
 }
 #Preview {

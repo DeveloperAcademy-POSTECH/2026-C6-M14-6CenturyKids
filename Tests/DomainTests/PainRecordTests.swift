@@ -6,7 +6,7 @@ final class PainRecordTests: XCTestCase {
     private let patientId = UUID()
     private var front: BodyLocation { .init(bodyPart: .neck, bodySide: .center, bodyView: .front) }
     private var back: BodyLocation { .init(bodyPart: .neck, bodySide: .center, bodyView: .back) }
-    private func record(before: Int = 7, after: Int = 3, locations: [BodyLocation]? = nil) throws -> PainRecord {
+    private func record(before: Int = 7, after: Int? = 3, locations: [BodyLocation]? = nil) throws -> PainRecord {
         try PainRecord(id: UUID(), patientId: patientId, recordedDate: Date(timeIntervalSince1970: 1_000),
                        location: locations ?? [front], painBefore: before, painAfter: after)
     }
@@ -24,6 +24,13 @@ final class PainRecordTests: XCTestCase {
         XCTAssertEqual(try record(before: 7, after: 3).painChange, 4)
         XCTAssertEqual(try record(before: 3, after: 7).painChange, -4)
         XCTAssertEqual(try record(before: 0, after: 0).painChange, 0)
+    }
+    func testUnmeasuredPainPreservesNilAndStillValidatesBefore() throws {
+        let pending = try record(after: nil)
+        XCTAssertNil(pending.painAfter)
+        XCTAssertNil(pending.painChange)
+        XCTAssertEqual(try record(after: 0).painChange, 7)
+        XCTAssertThrowsError(try record(before: 11, after: nil))
     }
     func testEmptyLocationsAreRejectedWithTypedError() {
         XCTAssertThrowsError(try record(locations: [])) {

@@ -43,14 +43,18 @@ final class DependencyContainer {
         PainRecordViewModel(
             authRepository: authRepository,
             patientRepository: patientRepository,
-            painRepository: painRepository
+            painRepository: painRepository,
+            scheduleAfterReminder: LocalNotificationAdapter.schedulePainAfterReminder(at:),
+            cancelAfterReminder: LocalNotificationAdapter.cancelPainAfterReminder
         )
     }
 
     @MainActor
-    func makeSettingsViewModel(patientId: UUID) -> SettingsViewModel {
+    func makeSettingsViewModel(patientId: UUID, authSession: AuthSessionState) -> SettingsViewModel {
         SettingsViewModel(
             patientId: patientId,
+            authRepository: authRepository,
+            authSession: authSession,
             userRepository: userRepository,
             patientRepository: patientRepository,
             doctorRepository: doctorRepository,

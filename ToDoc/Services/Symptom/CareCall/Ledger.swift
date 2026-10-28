@@ -9,6 +9,9 @@ import Foundation
 
 /// 항목별 누적 기록. 모델 출력은 여기서 검증한 뒤에만 반영한다.
 struct Ledger: Sendable {
+    /// 환자 말은 항목마다 네 곳에 모인다: quotes(이 항목을 기록한 근거 문장 전부, 저장 내용에는 기타 증상의 처음 말·다시 거는 통화의
+    /// 없어졌다는 말만), answers(유무 질문 답 원문), unsureAnswers(모르겠다·애매한 답), details(꼬리질문 답).
+    /// 저장 내용은 SymptomRecordConverter.detailText가 이 차례로 만든다. 첫 질문 답은 conditionText
     struct Entry: Equatable, Sendable {
         let key: String
         let effectId: String

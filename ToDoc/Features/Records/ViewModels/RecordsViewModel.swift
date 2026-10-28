@@ -98,9 +98,12 @@ final class RecordsViewModel {
         let pain = { (date: Date) in days.first { calendar.isDate($0.date, inSameDayAs: date) } }
         let today = symptoms.filter { calendar.isDate($0.recordedDate, inSameDayAs: day) }
         return RecordOverviewSnapshot(
-            pain: pain(day).map {
-                .init(averageBefore: $0.averageBefore, averageAfter: $0.averageAfter, difference: $0.averageBefore - $0.averageAfter,
-                      previousDayDifference: pain(yesterday).map { $0.averageBefore - $0.averageAfter })
+            pain: pain(day).map { day in
+                .init(averageBefore: day.averageBefore, averageAfter: day.averageAfter,
+                      difference: day.averageAfter.map { day.averageBefore - $0 },
+                      previousDayDifference: pain(yesterday).flatMap { day in
+                          day.averageAfter.map { day.averageBefore - $0 }
+                      })
             },
             symptom: today.isEmpty ? nil : .init(
                 presentCount: today.flatMap(\.symptoms).filter { $0.presence == .present }.count,
