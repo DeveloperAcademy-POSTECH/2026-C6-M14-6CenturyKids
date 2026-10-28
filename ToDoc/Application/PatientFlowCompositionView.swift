@@ -49,7 +49,8 @@ struct PatientFlowCompositionView: View {
             },
             onReloadHome: { homeViewModel.reload() },
             previsit: { session in
-                PrevisitFlowView(doctorName: homeViewModel.state.doctorName ?? "선생님", session: session,
+                PrevisitFlowView(doctorName: homeViewModel.state.doctorName ?? "선생님",
+                                 patientName: homeViewModel.state.patientName ?? "", session: session,
                                  letter: previsitLetterViewModel) {
                     async let pain = container.painRepository.findByPatientId(patientId)
                     async let symptoms = container.symptomRepository.findByPatientId(patientId)

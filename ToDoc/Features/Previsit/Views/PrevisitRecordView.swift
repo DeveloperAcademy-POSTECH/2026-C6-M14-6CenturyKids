@@ -104,7 +104,8 @@ struct PrevisitRecordView: View {
             VStack(alignment: .leading, spacing: 28) {
                 Text("To \(doctorName)").appTextStyle(.label).foregroundStyle(AppColors.Previsit.letterSignature)
                 ZStack(alignment: .topLeading) {
-                    if draft.letter.isEmpty {
+                    // 안내 문구는 입력칸을 누르면 바로 숨긴다 (플레이스홀더처럼)
+                    if draft.letter.isEmpty && !writing {
                         Text("하고싶은말을 자유롭게 작성해주세요.")
                             .appTextStyle(.caption).foregroundStyle(AppColors.Previsit.placeholder)
                             .frame(maxWidth: .infinity).padding(.top, 38).allowsHitTesting(false).accessibilityHidden(true)

@@ -101,7 +101,7 @@ struct PatientFlowView: View {
                             case .previsitLetters:
                                 PrevisitLetterListView(viewModel: previsitLetters) { path.append(.previsitLetter($0)) }
                             case .previsitLetter(let id):
-                                PrevisitLetterView(viewModel: previsitLetters, id: id)
+                                PrevisitLetterView(viewModel: previsitLetters, id: id, patientName: home.patientName ?? "")
                                     .onDisappear { if previsitLetters.notice == .saved { previsitLetters.clearNotice() } }
                             }
                         }.toolbar(.hidden, for: .tabBar)

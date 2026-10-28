@@ -76,6 +76,7 @@ import ToDocDomain
                     previous = nil
                     throw HomeIssue.patientMismatch
                 }
+                self?.state.patientName = patient.user.name
                 guard let doctorID = patient.doctorId else {
                     self?.state.doctor = .loaded(.unlinked)
                     return

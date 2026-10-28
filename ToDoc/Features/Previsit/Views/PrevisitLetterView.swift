@@ -97,7 +97,7 @@ struct PrevisitLetterEditView: View {
                 moods
                 // 공용 Text Area는 배경이 아직 background/default라, 시안대로 흰 바탕인 입력칸을 직접 둡니다
                 ZStack(alignment: .topLeading) {
-                    if viewModel.editingLetter.isEmpty {
+                    if viewModel.editingLetter.isEmpty && !writing {
                         Text("하고싶은말을 자유롭게 작성해주세요.").appTypography(.body)
                             .foregroundStyle(AppColors.Semantic.Text.placeholder)
                             .padding(.horizontal, 5).padding(.vertical, 8).allowsHitTesting(false).accessibilityHidden(true)
@@ -140,7 +140,9 @@ struct PrevisitLetterEditView: View {
             AppCards.MoodOption(mood.title, avatar: mood.avatar, isSelected: true) {
                 writing = false
                 choosesMood = true
-            }.accessibilityHint("눌러서 기분을 바꿀 수 있어요").accessibilityIdentifier("previsitLetterEdit.mood")
+            }
+            .overlay(alignment: .trailing) { AppCards.Chevron().padding(.trailing, 24).allowsHitTesting(false) }
+            .accessibilityHint("눌러서 기분을 바꿀 수 있어요").accessibilityIdentifier("previsitLetterEdit.mood")
         }
     }
 
