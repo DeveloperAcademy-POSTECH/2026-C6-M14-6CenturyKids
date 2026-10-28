@@ -89,5 +89,7 @@ final class SupabaseAuthRepository: AuthRepository {
                 ]
             )
         )
+        
+        try await client.auth.signOut(scope: .global)
     }
 }
