@@ -31,13 +31,7 @@ struct PrevisitRecordView: View {
     var body: some View {
         VStack(spacing: 0) {
             AppHeader(title: "진료 전 기록", description: subtitle)
-                .overlay(alignment: .topLeading) {
-                    Button(action: close) {
-                        Image(systemName: "chevron.left").font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(AppColors.Previsit.backIcon).frame(width: 40, height: 40)
-                            .background(AppColors.Previsit.backSurface, in: Circle())
-                    }.accessibilityLabel("닫기").padding(.leading, 24).padding(.top, 5)
-                }
+                .overlay(alignment: .topLeading) { PrevisitBackButton(label: "닫기", action: close) }
             ScrollView {
                 VStack(spacing: 20) {
                     if step != .day { recordNotice }
@@ -203,6 +197,18 @@ struct PrevisitDayCard: View {
         }.frame(maxWidth: .infinity, alignment: .leading).padding(24)
             .frame(minHeight: day.entries.count > 1 ? 176 : 120, alignment: .topLeading)
             .appSurface(.previsitCard(selected: selected))
+    }
+}
+
+struct PrevisitBackButton: View {
+    var label = "뒤로"
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "chevron.left").font(.system(size: 16, weight: .medium))
+                .foregroundStyle(AppColors.Previsit.backIcon).frame(width: 40, height: 40)
+                .background(AppColors.Previsit.backSurface, in: Circle())
+        }.accessibilityLabel(label).padding(.leading, 24).padding(.top, 5)
     }
 }
 

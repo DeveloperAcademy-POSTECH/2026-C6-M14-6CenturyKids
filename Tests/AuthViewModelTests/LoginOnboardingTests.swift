@@ -36,6 +36,7 @@ import XCTest
         await vm.submit()
         XCTAssertFalse(vm.state.didSignIn); XCTAssertNil(f.session.patient)
         XCTAssertFalse(f.auth.signedIn); XCTAssertNotNil(vm.state.errorMessage)
+        XCTAssertFalse(f.session.loginPreference.isEnabled)
     }
     func testCancelIgnoresLateLoginAndBlocksCompetingRequestUntilSettled() async throws {
         let f = AuthFixture(); try f.addProfile()
@@ -50,6 +51,7 @@ import XCTest
         XCTAssertEqual(f.auth.signInCount, 1)
         XCTAssertFalse(vm.state.didSignIn); XCTAssertNil(f.session.patient)
         XCTAssertFalse(f.auth.signedIn); XCTAssertFalse(f.session.isBusy)
+        XCTAssertFalse(f.session.loginPreference.isEnabled)
     }
     func testOnboardingRestoresWithPatientRepositoryOnly() async throws {
         let f = AuthFixture(); try f.addProfile(); f.auth.signedIn = true; f.session.loginPreference.isEnabled = true
@@ -91,6 +93,7 @@ import XCTest
         await vm.submit()
         XCTAssertFalse(vm.state.didSignIn); XCTAssertNil(f.session.patient)
         XCTAssertFalse(f.auth.signedIn); XCTAssertNotNil(vm.state.errorMessage)
+        XCTAssertFalse(f.session.loginPreference.isEnabled)
         XCTAssertEqual(f.users.finds, 0); XCTAssertEqual(f.patients.finds, 1)
     }
     func testOnboardingDoesNotReadUserRepository() async throws {

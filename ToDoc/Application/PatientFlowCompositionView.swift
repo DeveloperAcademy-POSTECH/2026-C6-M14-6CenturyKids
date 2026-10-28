@@ -12,6 +12,7 @@ struct PatientFlowCompositionView: View {
     @State private var recordsViewModel: RecordsViewModel
     @State private var notificationViewModel: NotificationViewModel
     @Environment(AppRouter.self) private var router
+    @State private var previsitLetterViewModel = PrevisitLetterViewModel(calendar: RecordDetailViewModel.calendar)
     private let container: DependencyContainer
     private let patientId: UUID
 
@@ -48,7 +49,8 @@ struct PatientFlowCompositionView: View {
             },
             onReloadHome: { homeViewModel.reload() },
             previsit: { session in
-                PrevisitFlowView(doctorName: homeViewModel.state.doctorName ?? "선생님", session: session) {
+                PrevisitFlowView(doctorName: homeViewModel.state.doctorName ?? "선생님", session: session,
+                                 letter: previsitLetterViewModel) {
                     async let pain = container.painRepository.findByPatientId(patientId)
                     async let symptoms = container.symptomRepository.findByPatientId(patientId)
                     let records = try await (pain, symptoms)
@@ -57,6 +59,7 @@ struct PatientFlowCompositionView: View {
                                                         calendar: RecordDetailViewModel.calendar)
                 }
             },
+            previsitLetters: previsitLetterViewModel,
             pain: { navigation in
                 PainRecordView(viewModel: painViewModel, onShowRecord: navigation.showRecord)
             },

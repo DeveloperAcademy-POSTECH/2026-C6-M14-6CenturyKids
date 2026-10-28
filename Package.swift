@@ -11,6 +11,9 @@ let package = Package(
         .target(name: "ToDocDomain", dependencies: ["ToDocCoreErrors"], path: "ToDoc/Domain"),
         .target(name: "AuthScreens", dependencies: ["ToDocDomain"], path: "ToDoc/Features/Auth/Presentation"),
         .testTarget(name: "AuthScreenTests", dependencies: ["AuthScreens"], path: "Tests/AuthScreenTests"),
+        .target(name: "PrevisitScreens", dependencies: ["ToDocDomain"], path: "ToDoc/Features/Previsit",
+                exclude: ["Views", "Previews"]),
+        .testTarget(name: "PrevisitScreenTests", dependencies: ["PrevisitScreens", "ToDocDomain"], path: "Tests/PrevisitScreenTests"),
         // 증상 화면 상태는 케어콜 ViewModel과 같은 대상(ToDocCareCall)에 있다 (소스가 두 대상에 겹치면 빌드 오류)
         .testTarget(name: "SymptomScreenTests", dependencies: ["ToDocCareCall", "ToDocDomain"], path: "Tests/SymptomScreenTests"),
         .testTarget(name: "DomainTests", dependencies: ["ToDocDomain", "ToDocCoreErrors"], path: "Tests/DomainTests"),
@@ -25,7 +28,7 @@ let package = Package(
                     "Data/Repositories/Protocols/HospitalRepository.swift", "Data/Repositories/Protocols/IntakeRepository.swift",
                     "Data/Repositories/Protocols/NotificationRepository.swift",
                     "Data/Repositories/Protocols/UserRepository.swift",
-                    "Features/Auth", "Features/Home", "Features/Notification", "Features/Onboarding", "Features/Pain/Views", "Features/Pain/Presentation",
+                    "Features/Auth", "Features/Previsit", "Features/Home", "Features/Notification", "Features/Onboarding", "Features/Pain/Views", "Features/Pain/Presentation",
                     "Features/Patient", "Features/Records/Views", "Features/Settings", "Features/Symptom/Views",
                     "Core/AppIntents", "Core/Dependency", "Core/Errors", "Core/Extensions",
                     "Core/Navigation", "Core/Notification", "Core/UI",

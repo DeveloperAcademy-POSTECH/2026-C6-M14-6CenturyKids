@@ -18,7 +18,8 @@ enum AppActions {
     /// Figma의 Button. 너비는 부모가 정하며 눌림·비활성은 시스템 상태를 따릅니다.
     struct Button: View {
         enum Kind {
-            case primary, secondary
+            /// destructive: 되돌릴 수 없는 동작(삭제, 수정 내용 버리기 등). Figma Button의 Destructive
+            case primary, secondary, destructive
         }
 
         private let title: String
@@ -91,6 +92,9 @@ enum AppActions {
                     : AppColors.Semantic.Text.onPrimaryDisabled
             case .secondary:
                 AppColors.Semantic.Text.sub
+            case .destructive:
+                // Figma text/on-destructive와 같은 값입니다.
+                AppColors.Semantic.Text.error
             }
         }
 
@@ -102,6 +106,9 @@ enum AppActions {
                     : AppColors.Semantic.Primary.default
             case .secondary:
                 return AppColors.Semantic.Background.secondary
+            case .destructive:
+                // Figma destructive/default와 같은 값입니다. pressed 색은 아직 토큰이 없습니다.
+                return AppColors.Semantic.Background.error
             }
         }
     }
