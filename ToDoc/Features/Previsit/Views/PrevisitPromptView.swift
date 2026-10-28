@@ -43,7 +43,8 @@ struct PrevisitPromptView: View {
                 // Figma 아이콘이 아직 자리만 있어 뒤로가기(Prev)와 같은 굵기·크기로 그린 닫기 아이콘을 씁니다
                 AppActions.IconButton("닫기", icon: Image("PrevisitClose"), action: onClose)
             }
-            VStack(spacing: 32) {
+            // 홈의 통증 기록하기·증상 대화하기 카드 간격(14)과 맞춤
+            VStack(spacing: 14) {
                 AppActions.Button(startTitle ?? "진료 전 기록하기", action: onStart).accessibilityIdentifier("previsit.start")
                 AppActions.Button("지난 기록 전체보기", kind: .secondary, action: onRecords)
                     .accessibilityIdentifier("previsit.records")
