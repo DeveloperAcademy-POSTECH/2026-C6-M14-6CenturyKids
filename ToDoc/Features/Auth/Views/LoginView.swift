@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 struct LoginView: View {
@@ -6,7 +7,12 @@ struct LoginView: View {
 
 struct LoginFormView: View {
     @Environment(\.dismiss) private var dismiss
-    let state: LoginScreenState
+    let viewModel: LoginViewModel
+    
+    private var state: LoginScreenState {
+        viewModel.state
+    }
+    
     let onSignup: () -> Void
     let onPasswordReset: () -> Void
     var onBack: (() -> Void)? = nil
@@ -86,16 +92,37 @@ struct LoginFormView: View {
                 .multilineTextAlignment(.center)
                 .padding(.vertical, AppSpacing.item)
 
-                Button {} label: {
-                    Label("Apple로 로그인", systemImage: "apple.logo")
-                        .appTextStyle(.caption)
-                        .frame(maxWidth: .infinity, minHeight: AppMetrics.Auth.alternateSignInMinimumHeight)
-                        .appSurface(.authAlternateSignIn)
+                SignInWithAppleButton(.signIn) { request in
+                    request.requestedScopes = [.email, .fullName]
+                    do {
+                        request.nonce = try viewModel.prepareAppleSignIn()
+                    } catch {
+                        state.errorMessage = (error as? AuthFlowError)?.message ?? "Apple 로그인 요청을 준비하지 못했어요."
+                    }
+                } onCompletion: { result in
+                    switch result {
+                    case .success(let authorization):
+                        
+                        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                              let tokenData = credential.identityToken,
+                              let idToken = String(data: tokenData, encoding: .utf8) else {
+                            viewModel.cancelAppleSignIn()
+                            state.errorMessage = "Apple ID 토큰을 가져오지 못했어요. 다시 시도해 주세요."
+                            return
+                        }
+                        Task {
+                            await viewModel.signInWithApple(idToken: idToken)
+                        }
+                    case .failure(let error):
+                        viewModel.cancelAppleSignIn()
+                        if let appleError = error as? ASAuthorizationError, appleError.code == .canceled { return }
+                        state.errorMessage = "Apple 로그인에 실패했어요. 다시 시도해 주세요."
+                    }
                 }
-                .buttonStyle(.plain)
-                .disabled(true)
-                .accessibilityHint("Apple 로그인은 준비 중입니다.")
-                .padding(.top, 20)
+                .disabled(state.isSubmitting || state.didSignIn)
+                .signInWithAppleButtonStyle(.black)
+                .frame(height: 54)
+                .cornerRadius(14)
             }
             .padding(.horizontal, AppSpacing.screenHorizontal)
             .padding(.bottom, 28)
