@@ -51,10 +51,12 @@ struct PainCompletionView: View {
                 if let description = changeDescription {
                     Text(description).modifier(PainTextStyle(size: 14)).multilineTextAlignment(.center)
                 }
-                if let painChange = record.painChange {
-                    if painChange > 0 {
-                        Image("PainChangeDown").frame(width: 13.2, height: 12.54).accessibilityHidden(true)
-                    }
+                if let painChange = record.painChange, painChange != 0 {
+                    Image("PainChangeDown")
+                        .renderingMode(painChange < 0 ? .template : .original)
+                        .foregroundStyle(AppColors.Semantic.Chart.Score.score100)
+                        .rotationEffect(.degrees(painChange < 0 ? 180 : 0))
+                        .frame(width: 13.2, height: 12.54).accessibilityHidden(true)
                 }
             }
             .foregroundStyle(.white).padding(.horizontal, 16).padding(.vertical, 12)

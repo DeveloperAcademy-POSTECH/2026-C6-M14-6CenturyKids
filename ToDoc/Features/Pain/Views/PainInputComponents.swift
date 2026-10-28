@@ -26,33 +26,82 @@ struct PainLocationChips: View {
     let locations: [BodyLocation]
     var onRemove: ((BodyLocation) -> Void)?
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            chips.fixedSize(horizontal: true, vertical: false)
-            ScrollView(.horizontal, showsIndicators: false) { chips }
+        PainChipFlowLayout(centered: onRemove == nil) {
+            ForEach(locations, id: \.self) { location in
+                HStack(spacing: 8) {
+                    Text(painLocationName(location, among: locations)).appTextStyle(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let onRemove {
+                        Button { onRemove(location) } label: {
+                            Text("×").font(.system(size: 18)).frame(width: 28, height: 28)
+                        }
+                        .accessibilityLabel("\(painLocationName(location)) \(location.bodyView.displayName) 선택 삭제")
+                    }
+                }
+                .padding(.leading, 12).padding(.trailing, onRemove == nil ? 12 : 6)
+                .frame(minHeight: 40)
+                .foregroundStyle(Color(white: 79 / 255))
+                .background(Color(white: onRemove == nil ? 240 / 255 : 231 / 255), in: Capsule())
+                .accessibilityElement(children: .contain)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: onRemove == nil ? .center : .leading)
+        .frame(maxWidth: .infinity)
         .fixedSize(horizontal: false, vertical: true)
     }
+}
 
-    private var chips: some View {
-            HStack(spacing: 8) {
-                ForEach(locations, id: \.self) { location in
-                    HStack(spacing: 8) {
-                        Text(painLocationName(location, among: locations)).appTextStyle(.caption)
-                        if let onRemove {
-                            Button { onRemove(location) } label: {
-                                Text("×").font(.system(size: 18)).frame(width: 28, height: 28)
-                            }
-                            .accessibilityLabel("\(painLocationName(location)) \(location.bodyView.displayName) 선택 삭제")
-                        }
-                    }
-                    .padding(.leading, 12).padding(.trailing, onRemove == nil ? 12 : 6)
-                    .frame(minHeight: 40)
-                    .foregroundStyle(Color(white: 79 / 255))
-                    .background(Color(white: onRemove == nil ? 240 / 255 : 231 / 255), in: Capsule())
-                    .accessibilityElement(children: .contain)
-                }
+/// 선택 순서를 유지하면서 사용 가능한 너비를 넘는 칩은 다음 줄에 놓습니다.
+private struct PainChipFlowLayout: Layout {
+    let centered: Bool
+    private let spacing: CGFloat = 8
+
+    private struct Row {
+        var sizes: [CGSize] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let idealWidth = subviews.reduce(CGFloat.zero) { $0 + $1.sizeThatFits(.unspecified).width }
+            + spacing * CGFloat(max(0, subviews.count - 1))
+        let width = proposal.width.flatMap { $0.isFinite ? max(0, $0) : nil } ?? idealWidth
+        let rows = rows(width: width, subviews: subviews)
+        let height = rows.reduce(CGFloat.zero) { $0 + $1.height }
+            + spacing * CGFloat(max(0, rows.count - 1))
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var index = 0
+        var y = bounds.minY
+        for row in rows(width: bounds.width, subviews: subviews) {
+            var x = bounds.minX + (centered ? max(0, (bounds.width - row.width) / 2) : 0)
+            for size in row.sizes {
+                subviews[index].place(at: CGPoint(x: x, y: y + (row.height - size.height) / 2),
+                                      anchor: .topLeading, proposal: ProposedViewSize(size))
+                x += size.width + spacing
+                index += 1
             }
+            y += row.height + spacing
+        }
+    }
+
+    private func rows(width: CGFloat, subviews: Subviews) -> [Row] {
+        var result: [Row] = []
+        var row = Row()
+        for view in subviews {
+            let ideal = view.sizeThatFits(.unspecified)
+            let size = view.sizeThatFits(ProposedViewSize(width: min(width, ideal.width), height: nil))
+            if !row.sizes.isEmpty, row.width + spacing + size.width > width {
+                result.append(row)
+                row = Row()
+            }
+            row.width += (row.sizes.isEmpty ? 0 : spacing) + size.width
+            row.height = max(row.height, size.height)
+            row.sizes.append(size)
+        }
+        if !row.sizes.isEmpty { result.append(row) }
+        return result
     }
 }
 

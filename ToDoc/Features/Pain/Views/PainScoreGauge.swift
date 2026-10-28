@@ -10,28 +10,33 @@ struct PainScoreGauge: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let x = geometry.size.width / 2 - 9
+            let x = geometry.size.width / 2
             ZStack(alignment: .topLeading) {
-                gauge.position(x: x, y: 45 + height / 2)
-                badge(10, size: 30).position(x: x, y: 15)
-                badge(0, size: 30).position(x: x, y: 423)
+                gauge.position(x: x, y: 54 + height / 2)
+                badge(10, size: 30).position(x: x, y: 15).accessibilityHidden(true)
+                badge(0, size: 30).position(x: x, y: 437).accessibilityHidden(true)
                 if let value {
                     Group {
                         if let before {
                             VStack(spacing: 0) {
                                 scoreLabel(before).padding(.bottom, 15)
-                                Image("PainComparisonDown").frame(width: 24, height: 24)
+                                Image("PainComparisonDown")
+                                    .renderingMode(value > before ? .template : .original)
+                                    .foregroundStyle(AppColors.Semantic.Chart.Score.score100)
+                                    .rotationEffect(.degrees(value > before ? 180 : 0))
+                                    .opacity(value == before ? 0 : 1)
+                                    .frame(width: 24, height: 24)
                                     .accessibilityHidden(true).padding(.bottom, 20)
                                 scoreLabel(value)
                             }
                         } else { scoreLabel(value) }
                     }
                     .frame(width: 96)
-                    .position(x: min(geometry.size.width - 48, x + 109), y: before == nil ? 217 : 214.5)
+                    .position(x: min(geometry.size.width - 48, x + 109), y: before == nil ? 231 : 228.5)
                 }
             }
         }
-        .frame(height: 438)
+        .frame(height: 452)
     }
 
     private var gauge: some View {
