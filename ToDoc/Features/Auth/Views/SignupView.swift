@@ -36,46 +36,66 @@ struct SignupFormView: View {
     }
 
     private var roleSelection: some View {
-        AuthFormScreen(title: "어떻게\n이용하시나요?", progress: state.step.progress, onBack: onBack) {
-            VStack(spacing: AppSpacing.content) {
+        AuthFormScreen(title: "어떻게 방문하셨나요?", progress: state.step.progress, onBack: onBack, contentSpacing: 40) {
+            VStack(spacing: AppLayout.Phone.columnSpacing) {
                 roleCard(patient: true)
                 roleCard(patient: false)
             }
             if state.hasAttemptedStep, let error = state.currentValidationError { AuthMessage(text: error) }
         } footer: {
-            Button("다음") { state.onAction?(.next) }.buttonStyle(AppButtonStyle()).disabled(state.onAction == nil)
+            AppActions.Button("다음") { state.onAction?(.next) }.disabled(state.onAction == nil)
         }
     }
 
     private func roleCard(patient: Bool) -> some View {
         let selected = state.isPatient == patient
         return Button { state.isPatient = patient } label: {
-            HStack(alignment: .bottom, spacing: AppSpacing.tight) {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(patient ? "환자로\n이용할게요" : "의사로\n이용할게요").appTextStyle(.heading)
-                    Text(patient ? "iPhone에서\n기록해요" : "iPad에서\n확인해요")
-                        .appTextStyle(.caption).foregroundStyle(AppColors.Text.secondary)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(patient ? "환자 및 보호자" : "의료진")
+                    .appTypography(.caption)
+                    .foregroundStyle(selected ? AppColors.Semantic.Text.action : AppColors.Semantic.Text.placeholder)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(selected ? AppColors.Semantic.Primary.default : AppColors.Semantic.Border.default, in: Capsule())
+                Spacer(minLength: 16)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(patient ? "항암치료를 받고 있어요" : "환자를 진료하고 있어요")
+                        .appTypography(.title)
+                    Text(patient ? "증상을 기록하고 의사선생님과\n이야기 나누고 싶어요" : "기록된 증상을 확인하고\n진료에 활용하고 싶어요")
+                        .appTypography(.caption)
                 }
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.vertical, AppSpacing.section).padding(.leading, AppSpacing.section)
-                Spacer(minLength: 0)
-                if !dynamicTypeSize.isAccessibilitySize {
-                    Image(patient ? "Auth/Patient" : "Auth/Doctor")
-                        .resizable().frame(width: 254, height: 254)
-                        .offset(x: -58)
-                        .frame(width: 135, height: 167, alignment: .topLeading)
-                        .clipped().accessibilityHidden(true)
+                .padding(.trailing, dynamicTypeSize.isAccessibilitySize ? 0 : 120)
+                if dynamicTypeSize.isAccessibilitySize {
+                    roleDoctor.frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.top, 16)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 176, alignment: .leading)
-            .appSurface(.authRole(isSelected: selected))
-            .clipShape(RoundedRectangle(cornerRadius: AppMetrics.Auth.roleRadius))
-            .overlay(alignment: .topTrailing) {
-                if selected { Image(systemName: "checkmark.circle.fill").padding(AppSpacing.content).accessibilityHidden(true) }
+            .padding(24)
+            .frame(maxWidth: .infinity, minHeight: 180, alignment: .leading)
+            .overlay(alignment: .bottomTrailing) {
+                if !dynamicTypeSize.isAccessibilitySize { roleDoctor.padding(.trailing, 15) }
+            }
+            .foregroundStyle(AppColors.Semantic.Text.default)
+            .background(selected ? AppColors.Semantic.Background.selected : AppColors.Semantic.Background.default)
+            .clipShape(RoundedRectangle(cornerRadius: 30))
+            .overlay {
+                if selected {
+                    RoundedRectangle(cornerRadius: 30)
+                        .strokeBorder(AppColors.Semantic.Primary.default, lineWidth: 1)
+                }
             }
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private var roleDoctor: some View {
+        // 원본 Figma PNG와 SHA256이 동일한 기존 그림을 재사용합니다.
+        Image("CareCallHakro")
+            .resizable().frame(width: 211.342, height: 211.342)
+            .offset(x: -39.6, y: -3.96)
+            .frame(width: 132, height: 132, alignment: .topLeading)
+            .clipped().accessibilityHidden(true)
     }
 }
 

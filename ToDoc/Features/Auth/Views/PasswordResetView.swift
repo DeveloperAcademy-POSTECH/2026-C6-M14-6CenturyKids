@@ -9,7 +9,7 @@ struct PasswordResetView: View {
     /// 복구 가능 여부와 저장 성공 여부를 View가 추측하지 않고 VM의 결과를 그대로 표시합니다.
     var body: some View {
         @Bindable var state = state
-        AuthFormScreen(title: title, onBack: finish) {
+        AuthFormScreen(title: title, onBack: finish, keyboardFooterBehavior: keyboardFooterBehavior) {
             if state.didUpdatePassword {
                 Text("새 비밀번호로 다시 로그인해 주세요.").appTextStyle(.label)
             } else if state.isRecoveryReady {
@@ -40,6 +40,9 @@ struct PasswordResetView: View {
         .onDisappear { state.onCancel?() }
     }
     private var canReturnToLogin: Bool { state.didUpdatePassword || (state.didSend && !state.isRecoveryReady) }
+    private var keyboardFooterBehavior: AuthKeyboardFooterBehavior {
+        state.isRecoveryReady && !state.didUpdatePassword && !state.needsSessionCleanup ? .compact : .keepActions
+    }
     private var title: String {
         if state.didUpdatePassword { return "비밀번호를\n변경했어요" }
         if state.isRecoveryReady { return "새 비밀번호를\n입력해 주세요" }

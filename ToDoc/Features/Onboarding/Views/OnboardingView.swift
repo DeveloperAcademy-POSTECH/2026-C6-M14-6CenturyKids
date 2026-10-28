@@ -16,7 +16,7 @@ import SwiftUI
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
                     ScrollView {
-                        VStack(spacing: AppSpacing.ButtonGroup.captionToButtons) {
+                        VStack(spacing: 0) {
                             header
                             selectedPage
                                 .environment(\.onboardingScrollsContent, false)
@@ -25,7 +25,7 @@ import SwiftUI
                     }
                     .id(page)
                 } else {
-                    VStack(spacing: AppSpacing.ButtonGroup.captionToButtons) {
+                    VStack(spacing: 0) {
                         header
                         TabView(selection: Binding(get: { page }, set: { model.onboarding.selectPage($0) })) {
                             welcome.tag(0)
@@ -39,8 +39,8 @@ import SwiftUI
                     }
                 }
             }
-            .padding(.vertical, 8)
-            .appScreenStyle()
+            .padding(.top, 6)
+            .background(AppColors.Semantic.Background.surface.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $model.showsAuth) {
                 AuthFlowView(model: model, onClose: model.close)
@@ -59,33 +59,50 @@ import SwiftUI
     }
 
     private var header: some View {
-        VStack(spacing: 0) {
-            if page > 0 {
-                // 건너뛰기 글자 길이가 달라져도 페이지 표시의 중심은 화면 중앙에 고정합니다.
-                // 별도 행을 사용하여 320pt/큰 글자에서 버튼과 점이 겹치지 않게 합니다.
-                HStack(spacing: 0) {
-                    ForEach(1...4, id: \.self) { index in
-                        Button { selectPage(index) } label: {
-                            Circle()
-                                .fill(page == index ? AppColors.gray : AppColors.secondary)
-                                .frame(width: 12, height: 12)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("소개 \(index), 4페이지 중 \(index)페이지")
-                        .accessibilityAddTraits(page == index ? .isSelected : [])
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                Button("건너뛰기", action: openSignup)
-                    .appTextStyle(.caption)
-                    .foregroundStyle(AppColors.Text.secondary)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 0) {
+                Color.clear.frame(width: 56, height: 44)
+                    .accessibilityHidden(true)
+                Spacer(minLength: 0)
+                if page > 0 { pageButtons }
+                Spacer(minLength: 0)
+                skipLink
+            }
+            VStack(spacing: 0) {
+                HStack { Spacer(); skipLink }
+                if page > 0 { pageButtons }
             }
         }
+        .padding(.horizontal, AppLayout.Phone.horizontalMargin)
         .frame(minHeight: 44)
+    }
+
+    private var pageButtons: some View {
+        HStack(spacing: 0) {
+            ForEach(1...4, id: \.self) { index in
+                Button { selectPage(index) } label: {
+                    Capsule()
+                        .fill(page == index ? AppColors.Semantic.Primary.default : AppColors.Semantic.Border.default)
+                        .frame(width: page == index ? 15 : 7, height: 7)
+                        .padding(.horizontal, 3)
+                        .frame(height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("소개 \(index), 4페이지 중 \(index)페이지")
+                .accessibilityAddTraits(page == index ? .isSelected : [])
+            }
+        }
+    }
+
+    private var skipLink: some View {
+        Button("건너뛰기", action: openLogin)
+            .appTextStyle(.caption)
+            .foregroundStyle(AppColors.Semantic.Text.disabled)
+            .frame(minWidth: 56, minHeight: 44, alignment: .trailing)
+            .opacity(page > 0 ? 1 : 0)
+            .disabled(page == 0)
+            .accessibilityHidden(page == 0)
     }
 
     private var welcome: some View {
@@ -93,51 +110,20 @@ import SwiftUI
             title: "오늘의 몸 상태를\n편하게 기록해요",
             description: "통증과 증상을\n한곳에서 기록할 수 있어요."
         ) {
-            Image("HakroDoctor")
-                .resizable().scaledToFit().frame(maxWidth: 230)
-                .frame(maxWidth: .infinity)
-                .accessibilityHidden(true)
+            OnboardingDoctorIllustration()
         }
     }
 
     private var footer: some View {
-        VStack(spacing: AppSpacing.ButtonGroup.verticalGap) {
+        VStack(spacing: 8) {
             if let error = model.onboarding.errorMessage { AuthMessage(text: error) }
-            Button(page == 0 ? "시작하기" : (page == 4 ? "회원가입" : "다음")) {
+            AppActions.Button(page == 0 ? "시작하기" : "다음") {
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                     model.advanceOnboarding()
                 }
             }
-            .buttonStyle(AppButtonStyle())
-            if page == 4 {
-                // Apple 인증 Repository 연결이 연결되기 전에는 요청을 보내지 않습니다.
-                Button {} label: {
-                    HStack {
-                        Image("OnboardingApple")
-                            .resizable().scaledToFit().frame(width: 18, height: 18)
-                            .accessibilityHidden(true)
-                        Text("Apple로 로그인 · 준비 중")
-                    }
-                }
-                .buttonStyle(AppButtonStyle(kind: .secondary))
-                .disabled(true)
-            }
-            Button(action: openLogin) {
-                Text("이미 계정이 있나요? 로그인")
-                    .appTextStyle(.caption)
-                    .underline()
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .foregroundStyle(AppColors.Text.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
         }
-    }
-
-    private func openSignup() {
-        model.open(.signup)
+        .padding(.horizontal, AppLayout.Phone.horizontalMargin)
     }
 
     private func openLogin() {

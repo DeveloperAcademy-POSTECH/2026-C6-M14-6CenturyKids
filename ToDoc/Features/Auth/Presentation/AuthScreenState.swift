@@ -45,9 +45,18 @@ enum SignupAction {
     var isPatient = true
     var name = ""
     var email = ""
-    var password = ""
-    var passwordConfirmation = ""
+    var password = "" {
+        didSet { clearResolvedPasswordConfirmationError() }
+    }
+    var passwordConfirmation = "" {
+        didSet { clearResolvedPasswordConfirmationError() }
+    }
     var passwordMatches: Bool { !password.isEmpty && password == passwordConfirmation }
+
+    private func clearResolvedPasswordConfirmationError() {
+        if step == .passwordConfirmation && passwordMatches { currentValidationError = nil }
+    }
+
     var acceptedTerms: Set<SignupTerm> = []
     var doctorCode = ""
     var connection: SignupDoctorConnection?
