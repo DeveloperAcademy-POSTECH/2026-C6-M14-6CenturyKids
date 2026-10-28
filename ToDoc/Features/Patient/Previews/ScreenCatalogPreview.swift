@@ -45,7 +45,7 @@ struct ScreenCatalogPreview: View {
         case .conversation: SymptomRecordView(state: conversationState())
         case .summary: SymptomSummaryView(state: .init(record: symptomRecord()))
         case .noPresentSummary: SymptomSummaryView(state: .init(record: symptomRecord(includesPresent: false)))
-        case .records: RecordsView(snapshot: .init(pain: .init(averageBefore: 7, averageAfter: 0, difference: 7, previousDayDifference: nil), symptom: .init(presentCount: 1, types: [.constipation])), state: .loaded)
+        case .records: RecordsView(snapshot: .init(pain: .init(averageBefore: 7, averageAfter: 0, difference: 7), symptom: .init(presentCount: 1, types: [.constipation])), state: .loaded)
         case .voice: SymptomRecordView(state: voiceState())
         case .noPresent: SymptomRecordDetailView(state: symptomDetailState(includesPresent: false))
         case .painDetail: PainRecordDetailView(state: detailState(.pain))

@@ -14,7 +14,6 @@ struct RecordOverviewSnapshot {
         let averageBefore: Double
         let averageAfter: Double?
         let difference: Double?
-        let previousDayDifference: Double?
     }
     /// presence == .present인 항목 수와 종류만 ViewModel에서 제공합니다.
     /// 부위별 항목은 각각 1건입니다. nil은 집계 미제공, 0은 실제 0건입니다.

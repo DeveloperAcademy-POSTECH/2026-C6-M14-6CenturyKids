@@ -59,10 +59,13 @@ struct RecordsView: View {
     }
     // 카드 왼쪽 그래프는 시안 확정 전이라 자리만 둡니다.
     private var painCard: some View {
+        // 그날 점수: 복용 후를 아직 적지 않았으면 복용 전만
         let subtitle = data?.pain.map { pain in
-            pain.previousDayDifference.map { "어제 \(RecordDisplay.number($0))점" } ?? "어제 기록 없음"
+            let before = "복용 전 \(RecordDisplay.number(pain.averageBefore))점"
+            return pain.averageAfter.map { before + " → 복용 후 \(RecordDisplay.number($0))점" } ?? before
         } ?? "기록 없음"
-        return RecordOverviewCard(label: "통증", value: subtitle, action: selection(.pain), graphic: { Color.clear }) {
+        return RecordOverviewCard(label: "통증", value: subtitle.replacingOccurrences(of: " → ", with: ", "),
+                                  action: selection(.pain), graphic: { Color.clear }) {
             card("통증", subtitle)
         }.accessibilityIdentifier("records.pain")
     }
@@ -93,7 +96,7 @@ struct RecordsView: View {
 #Preview("조회 미연결") { RecordsView() }
 #Preview("기록 있음") {
     RecordsView(dateLabel: "10월 2일 화요일",
-                snapshot: .init(pain: .init(averageBefore: 7, averageAfter: 5, difference: 2, previousDayDifference: 3),
+                snapshot: .init(pain: .init(averageBefore: 7, averageAfter: 5, difference: 2),
                                 symptom: .init(presentCount: 2, types: [.nauseaVomiting, .dehydrationNutrition])),
                 state: .loaded, onMoveDay: { _ in }, onSelect: { _ in })
 }

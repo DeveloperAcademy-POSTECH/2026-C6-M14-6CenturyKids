@@ -69,10 +69,9 @@ final class RecordsViewModel {
         load = Task { [weak self] in
             guard let self else { return }
             do {
-                let yesterday = calendar.date(byAdding: .day, value: -1, to: day) ?? day
                 let tomorrow = calendar.date(byAdding: .day, value: 1, to: day) ?? day
-                // 통증 저장소는 끝 날짜 당일까지 포함하고, 증상 저장소는 끝 날짜를 뺀다 (어제와 비교하려고 통증은 어제부터)
-                async let pains = painRepository.findByPatientIdAndDate(patientId: patientId, from: yesterday, to: day)
+                // 통증 저장소는 끝 날짜 당일까지 포함하고, 증상 저장소는 끝 날짜를 뺀다
+                async let pains = painRepository.findByPatientIdAndDate(patientId: patientId, from: day, to: day)
                 async let symptoms = symptomRepository.findByPatientIdAndDate(patientId: patientId, from: day, to: tomorrow)
                 let snapshot = Self.snapshot(day: day, pains: try await pains, symptoms: try await symptoms, calendar: calendar)
                 guard !Task.isCancelled else { return }
@@ -91,19 +90,14 @@ final class RecordsViewModel {
         return RecordDetailViewModel.monthDay(day, calendar) + " " + weekday
     }
 
-    /// 그날 통증(평균 복용 전·후와 차이, 어제 차이)과 그날 '있음'인 증상. 기록이 없으면 nil
+    /// 그날 통증(평균 복용 전·후와 차이)과 그날 '있음'인 증상. 기록이 없으면 nil
     static func snapshot(day: Date, pains: [PainRecord], symptoms: [SymptomRecord], calendar: Calendar) -> RecordOverviewSnapshot {
-        let days = RecordDetailViewModel.painDetail(pains, period: .day, calendar: calendar).days
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: day) ?? day
-        let pain = { (date: Date) in days.first { calendar.isDate($0.date, inSameDayAs: date) } }
+        let todayPains = pains.filter { calendar.isDate($0.recordedDate, inSameDayAs: day) }
         let today = symptoms.filter { calendar.isDate($0.recordedDate, inSameDayAs: day) }
         return RecordOverviewSnapshot(
-            pain: pain(day).map { day in
+            pain: RecordDetailViewModel.painDetail(todayPains, period: .day, calendar: calendar).days.first.map { day in
                 .init(averageBefore: day.averageBefore, averageAfter: day.averageAfter,
-                      difference: day.averageAfter.map { day.averageBefore - $0 },
-                      previousDayDifference: pain(yesterday).flatMap { day in
-                          day.averageAfter.map { day.averageBefore - $0 }
-                      })
+                      difference: RecordDetailViewModel.pairedDifference(todayPains))
             },
             symptom: today.isEmpty ? nil : .init(
                 presentCount: today.flatMap(\.symptoms).filter { $0.presence == .present }.count,
