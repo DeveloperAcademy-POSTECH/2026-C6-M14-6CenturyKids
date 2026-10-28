@@ -92,4 +92,22 @@ final class SupabaseAuthRepository: AuthRepository {
         
         try await client.auth.signOut(scope: .global)
     }
+    
+    func withdrawAppleAccount(authorizationCode: String) async throws {
+        let session = try await client.auth.session
+        
+        try await client.functions.invoke(
+            "delete-apple-account",
+            options: FunctionInvokeOptions(
+                headers: [
+                    "Authorization": "Bearer \(session.accessToken)"
+                ],
+                body: [
+                    "authorizationCode": authorizationCode
+                ]
+            )
+        )
+        
+        try await client.auth.signOut(scope: .global)
+    }
 }

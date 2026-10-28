@@ -31,4 +31,6 @@ protocol AuthRepository {
     func updatePassword(to newPassword: String, nonce: String?) async throws
     
     func deleteAccount() async throws
+
+    func withdrawAppleAccount(authorizationCode: String) async throws
 }
