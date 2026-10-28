@@ -1,53 +1,27 @@
-//
-//  NonceCreator.swift
-//  ToDoc
-//
-//  Created by 앤디 on 10/28/26.
-//
-
-import CryptoKit
 import Foundation
+import Security
+import CryptoKit
 
+/// 인증 요청마다 새 nonce를 만들고 Apple에 전달할 SHA-256 해시를 생성합니다.
 enum NonceCreator {
-    static func randomNonceString(length: Int = 32) -> String {
+    static func randomNonceString(length: Int = 32) throws -> String {
         precondition(length > 0)
-        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._")
+        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._")
         var result = ""
-        var remainingLength = length
-        
-        while remainingLength > 0 {
-            let randoms: [UInt8] = (0 ..< 16).map { _ in
-                var random: UInt8 = 0
-                let errorCode = SecRandomCopyBytes(kSecRandomDefault, 1, &random)
-                if errorCode != errSecSuccess {
-                    fatalError("nonce 생성 실패: \(errorCode)")
-                }
-                
-                return random
+        while result.count < length {
+            var random: UInt8 = 0
+            guard SecRandomCopyBytes(kSecRandomDefault, 1, &random) == errSecSuccess else {
+                throw AuthFlowError("인증 요청을 준비하지 못했어요. 다시 시도해 주세요.")
             }
-            
-            randoms.forEach { random in
-                if remainingLength == 0 {
-                    return
-                }
-                
-                if random < charset.count {
-                    result.append(charset[Int(random)])
-                    remainingLength -= 1
-                }
+            if Int(random) < charset.count {
+                result.append(charset[Int(random)])
             }
         }
-        
         return result
     }
-    
+
     static func sha256(_ input: String) -> String {
-        let inputData = Data(input.utf8)
-        let hashedData = SHA256.hash(data: inputData)
-        let hashString = hashedData.compactMap {
-            String(format: "%02x", $0)
-        }.joined()
-        
-        return hashString
+        SHA256.hash(data: Data(input.utf8))
+            .map { String(format: "%02x", $0) }.joined()
     }
 }
