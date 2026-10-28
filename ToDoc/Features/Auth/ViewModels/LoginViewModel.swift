@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 #if SWIFT_PACKAGE
 import ToDocDomain
 #endif
@@ -71,6 +70,95 @@ import ToDocDomain
         }
     }
 
+    func prepareAppleSignIn() throws -> String {
+        guard !state.isSubmitting, !state.didSignIn else {
+            throw AuthFlowError("로그인이 진행 중이에요.")
+        }
+        let nonce = try NonceCreator.randomNonceString()
+        currentNonce = nonce
+        return NonceCreator.sha256(nonce)
+    }
+
+    func cancelAppleSignIn() {
+        currentNonce = nil
+    }
+
+    func signInWithApple(idToken: String) async {
+        guard !state.isSubmitting, !state.didSignIn else { return }
+        
+        state.errorMessage = nil
+        
+        guard let nonce = currentNonce else {
+            state.errorMessage = "인증 요청 정보가 없어요. 다시 시도해 주세요."
+            return
+        }
+        
+        currentNonce = nil
+        
+        guard let auth = repositories.auth, let patients = repositories.patients else {
+            state.errorMessage = "로그인 연결을 준비하지 못했어요."
+            return
+        }
+        
+        guard let token = session.begin() else {
+            state.errorMessage = "이전 인증 요청을 마무리하고 있어요. 다시 시도해 주세요."
+            return
+        }
+        
+        requestID = token
+        state.isSubmitting = true
+        let remembersLogin = state.remembersLogin
+        session.loginPreference.isEnabled = false
+        
+        defer {
+            session.finish(token)
+            state.isSubmitting = false
+        }
+        
+        do {
+            let id = try await auth.signInWithApple(idToken: idToken, nonce: nonce)
+            guard isCurrent(token) else { throw CancellationError() }
+            
+            let patient = try await patients.findById(id)
+            guard isCurrent(token) else { throw CancellationError() }
+
+            guard let patient else {
+                guard let onIncompleteSignup else {
+                    throw AuthFlowError("가입 화면을 연결하지 못했어요.")
+                }
+                let email = try await auth.getCurrentUserEmail()
+                guard isCurrent(token) else { throw CancellationError() }
+                
+                guard let email, !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    throw AuthFlowError("가입에 필요한 이메일을 확인하지 못했어요.")
+                }
+                state.password = ""
+                onIncompleteSignup(id, email)
+                return
+            }
+            
+            guard patient.user.id == id else {
+                throw AuthFlowError("사용자 정보가 일치하지 않아요.")
+            }
+            
+            session.loginPreference.isEnabled = remembersLogin
+            session.patient = patient
+            state.password = ""
+            state.didSignIn = true
+        } catch {
+            session.patient = nil
+            do {
+                if auth.isSignedIn() { try await auth.signOut() }
+            } catch {
+                state.errorMessage = "인증 상태를 정리하지 못했어요. 다시 로그인해 주세요."
+            }
+            if isCurrent(token), state.errorMessage == nil {
+                state.errorMessage = (error as? AuthFlowError)?.message
+                    ?? "Apple 로그인에 실패했어요. 다시 시도해 주세요."
+            }
+        }
+    }
+
     /// 비밀번호 재설정 등으로 세션이 사라진 뒤 다시 로그인할 수 있게 이전 성공 표시를 해제합니다.
     func prepareForLogin() {
         guard session.patient == nil, !state.isSubmitting else { return }
@@ -78,26 +166,6 @@ import ToDocDomain
     }
 
     /// 요청 자체를 되돌리는 것은 아닙니다. 늦게 온 응답이 화면을 이동시키지 않도록 표시 권한만 폐기합니다.
-    func cancel() { requestID = nil }
+    func cancel() { requestID = nil; currentNonce = nil }
     private func isCurrent(_ token: UUID) -> Bool { requestID == token && !Task.isCancelled }
-    
-    func prepareAppleSignIn() -> String {
-        let nonce = NonceCreator.randomNonceString()
-        currentNonce = nonce
-        
-        return NonceCreator.sha256(nonce)
-    }
-    
-    func signInWithApple(idToken: String) async {
-        guard let nonce = currentNonce,
-              let auth = repositories.auth else { return }
-        
-        defer { currentNonce = nil }
-        
-        do {
-            let userId = try await repositories.auth?.signInWithApple(idToken: idToken, nonce: nonce)
-        } catch {
-            state.errorMessage = "Apple 로그인에 실패했어요."
-        }
-    }
 }
