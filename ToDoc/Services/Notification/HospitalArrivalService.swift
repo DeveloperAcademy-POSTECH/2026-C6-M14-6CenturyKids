@@ -41,9 +41,10 @@ final class HospitalArrivalService {
         self.defaults = defaults
     }
 
-    /// 앱이 켜지자마자 부른다. 앱이 꺼진 채 병원에 들어가 iOS가 앱을 깨웠을 때 이벤트를 받으려면 같은 이름으로 다시 열어야 한다
+    /// 앱이 켜지자마자 부른다. 앱이 꺼진 채 병원에 들어가 iOS가 앱을 깨웠을 때 이벤트를 받으려면 같은 이름으로 다시 열어야 한다.
+    /// 위치 권한을 고르기 전에는 열지 않는다 (CLMonitor를 열면 iOS가 그 자리에서 위치 권한 창을 띄워 로그인 전에 묻게 된다)
     func start() {
-        guard listening == nil else { return }
+        guard listening == nil, Self.locationChosen else { return }
         listening = Task {
             let monitor = await monitor()
             do {
@@ -61,6 +62,8 @@ final class HospitalArrivalService {
     /// 권한 창이 이어서 뜨면 연달아 불리므로 차례로 처리한다 (겹치면 같은 병원을 두 번 등록해 알림이 두 번 갈 수 있다)
     func update(patientId: UUID, authorized: Bool) async {
         defaults.set(patientId.uuidString, forKey: Self.patientKey)
+        guard Self.locationChosen else { return }
+        start()
         let previous = updating
         let work = Task {
             await previous?.value
@@ -73,6 +76,7 @@ final class HospitalArrivalService {
     /// 로그아웃하면 바로 로그인 환자 표시를 지워 이후 도착을 무시하고, 감시를 모두 멈춘다
     func stop() {
         defaults.removeObject(forKey: Self.patientKey)
+        guard Self.locationChosen else { return }
         let previous = updating
         updating = Task {
             await previous?.value
@@ -107,6 +111,8 @@ final class HospitalArrivalService {
         await monitor.add(CLMonitor.CircularGeographicCondition(center: target.center, radius: Self.radius),
                           identifier: wanted, assuming: .unsatisfied)
     }
+
+    private static var locationChosen: Bool { CLLocationManager().authorizationStatus != .notDetermined }
 
     private func monitor() async -> CLMonitor {
         if let monitorTask { return await monitorTask.value }
