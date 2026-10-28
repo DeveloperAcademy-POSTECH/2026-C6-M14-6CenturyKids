@@ -450,6 +450,11 @@ final class SettingsViewModel {
         }
     }
 
+    func completeAccountWithdrawal() {
+        authSession.loginPreference.isEnabled = false
+        authSession.patient = nil
+    }
+
     func signOut() async {
         guard !screenState.isSigningOut else { return }
 
