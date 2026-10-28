@@ -53,7 +53,8 @@ struct CareCallFlowView: View {
     private func flow(_ viewModel: CareCallViewModel) -> some View {
         if hasEntered {
             SymptomRecordView(
-                state: viewModel.conversation, onClose: onClose,
+                // 오류에서는 저장 성공 여부와 무관하게 부모의 홈 경로로 나갑니다.
+                state: viewModel.conversation, onClose: onClose ?? onHome,
                 onShowRecord: recordAction(viewModel),
                 onHome: onHome.map { destination in
                     {
@@ -64,7 +65,7 @@ struct CareCallFlowView: View {
             )
         } else {
             SymptomCallWaitingView(state: viewModel.preparation, onStart: { enter(.voice) },
-                onPostpone: onPostpone, onSwitchToText: { enter(.text) }, onClose: onClose)
+                onPostpone: onPostpone, onSwitchToText: { enter(.text) }, onClose: onClose ?? onHome)
         }
     }
 

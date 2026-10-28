@@ -27,7 +27,7 @@ struct SymptomCallWaitingView: View {
         Group {
             switch state.preparation {
             case .modelMissing, .modelLoadFailed, .failed:
-                SymptomServiceErrorView(onRetry: { state.onAction?(.prepare) })
+                SymptomServiceErrorView(onRetry: { state.onAction?(.prepare) }, onHome: close)
             default:
                 // 준비하는 동안에는 전화받기만 막는다 (10분 미루기·채팅으로 전환·종료는 된다)
                 CareCallIncomingView(
