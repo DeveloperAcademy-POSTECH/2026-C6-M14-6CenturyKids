@@ -6,6 +6,8 @@ import ToDocDomain
 /// 테스트 전용 저장소입니다. 제품 DI에는 들어가지 않으며 실제 서버 계정을 만들지 않습니다.
 final class TestAuthRepository: AuthRepository {
     let id = UUID()
+    var currentEmail: String? = "apple@example.com"
+    var receivedAppleNonce: String?
     var signedIn = false
     var signInResponseID: UUID?
     var currentUserResponseID: UUID?
@@ -38,12 +40,19 @@ final class TestAuthRepository: AuthRepository {
         signedIn = !confirmEmail; return id
     }
     func resendSignUpConfirmationEmail(to email: String, redirectTo url: URL?) async throws { lastRedirect = url }
-    func signInWithApple(idToken: String, nonce: String) async throws -> UUID { id }
+    func signInWithApple(idToken: String, nonce: String) async throws -> UUID {
+        receivedAppleNonce = nonce
+        await beforeSignIn?()
+        if let signInError { throw signInError }
+        signedIn = true
+        return signInResponseID ?? id
+    }
     func signOut() async throws {
         signOutCount += 1
         if failSignOut { throw AuthFlowError("로그아웃 실패") }
         signedIn = false
     }
+    func getCurrentUserEmail() async throws -> String? { currentEmail }
     func getCurrentUserId() async throws -> UUID {
         guard signedIn else { throw AuthFlowError("세션 없음") }; return currentUserResponseID ?? id
     }
