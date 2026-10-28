@@ -1,17 +1,22 @@
 import SwiftUI
 
-/// 기존 기록 조회만 부모가 주입합니다. 편지·기분 전송은 저장 계약이 있어야 연결합니다.
+/// 기존 기록 조회와 전송받을 ViewModel을 부모가 주입합니다. 서버 저장 계약은 아직 없어 letter가 메모리에 둡니다.
 struct PrevisitFlowView: View {
     var doctorName = "선생님"
+    var letter: PrevisitLetterViewModel?
     var loadDays: (() async throws -> [PrevisitDay])?
     @State private var session: PrevisitSession
     @State private var records: PrevisitRecordState
     @State private var reloadID = 0
     @State private var showsDiscardConfirmation = false
+    @State private var showsCompletion = false
+    @State private var showsLetter = false
     @Environment(\.dismiss) private var dismiss
 
-    init(doctorName: String = "선생님", session: PrevisitSession? = nil, loadDays: (() async throws -> [PrevisitDay])? = nil) {
+    init(doctorName: String = "선생님", session: PrevisitSession? = nil, letter: PrevisitLetterViewModel? = nil,
+         loadDays: (() async throws -> [PrevisitDay])? = nil) {
         self.doctorName = doctorName
+        self.letter = letter
         self.loadDays = loadDays
         _session = State(initialValue: session ?? PrevisitSession())
         _records = State(initialValue: loadDays == nil ? .loaded([]) : .loading)
@@ -19,9 +24,17 @@ struct PrevisitFlowView: View {
 
     var body: some View {
         Group {
-            if session.isWriting {
-                PrevisitRecordView(doctorName: doctorName, onClose: close, session: session,
-                                   records: records, onReload: { reloadID += 1 })
+            if showsLetter, let letter {
+                PrevisitLetterView(viewModel: letter, onHome: { dismiss() })
+            } else if showsCompletion, let sent = letter?.sent {
+                PrevisitPromptView(completedDraft: sent, doctorName: doctorName,
+                                   onStart: { showsLetter = true }, onClose: { dismiss() })
+            } else if session.isWriting {
+                PrevisitRecordView(doctorName: doctorName, onClose: close, onSubmit: letter.map { letter in { draft in
+                                       letter.send(draft, to: doctorName)
+                                       session.discard()
+                                       showsCompletion = true
+                                   } }, session: session, records: records, onReload: { reloadID += 1 })
                     .task(id: reloadID) { await loadRecords() }
             } else {
                 PrevisitPromptView(startTitle: session.hasDraft ? "이어서 작성하기" : nil,

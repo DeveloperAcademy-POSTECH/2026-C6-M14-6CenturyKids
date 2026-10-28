@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// 완료 표시는 전송 결과를 받은 부모가 선택합니다. 이 View는 저장/전송하지 않습니다.
+/// 완료 상태의 '기록 보러가기'는 onStart로 부모가 이동을 정합니다.
 struct PrevisitPromptView: View {
     var completedDraft: PrevisitDraft?
     var doctorName = "선생님"
@@ -46,7 +47,7 @@ struct PrevisitPromptView: View {
                             .foregroundStyle(AppColors.Previsit.promptCaption)
                     }
                     VStack(spacing: AppSpacing.compact) {
-                        Button(completedDraft == nil ? (startTitle ?? "진료 전 기록하기") : "닫기", action: completedDraft == nil ? onStart : onClose)
+                        Button(completedDraft == nil ? (startTitle ?? "진료 전 기록하기") : "기록 보러가기", action: onStart)
                             .buttonStyle(AppButtonStyle())
                         if completedDraft == nil {
                             Button("다음에 다시 볼게요", action: onClose).buttonStyle(AppButtonStyle(kind: .secondary))
