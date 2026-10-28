@@ -58,6 +58,8 @@ final class TestAuthRepository: AuthRepository {
     }
     func isSignedIn() -> Bool { signedIn }
     func requestPasswordChangeVerification() async throws {}
+    func deleteAccount() async throws { XCTFail("인증 테스트에서 탈퇴를 호출하면 안 됩니다.") }
+    func withdrawAppleAccount(authorizationCode: String) async throws { XCTFail("인증 테스트에서 Apple 탈퇴를 호출하면 안 됩니다.") }
     func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws { resetCount += 1; lastRedirect = url }
     func updatePassword(to newPassword: String, nonce: String?) async throws {
         updateCount += 1; if failUpdate { throw AuthFlowError("변경 실패") }

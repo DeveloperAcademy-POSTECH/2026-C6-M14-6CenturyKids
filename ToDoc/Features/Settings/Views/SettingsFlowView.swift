@@ -24,7 +24,7 @@ struct SettingsFlowView: View {
 
     init(
         viewModel: SettingsViewModel,
-        withdrawal: @escaping () -> AccountWithdrawalView = { .init() },
+        withdrawal: @escaping () -> AccountWithdrawalView,
         notifications: @escaping @MainActor () -> NotificationSettingsView
     ) {
         self.viewModel = viewModel
