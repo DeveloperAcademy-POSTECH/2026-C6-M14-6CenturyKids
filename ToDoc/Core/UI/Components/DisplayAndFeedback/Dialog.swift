@@ -14,6 +14,7 @@ extension AppFeedback {
         private let style: Style
         private let icon: Image?
         private let primary: AppActions.Action
+        private let primaryKind: AppActions.Button.Kind
         private let secondary: AppActions.Action
 
         init(
@@ -22,6 +23,7 @@ extension AppFeedback {
             style: Style = .button,
             icon: Image? = nil,
             primary: AppActions.Action,
+            primaryKind: AppActions.Button.Kind = .primary,
             secondary: AppActions.Action
         ) {
             self.title = title
@@ -29,6 +31,7 @@ extension AppFeedback {
             self.style = style
             self.icon = icon
             self.primary = primary
+            self.primaryKind = primaryKind
             self.secondary = secondary
         }
 
@@ -115,7 +118,7 @@ extension AppFeedback {
 
         private var buttonActions: some View {
             VStack(spacing: 4) {
-                AppActions.Button(primary.title, action: primary.perform)
+                AppActions.Button(primary.title, kind: primaryKind, action: primary.perform)
                     .disabled(!primary.isEnabled)
                 AppActions.TextButton(secondary.title, action: secondary.perform)
                     .disabled(!secondary.isEnabled)

@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// 홈은 스크롤 없이 표시하고, 조회 상태와 기능 콜백을 보존합니다.
+/// Figma의 홈 비율을 유지하고, 작은 화면에서는 하단 카드까지 스크롤합니다.
 struct HomeView: View {
     private let state: HomeScreenState
-    @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric private var textScale: CGFloat = 1
     private let onSelect: ((HomeDestination) -> Void)?
     private let onPrevisit: (() -> Void)?
@@ -15,23 +14,30 @@ struct HomeView: View {
     }
     var body: some View {
         GeometryReader { geometry in
-            let compact = geometry.size.height < 650 || typeSize >= .xxLarge
-            let cardPadding: CGFloat = compact ? 16 : 24
-            let topPadding: CGFloat = compact ? 8 : 17
-            let bottomPadding: CGFloat = compact ? 10 : 19
-            let headerHeight = max(44, 40.4 * textScale) + topPadding + bottomPadding
-            let panelHeight = 2 * (40.4 * textScale + 2 * cardPadding) + 50 + (showsLoadStatus ? 14 + max(20, 15.6 * textScale) : 0)
-            let heroHeight = max(0, min(408 * geometry.size.width / 402,
-                                       geometry.size.height - headerHeight - panelHeight))
-            VStack(spacing: 0) {
-                header.padding(.top, topPadding).padding(.bottom, bottomPadding)
-                hero(width: geometry.size.width, height: heroHeight)
-                entryPanel(verticalPadding: cardPadding)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .background(AppColors.surface, in: UnevenRoundedRectangle(topLeadingRadius: 40, topTrailingRadius: 40))
-                    .padding(.horizontal, 9)
+            let headerHeight = max(44, 40.4 * textScale) + 36
+            let heroHeight = 408 * geometry.size.width / 402
+            let bottomInset = geometry.safeAreaInsets.bottom
+            ScrollView(.vertical) {
+                VStack(spacing: 0) {
+                    header
+                        .frame(height: headerHeight - 36, alignment: .top)
+                        .padding(.top, 17).padding(.bottom, 19)
+                    hero(width: geometry.size.width, height: heroHeight)
+                    entryPanel
+                        .padding(.bottom, bottomInset)
+                        .frame(maxWidth: .infinity,
+                               minHeight: max(0, geometry.size.height + bottomInset - headerHeight - heroHeight),
+                               alignment: .top)
+                        .background(AppColors.surface, in: UnevenRoundedRectangle(topLeadingRadius: 40, topTrailingRadius: 40))
+                        .padding(.horizontal, 9)
+                }
+                .frame(width: geometry.size.width)
+                .frame(minHeight: geometry.size.height + bottomInset, alignment: .top)
             }
-            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+            // 패널 배경은 탭바 뒤까지 연결하고, 카드는 위의 여백으로 가리지 않습니다.
+            .ignoresSafeArea(.container, edges: .bottom)
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollIndicators(.hidden)
             .background(AppGradients.homeBackground.ignoresSafeArea())
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -41,10 +47,13 @@ struct HomeView: View {
         ZStack(alignment: .trailing) {
             VStack(spacing: 4) {
                 Text("내 주치의").appFont(.homeCaption).foregroundStyle(AppColors.Home.doctorCaption)
-                Text(state.doctorTitle)
+                    .frame(minHeight: 15.6 * textScale)
+                Text(doctorTitle)
                     .appFont(.homeTitle).lineLimit(1).minimumScaleFactor(0.7)
                     .multilineTextAlignment(.center).padding(.horizontal, 60)
+                    .frame(minHeight: 20.8 * textScale)
             }.frame(maxWidth: .infinity)
+                .accessibilityValue(state.isLoading ? "홈 정보를 불러오는 중" : "")
             Button { select(.notifications) } label: {
                 Image("HomeBell").frame(width: 30, height: 30)
                     .overlay(alignment: .topTrailing) {
@@ -54,6 +63,11 @@ struct HomeView: View {
                 .accessibilityLabel(state.showsUnreadBadge ? "알림, 읽지 않은 알림 있음" : "알림")
                 .accessibilityIdentifier("home.notifications").padding(.trailing, 16)
         }
+    }
+    private var doctorTitle: String {
+        // 탭 재진입 조회 중에도 마지막으로 확인한 '연결 없음' 표시를 유지합니다.
+        if case .unlinked = state.doctor.connection { return "연결된 의료진 없음" }
+        return state.doctorTitle
     }
     private func hero(width: CGFloat, height: CGFloat) -> some View {
         let scale = height / 408
@@ -86,39 +100,42 @@ struct HomeView: View {
     }
     private var previsitButton: some View {
         Button { onPrevisit?() } label: {
-            HStack(spacing: 2) {
+            HStack(spacing: 1.578) {
                 Text("진료 전 기록").appFont(.homeTitle)
                 Image("HomeConversationArrow").frame(width: 10.9326, height: 10.9326).accessibilityHidden(true)
-            }.frame(height: typeSize >= .xxLarge ? nil : 15)
+            }.frame(minHeight: 16 * textScale)
                 .foregroundStyle(AppColors.Text.inverse)
                 .padding(.horizontal, 16).padding(.vertical, 24)
                 .background(AppColors.gray, in: RoundedRectangle(cornerRadius: 28))
-                .overlay { RoundedRectangle(cornerRadius: 28).stroke(AppColors.Home.previsitBorder, lineWidth: 2) }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 28).stroke(
+                        LinearGradient(colors: [AppColors.Home.previsitBorder, Color(white: 88 / 255)],
+                                       startPoint: .top, endPoint: .bottom), lineWidth: 2)
+                }
         }.buttonStyle(AppPressStyle()).disabled(onPrevisit == nil).accessibilityIdentifier("home.previsit")
             .accessibilityHint(onPrevisit == nil ? "진료 전 기록 연결을 준비 중이에요" : "")
     }
-    private func entryPanel(verticalPadding: CGFloat) -> some View {
+    private var entryPanel: some View {
         VStack(spacing: 14) {
-            HomeEntryCard(title: "복용 후 통증 기록", subtitle: "약 복용 후 통증의 전후 비교", primary: true, verticalPadding: verticalPadding) { select(.pain) }
+            HomeEntryCard(title: "복용 후 통증 기록", subtitle: "약 복용 후 통증의 전후 비교", primary: true) { select(.pain) }
                 .disabled(!canOpen).accessibilityIdentifier("home.pain")
-            HomeEntryCard(title: "증상 대화하기", subtitle: "오늘 하루 증상 기록하기", primary: false, verticalPadding: verticalPadding) { select(.symptom(autoStartVoice: false)) }
+            HomeEntryCard(title: "증상 대화하기", subtitle: "오늘 하루 증상 기록하기", primary: false) { select(.symptom(autoStartVoice: false)) }
                 .disabled(!canOpen).accessibilityIdentifier("home.symptom")
-            if showsLoadStatus { loadStatus }
         }.padding(.horizontal, AppSpacing.item).padding(.top, AppSpacing.item).padding(.bottom, AppSpacing.section)
-    }
-    private var showsLoadStatus: Bool {
-        state.statusMessage != nil
-    }
-    @ViewBuilder private var loadStatus: some View {
-        if state.isLoading { ProgressView("홈 정보를 불러오는 중").appFont(.homeCaption) }
-        else {
-            HStack(spacing: 8) {
-                Text(state.statusMessage ?? "")
-                    .appFont(.homeCaption).lineLimit(1).minimumScaleFactor(0.8)
-                if let onReload {
-                    Button("다시 불러오기", action: onReload).appFont(.homeCaption)
-                        .accessibilityIdentifier("home.retry")
+            // 조회 상태는 레이아웃에 참여하지 않아 캐릭터와 카드 위치가 고정됩니다.
+            .overlay(alignment: .bottom) {
+                if !state.isLoading, state.statusMessage != nil {
+                    loadStatus.padding(.horizontal, 12).padding(.bottom, 2)
                 }
+            }
+    }
+    private var loadStatus: some View {
+        HStack(spacing: 8) {
+            Text(state.statusMessage ?? "")
+                .appFont(.homeCaption).lineLimit(1).minimumScaleFactor(0.8)
+            if let onReload {
+                Button("다시 불러오기", action: onReload).appFont(.homeCaption)
+                    .accessibilityIdentifier("home.retry")
             }
         }
     }
@@ -130,8 +147,7 @@ private struct HomeEntryCard: View {
     let title: String
     let subtitle: String
     let primary: Bool
-    var verticalPadding: CGFloat = 24
-    @ScaledMetric private var textHeight: CGFloat = 40.4
+    @ScaledMetric private var textHeight: CGFloat = 41
     let action: () -> Void
 
     var body: some View {
@@ -146,7 +162,7 @@ private struct HomeEntryCard: View {
                 Image(primary ? "HomePrimaryArrow" : "HomeSecondaryArrow")
                     .frame(width: 12, height: 12).accessibilityHidden(true)
             }.padding(.horizontal, AppSpacing.content)
-                .padding(.vertical, verticalPadding)
+                .padding(.vertical, 24)
                 .appSurface(primary ? .homePrimary : .homeSecondary)
         }.buttonStyle(AppPressStyle())
     }

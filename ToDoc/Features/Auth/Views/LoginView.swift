@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 struct LoginView: View {
@@ -11,8 +12,12 @@ struct LoginFormView: View {
     @FocusState private var isEmailFocused: Bool
     @FocusState private var isPasswordFocused: Bool
     @ScaledMetric(relativeTo: .body) private var separatorFontSize: CGFloat = 16
-    @ScaledMetric(relativeTo: .body) private var appleFontSize: CGFloat = 19
-    let state: LoginScreenState
+    let viewModel: LoginViewModel
+
+    private var state: LoginScreenState {
+        viewModel.state
+    }
+
     let onSignup: () -> Void
     let onPasswordReset: () -> Void
     var onBack: (() -> Void)? = nil
@@ -109,35 +114,43 @@ struct LoginFormView: View {
             .frame(minHeight: 24)
             .padding(.top, 100)
 
-            Button {} label: {
-                appleLoginAppearance.hidden()
+            SignInWithAppleButton(.signIn) { request in
+                request.requestedScopes = [.email, .fullName]
+                do {
+                    request.nonce = try viewModel.prepareAppleSignIn()
+                } catch {
+                    state.errorMessage = (error as? AuthFlowError)?.message ?? "Apple 로그인 요청을 준비하지 못했어요."
+                }
+            } onCompletion: { result in
+                switch result {
+                case .success(let authorization):
+                    guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                          let tokenData = credential.identityToken,
+                          let idToken = String(data: tokenData, encoding: .utf8) else {
+                        viewModel.cancelAppleSignIn()
+                        state.errorMessage = "Apple ID 토큰을 가져오지 못했어요. 다시 시도해 주세요."
+                        return
+                    }
+                    Task {
+                        await viewModel.signInWithApple(idToken: idToken)
+                    }
+                case .failure(let error):
+                    viewModel.cancelAppleSignIn()
+                    if let appleError = error as? ASAuthorizationError, appleError.code == .canceled { return }
+                    state.errorMessage = "Apple 로그인에 실패했어요. 다시 시도해 주세요."
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(true)
+            .disabled(state.isSubmitting || state.didSignIn)
+            .signInWithAppleButtonStyle(.black)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .cornerRadius(14)
             .overlay {
-                // 비활성 버튼의 시스템 흐림이 원본 검정/흰색 표현에 적용되지 않도록 분리합니다.
-                appleLoginAppearance.allowsHitTesting(false).accessibilityHidden(true)
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(Color(white: 77.0 / 255), lineWidth: 1)
+                    .allowsHitTesting(false)
             }
-            .accessibilityLabel("Apple로 로그인")
-            .accessibilityHint("Apple 로그인은 준비 중입니다.")
             .padding(.top, 22)
-        }
-    }
-
-    private var appleLoginAppearance: some View {
-        HStack(spacing: 5) {
-            Image("OnboardingApple").renderingMode(.template)
-                .resizable().scaledToFit().frame(width: 18, height: 18)
-            Text("Apple로 로그인").font(.system(size: appleFontSize, weight: .semibold))
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 15)
-        .frame(maxWidth: .infinity, minHeight: 54)
-        .background(.black, in: RoundedRectangle(cornerRadius: 14))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(Color(white: 77.0 / 255), lineWidth: 1)
-                .allowsHitTesting(false)
         }
     }
 

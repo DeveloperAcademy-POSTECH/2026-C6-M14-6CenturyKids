@@ -21,12 +21,16 @@ enum PrevisitRecordedDays {
             let dailySymptoms = (symptomDays[date] ?? []).sorted {
                 $0.recordedDate != $1.recordedDate ? $0.recordedDate < $1.recordedDate : $0.id.uuidString < $1.id.uuidString
             }
+            // 배지: 복용 전·후가 다 있는 마지막 기록, 없으면 마지막 기록의 복용 전 점수만
+            let badgePain = dailyPain.last { $0.painAfter != nil } ?? dailyPain.last
             return PrevisitDay(
                 id: "recorded-day-\(date.timeIntervalSince1970)",
                 dateLabel: "\(calendar.component(.month, from: date))/\(calendar.component(.day, from: date))",
                 weekday: calendar.weekdaySymbols[calendar.component(.weekday, from: date) - 1],
                 entries: dailySymptoms.flatMap { symptomLines($0) } + dailyPain.map { painLine($0) },
-                recordedDate: date, painRecordIDs: dailyPain.map(\.id), symptomRecordIDs: dailySymptoms.map(\.id)
+                recordedDate: date, painRecordIDs: dailyPain.map(\.id), symptomRecordIDs: dailySymptoms.map(\.id),
+                painBefore: badgePain?.painBefore, painAfter: badgePain?.painAfter,
+                symptomCount: dailySymptoms.flatMap(\.symptoms).filter { $0.presence == .present }.count
             )
         }
     }

@@ -46,7 +46,7 @@ struct PainScoreInputView: View {
             PainScoreGauge(value: $score, before: before,
                            label: before == nil ? "약 복용 전 통증 점수" : "약 복용 후 통증 점수",
                            descriptor: descriptor)
-                .padding(.horizontal, 24).padding(.top, 46).disabled(isSaving)
+                .padding(.horizontal, 24).padding(.top, 24).disabled(isSaving)
         }
         .padding(.bottom, 12)
     }

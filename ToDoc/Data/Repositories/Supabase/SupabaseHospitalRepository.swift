@@ -15,7 +15,7 @@ final class SupabaseHospitalRepository: HospitalRepository {
         self.client = client
     }
     
-    private let columns = "id, name, code, address"
+    private let columns = "id, name, code, address, latitude, longitude"
     
     func findById(_ id: UUID) async throws -> Hospital? {
         let dtos: [HospitalDTO] = try await client

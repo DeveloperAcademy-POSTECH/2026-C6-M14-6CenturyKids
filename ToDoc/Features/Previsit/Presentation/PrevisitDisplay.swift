@@ -9,6 +9,11 @@ struct PrevisitDay: Identifiable, Hashable {
     var recordedDate: Date? = nil
     var painRecordIDs: [UUID] = []
     var symptomRecordIDs: [UUID] = []
+    /// 목록 배지의 통증 점수: 그날 복용 전·후가 다 있는 마지막 기록, 없으면 마지막 기록 (복용 후는 nil)
+    var painBefore: Int? = nil
+    var painAfter: Int? = nil
+    /// 그날 '있음'으로 답한 증상 수 (목록 배지)
+    var symptomCount = 0
 
     var isSelectable: Bool { !entries.isEmpty }
 }
@@ -44,3 +49,11 @@ struct PrevisitDraft: Equatable {
     var mood: PrevisitMood?
 }
 enum PrevisitStep: Equatable { case day, letter, mood }
+/// 보낸 진료 전 기록 한 건. 날짜는 고른 기록의 날이 아니라 작성(전송)한 날입니다.
+struct PrevisitLetter: Identifiable, Equatable {
+    let id: UUID
+    let sentAt: Date
+    /// 보낸 때의 주치의 이름 ("To. 학로쌤")
+    let doctorName: String
+    var draft: PrevisitDraft
+}

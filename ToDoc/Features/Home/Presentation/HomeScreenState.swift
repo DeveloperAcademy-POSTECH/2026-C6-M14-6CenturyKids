@@ -7,6 +7,8 @@ enum HomeDestination: Hashable {
     case pain
     case painDetail
     case notifications
+    case previsitLetters
+    case previsitLetter(UUID)
 }
 
 enum HomeLoadState { case unavailable, loading, loaded, failed }
