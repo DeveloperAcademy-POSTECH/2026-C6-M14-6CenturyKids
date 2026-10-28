@@ -57,7 +57,6 @@ struct RecordsView: View {
             Button("다시 시도") { onRetry?() }.buttonStyle(.bordered).disabled(onRetry == nil)
         }
     }
-    // 카드 왼쪽 그래프는 시안 확정 전이라 자리만 둡니다.
     private var painCard: some View {
         // 그날 점수: 복용 후를 아직 적지 않았으면 복용 전만
         let subtitle = data?.pain.map { pain in
@@ -65,7 +64,7 @@ struct RecordsView: View {
             return pain.averageAfter.map { before + " → 복용 후 \(RecordDisplay.number($0))점" } ?? before
         } ?? "기록 없음"
         return RecordOverviewCard(label: "통증", value: subtitle.replacingOccurrences(of: " → ", with: ", "),
-                                  action: selection(.pain), graphic: { Color.clear }) {
+                                  action: selection(.pain), graphic: { Image("RecordsPainIcon") }) {
             card("통증", subtitle)
         }.accessibilityIdentifier("records.pain")
     }
@@ -73,7 +72,7 @@ struct RecordsView: View {
         let subtitle = data?.symptom.map { symptom in
             symptom.types.isEmpty ? "있음으로 답한 증상 없음" : symptom.types.map(\.displayName).joined(separator: ", ")
         } ?? "기록 없음"
-        return RecordOverviewCard(label: "증상", value: subtitle, action: selection(.symptom), graphic: { Color.clear }) {
+        return RecordOverviewCard(label: "증상", value: subtitle, action: selection(.symptom), graphic: { Image("RecordsSymptomIcon") }) {
             card("증상", subtitle)
         }.accessibilityIdentifier("records.symptom")
     }
