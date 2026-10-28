@@ -52,7 +52,7 @@ final class SupabaseAuthRepository: AuthRepository {
         let user = try await client.auth.user()
         return user.email
     }
-
+    
     func getCurrentUserId() async throws -> UUID {
         let user = try await client.auth.user()
         
@@ -78,4 +78,16 @@ final class SupabaseAuthRepository: AuthRepository {
         try await client.auth.update(user: UserAttributes(password: newPassword, nonce: nonce))
     }
     
+    func deleteAccount() async throws {
+        let session = try await client.auth.session
+        
+        try await client.functions.invoke(
+            "delete-account",
+            options: FunctionInvokeOptions(
+                headers: [
+                    "Authorization": "Bearer \(session.accessToken)"
+                ]
+            )
+        )
+    }
 }

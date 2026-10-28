@@ -29,4 +29,6 @@ protocol AuthRepository {
     func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws
     
     func updatePassword(to newPassword: String, nonce: String?) async throws
+    
+    func deleteAccount() async throws
 }
