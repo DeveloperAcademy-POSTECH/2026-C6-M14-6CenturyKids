@@ -3,19 +3,16 @@ import Foundation
 import ToDocDomain
 #endif
 
-/// 홈의 읽기 작업과 문구 선택을 관리합니다. 알림·코멘트·기록 저장은 호출하지 않습니다.
+/// 홈의 읽기 작업과 환자 이름을 관리합니다. 알림·코멘트·기록 저장은 호출하지 않습니다.
 @MainActor final class HomeViewModel {
     let state = HomeScreenState()
     private let repositories: HomeRepositories
-    private let chooseGreetingIndex: (Int) -> Int
     private var context: HomeContext
     private var request: Task<Void, Never>?
     private var generation = 0
 
-    init(patientID: UUID? = nil, repositories: HomeRepositories? = nil,
-         chooseGreetingIndex: @escaping (Int) -> Int = { Int.random(in: 0..<$0) }) {
+    init(patientID: UUID? = nil, repositories: HomeRepositories? = nil) {
         self.repositories = repositories ?? .unavailable
-        self.chooseGreetingIndex = chooseGreetingIndex
         context = .init(patientID: patientID, isVisible: false, isAppActive: false)
         state.doctor = patientID == nil ? .unavailable : .idle
     }
@@ -27,15 +24,13 @@ import ToDocDomain
         let patientChanged = next.patientID != previous.patientID
         if patientChanged {
             cancel()
+            state.patientName = nil
             state.doctor = next.patientID == nil ? .unavailable : .idle
         }
         context = next
         let enteredHome = next.isVisible && !previous.isVisible
         if next.isVisible && next.isAppActive && (enteredHome || !previous.isAppActive || patientChanged) {
             refreshUnreadBadge()
-        }
-        if next.isVisible && (enteredHome || state.greeting == nil) {
-            state.greeting = HomeGreeting.pick(excluding: state.greeting, chooseIndex: chooseGreetingIndex)
         }
         guard next.isVisible && next.isAppActive else {
             cancel()
@@ -70,10 +65,12 @@ import ToDocDomain
                 guard self?.accepts(current, patientID: patientID) == true else { return }
                 guard let patient = result else {
                     previous = nil
+                    self?.state.patientName = nil
                     throw HomeIssue.patientUnavailable
                 }
                 guard patient.user.id == patientID else {
                     previous = nil
+                    self?.state.patientName = nil
                     throw HomeIssue.patientMismatch
                 }
                 self?.state.patientName = patient.user.name

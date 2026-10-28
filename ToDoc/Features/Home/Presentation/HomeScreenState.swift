@@ -21,10 +21,11 @@ struct HomeDoctorMessage: Identifiable {
 
 @MainActor @Observable final class HomeScreenState {
     var doctor: HomeDoctorState = .unavailable
-    /// 진료 전 기록 편지의 'From.'에 쓰는 내 이름
+    /// 홈 인사말과 진료 전 기록 편지의 'From.'에 쓰는 내 이름
     var patientName: String?
-    var greeting: HomeGreeting?
     var showsUnreadBadge = false
+
+    var greetingText: String { HomeGreeting.text(for: patientName) }
 
     var doctorName: String? {
         guard case .linked(let identity) = doctor.connection else { return nil }

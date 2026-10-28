@@ -25,16 +25,21 @@ import ToDocDomain
         reset()
         await model.updateContext(context(patientID))?.value
         XCTAssertEqual(model.state.doctorName, "첫 의사")
+        XCTAssertEqual(model.state.patientName, "가상 환자")
+        let greeting = model.state.greetingText
+        XCTAssertEqual(greeting, "가상 환자가 오늘도 기록을 해주셨네")
         model.updateContext(context(patientID, visible: false))
         patients.value = patient(patientID, doctorID: secondDoctor)
         doctors.value = doctor(secondDoctor)
         await model.updateContext(context(patientID))?.value
         XCTAssertEqual(model.state.doctorName, "새 의사")
+        XCTAssertEqual(model.state.greetingText, greeting)
         model.updateContext(context(patientID, visible: false))
         patients.value = patient(patientID, doctorID: nil)
         await model.updateContext(context(patientID))?.value
         XCTAssertEqual(model.state.doctor, .loaded(.unlinked))
         XCTAssertNil(model.state.doctorName)
+        XCTAssertEqual(model.state.greetingText, greeting)
     }
 
     func testLookupFailureCanBeRetried() async {
@@ -42,9 +47,13 @@ import ToDocDomain
         patients.load = { throw LookupFailure() }
         await model.updateContext(context(patientID))?.value
         XCTAssertEqual(model.state.doctor, .failed(.loadFailed, previous: nil))
+        XCTAssertNil(model.state.patientName)
+        XCTAssertEqual(model.state.greetingText, "오늘도 기록을 해주셨네")
         patients.load = nil
+        patients.value = patient(patientID, doctorID: firstDoctor, name: "홍길동")
         await model.reload()?.value
         XCTAssertEqual(model.state.doctorName, "첫 의사")
+        XCTAssertEqual(model.state.greetingText, "홍길동이 오늘도 기록을 해주셨네")
     }
 
     func testBothLookupsRejectLateRepliesAfterCancellationOrAccountChange() async {
@@ -61,15 +70,21 @@ import ToDocDomain
                 doctors.load = nil
                 if accountChange {
                     let nextPatient = UUID()
-                    patients.value = patient(nextPatient, doctorID: secondDoctor)
+                    patients.value = patient(nextPatient, doctorID: secondDoctor, name: "엔조")
                     doctors.value = doctor(secondDoctor)
-                    await model.updateContext(context(nextPatient))?.value
+                    let nextRequest = model.updateContext(context(nextPatient))
+                    XCTAssertNil(model.state.patientName)
+                    XCTAssertEqual(model.state.greetingText, "오늘도 기록을 해주셨네")
+                    await nextRequest?.value
                     XCTAssertEqual(model.state.doctorName, "새 의사")
+                    XCTAssertEqual(model.state.greetingText, "엔조가 오늘도 기록을 해주셨네")
                 } else {
                     model.cancel()
                     XCTAssertEqual(model.state.doctor, .idle)
                 }
                 let expected = model.state.doctor
+                let expectedName = model.state.patientName
+                let expectedGreeting = model.state.greetingText
                 if doctorLookup {
                     doctorReply.finish(accountChange ? .success(doctor(firstDoctor)) : .failure(LookupFailure()))
                 } else {
@@ -77,15 +92,30 @@ import ToDocDomain
                 }
                 await request?.value
                 XCTAssertEqual(model.state.doctor, expected)
+                XCTAssertEqual(model.state.patientName, expectedName)
+                XCTAssertEqual(model.state.greetingText, expectedGreeting)
             }
+        }
+    }
+
+    func testMissingOrMismatchedPatientClearsPreviousGreeting() async {
+        let invalidPatients: [Patient?] = [nil, patient(UUID(), doctorID: nil, name: "다른 환자")]
+        for result in invalidPatients {
+            reset()
+            await model.updateContext(context(patientID))?.value
+            XCTAssertEqual(model.state.patientName, "가상 환자")
+            patients.value = result
+            await model.reload()?.value
+            XCTAssertNil(model.state.patientName)
+            XCTAssertEqual(model.state.greetingText, "오늘도 기록을 해주셨네")
         }
     }
 
     private func user(_ id: UUID, name: String = "가상 환자") -> User {
         try! User(id: id, name: name, birthday: Date(timeIntervalSince1970: 631152000), sex: .female)
     }
-    private func patient(_ id: UUID, doctorID: UUID?) -> Patient {
-        Patient(user: user(id), doctorId: doctorID, disease: nil)
+    private func patient(_ id: UUID, doctorID: UUID?, name: String = "가상 환자") -> Patient {
+        Patient(user: user(id, name: name), doctorId: doctorID, disease: nil)
     }
     private func doctor(_ id: UUID) -> Doctor {
         Doctor(user: user(id, name: id == firstDoctor ? "첫 의사" : "새 의사"), code: "HOME01", hospitalId: UUID())

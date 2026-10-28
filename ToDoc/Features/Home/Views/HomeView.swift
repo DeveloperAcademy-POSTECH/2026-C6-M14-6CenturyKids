@@ -92,7 +92,7 @@ struct HomeView: View {
         Image("HomeThoughtBubble").resizable()
             .frame(width: 211.152 * scale, height: 141.597 * scale)
             .overlay {
-                Text(state.greeting?.text ?? HomeGreeting.all[0].text).appFont(.homeMessage).foregroundStyle(AppColors.gray)
+                Text(state.greetingText).appFont(.homeMessage).foregroundStyle(AppColors.gray)
                     .multilineTextAlignment(.center).lineLimit(3).minimumScaleFactor(0.75)
                     .frame(width: 130 * scale, height: 111 * scale).offset(y: 4.7 * scale)
             }
@@ -101,7 +101,7 @@ struct HomeView: View {
     private var previsitButton: some View {
         Button { onPrevisit?() } label: {
             HStack(spacing: 1.578) {
-                Text("진료 전 기록").appFont(.homeTitle)
+                Text("진료 이야기 정리").appFont(.homeTitle)
                 Image("HomeConversationArrow").frame(width: 10.9326, height: 10.9326).accessibilityHidden(true)
             }.frame(minHeight: 16 * textScale)
                 .foregroundStyle(AppColors.Text.inverse)
@@ -113,13 +113,13 @@ struct HomeView: View {
                                        startPoint: .top, endPoint: .bottom), lineWidth: 2)
                 }
         }.buttonStyle(AppPressStyle()).disabled(onPrevisit == nil).accessibilityIdentifier("home.previsit")
-            .accessibilityHint(onPrevisit == nil ? "진료 전 기록 연결을 준비 중이에요" : "")
+            .accessibilityHint(onPrevisit == nil ? "진료 이야기 정리 연결을 준비 중이에요" : "")
     }
     private var entryPanel: some View {
         VStack(spacing: 14) {
-            HomeEntryCard(title: "통증 기록하기", subtitle: "돌발성 통증과 약 복용 후 통증 기록", primary: true) { select(.pain) }
+            HomeEntryCard(title: "진통제 전후 기록", subtitle: "진통제를 먹기 전/후 통증을 기록해요", primary: true) { select(.pain) }
                 .disabled(!canOpen).accessibilityIdentifier("home.pain")
-            HomeEntryCard(title: "증상 대화하기", subtitle: "오늘 하루 증상 기록하기", primary: false) { select(.symptom(autoStartVoice: false)) }
+            HomeEntryCard(title: "하루 이야기", subtitle: "통화하며 오늘의 몸상태와 하고 싶은 말을 나눠요", primary: false) { select(.symptom(autoStartVoice: false)) }
                 .disabled(!canOpen).accessibilityIdentifier("home.symptom")
         }.padding(.horizontal, AppSpacing.item).padding(.top, AppSpacing.item).padding(.bottom, AppSpacing.section)
             // 조회 상태는 레이아웃에 참여하지 않아 캐릭터와 카드 위치가 고정됩니다.

@@ -8,6 +8,7 @@ extension AppCards {
         private let records: [String]
         private let emptyText: String
         private let isSelected: Bool
+        private let showsRadio: Bool
         private let action: () -> Void
 
         init(
@@ -16,6 +17,7 @@ extension AppCards {
             records: [String],
             emptyText: String,
             isSelected: Bool = false,
+            showsRadio: Bool = false,
             action: @escaping () -> Void
         ) {
             self.day = day
@@ -23,6 +25,7 @@ extension AppCards {
             self.records = records
             self.emptyText = emptyText
             self.isSelected = isSelected
+            self.showsRadio = showsRadio
             self.action = action
         }
 
@@ -40,13 +43,19 @@ extension AppCards {
 
         private var content: some View {
             VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(day)
-                        .appTypography(.labelLarge)
-                        .foregroundStyle(AppColors.Semantic.Text.default)
-                    Text(weekday)
-                        .appTypography(.label)
-                        .foregroundStyle(AppColors.Semantic.Text.disabled)
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(day)
+                            .appTypography(.labelLarge)
+                            .foregroundStyle(AppColors.Semantic.Text.default)
+                        Text(weekday)
+                            .appTypography(.label)
+                            .foregroundStyle(AppColors.Semantic.Text.disabled)
+                    }
+                    if showsRadio {
+                        Spacer(minLength: 0)
+                        AppInputs.RadioIndicator(isSelected: showsSelection)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {

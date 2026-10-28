@@ -136,7 +136,7 @@ struct CardsPreview: View {
             }
             title("Day Record Card")
             AppCards.DayRecordCard(day: "10월 27일", weekday: "화요일", records: ["증상 기록 예시", "통증 기록 예시"],
-                                   emptyText: "기록이 없어요", isSelected: selectedDay) { selectedDay.toggle() }
+                                   emptyText: "기록이 없어요", isSelected: selectedDay, showsRadio: true) { selectedDay.toggle() }
             AppCards.DayRecordCard(day: "10월 26일", weekday: "월요일", records: [], emptyText: "기록이 없어요") {}
         }
     }

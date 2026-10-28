@@ -30,7 +30,7 @@ struct PrevisitRecordView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AppHeader(title: "진료 전 기록", description: subtitle)
+            AppHeader(title: headerTitle, description: subtitle)
                 .overlay(alignment: .topLeading) { PrevisitBackButton(label: "닫기", action: close) }
             ScrollView {
                 VStack(spacing: 20) {
@@ -58,9 +58,14 @@ struct PrevisitRecordView: View {
         .background(AppColors.background.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar)
     }
+    private var headerTitle: String {
+        if step == .mood { return "진료 전 상태 선택" }
+        guard step == .day else { return "진료 전 기록" }
+        return draft.day == nil ? "얘기하고 싶은 날을 선택해주세요" : "진료 때 얘기할 날 선택"
+    }
     private var subtitle: String {
         switch step {
-        case .day: "선생님과 얘기 해보고 싶은 날이 있나요?"
+        case .day: "기록한 날 중 하나를 클릭해 주세요"
         case .letter: "선생님과 어떤 이야기를 나눠보고 싶나요?"
         case .mood: "진료를 앞두고, 지금 어떤 기분인가요?"
         }
@@ -76,9 +81,11 @@ struct PrevisitRecordView: View {
             }
             LazyVStack(spacing: 16) {
             ForEach(days) { day in
-                Button { session.selectDay(day) } label: {
-                    PrevisitDayCard(day: day, selected: draft.day?.id == day.id)
-                }.buttonStyle(.plain).disabled(!day.isSelectable)
+                AppCards.DayRecordCard(day: day.dateLabel, weekday: day.weekday,
+                                       records: day.entries, emptyText: "기록 없음",
+                                       isSelected: draft.day?.id == day.id, showsRadio: true) {
+                    session.selectDay(day)
+                }.disabled(!day.isSelectable)
                     .accessibilityValue(draft.day?.id == day.id ? "선택됨" : "선택 안 됨")
                     .accessibilityIdentifier("previsit.day.\(day.id)")
             }
@@ -153,7 +160,8 @@ struct PrevisitRecordView: View {
                         .buttonStyle(AppButtonStyle(kind: .back)).accessibilityIdentifier("previsit.previous")
                 }
                 Button(action: next) {
-                    Text(step == .mood ? (onSubmit == nil ? "전송 준비 중" : "전송하기") : "다음").frame(maxWidth: .infinity)
+                    Text(step == .mood ? (onSubmit == nil ? "전송 준비 중" : "전송하기")
+                         : step == .day ? "할 말 작성하기" : "다음").frame(maxWidth: .infinity)
                         .overlay(alignment: .trailing) { Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(AppColors.Previsit.nextIcon) }
                 }.buttonStyle(AppButtonStyle()).disabled(!canContinue).accessibilityIdentifier("previsit.next")
             }

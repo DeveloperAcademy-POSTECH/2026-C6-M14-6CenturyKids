@@ -17,10 +17,10 @@ struct SymptomSummaryView: View {
         ScrollView {
             VStack(spacing: 0) {
                 VStack(spacing: 8) {
-                    Text("요약").modifier(SymptomTextStyle(size: 20, weight: .bold)).tracking(-0.2)
+                    Text("오늘의 이야기").modifier(SymptomTextStyle(size: 20, weight: .bold)).tracking(-0.2)
                         .frame(maxWidth: .infinity, minHeight: 66, alignment: .bottom)
                         .accessibilityAddTraits(.isHeader)
-                    Text("저장하기 전 내용을 확인하고 수정해주세요")
+                    Text("내용 확인 후 수정할 내용이 있다면 카드를 눌러 주세요.")
                         .modifier(SymptomTextStyle(size: 14, weight: .medium))
                         .foregroundStyle(Color(white: 114 / 255))
                 }
@@ -52,7 +52,7 @@ struct SymptomSummaryView: View {
                 Button {
                     state.onAction?(.save)
                 } label: {
-                    AppForwardLabel(title: state.isSaving ? "저장 중" : "저장하기", asset: "CareConversationNext")
+                    AppForwardLabel(title: state.isSaving ? "저장 중" : "오늘 이야기 저장하기", asset: "CareConversationNext")
                 }
                 .buttonStyle(AppButtonStyle())
                 .disabled(!state.canSave || state.onAction == nil)

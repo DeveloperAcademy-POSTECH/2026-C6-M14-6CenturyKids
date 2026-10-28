@@ -12,9 +12,9 @@ struct SymptomCompletionView: View {
                     VStack(spacing: 40) {
                         AppFeedback.StatusIcon(kind: .success, size: 100)
                         VStack(spacing: 24) {
-                            Text("말씀해 주신 내용을 바탕으로\n문진 기록을 정리했어요.")
+                            Text("오늘의 이야기 기록 완료")
                                 .modifier(SymptomTextStyle(size: 20, weight: .medium))
-                            Text("잠시만 기다려 주세요")
+                            Text("남겨주신 기록은 진료 때 몸 상태를\n이야기하는 데 도움이 돼요.")
                                 .modifier(SymptomTextStyle(size: 16))
                                 .foregroundStyle(Color(white: 114 / 255))
                         }

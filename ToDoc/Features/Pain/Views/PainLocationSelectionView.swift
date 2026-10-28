@@ -14,7 +14,7 @@ struct PainLocationSelectionView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: 0) {
-                    AppHeader(title: "통증 변화 기록", description: "아픈 부위를 선택해 주세요.")
+                    AppHeader(title: "지금 어디가 아프세요?", description: "그림에서 아픈 부위를 눌러 주세요")
                         .padding(.top, typeSize.isAccessibilitySize ? 44 : 0)
                     PainBodySelection(locations: locations, onToggle: onToggle)
                         .padding(.top, 81)
@@ -26,7 +26,7 @@ struct PainLocationSelectionView: View {
             if let errorMessage {
                 Text(errorMessage).font(.body).foregroundStyle(.red).padding(16)
             }
-            PainInputFooter(isEnabled: !locations.isEmpty, onNext: onNext)
+            PainInputFooter(title: "선택 부위 통증 점수 고르기", isEnabled: !locations.isEmpty, onNext: onNext)
         }
         .background(.white)
         .overlay(alignment: .topLeading) {

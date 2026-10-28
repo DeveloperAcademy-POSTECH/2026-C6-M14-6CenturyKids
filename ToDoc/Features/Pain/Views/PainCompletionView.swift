@@ -25,10 +25,10 @@ struct PainCompletionView: View {
 
     private var summary: some View {
         VStack(spacing: 0) {
-            Text("통증 변화를 확인해 주세요")
+            Text("통증 기록을 마쳤어요")
                 .modifier(PainTextStyle(size: 24, weight: .bold))
                 .multilineTextAlignment(.center).padding(.top, 24)
-            Text("약 복용 전후의 통증 정도를 비교해 정리했어요.")
+            Text("이 기록은 다음 진통제 처방에 도움이 돼요")
                 .modifier(PainTextStyle(size: 15)).foregroundStyle(Color(white: 114 / 255))
                 .multilineTextAlignment(.center).padding(.top, 8)
             VStack(spacing: 0) {

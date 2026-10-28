@@ -71,7 +71,7 @@ struct ScreenCatalogPreview: View {
     private func homeState() -> HomeScreenState {
         let state = HomeScreenState()
         state.doctor = .loaded(.linked(.init(id: UUID(), name: "예시 의료진")))
-        state.greeting = HomeGreeting.all[0]
+        state.patientName = "예시 환자"
         state.showsUnreadBadge = true
         return state
     }

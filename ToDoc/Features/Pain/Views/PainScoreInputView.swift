@@ -9,7 +9,6 @@ struct PainScoreInputView: View {
     var onPrevious: (() -> Void)?
     var onNext: (() -> Void)?
     var onClose: (() -> Void)?
-    var descriptor: (Int) -> String? = { _ in nil }
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -38,14 +37,14 @@ struct PainScoreInputView: View {
 
     private var inputContent: some View {
         VStack(spacing: 0) {
-            AppHeader(title: "통증 변화 기록", description: before == nil
-                      ? "약을 복용하기 전 통증 강도는 어떠셨나요?"
-                      : "약을 복용한 뒤의 통증 강도는 어떠셨나요?")
+            AppHeader(title: before == nil
+                      ? "약을 먹기 전, 얼마나 아프세요?"
+                      : "약을 먹은 후, 지금은 얼마나 아프세요?",
+                      description: "손잡이를 위아래로 움직여 점수를 골라주세요")
                 .padding(.top, typeSize.isAccessibilitySize ? 44 : 0)
             PainLocationChips(locations: locations).padding(.horizontal, 24).padding(.top, 24)
             PainScoreGauge(value: $score, before: before,
-                           label: before == nil ? "약 복용 전 통증 점수" : "약 복용 후 통증 점수",
-                           descriptor: descriptor)
+                           label: before == nil ? "약 복용 전 통증 점수" : "약 복용 후 통증 점수")
                 .padding(.horizontal, 24).padding(.top, 24).disabled(isSaving)
         }
         .padding(.bottom, 12)
@@ -54,10 +53,7 @@ struct PainScoreInputView: View {
     private var footer: some View {
         VStack(spacing: 24) {
             if let errorMessage { Text(errorMessage).font(.body).foregroundStyle(.red).padding(.horizontal, 24) }
-            Text("막대를 위아래로 움직여 통증 정도를 조절하세요")
-                .appTextStyle(.caption).foregroundStyle(Color(white: 114 / 255))
-                .multilineTextAlignment(.center).padding(.horizontal, 24)
-            PainInputFooter(title: isSaving ? "저장 중" : "다음", isEnabled: score != nil && !isSaving,
+            PainInputFooter(title: isSaving ? "저장 중" : "통증 점수 저장하기", isEnabled: score != nil && !isSaving,
                             isPreviousEnabled: !isSaving, onPrevious: onPrevious, onNext: onNext)
         }
     }

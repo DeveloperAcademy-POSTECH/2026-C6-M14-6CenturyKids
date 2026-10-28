@@ -5,7 +5,6 @@ struct PainScoreGauge: View {
     @Binding var value: Int?
     var before: Int?
     let label: String
-    var descriptor: (Int) -> String? = { _ in nil }
     private let height: CGFloat = 347.622
 
     var body: some View {
@@ -71,8 +70,7 @@ struct PainScoreGauge: View {
     private func scoreLabel(_ score: Int) -> some View {
         VStack(spacing: 3) {
             badge(score, size: 42)
-            if let text = descriptor(score) { Text(text).appTextStyle(.label) }
-            else { Color.clear.frame(height: 21).accessibilityHidden(true) }
+            Color.clear.frame(height: 21).accessibilityHidden(true)
         }
     }
 
