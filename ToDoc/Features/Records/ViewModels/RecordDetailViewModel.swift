@@ -63,6 +63,11 @@ final class RecordDetailViewModel {
         showPeriod(of: state(kind))
     }
 
+    /// 상세에서 마지막으로 보던 날 (기간을 옮기다 오늘을 넘은 기준 날은 오늘). 기록 목록으로 돌아갈 때 그날로 맞춘다
+    func day(of kind: RecordOverviewKind) -> Date {
+        calendar.startOfDay(for: min(anchors[kind] ?? now(), now()))
+    }
+
     private func handle(_ action: RecordDetailAction, for kind: RecordOverviewKind) {
         let state = state(kind)
         // 편집 중에는 보고 있는 기간을 바꾸지 않는다 (편집 중인 카드가 사라지지 않게)
@@ -236,13 +241,7 @@ final class RecordDetailViewModel {
                 averageAfter: after
             )
         }.sorted { $0.date < $1.date }
-        let differences = days.compactMap { day -> Double? in
-            guard let averageAfter = day.averageAfter else {
-                return nil
-            }
-
-            return day.averageBefore - averageAfter
-        }
+        let differences = grouped.values.compactMap(pairedDifference)
 
         let average: Double? = differences.isEmpty
             ? nil
@@ -254,6 +253,12 @@ final class RecordDetailViewModel {
             }
         }
         return RecordPainDetail(averageDifference: average, days: days, records: displays)
+    }
+
+    /// 복용 전·후가 둘 다 있는 기록끼리의 평균 차이. 복용 후를 아직 적지 않은 기록은 빼고 잰다
+    static func pairedDifference(_ records: [PainRecord]) -> Double? {
+        let changes = records.compactMap(\.painChange)
+        return changes.isEmpty ? nil : Double(changes.reduce(0, +)) / Double(changes.count)
     }
 
     /// 일: 그날 '있음'인 증상을 같은 크기로.

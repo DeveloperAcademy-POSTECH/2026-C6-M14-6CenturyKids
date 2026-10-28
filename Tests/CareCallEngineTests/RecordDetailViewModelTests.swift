@@ -46,7 +46,8 @@ struct RecordDetailViewModelTests {
         ], period: .day, calendar: calendar)
         #expect(detail.days.map(\.averageBefore) == [6, 9])
         #expect(detail.days.map(\.averageAfter) == [2, nil])
-        #expect(detail.averageDifference == 4)
+        // 차이는 복용 후가 있는 기록끼리: (6 − 0 + 4 − 4) / 2 = 3 (복용 전 평균 6 − 복용 후 평균 2로 섞어 빼지 않음)
+        #expect(detail.averageDifference == 3)
         #expect(detail.records?.map(\.painAfter) == [nil, 0, 4, nil])
         for period in [RecordPeriod.day, .week, .month] {
             let pending = RecordDetailViewModel.painDetail([try pain(18, 9, 9, nil)], period: period, calendar: calendar)
