@@ -105,7 +105,6 @@ import ToDocDomain
         
         requestID = token
         state.isSubmitting = true
-        let remembersLogin = state.remembersLogin
         session.loginPreference.isEnabled = false
         
         defer {
@@ -139,7 +138,7 @@ import ToDocDomain
                 throw AuthFlowError("사용자 정보가 일치하지 않아요.")
             }
             
-            session.loginPreference.isEnabled = remembersLogin
+            session.loginPreference.isEnabled = true
             session.patient = patient
             state.password = ""
             state.didSignIn = true
