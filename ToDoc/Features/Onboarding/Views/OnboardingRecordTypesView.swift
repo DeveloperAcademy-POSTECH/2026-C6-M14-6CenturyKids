@@ -2,10 +2,13 @@ import SwiftUI
 
 struct OnboardingRecordTypesView: View {
     var body: some View {
-        OnboardingPageContent(title: "통증과 증상을,\n편하게 기록해요",
-                              description: "약 복용 전후의 통증과\n오늘의 증상을 남겨보세요.") {
-            Image("HakroDoctor").resizable().scaledToFit().frame(maxWidth: 260).accessibilityHidden(true)
+        OnboardingPageContent(
+            title: "진료 받기 전 돌아보세요",
+            description: "진료를 기다리는 동안 기록을 돌아보고\n기분이 어떤지 알려주세요"
+        ) {
+            OnboardingDoctorIllustration()
         }
     }
 }
-#Preview { OnboardingRecordTypesView().appScreenStyle() }
+
+#Preview { OnboardingRecordTypesView().background(AppColors.Semantic.Background.surface) }

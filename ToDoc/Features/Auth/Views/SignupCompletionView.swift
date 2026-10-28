@@ -3,24 +3,40 @@ import SwiftUI
 struct SignupCompletionView: View {
     let email: String
     let onLogin: () -> Void
+
     var body: some View {
-        AuthFormScreen(title: "가입이 완료됐어요", progress: "C6") {
-            VStack(spacing: AppSpacing.section) {
-                // SF Symbol 크기이며 본문용 Pretendard 스타일을 적용하지 않습니다.
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 72)).foregroundStyle(AppColors.primary).accessibilityHidden(true)
-                Text("가입한 계정으로 기록을 시작해 보세요.").appTextStyle(.label)
-                VStack(spacing: AppSpacing.compact) {
-                    Text("환자").appTextStyle(.caption)
-                    Text(email).appTextStyle(.label).textSelection(.enabled)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 40) {
+                    Image("Auth/SignupComplete").resizable().frame(width: 160, height: 160)
+                        .accessibilityHidden(true)
+                    VStack(spacing: 12) {
+                        Text("가입을 완료했어요!").appTypography(.title)
+                            .foregroundStyle(AppColors.Text.primary)
+                            .accessibilityAddTraits(.isHeader)
+                        Text("로그인 후 기록을 시작해 보세요")
+                            .appTypography(.bodySmall)
+                            .foregroundStyle(AppColors.Text.secondary)
+                    }
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(AppSpacing.section).frame(maxWidth: .infinity)
-                .appSurface(.authInformation)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, AppLayout.Phone.horizontalMargin)
+                .padding(.top, max(40, 302 - geometry.safeAreaInsets.top))
+                .padding(.bottom, 24)
+                .accessibilityElement(children: .combine)
+                .accessibilityValue(email)
             }
-            .frame(maxWidth: .infinity).padding(.top, AppSpacing.large)
-        } footer: {
-            Button("시작하기", action: onLogin).buttonStyle(AppButtonStyle())
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            AppActions.Button("로그인 하러가기", action: onLogin)
+                .padding(.horizontal, AppLayout.Phone.horizontalMargin)
+                .padding(.top, 16)
+                .background(AppColors.Semantic.Background.surface)
+        }
+        .background(AppColors.Semantic.Background.surface.ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
     }
 }
 
