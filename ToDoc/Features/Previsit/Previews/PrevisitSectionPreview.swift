@@ -22,10 +22,11 @@ struct PrevisitSectionPreview: View {
         Group {
             switch screen {
             case .entry, .prompt, .completed:
-                entry.allowsHitTesting(screen == .entry).accessibilityHidden(screen != .entry).overlay {
-                    if screen == .prompt {
+                entry.allowsHitTesting(screen == .entry).accessibilityHidden(screen != .entry)
+                    .sheet(isPresented: .constant(screen == .prompt)) {
                         PrevisitPromptView(onStart: { screen = .days }, onClose: { screen = .entry })
-                    } else if screen == .completed {
+                    }.overlay {
+                    if screen == .completed {
                         PrevisitPromptView(completedDraft: completed ?? draft, doctorName: "학로쌤", patientName: "최연우", onClose: { screen = .entry })
                     }
                 }

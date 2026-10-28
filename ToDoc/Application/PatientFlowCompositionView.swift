@@ -9,7 +9,7 @@ struct PatientFlowCompositionView: View {
     @State private var notificationSettingsViewModel: NotificationSettingsViewModel
     @State private var recordDetailViewModel: RecordDetailViewModel
     @State private var recordsViewModel: RecordsViewModel
-    @State private var previsitLetterViewModel = PrevisitLetterViewModel()
+    @State private var previsitLetterViewModel = PrevisitLetterViewModel(calendar: RecordDetailViewModel.calendar)
     private let container: DependencyContainer
     private let patientId: UUID
 
@@ -54,6 +54,7 @@ struct PatientFlowCompositionView: View {
                                                         calendar: RecordDetailViewModel.calendar)
                 }
             },
+            previsitLetters: previsitLetterViewModel,
             pain: { navigation in
                 PainRecordView(viewModel: painViewModel, onShowRecord: navigation.showRecord)
             },

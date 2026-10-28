@@ -9,10 +9,26 @@ final class PrevisitCoreTests: XCTestCase {
         value.timeZone = TimeZone(secondsFromGMT: 9 * 3600)!
         return value
     }
-    private func pain(on date: Date, patientID: UUID) throws -> PainRecord {
+    private func pain(on date: Date, patientID: UUID, before: Int = 7, after: Int? = 3) throws -> PainRecord {
         try PainRecord(id: UUID(), patientId: patientID, recordedDate: date,
                        location: [.init(bodyPart: .abdomen, bodySide: .unspecified, bodyView: .front)],
-                       painBefore: 7, painAfter: 3)
+                       painBefore: before, painAfter: after)
+    }
+
+    func testBadgePainPrefersLastCompleteRecordThenLastBeforeScore() throws {
+        let day = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 27)))
+        let morning = try pain(on: day.addingTimeInterval(9 * 3600), patientID: patientID, before: 7, after: 3)
+        let noon = try pain(on: day.addingTimeInterval(12 * 3600), patientID: patientID, before: 5, after: 4)
+        let waiting = try pain(on: day.addingTimeInterval(14 * 3600), patientID: patientID, before: 8, after: nil)
+
+        let mixed = try XCTUnwrap(PrevisitRecordedDays.make(pain: [waiting, morning, noon], symptoms: [],
+                                                            patientID: patientID, calendar: calendar).first)
+        XCTAssertEqual([mixed.painBefore, mixed.painAfter], [5, 4], "완성된 기록 중 마지막")
+
+        let onlyWaiting = try XCTUnwrap(PrevisitRecordedDays.make(pain: [waiting], symptoms: [],
+                                                                  patientID: patientID, calendar: calendar).first)
+        XCTAssertEqual(onlyWaiting.painBefore, 8)
+        XCTAssertNil(onlyWaiting.painAfter)
     }
 
     func testSavedDaysKeepDatesAndOriginalIDsAndRejectForeignPatients() throws {
@@ -33,6 +49,8 @@ final class PrevisitCoreTests: XCTestCase {
         XCTAssertEqual(previous.painRecordIDs, [previousPain.id])
         XCTAssertTrue(previous.symptomRecordIDs.isEmpty)
         XCTAssertTrue(current.isSelectable && previous.isSelectable)
+        XCTAssertEqual([current.painBefore, current.painAfter], [7, 3])
+        XCTAssertEqual(current.symptomCount, 0)
         XCTAssertThrowsError(try PrevisitRecordedDays.make(
             pain: [pain(on: today, patientID: UUID())], symptoms: [symptom], patientID: patientID))
         let foreignSymptom = SymptomRecord(id: UUID(), patientId: UUID(), recordedDate: today,
