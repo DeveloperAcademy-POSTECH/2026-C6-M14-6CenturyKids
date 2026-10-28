@@ -9,8 +9,7 @@ struct SymptomServiceErrorView: View {
             GeometryReader { geometry in
                 ScrollView {
                     VStack(spacing: 40) {
-                        Image("CareWarningLarge").resizable().frame(width: 160, height: 160)
-                            .accessibilityHidden(true)
+                        AppFeedback.StatusIcon(kind: .error, size: 160)
                         VStack(spacing: 16) {
                             Text("서비스 이용이 원활하지 않아요")
                                 .modifier(SymptomTextStyle(size: 16, weight: .semibold)).foregroundStyle(.black)

@@ -116,7 +116,7 @@ extension SymptomPopup {
             VStack(spacing: 0) {
                 VStack(spacing: 16) {
                     if showsWarning {
-                        Image("CareWarningSmall").resizable().frame(width: 72, height: 72).accessibilityHidden(true)
+                        AppFeedback.StatusIcon(kind: .error, size: 72)
                     }
                     Text(title).modifier(SymptomTextStyle(size: 16, weight: .semibold)).foregroundStyle(.black)
                         .accessibilityAddTraits(.isHeader)
