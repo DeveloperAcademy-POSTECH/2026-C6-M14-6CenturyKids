@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Figma 316:7102 포괄 오류화면. 케어콜을 시작하지 못했거나 대화가 끊겨 보여 줄 질문이 없을 때 씁니다.
+/// Figma 316:7259 포괄 오류화면. 케어콜을 시작하지 못했거나 대화가 끊겨 보여 줄 질문이 없을 때 씁니다.
 struct SymptomServiceErrorView: View {
     var onRetry: (() -> Void)?
+    var onHome: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,12 +28,17 @@ struct SymptomServiceErrorView: View {
                 }
                 .scrollBounceBehavior(.basedOnSize)
             }
-            Button { onRetry?() } label: {
-                AppForwardLabel(title: "다시 시도하기", asset: "CareConversationNext")
+            HStack(alignment: .top, spacing: AppLayout.Phone.columnSpacing) {
+                AppActions.BackButton("홈", action: onHome)
+                    .accessibilityLabel("홈으로 가기")
+                    .accessibilityIdentifier("symptom.home")
+                Button { onRetry?() } label: {
+                    AppForwardLabel(title: "다시 시도하기", asset: "CareConversationNext")
+                }
+                .buttonStyle(AppButtonStyle())
+                .disabled(onRetry == nil)
+                .accessibilityIdentifier("symptom.retry")
             }
-            .buttonStyle(AppButtonStyle())
-            .disabled(onRetry == nil)
-            .accessibilityIdentifier("symptom.retry")
             .padding(.horizontal, 24).padding(.bottom, 2)
         }
         .background(.white)
@@ -40,4 +46,4 @@ struct SymptomServiceErrorView: View {
     }
 }
 
-#Preview { SymptomServiceErrorView(onRetry: {}) }
+#Preview { SymptomServiceErrorView(onRetry: {}, onHome: {}) }

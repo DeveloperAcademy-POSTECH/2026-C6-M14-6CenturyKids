@@ -23,7 +23,8 @@ struct SymptomRecordView: View {
                     onSwitch: { state.onAction?(.switchMode($0)) }).id(question.id)
                     .overlay { popup }
             } else if state.errorMessage != nil, !state.isWorking {
-                SymptomServiceErrorView(onRetry: state.onAction.map { action in { action(.start) } })
+                SymptomServiceErrorView(onRetry: state.onAction.map { action in { action(.start) } },
+                                        onHome: close)
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityLabel("질문을 준비하고 있어요")
