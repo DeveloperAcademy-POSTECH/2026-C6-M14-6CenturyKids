@@ -18,6 +18,8 @@ protocol AuthRepository {
     
     func signOut() async throws
     
+    func getCurrentUserEmail() async throws -> String?
+
     func getCurrentUserId() async throws -> UUID
     
     func isSignedIn() -> Bool

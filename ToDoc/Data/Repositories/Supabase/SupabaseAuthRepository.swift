@@ -48,6 +48,11 @@ final class SupabaseAuthRepository: AuthRepository {
         try await client.auth.signOut()
     }
     
+    func getCurrentUserEmail() async throws -> String? {
+        let user = try await client.auth.user()
+        return user.email
+    }
+
     func getCurrentUserId() async throws -> UUID {
         let user = try await client.auth.user()
         
