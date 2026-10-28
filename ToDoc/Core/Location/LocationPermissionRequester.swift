@@ -57,12 +57,15 @@ final class LocationPermissionRequester: NSObject, CLLocationManagerDelegate {
     }
 
     /// '한 번 허용'이면 두 번째 창이 뜨지 않고, '사용하는 동안 유지'를 고르면 권한이 그대로라 위 메서드가 다시 불리지 않을 수 있다.
-    /// 창이 뜨면 앱이 잠깐 비활성이 되므로, 1초 뒤에도 활성이면 창이 없는 것으로 보고, 아니면 창이 닫혀 다시 활성이 될 때 마친다
+    /// 창이 떠 있는 동안 앱은 비활성이다. 실기기는 첫 창이 닫히고 잠깐 활성이 됐다가 1초 넘게 지나 두 번째 창을 띄우기도 하므로,
+    /// 앱이 2초 동안 계속 활성이어야 위치 창이 모두 끝난 것으로 보고 마친다
     private func finishIfAlwaysAnswerMissing() async {
-        try? await Task.sleep(for: .seconds(1))
-        if UIApplication.shared.applicationState != .active {
-            for await _ in NotificationCenter.default.notifications(named: UIApplication.didBecomeActiveNotification) { break }
-        }
+        repeat {
+            if UIApplication.shared.applicationState != .active {
+                for await _ in NotificationCenter.default.notifications(named: UIApplication.didBecomeActiveNotification) { break }
+            }
+            try? await Task.sleep(for: .seconds(2))
+        } while UIApplication.shared.applicationState != .active
         guard step == .askedAlways else { return }
         finish()
     }
