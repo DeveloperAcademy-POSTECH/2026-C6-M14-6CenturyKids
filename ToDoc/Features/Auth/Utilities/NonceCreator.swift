@@ -2,7 +2,6 @@ import Foundation
 import Security
 import CryptoKit
 
-/// 인증 요청마다 새 nonce를 만들고 Apple에 전달할 SHA-256 해시를 생성합니다.
 enum NonceCreator {
     static func randomNonceString(length: Int = 32) throws -> String {
         precondition(length > 0)
