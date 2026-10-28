@@ -6,17 +6,15 @@ struct PainScoreGauge: View {
     var before: Int?
     let label: String
     var descriptor: (Int) -> String? = { _ in nil }
-    @Environment(\.dynamicTypeSize) private var typeSize
     private let height: CGFloat = 347.622
 
     var body: some View {
-        VStack(spacing: 16) {
         GeometryReader { geometry in
             let x = geometry.size.width / 2 - 9
             ZStack(alignment: .topLeading) {
                 gauge.position(x: x, y: 45 + height / 2)
                 badge(10, size: 30).position(x: x, y: 15)
-                badge(1, size: 30).position(x: x, y: 423)
+                badge(0, size: 30).position(x: x, y: 423)
                 if let value {
                     Group {
                         if let before {
@@ -31,23 +29,13 @@ struct PainScoreGauge: View {
                     .frame(width: 96)
                     .position(x: min(geometry.size.width - 48, x + 109), y: before == nil ? 217 : 214.5)
                 }
-                // 0점 선택은 Domain에 있으나 하이파이 원본에는 없어 기본 버튼으로 제공합니다.
-                if !typeSize.isAccessibilitySize {
-                    zeroButton.position(x: 62, y: 423)
-                }
             }
         }
         .frame(height: 438)
-        if typeSize.isAccessibilitySize { zeroButton }
-        }
-    }
-
-    private var zeroButton: some View {
-        Button("통증 없음 (0점)") { value = 0 }.font(.caption).buttonStyle(.bordered)
     }
 
     private var gauge: some View {
-        let position = CGFloat(10 - min(10, max(1, value ?? 10))) / 9 * height
+        let position = CGFloat(10 - min(10, max(0, value ?? 10))) / 10 * height
         return ZStack(alignment: .top) {
             Image("PainGauge").resizable()
             if value != nil {
@@ -65,7 +53,7 @@ struct PainScoreGauge: View {
         .contentShape(Rectangle())
         .highPriorityGesture(DragGesture(minimumDistance: 0).onChanged { gesture in
             let fraction = min(1, max(0, gesture.location.y / height))
-            value = Int((10 - fraction * 9).rounded())
+            value = Int((10 - fraction * 10).rounded())
         })
         .accessibilityRepresentation {
             Slider(value: Binding(get: { Double(value ?? 0) }, set: { value = Int($0.rounded()) }), in: 0...10, step: 1) {
@@ -86,13 +74,14 @@ struct PainScoreGauge: View {
     private func badge(_ score: Int, size: CGFloat) -> some View {
         Text(String(score))
             .font(Font(AppTypography.Style.label.font(at: size == 30 ? 16 : 22.4)))
-            .foregroundStyle(score <= 1 ? Color.black : .white)
+            .foregroundStyle(score == 0 ? Color(white: 160 / 255) : score == 1 ? Color.black : .white)
             .frame(width: size, height: size)
             .background(color(score), in: Circle())
     }
 
     private func color(_ score: Int) -> Color {
-        // 원본 게이지 색상에 따른 표시이며 의료 분류 기준이 아닙니다.
+        // 원본 게이지 색상에 따른 표시이며 의료 분류 기준이 아닙니다. 0점(통증 없음)은 회색입니다.
+        if score <= 0 { return Color(white: 232 / 255) }
         let stops: [(Int, (Double, Double, Double))] = [
             (1, (197, 242, 118)), (3, (253, 208, 72)), (7, (254, 150, 70)), (10, (255, 73, 70))
         ]

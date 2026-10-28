@@ -107,6 +107,25 @@ final class SupabasePainRepository: PainRepository {
         return try dtos.map { try $0.toDomain() }
     }
     
+    func findLatestByPatientId(_ patientId: UUID) async throws -> PainRecord? {
+        let dtos: [PainRecordWithLocationsDTO] = try await client
+            .from("pain_records")
+            .select(recordWithLocationsColumns)
+            .eq("patient_id", value: patientId)
+            .order("occurred_at", ascending: false)
+            .limit(1)
+            .execute()
+            .value
+        
+        return try dtos.first?.toDomain()
+    }
+    
+    func savePainAfter(recordId: UUID, painAfter: Int) async throws {
+        try await client
+            .rpc("record_pain_after", params: SavePainAfterParams(pId: recordId, pPainAfter: painAfter))
+            .execute()
+    }
+    
     func deleteById(_ id: UUID) async throws {
         try await client
             .from("pain_records")
