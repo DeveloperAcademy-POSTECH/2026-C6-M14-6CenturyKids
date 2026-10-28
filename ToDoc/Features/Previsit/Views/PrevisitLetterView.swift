@@ -140,7 +140,9 @@ struct PrevisitLetterEditView: View {
             AppCards.MoodOption(mood.title, avatar: mood.avatar, isSelected: true) {
                 writing = false
                 choosesMood = true
-            }.accessibilityHint("눌러서 기분을 바꿀 수 있어요").accessibilityIdentifier("previsitLetterEdit.mood")
+            }
+            .overlay(alignment: .trailing) { AppCards.Chevron().padding(.trailing, 24).allowsHitTesting(false) }
+            .accessibilityHint("눌러서 기분을 바꿀 수 있어요").accessibilityIdentifier("previsitLetterEdit.mood")
         }
     }
 
