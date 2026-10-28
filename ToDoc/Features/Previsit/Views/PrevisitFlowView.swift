@@ -4,6 +4,7 @@ import SwiftUI
 /// 기존 기록 조회와 전송받을 ViewModel을 부모가 주입합니다. 서버 저장 계약은 아직 없어 letter가 메모리에 둡니다.
 struct PrevisitFlowView: View {
     var doctorName = "선생님"
+    var patientName = ""
     var letter: PrevisitLetterViewModel?
     var loadDays: (() async throws -> [PrevisitDay])?
     @State private var session: PrevisitSession
@@ -14,9 +15,10 @@ struct PrevisitFlowView: View {
     @State private var showsLetter = false
     @Environment(\.dismiss) private var dismiss
 
-    init(doctorName: String = "선생님", session: PrevisitSession? = nil, letter: PrevisitLetterViewModel? = nil,
-         loadDays: (() async throws -> [PrevisitDay])? = nil) {
+    init(doctorName: String = "선생님", patientName: String = "", session: PrevisitSession? = nil,
+         letter: PrevisitLetterViewModel? = nil, loadDays: (() async throws -> [PrevisitDay])? = nil) {
         self.doctorName = doctorName
+        self.patientName = patientName
         self.letter = letter
         self.loadDays = loadDays
         _session = State(initialValue: session ?? PrevisitSession())
@@ -26,12 +28,12 @@ struct PrevisitFlowView: View {
     var body: some View {
         Group {
             if showsLetter, let letter, let sentID {
-                PrevisitLetterView(viewModel: letter, id: sentID, onClose: { dismiss() })
+                PrevisitLetterView(viewModel: letter, id: sentID, patientName: patientName, onClose: { dismiss() })
             } else if let sentID, let sent = letter?.letter(sentID) {
-                PrevisitPromptView(completedDraft: sent.draft, doctorName: doctorName,
+                PrevisitPromptView(completedDraft: sent.draft, doctorName: doctorName, patientName: patientName,
                                    onStart: { showsLetter = true }, onClose: { dismiss() })
             } else {
-                PrevisitRecordView(doctorName: doctorName, onClose: close, onSubmit: letter.map { letter in { draft in
+                PrevisitRecordView(doctorName: doctorName, patientName: patientName, onClose: close, onSubmit: letter.map { letter in { draft in
                                        letter.send(draft, to: doctorName)
                                        session.discard()
                                        sentID = letter.latest?.id
