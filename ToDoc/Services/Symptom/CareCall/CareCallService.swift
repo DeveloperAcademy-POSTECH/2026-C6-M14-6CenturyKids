@@ -182,7 +182,7 @@ final class CareCallService: CareCalling {
 
         while !out.isFinished, !stopped {
             onActivity(.listening)
-            let text = try await recognizer.listen()
+            let text = try await recognizer.listen { onActivity(.hearing($0)) }
             guard !stopped, !text.isEmpty else { break }
             onActivity(.heard(text))
             // 분석을 기다리는 동안 맞장구를 하지 않는다: 모델을 부르는 답(약 22%)도 Foundation Models로 2초 안팎이다

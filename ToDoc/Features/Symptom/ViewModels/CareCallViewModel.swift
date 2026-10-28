@@ -554,6 +554,8 @@ final class CareCallViewModel {
             conversation.isWorking = false
         case .listening:
             conversation.isListening = true
+        case .hearing(let text):
+            conversation.transcript = text
         case .heard(let text):
             conversation.transcript = text
             conversation.isListening = false

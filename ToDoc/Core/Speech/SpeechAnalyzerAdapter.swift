@@ -22,6 +22,8 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
     private var silenceTask: Task<Void, Never>?
     /// 이번 턴에 확정된 문장
     private var finalized = ""
+    /// 이번 턴에서 지금까지 들은 말을 받는 쪽 (중간 결과 포함)
+    private var onPartial: ((String) -> Void)?
     private var turnEnd: CheckedContinuation<String, Never>?
     private var micOn = false
 
@@ -61,11 +63,12 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
         micOn = true
     }
 
-    func listen() async throws -> String {
+    func listen(onPartial: @escaping (String) -> Void) async throws -> String {
         // 준비 전이나 정지 후에는 들을 수 없으니 바로 빈 문장을 돌려준다 (영원히 기다리지 않게)
         guard analyzer != nil else { return "" }
         try startMicrophone()
         finalized = ""
+        self.onPartial = onPartial
         feed.listening = true
         return await withCheckedContinuation { turnEnd = $0 }
     }
@@ -113,9 +116,14 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
         guard feed.listening else { return }
         // 새 결과가 왔다 = 아직 말하는 중이니 무음 타이머를 다시 잰다
         silenceTask?.cancel()
-        guard isFinal else { return }
         let sentence = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !sentence.isEmpty { finalized = finalized.isEmpty ? sentence : finalized + " " + sentence }
+        // 중간 결과는 확정 문장 뒤에 붙여 보여 주기만 한다 (말하는 동안 바뀔 수 있어 턴 문장에는 넣지 않는다)
+        guard isFinal else {
+            onPartial?(Self.joined(finalized, sentence))
+            return
+        }
+        finalized = Self.joined(finalized, sentence)
+        onPartial?(finalized)
         // 잡음만 들렸으면(확정 문장 없음) 계속 듣는다
         guard !finalized.isEmpty else { return }
         silenceTask = Task { [weak self] in
@@ -125,8 +133,13 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
         }
     }
 
+    private static func joined(_ head: String, _ tail: String) -> String {
+        head.isEmpty || tail.isEmpty ? head + tail : head + " " + tail
+    }
+
     private func finishTurn() {
         feed.listening = false
+        onPartial = nil
         turnEnd?.resume(returning: finalized)
         turnEnd = nil
     }
