@@ -4,6 +4,8 @@ struct AuthTextField: View {
     let title: String
     let placeholder: String
     @Binding var text: String
+    /// false여도 라벨 공간을 유지해 입력칸 위치가 바뀌지 않습니다.
+    var showsLabel = true
     var isSecure = false
     var keyboard: UIKeyboardType = .default
     var contentType: UITextContentType? = nil
@@ -21,6 +23,8 @@ struct AuthTextField: View {
             if appearance == .standard {
                 Text(title).tracking(labelSize * 0.015).appTypography(.labelLarge)
                     .foregroundStyle(AppColors.Semantic.Text.default)
+                    .opacity(showsLabel ? 1 : 0)
+                    .accessibilityHidden(!showsLabel)
             }
             HStack(spacing: 8) {
                 Group {

@@ -10,10 +10,7 @@ struct SymptomCompletionView: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 40) {
-                        Image("CareSummaryCompleteCircle")
-                            .resizable().frame(width: 100, height: 100)
-                            .overlay { Image("CareSummaryCompleteCheck") }
-                            .accessibilityHidden(true)
+                        AppFeedback.StatusIcon(kind: .success, size: 100)
                         VStack(spacing: 24) {
                             Text("말씀해 주신 내용을 바탕으로\n문진 기록을 정리했어요.")
                                 .modifier(SymptomTextStyle(size: 20, weight: .medium))

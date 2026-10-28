@@ -8,8 +8,7 @@ struct SignupCompletionView: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 40) {
-                    Image("Auth/SignupComplete").resizable().frame(width: 160, height: 160)
-                        .accessibilityHidden(true)
+                    AppFeedback.StatusIcon(kind: .success, size: 160)
                     VStack(spacing: 12) {
                         Text("가입을 완료했어요!").appTypography(.title)
                             .foregroundStyle(AppColors.Text.primary)
