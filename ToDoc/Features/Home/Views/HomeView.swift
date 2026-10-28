@@ -117,7 +117,7 @@ struct HomeView: View {
     }
     private var entryPanel: some View {
         VStack(spacing: 14) {
-            HomeEntryCard(title: "복용 후 통증 기록", subtitle: "약 복용 후 통증의 전후 비교", primary: true) { select(.pain) }
+            HomeEntryCard(title: "통증 기록하기", subtitle: "돌발성 통증과 약 복용 후 통증 기록", primary: true) { select(.pain) }
                 .disabled(!canOpen).accessibilityIdentifier("home.pain")
             HomeEntryCard(title: "증상 대화하기", subtitle: "오늘 하루 증상 기록하기", primary: false) { select(.symptom(autoStartVoice: false)) }
                 .disabled(!canOpen).accessibilityIdentifier("home.symptom")
