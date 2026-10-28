@@ -4,17 +4,20 @@ struct SignupStepScreen<Content: View>: View {
     @Bindable var state: SignupScreenState
     let title: String
     var buttonTitle = "다음"
+    var subtitle: String? = nil
+    var contentSpacing: CGFloat = 50
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        AuthFormScreen(title: title, progress: state.step.progress, onBack: { state.onAction?(.back) }) {
+        AuthFormScreen(title: title, progress: state.step.progress,
+                       onBack: { state.onAction?(.back) }, subtitle: subtitle, contentSpacing: contentSpacing) {
             content().disabled(state.isWorking || state.isAccountLocked)
             if state.hasAttemptedStep, let error = state.currentValidationError {
                 AuthMessage(text: error)
             }
         } footer: {
-            Button(buttonTitle) { state.onAction?(.next) }
-                .buttonStyle(AppButtonStyle()).disabled(state.isWorking || state.onAction == nil)
+            AppActions.Button(buttonTitle) { state.onAction?(.next) }
+                .disabled(state.isWorking || state.onAction == nil)
         }
     }
 }
