@@ -270,6 +270,18 @@ struct CareCallViewModelTests {
         await task?.value
     }
 
+    @Test func 듣는_동안_들은_말을_바로_보여_준다() async {
+        await enterVoiceCall()
+        service.activities = [.speaking("오늘 컨디션은 어떠세요?"), .listening, .hearing("그럭"), .hearing("그럭저럭이요")]
+        service.hold = .call
+        let task = viewModel.startCall()
+        for _ in 0..<1_000 where !service.isHolding { await Task.yield() }
+        #expect(conversation.transcript == "그럭저럭이요")
+        #expect(conversation.isListening && !conversation.isWorking) // 아직 듣는 중
+        service.release()
+        await task?.value
+    }
+
     @Test func 끝까지_마치면_요약으로_넘어가고_없음_모름은_결과에만_남긴다() async {
         await enterVoiceCall()
         let saved = record([entry(.nauseaVomiting, .present, "구토 횟수: 하루 세 번이요"), entry(.constipation, .absent),
