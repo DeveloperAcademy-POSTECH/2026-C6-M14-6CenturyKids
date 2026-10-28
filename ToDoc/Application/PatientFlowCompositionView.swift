@@ -93,7 +93,10 @@ struct PatientFlowCompositionView: View {
                 SettingsFlowView(
                     viewModel: settingsViewModel,
                     withdrawal: {
-                        AccountWithdrawalView(authRepository: container.authRepository)
+                        AccountWithdrawalView(
+                            authRepository: container.authRepository,
+                            onWithdrawalCompleted: { settingsViewModel.completeAccountWithdrawal() }
+                        )
                     },
                     notifications: {
                         NotificationSettingsView(viewModel: notificationSettingsViewModel)
