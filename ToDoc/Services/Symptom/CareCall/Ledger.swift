@@ -41,7 +41,8 @@ struct Ledger: Sendable {
         let text: String
     }
 
-    static let maxFollowUps = 2
+    /// 같은 질문을 다시 묻는 건 한 번만. 다시 물어도 분명하지 않으면 그 항목을 닫고 받은 답을 검토 필요로 남긴다 (2026-10-29 사용자 결정)
+    static let maxFollowUps = 1
 
     private(set) var entries: [String: Entry] = [:]
     /// 첫 질문(오늘 컨디션) 답 원문
