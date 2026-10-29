@@ -31,6 +31,16 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
         self.recorder = recorder
     }
 
+    /// 통화 없이 화면을 나가면(닫기·미루기·채팅으로 전환) stop()이 불리지 않는다.
+    /// 분석기는 이 객체가 풀려도 계속 돌며 앱의 인식기 한도(2개)를 차지해, 세 번째 준비부터 실패한다 (SFSpeechErrorDomain 16)
+    isolated deinit {
+        resultsTask?.cancel()
+        silenceTask?.cancel()
+        feed.finish()
+        guard let analyzer else { return }
+        Task { await analyzer.cancelAndFinishNow() }
+    }
+
     func prepare() async throws {
         do {
             // 마이크 권한을 먼저 받는다 (거부하면 에셋을 내려받지 않는다)
