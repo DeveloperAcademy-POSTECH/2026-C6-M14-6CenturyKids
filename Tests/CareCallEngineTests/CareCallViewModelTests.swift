@@ -362,19 +362,54 @@ struct CareCallViewModelTests {
         #expect(conversation.summary == nil && conversation.errorMessage == nil)
     }
 
-    @Test func 음성으로_들어오면_첫_질문만_보여_주고_대화_시작하기를_기다린다() async {
+    /// 음성 화면에 들어와 첫 질문을 받고 자동 통화를 기다리는 상태 (기다리는 시간은 길게 둔다)
+    private func openVoiceAndWait() async -> Task<Void, Never>? {
         await enterVoiceCall()
-        await viewModel.open()?.value
-        #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?")
-        #expect(service.beginCount == 1 && !service.calls.contains(.call))
-        #expect(!conversation.isCalling && !conversation.isWorking)
+        viewModel.autoStartDelay = .seconds(60)
+        let task = viewModel.open()
+        for _ in 0..<1_000 where conversation.question == nil { await Task.yield() }
+        #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?" && !service.calls.contains(.call))
+        return task
+    }
+
+    @Test func 음성으로_들어오면_첫_질문을_보여_주고_잠시_뒤_같은_대화를_통화로_건다() async {
+        await enterVoiceCall()
+        viewModel.autoStartDelay = .zero
         service.hold = .call
-        conversation.onAction?(.start) // 대화 시작하기
+        viewModel.open()
         await waitUntilHolding()
+        #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?")
         #expect(conversation.isCalling && service.beginCount == 1) // 같은 대화를 통화로
         service.release()
         for _ in 0..<1_000 where conversation.isCalling { await Task.yield() }
         #expect(!conversation.isCalling)
+    }
+
+    @Test func 통화를_걸기_전에_떠나면_걸지_않는다() async {
+        let task = await openVoiceAndWait()
+        conversation.onAction?(.cancel)
+        await task?.value
+        #expect(!service.calls.contains(.call))
+    }
+
+    @Test func 통화를_걸기_전에_채팅으로_바꾸면_걸지_않고_문자로_이어_간다() async {
+        let task = await openVoiceAndWait()
+        conversation.onAction?(.switchMode(.text))
+        await task?.value
+        #expect(!service.calls.contains(.call))
+        #expect(conversation.mode == .text && conversation.question?.text == "오늘 컨디션은 어떠세요?")
+    }
+
+    @Test func 통화를_걸기_전에_기록_중단_팝업을_띄우면_미뤘다가_계속하면_건다() async {
+        let task = await openVoiceAndWait()
+        conversation.onAction?(.pause)
+        await task?.value
+        #expect(!service.calls.contains(.call)) // 팝업을 보는 동안에는 걸지 않는다
+        service.hold = .call
+        conversation.onAction?(.resume) // 계속 작성하기
+        await waitUntilHolding()
+        #expect(service.beginCount == 1)
+        service.release()
     }
 
     @Test func 통화_중_마무리_인사를_하는_동안_정리_화면을_보여_준다() async {
@@ -393,10 +428,10 @@ struct CareCallViewModelTests {
 
     @Test func 기록_중단_팝업을_띄우면_통화를_멈추고_계속하면_다시_건다() async {
         await enterVoiceCall()
-        await viewModel.open()?.value
+        viewModel.autoStartDelay = .zero
         service.hold = .call
         service.outcome = .interrupted(record([entry(.diarrhea, .present)]))
-        conversation.onAction?(.start)
+        viewModel.open()
         await waitUntilHolding()
         conversation.onAction?(.pause)
         for _ in 0..<1_000 where conversation.isCalling { await Task.yield() }
@@ -411,10 +446,10 @@ struct CareCallViewModelTests {
 
     @Test func 통화_중에_그만하면_받은_답을_저장하지_않는다() async {
         await enterVoiceCall()
-        await viewModel.open()?.value
+        viewModel.autoStartDelay = .zero
         service.hold = .call
         service.outcome = .interrupted(record([entry(.diarrhea, .present)]))
-        conversation.onAction?(.start)
+        viewModel.open()
         await waitUntilHolding()
         conversation.onAction?(.pause)
         conversation.onAction?(.discard) // 그만하기

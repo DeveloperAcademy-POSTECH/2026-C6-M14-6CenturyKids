@@ -74,6 +74,10 @@ final class CareCallViewModel {
     private var callAfterTyping = false
     /// 기록 중단 팝업을 띄워 통화를 잠시 끊음 (계속 작성하면 다시 건다)
     private var paused = false
+    /// 음성 화면에 들어온 뒤 잠깐 두었다가 거는 통화 (그사이 떠나거나 바꾸거나 멈추면 취소)
+    private var autoStart: Task<Void, Never>?
+    /// 첫 질문을 보여 주고 통화를 걸 때까지 기다리는 시간 (테스트는 줄인다)
+    var autoStartDelay: Duration = .seconds(1)
     /// 이 대화에서 응급으로 판단된 적이 있음. 이어 간 뒤에도 그 말을 버리지 않고 그날 기록에 더한다
     private var hadEmergency = false
     private var saving: Task<Void, Never>?
@@ -241,17 +245,34 @@ final class CareCallViewModel {
         return false
     }
 
-    /// 대화 화면에 들어오면 불린다. 음성은 첫 질문만 보여 주고 환자가 "대화 시작하기"를 누르면(start) 통화를 건다
+    /// 대화 화면에 들어오면 불린다. 음성은 첫 질문을 보여 주고 autoStartDelay(1초) 뒤에 통화를 건다
     @discardableResult
     func open() -> Task<Void, Never>? {
         guard conversation.mode == .voice else { return start() }
         guard !began, call == nil, typing == nil, !isOver else { return nil }
         conversation.errorMessage = nil
         conversation.isWorking = true
-        return typing(beginConversation) { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
+        let opening = typing(beginConversation) { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
+        let task = Task {
+            await opening.value
+            guard (try? await Task.sleep(for: autoStartDelay)) != nil, autoStart != nil else { return }
+            autoStart = nil
+            if conversation.mode == .voice, began, !leftCall, !isOver { startCall() }
+        }
+        autoStart = task
+        return task
     }
 
-    /// "대화 시작하기"·"다시 시도". 지금 방식으로 대화를 시작하거나 이어 간다
+    /// 기다리던 자동 통화를 취소한다. 취소했으면 true
+    @discardableResult
+    private func cancelAutoStart() -> Bool {
+        guard let autoStart else { return false }
+        autoStart.cancel()
+        self.autoStart = nil
+        return true
+    }
+
+    /// "다시 시도". 지금 방식으로 대화를 시작하거나 이어 간다
     @discardableResult
     func start() -> Task<Void, Never>? {
         conversation.mode == .voice ? startCall() : startText()
@@ -260,6 +281,7 @@ final class CareCallViewModel {
     /// 대화 중에 음성·문자를 바꾼다. 대화 전이면 방식만 정하고, 화면이 start를 부를 때 그 방식으로 시작한다
     private func switchMode(to mode: SymptomConversationMode) {
         guard mode != conversation.mode else { return }
+        cancelAutoStart()
         conversation.mode = mode
         guard !isOver else { return }
         switch mode {
@@ -481,6 +503,7 @@ final class CareCallViewModel {
     /// 응급 팝업에서 고르지 않고 떠나면 응급으로 끝난 기록을 저장한다
     func endCall() {
         leftCall = true
+        cancelAutoStart()
         if conversation.isEmergency {
             conversation.isEmergency = false
             save(showingResult: false)
@@ -502,6 +525,11 @@ final class CareCallViewModel {
 
     /// 기록 중단 팝업을 띄움: 통화 중이면 끊어 두고(받은 답은 대화에 남는다) 환자의 선택을 기다린다
     private func pause() {
+        // 통화를 걸기 전이면 자동 통화만 미뤄 두고, 계속 작성하면 건다
+        if cancelAutoStart() {
+            paused = true
+            return
+        }
         guard let call else { return }
         paused = true
         switchingMode = true

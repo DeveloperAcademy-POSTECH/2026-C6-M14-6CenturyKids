@@ -345,6 +345,7 @@ struct CareCallTextModeTests {
         await viewModel.prepare()?.value
         conversation.onAction?(.switchMode(.voice))
         service.backTurns = [(turn("오늘 컨디션은 어떠세요?"), "괜찮아요")]
+        viewModel.autoStartDelay = .zero
         await viewModel.open()?.value
         #expect(!conversation.canGoPrevious)
         conversation.onAction?(.previous)
