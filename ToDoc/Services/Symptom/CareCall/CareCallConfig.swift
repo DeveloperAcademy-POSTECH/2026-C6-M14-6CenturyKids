@@ -131,6 +131,8 @@ struct CareCallConfig: Decodable, Sendable {
     /// 환자 말은 그대로 남긴다 (모델은 이런 답을 대부분 '있음'으로 기록했다, 2026-10-14 평가. 초안).
     /// 다시 거는 통화의 첫 질문에 이런 답이면 '달라진 점'을 '모름'으로 남긴다
     let vagueAnswers: [String]
+    /// '모름'으로 남기거나 다시 물어도 분명하지 않아 닫고 다음 질문으로 넘어갈 때 앞에 붙이는 말
+    let unsureNoted: String
     /// '그 밖에' 질문에 "모르겠어요"·"그냥 그래요"라고 하면 이 이름의 기타 항목에 '모름'으로 원문을 남긴다
     let otherUnclearName: String
     /// '그 밖에' 질문에 이 말로 끝나는 답은 더 말할 게 없다는 뜻 ("그게 다예요", "할 말은 다 했어요"). 증상 표현·항목 낱말·몸 부위가
@@ -168,6 +170,8 @@ struct CareCallConfig: Decodable, Sendable {
         let notedAndResume: String
         /// 달라진 게 없음 → 마무리 인사 앞에
         let unchanged: String
+        /// 첫 답에서 목록 밖 증상만 말함 → '그 밖에' 질문 앞에
+        let notedOther: String
         /// 첫 질문에 "글쎄요"처럼 답하면 이 이름의 기타 항목에 '모름'으로 남긴다
         let unclearName: String
         /// 증상이 그쳤다는 낱말 ("멈췄어요"). 첫 답에서 모델이 그 증상을 못 잡으면 '없음'으로 남긴다.

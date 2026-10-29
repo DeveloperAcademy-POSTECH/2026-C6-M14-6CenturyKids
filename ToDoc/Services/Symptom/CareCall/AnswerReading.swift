@@ -22,7 +22,7 @@ struct AnswerReading {
         let compact = Self.normalized(text)
         guard config.unknownAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
               !NumberParser.hasNumber(text), !soundsNegative(text) else { return false }
-        if ["는데", "지만", "근데", "그런데"].contains(where: text.contains) { return false }
+        if Self.continuesAfterContrast(text) { return false }
         return !config.saysAnyEffect(in: text) && symptomHints.matches(text) == nil
     }
 
@@ -36,7 +36,7 @@ struct AnswerReading {
               !["있", "했"].contains(where: compact.contains), !saysNormal(t),
               !config.normalWords.contains(where: { compact.contains(Self.normalized($0)) }),
               !config.shortAnswers.yes.contains(where: { compact.hasPrefix(Self.normalized($0)) }) else { return false }
-        if ["는데", "지만", "근데", "그런데"].contains(where: t.contains) { return false }
+        if Self.continuesAfterContrast(t) { return false }
         return !config.saysAnyEffect(in: t) && symptomHints.matches(t) == nil
     }
 
@@ -186,7 +186,7 @@ struct AnswerReading {
         // 숫자가 섞이면 모델이 본다 ("글쎄요 두 번?"). 모델이 찾은 게 없으면 원문은 handle에서 남긴다
         guard config.vagueAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
               !NumberParser.hasNumber(patientText),
-              !["는데", "지만", "근데", "그런데"].contains(where: patientText.contains) else { return false }
+              !Self.continuesAfterContrast(patientText) else { return false }
         return !config.saysAnyEffect(in: patientText) && symptomHints.matches(patientText) == nil
     }
 
@@ -197,9 +197,10 @@ struct AnswerReading {
         let compact = Self.normalized(t)
         guard soundsNegative(t) || config.followUpCall.unchangedAnswers.contains(where: { compact.contains(Self.normalized($0)) })
         else { return false }
-        if ["근데", "그런데", "는데", "지만", "한데"].contains(where: { compact.contains($0) }) { return false }
+        if Self.continuesAfterContrast(t) { return false }
         // "똑같지 않아요", "그대로가 아니에요": 달라졌다는 뜻이라 모델이 본다 (띄어쓰기 없이 비교)
-        if ["지않", "진않", "가아니", "이아니", "게아니"].contains(where: { compact.contains($0) }) { return false }
+        // "아무렇지 않아요"는 그대로라는 말이다
+        if ["지않", "진않", "가아니", "이아니", "게아니"].contains(where: compact.replacingOccurrences(of: "아무렇지", with: "").contains) { return false }
         if NumberParser.hasNumber(t) { return false }
         if config.saysAnyEffect(in: t) { return false }
         return symptomHints.matches(t) == nil && openingConcerns.matches(t) == nil
@@ -216,8 +217,30 @@ struct AnswerReading {
         return symptomHints.matches(t) == nil && openingConcerns.matches(t) == nil
     }
 
+    /// 음성 인식이 "네네"·"예 예"로 받아 적은 답도 "네"다 (2026-10-29 팀 테스트: 저장 내용이 "네네"로 남았다)
     func isShortYes(_ patientText: String) -> Bool {
-        config.shortAnswers.yes.contains(Self.normalized(patientText))
+        let t = Self.normalized(patientText)
+        return config.shortAnswers.yes.contains(t)
+            || (t.count >= 2 && Set(t).count == 1 && ["네", "예", "응"].contains(String(t.prefix(1))))
+    }
+
+    /// 두 증상을 함께 묻는 항목(구토·메스꺼움)에 한쪽만 부정하고 다른 불편을 말한 답 ("토는 안했는데 속은 좀 안좋아요").
+    /// 다른 쪽 증상(메스꺼움)이라고 단정하지 않고 '모름' + 원문으로 남긴다. 다시 물으면 "토 안했다니까요"가 됐다 (2026-10-29 팀 테스트)
+    /// 불편을 말한 절은 증상 낱말 없이 없다·괜찮다는 말도 아닌 절이다 ("속이 더부룩해요"). symptomHints에 "쓰라" 같은 낱말을 넣으면
+    /// 첫 답 "잇몸이 붓고 쓰라려요"가 '그 밖에'로도 저장됐다 (2026-10-30 회귀 세트)
+    func deniesOnePartButComplains(_ text: String, for key: String) -> Bool {
+        guard let effect = config.effect(key) else { return false }
+        let parts = effect.details.compactMap(\.keywords)
+        guard parts.count >= 2 else { return false }
+        let affirmed = { (words: [String]) in KeywordMatcher(keywords: words, prefixNegation: true).matches(text) != nil }
+        guard parts.contains(where: { words in words.contains(where: text.contains) && !affirmed(words) }),
+              !parts.contains(where: affirmed) else { return false }
+        return Self.parts(text).contains { clause in
+            guard !config.saysAnyEffect(in: clause) else { return false }
+            if symptomHints.matches(clause) != nil || openingConcerns.matches(clause) != nil { return true }
+            let compact = Self.normalized(clause)
+            return !soundsNegative(clause) && !saysNormal(clause) && !config.normalWords.contains { compact.contains(Self.normalized($0)) }
+        }
     }
 
     /// 질문을 다시 해 달라는 말 ("네? 뭐라고요?", "잘 안 들려요 다시 말해 주세요"). 답 전체가 되묻는 말과 "네"·"죄송한데" 같은 말뿐일 때만.
@@ -263,7 +286,16 @@ struct AnswerReading {
     /// "~지만", "근데", "그래도", "대신"
     /// 답을 절로 나눈다: 쉼표·마침표·"~는데/~지만" 뒤와 "~고 " 뒤에서 끊는다 ("속이 울렁거리고 등이 가렵고 변도 안 나와요" → 세 절)
     static func parts(_ text: String) -> [String] {
-        KeywordMatcher.clauses(text.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression))
+        // "토는 안 했어요 근데 속이 불편해요"도 두 절 (2026-10-30 확인 세트)
+        KeywordMatcher.clauses(text.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression)
+            .replacingOccurrences(of: #"\s(근데|그런데)\s"#, with: ",", options: .regularExpression))
+    }
+
+    /// 연결어("근데", "는데", "지만") 뒤에 다른 말이 이어지는지. 답 끝의 "~데(요)"("없는데", "잘 모르겠는데요")는 뒤에 말이 없어 보지 않는다
+    /// (2026-10-29 팀 테스트: 다시 거는 통화에 "없는데"를 달라진 게 없다는 답으로 보지 않아 "어떤 점이 달라지셨는지" 되물었다)
+    static func continuesAfterContrast(_ text: String) -> Bool {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)).replacing(/데요?$/, with: "")
+        return ["근데", "그런데", "는데", "지만", "한데"].contains(where: t.contains)
     }
 
     static func hasContrast(_ text: String) -> Bool {

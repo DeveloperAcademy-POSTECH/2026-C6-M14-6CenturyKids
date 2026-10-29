@@ -506,6 +506,8 @@ struct SymptomHintMatcherTests {
         ("열이 안 나요", false),
         ("안 아파요", false),
         ("머리가 좀 아파요", true),
+        // 구내염 낱말과 함께 오는 말이라 '그 밖에'로 따로 저장하지 않는다 (2026-10-30 회귀 세트)
+        ("잇몸이 붓고 쓰라려요", false),
     ])
     func 증상_표현_판별(text: String, hit: Bool) throws {
         let config = try fixture(CareCallConfig.self, "side_effects")
