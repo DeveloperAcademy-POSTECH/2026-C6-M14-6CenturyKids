@@ -65,6 +65,20 @@ struct VagueAnswerTests {
         #expect(entry?.presence == .present && entry?.detail == "[검토 필요] 한 30분이요 / 부위: 잘 모르겠어요")
     }
 
+    @Test func 유무를_다시_물었어도_부위는_따로_한_번_다시_묻는다() async {
+        let call = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = call.start()
+        _ = await call.handle(patientText: "괜찮아요")
+        while call.phase != .slot(key: "neuropathy", step: .presence) { _ = await call.handle(patientText: "아니요") }
+        _ = await call.handle(patientText: "어떤 거 말씀이세요?")
+        #expect(call.phase == .slot(key: "neuropathy", step: .presence)) // 유무를 한 번 다시 묻는다
+        _ = await call.handle(patientText: "네")
+        _ = await call.handle(patientText: "한 30분이요") // 지속 시간
+        #expect(call.phase == .slot(key: "neuropathy", step: .location))
+        let reasked = await call.handle(patientText: "어디 말씀이세요?")
+        #expect(reasked.phase == .slot(key: "neuropathy", step: .location)) // 다시 묻기는 질문마다 한 번
+    }
+
     @Test(arguments: ["그냥 그래요", "글쎄요", "잘 모르겠어요"])
     func 그_밖에_질문에_애매하거나_모르겠다는_답은_모름으로_원문을_남기고_마무리한다(answer: String) async {
         let call = await atFirstSymptom()
