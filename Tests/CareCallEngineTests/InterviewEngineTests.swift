@@ -120,12 +120,11 @@ struct InterviewEngineTests {
         #expect(f1.phase == .slot(key: "nausea_vomiting", step: .presence))
         let ask = engine.config.effects.first { $0.id == "nausea_vomiting" }!.ask
         #expect(f1.utterance == engine.config.repeatPrefix + " " + ask) // 모델 꼬리질문은 쓰지 않고 같은 질문을 다시 한다
-        let f2 = await engine.handle(patientText: "음 그게요")
-        #expect(f2.phase == .slot(key: "nausea_vomiting", step: .presence))
-        let moved = await engine.handle(patientText: "모르겠어요")
+        // 다시 묻는 건 한 번만: 또 분명하지 않으면 닫고 다음 항목
+        let moved = await engine.handle(patientText: "음 그게요")
 
         #expect(moved.phase == .slot(key: "constipation", step: .presence))
-        #expect(engine.ledger["nausea_vomiting"]?.followUps == 2)
+        #expect(engine.ledger["nausea_vomiting"]?.followUps == 1)
         #expect(engine.ledger["nausea_vomiting"]?.needsReview == true)
     }
 
