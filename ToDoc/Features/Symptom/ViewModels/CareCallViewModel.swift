@@ -43,6 +43,8 @@ final class CareCallViewModel {
     private(set) var outcome: CareCallOutcome?
     /// 저장할 기록 (요약에서 고친 내용 포함). 요약에는 '있음'만 보이지만 저장은 없음·모름까지 한다 (#84)
     private(set) var record: SymptomRecord?
+    /// 오늘 이미 저장된 기록 (다시 거는 통화일 때). 달라진 게 없으면 완료 화면의 '기록 확인하기'가 이 기록을 연다
+    private var todayRecord: SymptomRecord?
     private let service: any CareCalling
     private let repository: any SymptomRepository
     /// 서버에 저장하기 전까지 받은 답을 남겨 두는 곳 (이 케어콜은 pendingId 한 건)
@@ -301,7 +303,8 @@ final class CareCallViewModel {
                 hasCalled = true
                 try Task.checkCancellation()
                 if !began {
-                    _ = try service.begin(patientId: try loadedPatientId(), previous: try await today())
+                    todayRecord = try await today()
+                    _ = try service.begin(patientId: try loadedPatientId(), previous: todayRecord)
                     began = true
                 }
                 outcome = try await service.run { activity in self.show(activity) } // 통화하는 동안만 잡는다
@@ -358,7 +361,8 @@ final class CareCallViewModel {
         await last?.value
         try await service.loadModel()
         try Task.checkCancellation()
-        let turn = try service.begin(patientId: try loadedPatientId(), previous: try await today())
+        todayRecord = try await today()
+        let turn = try service.begin(patientId: try loadedPatientId(), previous: todayRecord)
         began = true
         return turn
     }
@@ -573,6 +577,9 @@ final class CareCallViewModel {
             // 다시 거는 통화에서 달라진 게 없음: 더할 것이 없어 바로 완료 화면 (이때 보여 줄 화면은 화면 담당과 정할 예정)
             forget()
             isSaved = true
+            // '기록 확인하기'는 오늘 기록을 연다 (기록이 없으면 버튼이 꺼져 눌러도 반응이 없었다, 2026-10-29 팀 테스트).
+            // 저장은 이미 끝나(isSaved) 이 기록을 다시 올리지 않는다
+            self.record = todayRecord
             conversation.didSave = true
         case .completed(let record), .interrupted(let record?):
             self.record = record

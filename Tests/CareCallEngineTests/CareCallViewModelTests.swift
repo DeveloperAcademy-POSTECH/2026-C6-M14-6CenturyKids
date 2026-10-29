@@ -559,12 +559,14 @@ struct CareCallViewModelTests {
     }
 
     @Test func 다시_거는_통화에서_달라진_게_없으면_바로_완료_화면으로() async {
-        repository.existing = record([entry(.diarrhea, .present)])
+        let old = record([entry(.diarrhea, .present)])
+        repository.existing = old
         await enterVoiceCall()
         service.outcome = .completed(record([]))
         await viewModel.startCall()?.value
         #expect(conversation.didSave && conversation.summary == nil)
         #expect(repository.saved.isEmpty) // 더할 것이 없다
+        #expect(viewModel.record?.id == old.id) // '기록 확인하기'는 오늘 기록을 연다
         #expect(viewModel.startCall() == nil)
     }
 
