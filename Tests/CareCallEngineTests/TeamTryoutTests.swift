@@ -68,6 +68,23 @@ struct TeamTryoutTests {
         #expect(saved(call, .nauseaVomiting)?.presence == .absent)
     }
 
+    @Test func 메스꺼움은_없고_토했다면_메스꺼움_시작을_묻지_않는다() async {
+        let answer = "메스꺼운 건 없었는데 한 번 토했어요"
+        mock.script[answer] = .mentions(Mention(effectId: "nausea_vomiting", presence: .present, quote: "한 번 토했어요"))
+        let call = await atPresence(of: "nausea_vomiting")
+        let next = await call.handle(patientText: answer)
+        #expect(next.phase == .slot(key: "constipation", step: .presence))
+        #expect(saved(call, .nauseaVomiting)?.presence == .present)
+        #expect(saved(call, .nauseaVomiting)?.occurrenceCount == 1)
+    }
+
+    @Test func 다_나았다는_절의_낱말은_말한_것으로_보지_않는다() {
+        let nausea = ["메스", "메슥", "울렁"]
+        #expect(!CareCallConfig.Effect.said(nausea, in: "구토는 안 했고 울렁거리는 건 다 나았어요"))
+        #expect(!CareCallConfig.Effect.said(nausea, in: "메스꺼운 건 안 느꼈어요"))
+        #expect(CareCallConfig.Effect.said(nausea, in: "구토는 안 했고 속이 울렁거려요"))
+    }
+
     @Test func 토는_안_했다는_말은_구토_낱말로_보지_않는다() {
         let vomiting = config.effects.first { $0.id == "nausea_vomiting" }!
         #expect(!vomiting.affirmed(in: "토는 안했는데 속은 좀 안좋아요"))
@@ -104,6 +121,7 @@ struct TeamTryoutTests {
         #expect(next.utterance.hasPrefix(config.unsureNoted))
         #expect(saved(call, .numbness)?.presence == .unknown)
         #expect(AnswerReading.continuesAfterContrast("없는데 아까 설사를 했어요"))
+        #expect(AnswerReading.continuesAfterContrast("없는데 설사"))
     }
 
     @Test func 다시_거는_통화에서_목록_밖_증상을_말하면_받아_준_뒤_그_밖에를_묻는다() async {

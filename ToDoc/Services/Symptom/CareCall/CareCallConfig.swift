@@ -72,11 +72,22 @@ struct CareCallConfig: Decodable, Sendable {
         func details(heard quotes: [String]) -> [Detail] {
             let heard = details.filter { detail in
                 guard let keywords = detail.keywords else { return true }
-                let matcher = KeywordMatcher(keywords: keywords, prefixNegation: true)
-                return quotes.contains { matcher.matches($0) != nil }
+                return quotes.contains { Self.said(keywords, in: $0) }
             }
             return heard.contains { $0.keywords != nil } ? heard : details
         }
+
+        /// 꼬리질문 낱말을 부정 없이 말한 절이 있는지. 낱말이 줄기("메스", "울렁")라 KeywordMatcher가 뒤 부정을 못 볼 때가 있어
+        /// 그 절에 부정·괜찮다·나았다는 말이 있으면 부정으로 본다 ("메스껍지도 않아요"가 '있음'이 되고,
+        /// "메스꺼운 건 없었는데 한 번 토했어요"에 메스꺼움 시작을 물었다, 2026-10-30 확인 세트)
+        static func said(_ words: [String], in text: String) -> Bool {
+            let matcher = KeywordMatcher(keywords: words, prefixNegation: true)
+            return AnswerReading.parts(text).contains { clause in
+                matcher.matches(clause) != nil && clause.range(of: Self.deniedInClause, options: .regularExpression) == nil
+            }
+        }
+
+        private static let deniedInClause = #"않|없|아니|괜찮|(^|\s)안\s|나았|멈췄|그쳤|가라앉|풀렸|사라졌"#
     }
 
     let version: String

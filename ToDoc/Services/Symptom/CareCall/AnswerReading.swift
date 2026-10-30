@@ -245,15 +245,10 @@ struct AnswerReading {
         return said.denied && said.affirmed
     }
 
-    /// 두 증상을 함께 묻는 항목(details 중 keywords가 따로 있는 것이 둘 이상)에서, 낱말은 나왔지만 부정한 쪽이 있는지·부정 없이 말한 쪽이 있는지.
-    /// 낱말이 줄기만이라 KeywordMatcher가 뒤 부정을 못 본다: 그 절에 "않"·없다는 말이 있으면 부정 ("토도 안 했고 메스껍지도 않아요"가 '있음'이 됐다, 2026-10-30 확인 세트)
+    /// 두 증상을 함께 묻는 항목(details 중 keywords가 따로 있는 것이 둘 이상)에서, 낱말은 나왔지만 부정한 쪽이 있는지·부정 없이 말한 쪽이 있는지
     private func partsSaid(_ text: String, for key: String) -> (denied: Bool, affirmed: Bool)? {
         guard let parts = config.effect(key)?.details.compactMap(\.keywords), parts.count >= 2 else { return nil }
-        let affirmed = { (words: [String]) in
-            Self.parts(text).contains { clause in
-                KeywordMatcher(keywords: words, prefixNegation: true).matches(clause) != nil && !clause.contains("않") && !soundsNegative(clause)
-            }
-        }
+        let affirmed = { (words: [String]) in CareCallConfig.Effect.said(words, in: text) }
         return (parts.contains { words in words.contains(where: text.contains) && !affirmed(words) }, parts.contains(where: affirmed))
     }
 
@@ -307,9 +302,10 @@ struct AnswerReading {
 
     /// 연결어("근데", "는데", "지만") 뒤에 다른 말이 이어지는지. 답 끝의 "~데(요)"("없는데", "잘 모르겠는데요")는 뒤에 말이 없어 보지 않는다
     /// (2026-10-29 팀 테스트: 다시 거는 통화에 "없는데"를 달라진 게 없다는 답으로 보지 않아 "어떤 점이 달라지셨는지" 되물었다).
-    /// 뒤에 한두 글자 낱말 하나만 붙어도("모르겠는데요 잘", "없는데 진짜") 끝으로 본다 (2026-10-30 확인 세트). 증상 낱말·숫자는 부르는 쪽이 답 전체에서 본다
+    /// 뒤에 군말 하나만 붙어도("모르겠는데요 잘", "없는데 진짜") 끝으로 본다 (2026-10-30 확인 세트). "없는데 설사"처럼 다른 말은 이어지는 말이다
     static func continuesAfterContrast(_ text: String) -> Bool {
-        let t = text.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)).replacing(/데요?(?:[\s,]+[가-힣]{1,2})?$/, with: "")
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+            .replacing(/데요?(?:[\s,]+(?:잘|좀|음|뭐|그냥|진짜|정말|참|아주))?$/, with: "")
         return ["근데", "그런데", "는데", "지만", "한데"].contains(where: t.contains)
     }
 
