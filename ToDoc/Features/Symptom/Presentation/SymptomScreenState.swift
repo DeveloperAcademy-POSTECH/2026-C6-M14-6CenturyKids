@@ -48,7 +48,7 @@ enum CareCallAction { case prepare, cancel }
     @ObservationIgnored var onAction: ((CareCallAction) -> Void)?
 }
 enum SymptomAction {
-    /// open: 화면에 들어옴 (음성은 첫 질문만 보여 주고 "대화 시작하기"를 기다린다). start: 지금 방식으로 대화를 시작하거나 잇는다
+    /// open: 화면에 들어옴 (음성은 첫 질문을 보여 주고 1초 뒤 통화를 건다). start: 지금 방식으로 대화를 시작하거나 잇는다
     case open, start, previous, cancel
     case answer(SymptomConversationAnswer)
     case switchMode(SymptomConversationMode)
@@ -66,7 +66,7 @@ enum SymptomAction {
     var transcript = ""
     var isWorking = false
     var isListening = false
-    /// 음성 통화를 거는 중이거나 통화 중 (음성 화면 아래 버튼이 "음성 인식 중 ..")
+    /// 음성 통화를 거는 중이거나 통화 중
     var isCalling = false
     var isSummarizing = false
     var canGoPrevious = false
