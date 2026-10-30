@@ -939,6 +939,7 @@ final class InterviewEngine {
             || (Self.nowWords.contains(where: compact.contains) && lastNormal) {
             return (.absent, nil)
         }
+        if reading.deniesOnePartAffirmsOther(patientText, for: key) { return (.present, nil) }
         if parts.count > 1, lastNormal, let clause = parts.dropLast().first(where: {
             effect.affirmed(in: $0, minLength: 2) && !reading.soundsNegative($0) && !$0.contains("않") && $0.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil
         }) {

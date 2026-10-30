@@ -49,6 +49,25 @@ struct TeamTryoutTests {
         #expect(saved(call, .nauseaVomiting)?.presence == .unknown)
     }
 
+    @Test func 토는_안_했고_울렁거린다면_메스꺼움_시작만_묻는다() async {
+        let answer = "구토는 안 했고 속이 울렁거려요"
+        mock.script[answer] = .mentions(Mention(effectId: "nausea_vomiting", presence: .absent)) // Mac 모델처럼 '없음'
+        let call = await atPresence(of: "nausea_vomiting")
+        let next = await call.handle(patientText: answer)
+        #expect(next.phase == .slot(key: "nausea_vomiting", step: .detail))
+        #expect(next.utterance.contains("메스꺼움은 언제부터"))
+        #expect(saved(call, .nauseaVomiting)?.presence == .present)
+    }
+
+    @Test func 토도_메스꺼움도_부정하면_없음_그대로다() async {
+        let answer = "토도 안 했고 메스껍지도 않아요"
+        mock.script[answer] = .mentions(Mention(effectId: "nausea_vomiting", presence: .absent))
+        let call = await atPresence(of: "nausea_vomiting")
+        let next = await call.handle(patientText: answer)
+        #expect(next.phase == .slot(key: "constipation", step: .presence))
+        #expect(saved(call, .nauseaVomiting)?.presence == .absent)
+    }
+
     @Test func 토는_안_했다는_말은_구토_낱말로_보지_않는다() {
         let vomiting = config.effects.first { $0.id == "nausea_vomiting" }!
         #expect(!vomiting.affirmed(in: "토는 안했는데 속은 좀 안좋아요"))
@@ -76,6 +95,15 @@ struct TeamTryoutTests {
         #expect(next.phase == .slot(key: "rash_pruritus", step: .presence))
         #expect(next.utterance.hasPrefix(config.unsureNoted))
         #expect(saved(call, .numbness)?.detail == "[검토 필요] 잘 모르겠는데요")
+    }
+
+    @Test func 모르겠는데요_뒤에_한두_글자가_붙어도_모름이다() async {
+        let call = await atPresence(of: "neuropathy")
+        let next = await call.handle(patientText: "모르겠는데요 잘")
+        #expect(next.phase == .slot(key: "rash_pruritus", step: .presence))
+        #expect(next.utterance.hasPrefix(config.unsureNoted))
+        #expect(saved(call, .numbness)?.presence == .unknown)
+        #expect(AnswerReading.continuesAfterContrast("없는데 아까 설사를 했어요"))
     }
 
     @Test func 다시_거는_통화에서_목록_밖_증상을_말하면_받아_준_뒤_그_밖에를_묻는다() async {
