@@ -15,7 +15,9 @@ nonisolated public struct PrevisitRecord: Sendable {
     public var stateOfMind: StateOfMind
     public let submittedAt: Date
     
-    init(id: UUID, patientId: UUID, selectedDate: Date, memo: String?, stateOfMind: StateOfMind, submittedAt: Date) {
+    init(id: UUID, patientId: UUID, selectedDate: Date, memo: String?, stateOfMind: StateOfMind, submittedAt: Date) throws {
+        try Self.validateMemo(memo)
+        
         self.id = id
         self.patientId = patientId
         self.selectedDate = selectedDate
@@ -24,8 +26,10 @@ nonisolated public struct PrevisitRecord: Sendable {
         self.submittedAt = submittedAt
     }
     
-    init(patientId: UUID, selectedDate: Date, memo: String?, stateOfMind: StateOfMind) {
-        self.init(
+    init(patientId: UUID, selectedDate: Date, memo: String?, stateOfMind: StateOfMind) throws {
+        try Self.validateMemo(memo)
+        
+        try self.init(
             id: UUID(),
             patientId: patientId,
             selectedDate: selectedDate,
@@ -43,7 +47,9 @@ nonisolated public struct PrevisitRecord: Sendable {
         self.selectedDate = date
     }
     
-    public mutating func updateMemo(_ memo: String?) {
+    public mutating func updateMemo(_ memo: String?) throws {
+        try Self.validateMemo(memo)
+        
         let trimmed = memo?.trimmingCharacters(in: .whitespacesAndNewlines)
         
         self.memo = (trimmed?.isEmpty == true) ? nil : trimmed
@@ -51,5 +57,13 @@ nonisolated public struct PrevisitRecord: Sendable {
     
     public mutating func updateStateOfMind(_ stateOfMind: StateOfMind) {
         self.stateOfMind = stateOfMind
+    }
+    
+    private static func validateMemo(_ memo: String?) throws {
+        guard let memo else { return }
+
+        if memo.count > 200 {
+            throw ValidationError.stringTooLong
+        }
     }
 }
