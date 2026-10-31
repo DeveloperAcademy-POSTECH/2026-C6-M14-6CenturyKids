@@ -55,6 +55,34 @@ final class PrevisitLetterViewModelTests: XCTestCase {
         XCTAssertEqual(model.preview(model.latest!), "원문")
     }
 
+    func testDetailReloadsEveryRecordWhileBadgeUsesRepresentativePain() async throws {
+        let date = day.recordedDate!
+        let pains = try [(7, 4), (3, 5), (8, 2)].enumerated().map { index, scores in
+            try PainRecord(id: UUID(), patientId: patientID,
+                           recordedDate: date.addingTimeInterval(Double(index * 60)),
+                           location: [.init(bodyPart: .abdomen, bodySide: .unspecified, bodyView: .front)],
+                           painBefore: scores.0, painAfter: scores.1)
+        }
+        let symptom = SymptomRecord(id: UUID(), patientId: patientID, recordedDate: date,
+                                    conditionText: "속이 불편해요", symptoms: [])
+        let fullDay = try XCTUnwrap(PrevisitRecordedDays.make(pain: pains, symptoms: [symptom], patientID: patientID).first)
+        let record = try PrevisitRecord(patientId: patientID, selectedDate: date, memo: "메모", stateOfMind: .candid)
+        var requestedDate: Date?
+        let model = PrevisitLetterViewModel(patientID: patientID, load: { [record] }, loadDay: {
+            requestedDate = $0
+            return fullDay
+        })
+        await model.load(days: [day], doctorName: "선생님")
+        await model.loadDetail(record.id)
+        let detail = try XCTUnwrap(model.letter(record.id))
+        XCTAssertEqual(requestedDate, date)
+        XCTAssertEqual(detail.draft.day?.painRecordIDs, pains.map(\.id))
+        XCTAssertEqual(detail.draft.day?.symptomRecordIDs, [symptom.id])
+        XCTAssertEqual(detail.draft.day?.entries, fullDay.entries)
+        XCTAssertEqual(detail.draft.day?.entries.count, 5)
+        XCTAssertEqual(model.badges(detail), ["통증 3점→5점"])
+    }
+
     func testInvalidMemoIsNotSaved() async {
         var saves = 0
         let model = PrevisitLetterViewModel(patientID: patientID, save: { _ in saves += 1 })
