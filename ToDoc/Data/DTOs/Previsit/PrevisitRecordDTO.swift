@@ -33,7 +33,7 @@ struct PrevisitRecordDTO: Codable {
             throw MappingError.invalidStateOfMind(stateOfMind)
         }
         
-        return PrevisitRecord(
+        return try PrevisitRecord(
             id: id,
             patientId: patientId,
             selectedDate: selectedDate,
