@@ -7,6 +7,18 @@ import ToDocDomain
 enum PrevisitRecordedDays {
     enum Issue: Error { case patientMismatch }
 
+    /// 작성할 때 선택할 수 있는 날짜: 오늘과 이전 29일. 지난 기록 조회에는 적용하지 않습니다.
+    static func selectableDays(_ days: [PrevisitDay], now: Date = .now,
+                               calendar: Calendar = .current) -> [PrevisitDay] {
+        let today = calendar.startOfDay(for: now)
+        guard let start = calendar.date(byAdding: .day, value: -29, to: today),
+              let end = calendar.date(byAdding: .day, value: 1, to: today) else { return [] }
+        return days.filter { day in
+            guard let date = day.recordedDate else { return false }
+            return date >= start && date < end
+        }
+    }
+
     static func make(pain: [PainRecord], symptoms: [SymptomRecord], patientID: UUID,
                      calendar: Calendar = .current) throws -> [PrevisitDay] {
         guard pain.allSatisfy({ $0.patientId == patientID }),
