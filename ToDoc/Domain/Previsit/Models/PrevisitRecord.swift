@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if SWIFT_PACKAGE
+import ToDocCoreErrors
+#endif
 
 nonisolated public struct PrevisitRecord: Sendable {
     public let id: UUID
@@ -15,7 +18,7 @@ nonisolated public struct PrevisitRecord: Sendable {
     public var stateOfMind: StateOfMind
     public let submittedAt: Date
     
-    init(id: UUID, patientId: UUID, selectedDate: Date, memo: String?, stateOfMind: StateOfMind, submittedAt: Date) throws {
+    public init(id: UUID, patientId: UUID, selectedDate: Date, memo: String?, stateOfMind: StateOfMind, submittedAt: Date) throws {
         try Self.validateMemo(memo)
         
         self.id = id
@@ -26,7 +29,7 @@ nonisolated public struct PrevisitRecord: Sendable {
         self.submittedAt = submittedAt
     }
     
-    init(patientId: UUID, selectedDate: Date, memo: String?, stateOfMind: StateOfMind) throws {
+    public init(patientId: UUID, selectedDate: Date, memo: String?, stateOfMind: StateOfMind) throws {
         try Self.validateMemo(memo)
         
         try self.init(
