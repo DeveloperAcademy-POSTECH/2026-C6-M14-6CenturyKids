@@ -65,6 +65,20 @@ struct VagueAnswerTests {
         #expect(entry?.presence == .present && entry?.detail == "[검토 필요] 한 30분이요 / 부위: 잘 모르겠어요")
     }
 
+    @Test func 유무를_다시_물었어도_부위는_따로_한_번_다시_묻는다() async {
+        let call = InterviewEngine(config: config, rules: rules, analyzer: mock)
+        _ = call.start()
+        _ = await call.handle(patientText: "괜찮아요")
+        while call.phase != .slot(key: "neuropathy", step: .presence) { _ = await call.handle(patientText: "아니요") }
+        _ = await call.handle(patientText: "어떤 거 말씀이세요?")
+        #expect(call.phase == .slot(key: "neuropathy", step: .presence)) // 유무를 한 번 다시 묻는다
+        _ = await call.handle(patientText: "네")
+        _ = await call.handle(patientText: "한 30분이요") // 지속 시간
+        #expect(call.phase == .slot(key: "neuropathy", step: .location))
+        let reasked = await call.handle(patientText: "어디 말씀이세요?")
+        #expect(reasked.phase == .slot(key: "neuropathy", step: .location)) // 다시 묻기는 질문마다 한 번
+    }
+
     @Test(arguments: ["그냥 그래요", "글쎄요", "잘 모르겠어요"])
     func 그_밖에_질문에_애매하거나_모르겠다는_답은_모름으로_원문을_남기고_마무리한다(answer: String) async {
         let call = await atFirstSymptom()
@@ -85,16 +99,15 @@ struct VagueAnswerTests {
         #expect(NumberParser.hasNumber(text) == has)
     }
 
-    @Test func 두_번_다시_물어도_분명하지_않으면_받은_답을_원문으로_남긴다() async {
+    @Test func 한_번_다시_물어도_분명하지_않으면_받은_답을_원문으로_남긴다() async {
         let call = await atFirstSymptom()
         _ = await call.handle(patientText: "어떤 거 말씀이세요?")
-        _ = await call.handle(patientText: "음 그게요")
-        #expect(call.phase == .slot(key: "nausea_vomiting", step: .presence)) // 두 번 다시 물음
-        let next = await call.handle(patientText: "그러니까요")
+        #expect(call.phase == .slot(key: "nausea_vomiting", step: .presence)) // 한 번 다시 물음
+        let next = await call.handle(patientText: "음 그게요")
         #expect(next.phase == .slot(key: "constipation", step: .presence)) // 닫고 다음 항목
         let entry = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.first
         #expect(entry?.presence == .unknown)
-        #expect(entry?.detail == "[검토 필요] 어떤 거 말씀이세요 / 음 그게요 / 그러니까요")
+        #expect(entry?.detail == "[검토 필요] 어떤 거 말씀이세요 / 음 그게요")
     }
 
     @Test func 다시_물은_뒤_분명히_답하면_앞의_답은_남기지_않는다() async {
@@ -105,14 +118,27 @@ struct VagueAnswerTests {
         #expect(entry?.presence == .absent && entry?.detail == nil)
     }
 
-    @Test func 다른_증상을_말한_답은_닫힌_항목의_원문으로_남기지_않는다() async {
-        mock.script["설사를 했어요"] = .mentions(Mention(effectId: "diarrhea", presence: .present))
+    @Test func 다른_증상만_말하면_한_번_다시_묻고_검토_필요로_남긴_뒤_넘어간다() async {
+        mock.script["설사해요"] = .mentions(Mention(effectId: "diarrhea", presence: .present))
         let call = await atFirstSymptom()
-        _ = await call.handle(patientText: "설사를 했어요") // 구토 질문에 설사 답 → 설사 기록, 구토는 다시 물음
-        _ = await call.handle(patientText: "음 그게요")
-        _ = await call.handle(patientText: "그러니까요")
+        let again = await call.handle(patientText: "설사해요") // 구토 질문에 설사 답 → 설사 기록, 구토는 한 번 다시 물음
+        #expect(again.phase == .slot(key: "nausea_vomiting", step: .presence))
+        #expect(again.utterance.hasPrefix(config.repeatPrefix))
+        let next = await call.handle(patientText: "설사해요")
+        #expect(next.phase != .slot(key: "nausea_vomiting", step: .presence)) // 더 묻지 않는다
         let nausea = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.first { $0.symptomType == .nauseaVomiting }
-        #expect(nausea?.detail?.contains("설사") == false)
+        #expect(nausea?.presence == .unknown)
+        #expect(nausea?.detail == "[검토 필요] 설사해요")
         #expect(call.ledger["diarrhea"]?.presence == .present)
+    }
+
+    @Test func 다시_물은_답이_또_다른_증상이어도_둘_다_검토_필요로_남긴다() async {
+        mock.script["설사해요"] = .mentions(Mention(effectId: "diarrhea", presence: .present))
+        mock.script["입안이 헐었어요"] = .mentions(Mention(effectId: "stomatitis", presence: .present))
+        let call = await atFirstSymptom()
+        _ = await call.handle(patientText: "설사해요")
+        _ = await call.handle(patientText: "입안이 헐었어요")
+        let nausea = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.first { $0.symptomType == .nauseaVomiting }
+        #expect(nausea?.detail == "[검토 필요] 설사해요 / 입안이 헐었어요")
     }
 }

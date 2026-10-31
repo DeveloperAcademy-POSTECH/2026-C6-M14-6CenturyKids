@@ -24,12 +24,13 @@ struct Ledger: Sendable {
         var needsReview = false
         /// 같은 항목에서 이미 물은 단계. 다시 물으면 꼬리질문으로 센다.
         var askedSteps: Set<CareCallStep> = []
-        var followUps = 0
+        /// 단계마다 다시 물은 횟수. 유무를 다시 물었어도 부위는 따로 한 번 다시 묻는다
+        var followUps: [CareCallStep: Int] = [:]
         /// 꼬리질문 한도 초과로 더 묻지 않음
         var closed = false
         /// 환자가 "모르겠어요"라고 답한 단계. 다시 묻지 않고 '모름'으로 기록한다
         var unknownSteps: Set<CareCallStep> = []
-        /// 모르겠다·애매하다고 한 답, 두 번 다시 물어도 분명하지 않았던 답의 원문. 부위 질문의 답은 "부위: …"
+        /// 모르겠다·애매하다고 한 답, 다시 물어도 분명하지 않았던 답의 원문. 부위 질문의 답은 "부위: …"
         var unsureAnswers: [String] = []
         /// 유무 질문에 한 답의 원문 (짧은 네·아니요와 그냥 없다는 답은 빼고). 저장할 때 내용 앞에 둔다
         var answers: [String] = []
@@ -41,7 +42,8 @@ struct Ledger: Sendable {
         let text: String
     }
 
-    static let maxFollowUps = 2
+    /// 같은 질문을 다시 묻는 건 한 번만. 다시 물어도 분명하지 않으면 그 항목을 닫고 받은 답을 검토 필요로 남긴다 (2026-10-29 사용자 결정)
+    static let maxFollowUps = 1
 
     private(set) var entries: [String: Entry] = [:]
     /// 첫 질문(오늘 컨디션) 답 원문
@@ -112,7 +114,7 @@ struct Ledger: Sendable {
         entries[key] = entry
     }
 
-    /// 두 번 다시 물어도 분명하지 않아 닫은 항목: 그동안 받은 답을 원문으로 남긴다
+    /// 다시 물어도 분명하지 않아 닫은 항목: 그동안 받은 답을 원문으로 남긴다
     mutating func addUnsure(_ answers: [String], step: CareCallStep, for key: String) {
         entries[key]?.unsureAnswers += answers.map { step == .location ? "부위: " + $0 : $0 }
     }
@@ -161,13 +163,13 @@ struct Ledger: Sendable {
         if entries[key] == nil { order.append(key) }
         // 꼬리질문이 둘인 항목(구토 횟수·메스꺼움 시작)은 다음 질문이라 되묻기로 세지 않는다
         if entry.askedSteps.contains(step), step != .detail {
-            if entry.followUps >= Self.maxFollowUps {
+            if entry.followUps[step, default: 0] >= Self.maxFollowUps {
                 entry.needsReview = true
                 entry.closed = true
                 entries[key] = entry
                 return false
             }
-            entry.followUps += 1
+            entry.followUps[step, default: 0] += 1
         }
         entry.askedSteps.insert(step)
         entries[key] = entry

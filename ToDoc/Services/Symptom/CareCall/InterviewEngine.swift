@@ -433,10 +433,10 @@ final class InterviewEngine {
         return (nil, nil)
     }
 
-    /// 유무·부위 질문의 답이 분명하지 않으면(다시 묻게 됨) 답을 모아 둔다. 이 답으로 다른 증상이 기록됐으면 그 증상의 말이라 모으지 않는다
+    /// 유무·부위 질문의 답이 분명하지 않으면(다시 묻게 됨) 답을 모아 둔다. 다시 물어도 분명하지 않아 닫으면 이 답들을 검토 필요로 남긴다.
+    /// 다른 증상으로 기록된 답("구토 있으셨나요?" → "설사해요")도 이 질문에 한 답이라 모은다 (2026-10-29 사용자 결정)
     private func collectUnsettled(during current: InterviewPhase, patientText: String, since before: Ledger) {
         guard case .slot(let key, let step) = current, step != .detail,
-              ledger.order.allSatisfy({ $0 == key || (ledger[$0]?.presence == before[$0]?.presence && ledger[$0]?.locations == before[$0]?.locations) }),
               let entry = ledger[key], !entry.unknownSteps.contains(step),
               step == .presence ? (entry.presence == nil || entry.presence == .unclear) : entry.locations.isEmpty else { return }
         let said = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
@@ -615,7 +615,7 @@ final class InterviewEngine {
             switch SlotPlanner.next(ledger: ledger, config: config, otherAsked: otherAsked, only: unasked.map { $0.union(ledger.order) }) {
             case .slot(let key, let step):
                 guard ledger.markAsked(key, step: step) else {
-                    // 두 번 다시 물어도 분명하지 않아 닫음 → 그동안 받은 답을 원문으로 남기고 다음 항목
+                    // 한 번 다시 물어도 분명하지 않아 닫음 → 그동안 받은 답을 원문으로 남기고 다음 항목
                     ledger.addUnsure(unsettledAnswers.removeValue(forKey: "\(key)|\(step)") ?? [], step: step, for: key)
                     continue
                 }
