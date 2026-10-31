@@ -55,6 +55,19 @@ final class PrevisitCoreTests: XCTestCase {
         XCTAssertEqual([result.painBefore, result.painAfter], [5, 4])
     }
 
+    func testSelectableDaysIncludesTodayAndPrevious29DaysOnly() throws {
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 31, hour: 18)))
+        let today = calendar.startOfDay(for: now)
+        func day(_ offset: Int) throws -> PrevisitDay {
+            let date = try XCTUnwrap(calendar.date(byAdding: .day, value: offset, to: today))
+            return PrevisitDay(id: String(offset), dateLabel: "", weekday: "", entries: ["기록"], recordedDate: date)
+        }
+        let days = try [-30, -29, -1, 0, 1].map(day)
+        let missingDate = PrevisitDay(id: "missing", dateLabel: "", weekday: "", entries: ["기록"])
+        let result = PrevisitRecordedDays.selectableDays(days + [missingDate], now: now, calendar: calendar)
+        XCTAssertEqual(result.map(\.id), ["-29", "-1", "0"])
+    }
+
     func testSavedDaysKeepDatesAndOriginalIDsAndRejectForeignPatients() throws {
         let today = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 24)))
         let yesterday = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: today))
