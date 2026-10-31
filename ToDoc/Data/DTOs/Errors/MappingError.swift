@@ -16,4 +16,6 @@ public enum MappingError: Error {
     case invalidBodySide(String)
     case invalidBodyView(String)
     case invalidSymptomPresence(String)
+    case invalidSelectedDate(String)
+    case invalidStateOfMind(String)
 }
