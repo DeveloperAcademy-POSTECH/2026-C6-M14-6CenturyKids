@@ -5,6 +5,6 @@
 //  Created by 앤디 on 10/31/26.
 //
 
-enum ValidationError: Error {
+nonisolated public enum ValidationError: Error, Equatable, Sendable {
     case stringTooLong
 }

@@ -10,7 +10,12 @@ struct PrevisitLetterListView: View {
         ScrollView {
             VStack(spacing: 16) {
                 PrevisitScreenHeader(overline: "지난 기록", title: "진료 전 기록", backLabel: "뒤로") { dismiss() }
-                if viewModel.letters.isEmpty {
+                if viewModel.isLoading { ProgressView("기록을 불러오고 있어요") }
+                if let error = viewModel.errorMessage {
+                    Text(error).appTypography(.bodySmall)
+                    Button("다시 불러오기") { Task { await viewModel.reload() } }
+                }
+                if !viewModel.isLoading && viewModel.errorMessage == nil && viewModel.letters.isEmpty {
                     emptyState
                 }
                 ForEach(viewModel.months) { month in
@@ -27,6 +32,7 @@ struct PrevisitLetterListView: View {
         }
         .background(AppColors.Semantic.Background.default.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
+        .task { await viewModel.reload() }
     }
 
     private var emptyState: some View {
@@ -66,18 +72,3 @@ struct PrevisitLetterListView: View {
         .contentShape(RoundedRectangle(cornerRadius: 30))
     }
 }
-
-#if DEBUG
-#Preview("지난 기록 목록") {
-    let viewModel = PrevisitLetterViewModel()
-    var day = PrevisitSectionPreview.days[1]
-    day.painBefore = 7; day.painAfter = 6; day.symptomCount = 2
-    viewModel.send(.init(day: day, letter: "머리가 지끈거림", mood: .candid), to: "학로쌤")
-    viewModel.send(.init(day: PrevisitSectionPreview.days[0], letter: "", mood: .slowly), to: "학로쌤")
-    return NavigationStack { PrevisitLetterListView(viewModel: viewModel) }
-}
-
-#Preview("지난 기록 없음") {
-    NavigationStack { PrevisitLetterListView(viewModel: PrevisitLetterViewModel()) }
-}
-#endif

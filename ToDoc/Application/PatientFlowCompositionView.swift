@@ -12,13 +12,18 @@ struct PatientFlowCompositionView: View {
     @State private var recordsViewModel: RecordsViewModel
     @State private var notificationViewModel: NotificationViewModel
     @Environment(AppRouter.self) private var router
-    @State private var previsitLetterViewModel = PrevisitLetterViewModel(calendar: RecordDetailViewModel.calendar)
+    @State private var previsitLetterViewModel: PrevisitLetterViewModel
     private let container: DependencyContainer
     private let patientId: UUID
 
     init(container: DependencyContainer, patientId: UUID, authSession: AuthSessionState) {
         self.container = container
         self.patientId = patientId
+        _previsitLetterViewModel = State(initialValue: PrevisitLetterViewModel(
+            patientID: patientId, calendar: RecordDetailViewModel.calendar,
+            load: { try await container.previsitRepository.findByPatientId(patientId) },
+            save: { try await container.previsitRepository.save(entity: $0) }
+        ))
         _homeViewModel = State(initialValue: HomeViewModel(
             patientID: patientId,
             repositories: .init(patients: container.patientRepository, doctors: container.doctorRepository,
@@ -52,12 +57,21 @@ struct PatientFlowCompositionView: View {
                 PrevisitFlowView(doctorName: homeViewModel.state.doctorName ?? "선생님",
                                  patientName: homeViewModel.state.patientName ?? "", session: session,
                                  letter: previsitLetterViewModel) {
-                    async let pain = container.painRepository.findByPatientId(patientId)
-                    async let symptoms = container.symptomRepository.findByPatientId(patientId)
+                    let now = Date.now
+                    let calendar = RecordDetailViewModel.calendar
+                    guard let range = PrevisitRecordedDays.selectionRange(now: now, calendar: calendar) else {
+                        throw DateConversionError.dayAddingError
+                    }
+                    // 통증 저장소는 종료일 포함, 증상 저장소는 종료일 미포함입니다.
+                    async let pain = container.painRepository.findByPatientIdAndDate(
+                        patientId: patientId, from: range.start, to: calendar.startOfDay(for: now))
+                    async let symptoms = container.symptomRepository.findByPatientIdAndDate(
+                        patientId: patientId, from: range.start, to: range.end)
                     let records = try await (pain, symptoms)
                     try Task.checkCancellation()
-                    return try PrevisitRecordedDays.make(pain: records.0, symptoms: records.1, patientID: patientId,
-                                                        calendar: RecordDetailViewModel.calendar)
+                    let days = try PrevisitRecordedDays.make(pain: records.0, symptoms: records.1, patientID: patientId,
+                                                            calendar: RecordDetailViewModel.calendar)
+                    return PrevisitRecordedDays.selectableDays(days, now: now, calendar: calendar)
                 }
             },
             previsitLetters: previsitLetterViewModel,
@@ -106,6 +120,21 @@ struct PatientFlowCompositionView: View {
             }
         )
         .task(id: patientId) { await startArrivalNotifications() }
+        .task(id: homeViewModel.state.doctorName) { await loadPrevisitLetters() }
+    }
+
+    private func loadPrevisitLetters() async {
+        // 선택한 날짜의 통증·증상을 기존 기록과 동일한 표현으로 복원합니다.
+        let days: [PrevisitDay]
+        do {
+            async let pain = container.painRepository.findByPatientId(patientId)
+            async let symptoms = container.symptomRepository.findByPatientId(patientId)
+            days = try await PrevisitRecordedDays.make(pain: pain, symptoms: symptoms, patientID: patientId,
+                                                      calendar: RecordDetailViewModel.calendar)
+        } catch {
+            days = []
+        }
+        await previsitLetterViewModel.load(days: days, doctorName: homeViewModel.state.doctorName ?? "선생님")
     }
 
     /// 온보딩·로그인을 마치고 환자 화면에 들어오면 위치 권한을 묻고, 허용한 만큼 병원 도착을 감시합니다.
