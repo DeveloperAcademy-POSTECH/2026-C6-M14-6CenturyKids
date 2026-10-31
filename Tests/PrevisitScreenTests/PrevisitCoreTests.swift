@@ -58,6 +58,9 @@ final class PrevisitCoreTests: XCTestCase {
     func testSelectableDaysIncludesTodayAndPrevious29DaysOnly() throws {
         let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 31, hour: 18)))
         let today = calendar.startOfDay(for: now)
+        let range = try XCTUnwrap(PrevisitRecordedDays.selectionRange(now: now, calendar: calendar))
+        XCTAssertEqual(range.start, calendar.date(byAdding: .day, value: -29, to: today))
+        XCTAssertEqual(range.end, calendar.date(byAdding: .day, value: 1, to: today))
         func day(_ offset: Int) throws -> PrevisitDay {
             let date = try XCTUnwrap(calendar.date(byAdding: .day, value: offset, to: today))
             return PrevisitDay(id: String(offset), dateLabel: "", weekday: "", entries: ["기록"], recordedDate: date)
