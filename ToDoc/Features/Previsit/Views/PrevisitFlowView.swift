@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 작성 → 전송 완료 팝업 → 보낸 기록 보기. 시작 안내 바텀시트는 홈(PatientFlowView)이 띄웁니다.
-/// 기존 기록 조회와 전송받을 ViewModel을 부모가 주입합니다. 서버 저장 계약은 아직 없어 letter가 메모리에 둡니다.
+/// 기존 기록 조회와 전송받을 ViewModel을 부모가 주입합니다. 저장소 전송에 성공한 뒤 완료 화면을 보여 줍니다.
 struct PrevisitFlowView: View {
     var doctorName = "선생님"
     var patientName = ""
@@ -34,10 +34,13 @@ struct PrevisitFlowView: View {
                                    onStart: { showsLetter = true }, onClose: { dismiss() })
             } else {
                 PrevisitRecordView(doctorName: doctorName, patientName: patientName, onClose: close, onSubmit: letter.map { letter in { draft in
-                                       letter.send(draft, to: doctorName)
-                                       session.discard()
-                                       sentID = letter.latest?.id
-                                   } }, session: session, records: records, onReload: { reloadID += 1 })
+                                       Task {
+                                           guard let id = await letter.send(draft, to: doctorName) else { return }
+                                           session.discard()
+                                           sentID = id
+                                       }
+                                   } }, session: session, records: records, onReload: { reloadID += 1 },
+                          isSubmitting: letter?.isSubmitting ?? false, submissionError: letter?.errorMessage)
                     .task(id: reloadID) { await loadRecords() }
             }
         }
