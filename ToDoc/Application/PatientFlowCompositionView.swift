@@ -61,8 +61,9 @@ struct PatientFlowCompositionView: View {
                     async let symptoms = container.symptomRepository.findByPatientId(patientId)
                     let records = try await (pain, symptoms)
                     try Task.checkCancellation()
-                    return try PrevisitRecordedDays.make(pain: records.0, symptoms: records.1, patientID: patientId,
-                                                        calendar: RecordDetailViewModel.calendar)
+                    let days = try PrevisitRecordedDays.make(pain: records.0, symptoms: records.1, patientID: patientId,
+                                                            calendar: RecordDetailViewModel.calendar)
+                    return PrevisitRecordedDays.selectableDays(days, calendar: RecordDetailViewModel.calendar)
                 }
             },
             previsitLetters: previsitLetterViewModel,
