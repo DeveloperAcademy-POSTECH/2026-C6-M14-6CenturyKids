@@ -90,7 +90,7 @@ struct PrevisitRecordView: View {
         case .loading, .failed: recordNotice
         case .loaded(let days):
             if days.isEmpty {
-                Text("아직 저장한 기록이 없어요. 통증이나 증상을 기록한 뒤 다시 열어 주세요.")
+                Text("최근 30일 이내에 저장한 기록이 없어요. 통증이나 증상을 기록한 뒤 다시 열어 주세요.")
                     .appTextStyle(.caption).foregroundStyle(.secondary)
                     .accessibilityIdentifier("previsit.empty")
             }
