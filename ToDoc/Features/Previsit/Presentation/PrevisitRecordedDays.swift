@@ -7,15 +7,21 @@ import ToDocDomain
 enum PrevisitRecordedDays {
     enum Issue: Error { case patientMismatch }
 
-    /// 작성할 때 선택할 수 있는 날짜: 오늘과 이전 29일. 지난 기록 조회에는 적용하지 않습니다.
-    static func selectableDays(_ days: [PrevisitDay], now: Date = .now,
-                               calendar: Calendar = .current) -> [PrevisitDay] {
+    /// 오늘과 이전 29일의 범위. 끝은 내일 0시이며 포함하지 않습니다.
+    static func selectionRange(now: Date = .now, calendar: Calendar = .current) -> DateInterval? {
         let today = calendar.startOfDay(for: now)
         guard let start = calendar.date(byAdding: .day, value: -29, to: today),
-              let end = calendar.date(byAdding: .day, value: 1, to: today) else { return [] }
+              let end = calendar.date(byAdding: .day, value: 1, to: today) else { return nil }
+        return DateInterval(start: start, end: end)
+    }
+
+    /// 작성할 때 선택할 수 있는 날짜. 지난 기록 조회에는 적용하지 않습니다.
+    static func selectableDays(_ days: [PrevisitDay], now: Date = .now,
+                               calendar: Calendar = .current) -> [PrevisitDay] {
+        guard let range = selectionRange(now: now, calendar: calendar) else { return [] }
         return days.filter { day in
             guard let date = day.recordedDate else { return false }
-            return date >= start && date < end
+            return date >= range.start && date < range.end
         }
     }
 
