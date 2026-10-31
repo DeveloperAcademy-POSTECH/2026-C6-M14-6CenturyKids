@@ -15,20 +15,44 @@ final class PrevisitCoreTests: XCTestCase {
                        painBefore: before, painAfter: after)
     }
 
-    func testBadgePainPrefersLastCompleteRecordThenLastBeforeScore() throws {
+    func testBadgePainPrefersSmallestReductionThenHighestBeforeScore() throws {
         let day = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 27)))
-        let morning = try pain(on: day.addingTimeInterval(9 * 3600), patientID: patientID, before: 7, after: 3)
+        let morning = try pain(on: day.addingTimeInterval(9 * 3600), patientID: patientID, before: 7, after: 6)
         let noon = try pain(on: day.addingTimeInterval(12 * 3600), patientID: patientID, before: 5, after: 4)
         let waiting = try pain(on: day.addingTimeInterval(14 * 3600), patientID: patientID, before: 8, after: nil)
 
         let mixed = try XCTUnwrap(PrevisitRecordedDays.make(pain: [waiting, morning, noon], symptoms: [],
                                                             patientID: patientID, calendar: calendar).first)
-        XCTAssertEqual([mixed.painBefore, mixed.painAfter], [5, 4], "완성된 기록 중 마지막")
+        XCTAssertEqual([mixed.painBefore, mixed.painAfter], [7, 6], "감소 폭이 같으면 복용 후 통증이 높은 기록")
 
-        let onlyWaiting = try XCTUnwrap(PrevisitRecordedDays.make(pain: [waiting], symptoms: [],
+        let onlyWaiting = try XCTUnwrap(PrevisitRecordedDays.make(pain: [waiting, pain(on: day.addingTimeInterval(15 * 3600), patientID: patientID, before: 3, after: nil)], symptoms: [],
                                                                   patientID: patientID, calendar: calendar).first)
         XCTAssertEqual(onlyWaiting.painBefore, 8)
         XCTAssertNil(onlyWaiting.painAfter)
+    }
+
+    func testBadgePrefersHighestPainAfterIncreaseOverLargestIncrease() throws {
+        let date = calendar.startOfDay(for: Date())
+        let records = try [
+            pain(on: date, patientID: patientID, before: 1, after: 7),
+            pain(on: date.addingTimeInterval(60), patientID: patientID, before: 8, after: 9),
+            pain(on: date.addingTimeInterval(120), patientID: patientID, before: 10, after: 10),
+            pain(on: date.addingTimeInterval(180), patientID: patientID, before: 10, after: nil)
+        ]
+        let result = try XCTUnwrap(PrevisitRecordedDays.make(pain: records, symptoms: [],
+            patientID: patientID, calendar: calendar).first)
+        XCTAssertEqual([result.painBefore, result.painAfter], [8, 9])
+    }
+
+    func testBadgePrefersSmallestReductionOverLatestRecord() throws {
+        let date = calendar.startOfDay(for: Date())
+        let records = try [
+            pain(on: date, patientID: patientID, before: 5, after: 4),
+            pain(on: date.addingTimeInterval(60), patientID: patientID, before: 9, after: 6)
+        ]
+        let result = try XCTUnwrap(PrevisitRecordedDays.make(pain: records, symptoms: [],
+            patientID: patientID, calendar: calendar).first)
+        XCTAssertEqual([result.painBefore, result.painAfter], [5, 4])
     }
 
     func testSavedDaysKeepDatesAndOriginalIDsAndRejectForeignPatients() throws {
