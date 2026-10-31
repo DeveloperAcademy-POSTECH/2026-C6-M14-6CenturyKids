@@ -22,7 +22,19 @@ struct PatientFlowCompositionView: View {
         _previsitLetterViewModel = State(initialValue: PrevisitLetterViewModel(
             patientID: patientId, calendar: RecordDetailViewModel.calendar,
             load: { try await container.previsitRepository.findByPatientId(patientId) },
-            save: { try await container.previsitRepository.save(entity: $0) }
+            save: { try await container.previsitRepository.save(entity: $0) },
+            loadDay: { date in
+                let calendar = RecordDetailViewModel.calendar
+                guard let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: date)) else {
+                    throw DateConversionError.dayAddingError
+                }
+                async let pain = container.painRepository.findByPatientIdAndDate(
+                    patientId: patientId, from: date, to: date)
+                async let symptoms = container.symptomRepository.findByPatientIdAndDate(
+                    patientId: patientId, from: date, to: end)
+                return try await PrevisitRecordedDays.make(pain: pain, symptoms: symptoms,
+                                                           patientID: patientId, calendar: calendar).first
+            }
         ))
         _homeViewModel = State(initialValue: HomeViewModel(
             patientID: patientId,
