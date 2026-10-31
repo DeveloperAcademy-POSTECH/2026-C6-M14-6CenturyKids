@@ -15,6 +15,7 @@ final class DependencyContainer {
     let doctorRepository: any DoctorRepository
     let patientRepository: any PatientRepository
     let symptomRepository: any SymptomRepository
+    let previsitRepository: any PrevisitRepository
     let painRepository: any PainRepository
     let deviceTokenRepository: any DeviceTokenRepository
     /// 앱 알림 목록은 서버 없이 폰에만 남긴다
@@ -37,6 +38,7 @@ final class DependencyContainer {
         doctorRepository = SupabaseDoctorRepository(client: client)
         patientRepository = SupabasePatientRepository(client: client)
         symptomRepository = SupabaseSymptomRepository(client: client)
+        previsitRepository = SupabasePrevisitRepository(client: client)
         painRepository = SupabasePainRepository(client: client)
         deviceTokenRepository = SupabaseDeviceTokenRepository(client: client)
         notificationRepository = FileNotificationRepository()
