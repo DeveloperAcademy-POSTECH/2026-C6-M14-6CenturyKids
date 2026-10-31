@@ -17,7 +17,12 @@ struct PrevisitLetterView: View {
                     if let onClose { onClose() } else { dismiss() }
                 }
                 if let letter {
-                    if let day = letter.draft.day {
+                    if viewModel.loadingDetails.contains(id) {
+                        ProgressView("해당 날짜의 기록을 불러오고 있어요")
+                    } else if let error = viewModel.detailErrors[id] {
+                        Text(error).appTypography(.bodySmall)
+                        Button("다시 불러오기") { Task { await viewModel.loadDetail(id) } }
+                    } else if let day = letter.draft.day {
                         AppCards.DayRecordCard(day: viewModel.recordDayTitle(day), weekday: day.weekday,
                                                records: day.entries, emptyText: "기록 없음") {}
                             .previsitReadOnly()
@@ -38,5 +43,6 @@ struct PrevisitLetterView: View {
         }
         .background(AppColors.Semantic.Background.default.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
+        .task(id: id) { await viewModel.loadDetail(id) }
     }
 }

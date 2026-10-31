@@ -16,10 +16,14 @@ import Observation
 @Observable
 final class PrevisitLetterViewModel {
     typealias Load = () async throws -> [PrevisitRecord]
+    typealias LoadDay = (Date) async throws -> PrevisitDay?
     typealias Save = (PrevisitRecord) async throws -> Void
     private let patientID: UUID?
     private let loadRecords: Load?
     private let saveRecord: Save?
+    private let loadDay: LoadDay?
+    private(set) var loadingDetails: Set<UUID> = []
+    private(set) var detailErrors: [UUID: String] = [:]
     private(set) var isLoading = false
     private(set) var isSubmitting = false
     private(set) var errorMessage: String?
@@ -37,11 +41,12 @@ final class PrevisitLetterViewModel {
     private let calendar: Calendar
 
     init(patientID: UUID? = nil, calendar: Calendar = .current,
-         load: Load? = nil, save: Save? = nil) {
+         load: Load? = nil, save: Save? = nil, loadDay: LoadDay? = nil) {
         self.patientID = patientID
         self.calendar = calendar
         self.loadRecords = load
         self.saveRecord = save
+        self.loadDay = loadDay
     }
 
     func load(days: [PrevisitDay], doctorName: String) async {
@@ -57,6 +62,28 @@ final class PrevisitLetterViewModel {
             letters = records.sorted { $0.submittedAt > $1.submittedAt }.map(display)
         } catch {
             if !Task.isCancelled { errorMessage = "진료 전 기록을 불러오지 못했어요. 다시 시도해 주세요." }
+        }
+    }
+
+    /// 상세에서는 대표 배지와 별개로 선택한 날짜의 전체 기록을 다시 조회합니다.
+    func loadDetail(_ id: UUID) async {
+        guard let loadDay, let letter = letter(id), let date = letter.draft.day?.recordedDate,
+              !loadingDetails.contains(id) else { return }
+        loadingDetails.insert(id)
+        detailErrors[id] = nil
+        defer { loadingDetails.remove(id) }
+        do {
+            let day = try await loadDay(date)
+            try Task.checkCancellation()
+            guard let index = letters.firstIndex(where: { $0.id == id }) else { return }
+            var draft = letter.draft
+            // 조회 결과가 비어도 이전 기록을 남기지 않습니다.
+            draft.day = day ?? PrevisitDay(id: date.description, dateLabel: letter.draft.day?.dateLabel ?? "",
+                                          weekday: letter.draft.day?.weekday ?? "", entries: [], recordedDate: date)
+            letters[index] = PrevisitLetter(id: letter.id, sentAt: letter.sentAt,
+                                           doctorName: letter.doctorName, draft: draft)
+        } catch {
+            if !Task.isCancelled { detailErrors[id] = "해당 날짜의 기록을 불러오지 못했어요. 다시 시도해 주세요." }
         }
     }
 
