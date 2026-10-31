@@ -57,13 +57,21 @@ struct PatientFlowCompositionView: View {
                 PrevisitFlowView(doctorName: homeViewModel.state.doctorName ?? "선생님",
                                  patientName: homeViewModel.state.patientName ?? "", session: session,
                                  letter: previsitLetterViewModel) {
-                    async let pain = container.painRepository.findByPatientId(patientId)
-                    async let symptoms = container.symptomRepository.findByPatientId(patientId)
+                    let now = Date.now
+                    let calendar = RecordDetailViewModel.calendar
+                    guard let range = PrevisitRecordedDays.selectionRange(now: now, calendar: calendar) else {
+                        throw DateConversionError.dayAddingError
+                    }
+                    // 통증 저장소는 종료일 포함, 증상 저장소는 종료일 미포함입니다.
+                    async let pain = container.painRepository.findByPatientIdAndDate(
+                        patientId: patientId, from: range.start, to: calendar.startOfDay(for: now))
+                    async let symptoms = container.symptomRepository.findByPatientIdAndDate(
+                        patientId: patientId, from: range.start, to: range.end)
                     let records = try await (pain, symptoms)
                     try Task.checkCancellation()
                     let days = try PrevisitRecordedDays.make(pain: records.0, symptoms: records.1, patientID: patientId,
                                                             calendar: RecordDetailViewModel.calendar)
-                    return PrevisitRecordedDays.selectableDays(days, calendar: RecordDetailViewModel.calendar)
+                    return PrevisitRecordedDays.selectableDays(days, now: now, calendar: calendar)
                 }
             },
             previsitLetters: previsitLetterViewModel,
