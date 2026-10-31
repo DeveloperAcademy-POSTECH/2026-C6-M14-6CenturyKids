@@ -27,7 +27,8 @@ struct FollowUpCallTests {
         #expect(call.lastQuestion == config.followUpCall.question)
     }
 
-    @Test(arguments: ["똑같아요", "그대로예요", "아니요 없어요", "괜찮아요", "비슷해요", "아까랑 같아요", "전이랑 같아요", "여전해요"])
+    @Test(arguments: ["똑같아요", "그대로예요", "아니요 없어요", "괜찮아요", "비슷해요", "아까랑 같아요", "전이랑 같아요", "여전해요",
+                      "없는데", "없는데요", "괜찮은데요", "멀쩡해요", "아무렇지 않은데요"]) // 끝의 "~데(요)"는 뒤에 이어지는 말이 없다 (2026-10-29 팀 테스트)
     func 달라진_게_없으면_그대로_둔다고_하고_바로_마친다(answer: String) async {
         let call = engine()
         _ = call.start()

@@ -391,9 +391,12 @@ final class InterviewEngine {
                               since before: Ledger) -> (ask: String?, recordedPrefix: String?) {
         switch current {
         case .slot(let key, let step) where step != .detail
-            && (reading.isUnknownAnswer(patientText) || (step == .presence && reading.isVagueAnswer(patientText))
+            && (reading.isUnknownAnswer(patientText)
+                || (step == .presence && (reading.isVagueAnswer(patientText) || reading.deniesOnePartButComplains(patientText, for: key)))
                 || (step == .location && reading.isNoLocation(patientText))):
             ledger.markUnknown(key, step: step, quote: patientText) // '모름' + 원문
+            // 바로 다음 질문을 하면 말을 끊은 것 같다 (2026-10-29 팀 테스트)
+            return (nil, config.unsureNoted)
         case .other where otherDetailKey == nil && reading.soundsUnsure(patientText) && ledger.sameRecords(as: before):
             // '그 밖에'에 "모르겠어요"·"그냥 그래요": 기타 '모름' + 원문으로 남기고 마무리 (증상 '있음'으로는 남기지 않는다)
             recordUnclearOther(patientText, name: config.otherUnclearName)
@@ -401,7 +404,9 @@ final class InterviewEngine {
         case .slot(let key, .detail):
             // 이 답 전에 물은 꼬리질문 (꼬리질문 답은 모델 없이 처리해 그사이 기록이 바뀌지 않는다)
             if let detail = pendingDetail(for: key) {
-                let answer = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+                // "네"·"네네"만 한 답은 꼬리질문의 답이 아니다: 빈 답으로 두어 저장 내용에 "네네"가 남지 않게 한다 (2026-10-29 팀 테스트, 음성)
+                let answer = reading.isShortYes(patientText) ? ""
+                    : patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
                 ledger.addDetail(answer, label: detail.label, for: key)
             }
         case .other:
@@ -450,16 +455,21 @@ final class InterviewEngine {
         // 원래 질문을 다시 쓰거나, 환자 말에 물음표만 붙인 것이었다 (2026-10-21 Foundation Models 평가: 되묻기 7번 모두)
         let followUp = quick?.utterance.isEmpty == false ? quick?.utterance : nil
         let recordedThisTurn = !ledger.sameRecords(as: before) // advance()가 '물음' 표시를 남기기 전에 본다
+        let closedBefore = Set(ledger.order.filter { ledger[$0]?.closed == true })
         var utterance = await advance(from: current, followUp: followUp)
+        let closedNow = ledger.order.contains { ledger[$0]?.closed == true && !closedBefore.contains($0) }
         if current == .opening, let unasked {
             // 다시 거는 통화: 말한 증상·못 물은 항목을 묻는다고 알리거나, 달라진 게 없으면 그대로 둔다고 말하고 마무리
             let f = config.followUpCall
             // 기타 증상만 말했으면 곧바로 '그 밖에'로 가므로 "말씀하신 증상에 대해 조금 더 여쭤볼게요"는 붙이지 않는다
             let toldListedSymptom = ledger.order.contains { knownIds.contains($0) && ledger[$0]?.presence == .present }
+            // 목록 밖 증상만 말하고 바로 '그 밖에'를 물으면 말을 듣지 않은 것 같다 (2026-10-29 팀 테스트: "배가 며칠 전부터 아팠던 거 같아요")
+            let toldOther = ledger.order.contains { $0.hasPrefix("other:") && ledger[$0]?.presence == .present && before[$0] == nil }
             let transition: String? = switch (toldListedSymptom, unasked.isEmpty) {
             case (true, true): f.noted
             case (true, false): f.notedAndResume
             case (false, false): f.resume
+            case (false, true) where toldOther: f.notedOther
             case (false, true): reading.isUnchanged(patientText) && !reading.isUnclearChange(patientText) ? f.unchanged : nil
             }
             utterance = [transition, utterance].compactMap(\.self).joined(separator: " ")
@@ -469,7 +479,7 @@ final class InterviewEngine {
             let transition = openingFirstAnswer != nil ? t.afterFollowUp : recordedThisTurn ? t.noted : t.fine
             utterance = transition + " " + utterance
         }
-        if let prefix = recordedPrefix {
+        if let prefix = recordedPrefix ?? (closedNow ? config.unsureNoted : nil) {
             utterance = prefix + " " + utterance
         }
         return utterance
@@ -569,7 +579,10 @@ final class InterviewEngine {
         for detail in effect.details where !entry.details.contains(where: { $0.label == detail.label }) {
             let gate = KeywordMatcher(keywords: detail.keywords ?? effect.keywords, prefixNegation: true)
             let clauses = KeywordMatcher.clauses(patientText)
-            guard let clause = clauses.first(where: { gate.matches($0) != nil }),
+            // 낱말이 따로 없는 꼬리질문(설사 횟수)은 "네"로 시작한 한 절 답이면 그 절을 본다 ("네 어제 두 번인가 했어요", 2026-10-29 팀 테스트)
+            let saidYes = patientText.split(separator: " ").first.map { reading.isShortYes(String($0)) } ?? false
+            guard let clause = clauses.first(where: { gate.matches($0) != nil })
+                    ?? (detail.keywords == nil && clauses.count == 1 && saidYes ? clauses.first : nil),
                   clauses.filter({ $0 != clause }).allSatisfy({ NumberParser.count(in: $0) == nil && NumberParser.minutes(in: $0) == nil })
             else { continue }
             // 저장할 때는 문장 전체에서 다시 읽는다. 그 절과 같은 값이 읽힐 때만 채운다
@@ -926,6 +939,7 @@ final class InterviewEngine {
             || (Self.nowWords.contains(where: compact.contains) && lastNormal) {
             return (.absent, nil)
         }
+        if reading.deniesOnePartAffirmsOther(patientText, for: key) { return (.present, nil) }
         if parts.count > 1, lastNormal, let clause = parts.dropLast().first(where: {
             effect.affirmed(in: $0, minLength: 2) && !reading.soundsNegative($0) && !$0.contains("않") && $0.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil
         }) {
