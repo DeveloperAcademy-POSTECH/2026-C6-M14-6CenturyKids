@@ -65,7 +65,9 @@ struct NotificationSettingsView: View {
                 }
 
                 Button("저장") {
-                    viewModel.saveTime()
+                    Task {
+                        await viewModel.saveTime()
+                    }
                 }
                 .disabled(!viewModel.canSave)
                 .accessibilityIdentifier("settings.notification.save")
