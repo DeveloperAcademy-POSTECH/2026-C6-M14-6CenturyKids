@@ -129,4 +129,7 @@ iOSInjectionProject/
 *.mobileprovision
 *.provisionprofile
 
+### 키 값 ###
+Configuration/Secrets.xcconfig
+
 # End of https://www.toptal.com/developers/gitignore/api/swift,macos,xcode

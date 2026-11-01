@@ -40,6 +40,7 @@
 
 /* Begin PBXFileReference section */
 		A13BCAFA3077425800901BFD /* ToDoc.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ToDoc.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A15E98A8309796880067C458 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		A1E7CD9D3088AA9D007C0049 /* ToDocWidgetExtensionExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ToDocWidgetExtensionExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1E7CD9F3088AA9D007C0049 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		A1E7CDA13088AA9D007C0049 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -86,6 +87,11 @@
 			path = ToDoc;
 			sourceTree = "<group>";
 		};
+		A15E98A2309795B10067C458 /* Configuration */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Configuration;
+			sourceTree = "<group>";
+		};
 		A1E7CDA33088AA9D007C0049 /* ToDocWidgetExtension */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -120,9 +126,11 @@
 		A13BCAF13077425800901BFD = {
 			isa = PBXGroup;
 			children = (
+				A15E98A2309795B10067C458 /* Configuration */,
 				A13BCAFC3077425800901BFD /* ToDoc */,
 				A1E7CDA33088AA9D007C0049 /* ToDocWidgetExtension */,
 				A1E7CD9E3088AA9D007C0049 /* Frameworks */,
+				A15E98A8309796880067C458 /* .gitignore */,
 				A13BCAFB3077425800901BFD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -164,6 +172,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				A13BCAFC3077425800901BFD /* ToDoc */,
+				A15E98A2309795B10067C458 /* Configuration */,
 			);
 			name = ToDoc;
 			packageProductDependencies = (
@@ -273,6 +282,8 @@
 /* Begin XCBuildConfiguration section */
 		A13BCB033077425900901BFD /* Debug configuration for PBXProject "ToDoc" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = A15E98A2309795B10067C458 /* Configuration */;
+			baseConfigurationReferenceRelativePath = Secrets.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -337,6 +348,8 @@
 		};
 		A13BCB043077425900901BFD /* Release configuration for PBXProject "ToDoc" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = A15E98A2309795B10067C458 /* Configuration */;
+			baseConfigurationReferenceRelativePath = Secrets.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
