@@ -6,6 +6,7 @@ import Observation
 final class NotificationSettingsViewModel {
     @ObservationIgnored private let userId: UUID
     @ObservationIgnored private let notificationSettingsRepository: any NotificationSettingsRepository
+    @ObservationIgnored private var loadedSettings: NotificationSettingsDTO?
     static let allowedMinutes = (20 * 60)..<(24 * 60)
 
     private(set) var savedTime = DateComponents(hour: 20, minute: 0)
@@ -34,7 +35,7 @@ final class NotificationSettingsViewModel {
         self.notificationSettingsRepository = notificationSettingsRepository
     }
 
-    func loadTime() {
+    func loadTime() async {
         guard !isLoading, !isSaving else { return }
 
         isLoading = true
@@ -43,39 +44,42 @@ final class NotificationSettingsViewModel {
         errorMessage = nil
         defer { isLoading = false }
 
-        let defaultTime = DateComponents(hour: 20, minute: 0)
+        do {
+            let settings = try await notificationSettingsRepository.fetch(
+                userId: userId
+            )
+            try Task.checkCancellation()
 
-        guard let stored = defaults.object(forKey: Self.timeKey) else {
-            savedTime = defaultTime
-            selectedTime = defaultTime
-            hasStoredTime = false
+            loadedSettings = settings
+
+            let defaultTime = DateComponents(hour: 20, minute: 0)
+
+            guard let settings else {
+                savedTime = defaultTime
+                selectedTime = defaultTime
+                hasStoredTime = false
+                hasLoaded = true
+                return
+            }
+
+            guard let time = parseTime(settings.notificationTime) else {
+                savedTime = defaultTime
+                selectedTime = defaultTime
+                hasStoredTime = false
+                hasLoaded = true
+                errorMessage = "저장된 알림 시간을 읽을 수 없어요. 다시 설정해 주세요."
+                return
+            }
+
+            savedTime = time
+            selectedTime = time
+            hasStoredTime = true
             hasLoaded = true
+        } catch is CancellationError {
             return
+        } catch {
+            errorMessage = "알림 시간을 불러오지 못했어요. 다시 시도해 주세요."
         }
-
-        guard let minutes = stored as? Int,
-              (0..<1440).contains(minutes) else {
-            savedTime = defaultTime
-            selectedTime = defaultTime
-            hasStoredTime = false
-            hasLoaded = true
-            errorMessage = "저장된 알림 시간을 읽을 수 없어요. 다시 설정해 주세요."
-            return
-        }
-
-        guard Self.allowedMinutes.contains(minutes) else {
-            savedTime = defaultTime
-            selectedTime = defaultTime
-            hasStoredTime = false
-            hasLoaded = true
-            return
-        }
-
-        let time = DateComponents(hour: minutes / 60, minute: minutes % 60)
-        savedTime = time
-        selectedTime = time
-        hasStoredTime = true
-        hasLoaded = true
     }
 
     func selectTime(_ time: DateComponents) {
