@@ -35,8 +35,8 @@ struct ScreenCatalogPreview: View {
     }
     @ViewBuilder private var destination: some View {
         switch screen {
-        case .onboarding: OnboardingView()
-        case .login: AuthFlowView()
+        case .onboarding: OnboardingView(model: AuthFlowViewModel(session: AuthSessionState()))
+        case .login: AuthFlowView(model: AuthFlowViewModel(session: AuthSessionState()))
         case .signup: SignupFormView(state: signup, onBack: {}, onLogin: {})
         case .reset: PasswordResetView()
         case .home: HomeView(state: homeState(), onSelect: { _ in })

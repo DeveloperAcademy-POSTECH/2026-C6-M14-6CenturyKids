@@ -52,6 +52,7 @@ final class TestAuthRepository: AuthRepository {
         if failSignOut { throw AuthFlowError("로그아웃 실패") }
         signedIn = false
     }
+    func getSignUpProvider() async throws -> String? { nil }
     func getCurrentUserEmail() async throws -> String? { currentEmail }
     func getCurrentUserId() async throws -> UUID {
         guard signedIn else { throw AuthFlowError("세션 없음") }; return currentUserResponseID ?? id

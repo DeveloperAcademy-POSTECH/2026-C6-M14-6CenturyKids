@@ -17,7 +17,7 @@ import struct Auth.ErrorCode
     private func flow(_ fixture: AuthFixture) -> AuthFlowViewModel {
         var configuration = SignupResetTests().configuration
         configuration.allowsSignupRequests = true
-        let flow = AuthFlowViewModel(repositories: fixture.repositories, configuration: configuration)
+        let flow = AuthFlowViewModel(repositories: fixture.repositories, configuration: configuration, session: AuthSessionState())
         flow.open(.signup)
         SignupResetTests().ready(flow.signup)
         flow.signup.state.step = .terms

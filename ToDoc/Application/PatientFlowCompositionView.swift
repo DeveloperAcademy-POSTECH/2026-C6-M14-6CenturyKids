@@ -16,7 +16,7 @@ struct PatientFlowCompositionView: View {
     private let container: DependencyContainer
     private let patientId: UUID
 
-    init(container: DependencyContainer, patientId: UUID, authSession: AuthSessionState) {
+    init(container: DependencyContainer, patientId: UUID) {
         self.container = container
         self.patientId = patientId
         _previsitLetterViewModel = State(initialValue: PrevisitLetterViewModel(
@@ -45,7 +45,7 @@ struct PatientFlowCompositionView: View {
             initialValue: container.makePainRecordViewModel()
         )
         _settingsViewModel = State(
-            initialValue: container.makeSettingsViewModel(patientId: patientId, authSession: authSession)
+            initialValue: container.makeSettingsViewModel(patientId: patientId)
         )
         _notificationSettingsViewModel = State(
             initialValue: container.makeNotificationSettingsViewModel()
@@ -121,8 +121,7 @@ struct PatientFlowCompositionView: View {
                     viewModel: settingsViewModel,
                     withdrawal: {
                         AccountWithdrawalView(
-                            authRepository: container.authRepository,
-                            onWithdrawalCompleted: { settingsViewModel.completeAccountWithdrawal() }
+                            viewModel: container.makeAccountWithdrawalViewModel()
                         )
                     },
                     notifications: {

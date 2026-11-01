@@ -2,8 +2,8 @@ import SwiftUI
 
 @MainActor struct OnboardingView: View {
     @State private var model: AuthFlowViewModel
-    init(model: AuthFlowViewModel? = nil) {
-        _model = State(initialValue: model ?? AuthFlowViewModel())
+    init(model: AuthFlowViewModel) {
+        _model = State(initialValue: model)
     }
     private var page: Int { model.onboarding.page }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -135,4 +135,4 @@ import SwiftUI
     }
 }
 
-#Preview { OnboardingView() }
+#Preview { OnboardingView(model: AuthFlowViewModel(session: AuthSessionState())) }

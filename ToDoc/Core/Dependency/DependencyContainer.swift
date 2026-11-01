@@ -7,7 +7,10 @@
 
 import Foundation
 
+@MainActor
 final class DependencyContainer {
+    /// 로그인·설정·탈퇴가 함께 사용하는 앱 수명의 인증 상태입니다.
+    let authSession: AuthSessionState
     let supabaseProvider: SupabaseClientProvider
     let authRepository: any AuthRepository
     let userRepository: any UserRepository
@@ -26,6 +29,7 @@ final class DependencyContainer {
     let hospitalArrivalService: HospitalArrivalService
     
     init(configuration: SupabaseConfiguration) {
+        authSession = AuthSessionState(loginPreference: AuthLoginPreference(defaults: .standard))
         let provider = SupabaseClientProvider(
             configuration: configuration
         )
@@ -62,7 +66,7 @@ final class DependencyContainer {
     }
 
     @MainActor
-    func makeSettingsViewModel(patientId: UUID, authSession: AuthSessionState) -> SettingsViewModel {
+    func makeSettingsViewModel(patientId: UUID) -> SettingsViewModel {
         SettingsViewModel(
             patientId: patientId,
             authRepository: authRepository,
@@ -109,7 +113,7 @@ final class DependencyContainer {
             repositories: .init(auth: authRepository, users: userRepository, patients: patientRepository,
                                 doctors: doctorRepository, hospitals: hospitalRepository),
             configuration: AuthConfiguration(),
-            loginPreference: AuthLoginPreference(defaults: .standard)
+            session: authSession
         )
     }
 
@@ -139,4 +143,10 @@ final class DependencyContainer {
             patientRepository: patientRepository
         )
     }
+
+    @MainActor
+    func makeAccountWithdrawalViewModel() -> AccountWithdrawalViewModel {
+        AccountWithdrawalViewModel(authRepository: authRepository, authSession: authSession)
+    }
+
 }

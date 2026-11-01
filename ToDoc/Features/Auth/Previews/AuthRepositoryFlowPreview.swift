@@ -5,7 +5,7 @@ import SwiftUI
 /// 입력 예시와 미연결 오류를 확인하는 용도이며, 실제 로그인 성공을 흉내 내지 않습니다.
 @MainActor private enum AuthRepositoryPreview {
     static func model(_ entry: AuthEntry) -> AuthFlowViewModel {
-        let flow = AuthFlowViewModel()
+        let flow = AuthFlowViewModel(session: AuthSessionState())
         flow.open(entry)
         flow.login.state.email = "preview@example.com"
         flow.login.state.password = "Preview123!"

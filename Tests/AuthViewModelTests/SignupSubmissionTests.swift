@@ -222,7 +222,7 @@ import ToDocDomain
         let f = AuthFixture()
         var configuration = SignupResetTests().configuration
         configuration.allowsSignupRequests = true
-        let flow = AuthFlowViewModel(repositories: f.repositories, configuration: configuration)
+        let flow = AuthFlowViewModel(repositories: f.repositories, configuration: configuration, session: AuthSessionState())
         SignupResetTests().ready(flow.signup)
         f.auth.failSignOut = true
         await createAccount(flow.signup)
@@ -237,7 +237,7 @@ import ToDocDomain
     }
 
     func testOrdinarySignupUsesDefaultConfigurationAndVerifiesSavedPatientBeforeOpeningApp() async {
-        let f = AuthFixture(), flow = AuthFlowViewModel(repositories: f.repositories)
+        let f = AuthFixture(), flow = AuthFlowViewModel(repositories: f.repositories, session: AuthSessionState())
         flow.open(.signup)
         XCTAssertEqual(flow.screen, .signup)
         XCTAssertEqual(flow.signup.configuration.terms.count, 5)

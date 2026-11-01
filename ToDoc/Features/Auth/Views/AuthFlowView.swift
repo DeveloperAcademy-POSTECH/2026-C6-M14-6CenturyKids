@@ -8,9 +8,8 @@ import SwiftUI
     var onClose: (() -> Void)?
     var onSignedIn: (() -> Void)?
 
-    init(entry: Screen = .login, model: AuthFlowViewModel? = nil,
+    init(entry: Screen = .login, model: AuthFlowViewModel,
          onClose: (() -> Void)? = nil, onSignedIn: (() -> Void)? = nil) {
-        let model = model ?? AuthFlowViewModel()
         if !model.showsAuth { model.screen = entry }
         _model = State(initialValue: model)
         self.onClose = onClose; self.onSignedIn = onSignedIn

@@ -40,7 +40,7 @@ import SwiftUI
 // Canvas는 실제 서버 대신 기본 미연결 VM을 사용합니다. 앱 실행의 실제 DI와 구분합니다.
 #if DEBUG
 #Preview {
-    AuthRootView(authFlow: AuthFlowViewModel()) { _ in
+    AuthRootView(authFlow: AuthFlowViewModel(session: AuthSessionState())) { _ in
         PatientFlowView.preview()
     }
     .environment(AppRouter())
