@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct SignupView: View {
-    let model: AuthFlowViewModel
-    var body: some View { AuthFlowView(entry: .signup, model: model) }
+    let viewModel: AuthFlowViewModel
+    var body: some View { AuthFlowView(entry: .signup, viewModel: viewModel) }
 }
 
 struct SignupFormView: View {
@@ -100,4 +100,4 @@ struct SignupFormView: View {
     }
 }
 
-#Preview { NavigationStack { SignupView(model: AuthFlowViewModel(session: AuthSessionState())) } }
+#Preview { NavigationStack { SignupView(viewModel: AuthFlowViewModel(session: AuthSessionState())) } }

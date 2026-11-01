@@ -14,7 +14,7 @@ import SwiftUI
                     if let patient = authFlow.session.patient {
                         patientContent(patient).id(patient.user.id)
                     }
-                case .authentication: OnboardingView(model: authFlow)
+                case .authentication: OnboardingView(viewModel: authFlow)
                 }
             }
             .disabled(authFlow.showsProgress)
