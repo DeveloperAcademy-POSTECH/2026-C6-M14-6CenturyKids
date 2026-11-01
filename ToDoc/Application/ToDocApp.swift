@@ -8,23 +8,34 @@
 import SwiftUI
 import UserNotifications
 
+import KakaoSDKAuth
+import KakaoSDKCommon
+import KakaoSDKUser
+
 @main
 struct ToDocApp: App {
     private let container: DependencyContainer
     private let router = AppRouter()
-    /// 알림 센터는 delegate를 약하게 잡으므로 앱이 들고 있습니다.
     private let notificationDelegate: LocalNotificationDelegate
 
     init() {
+        guard let supabaseURL = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_URL") as? String,
+              let supabasePublishableKey = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_ANON_KEY") as? String,
+              let kakaoAppKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String else {
+            fatalError("Info.plist 또는 Secrets.xcconfig 설정이 누락되었습니다.")
+        }
+        
         let configuration = SupabaseConfiguration(
-            url: URL(string: "https://jsvwsiiqijwrraffvatd.supabase.co")!,
-                     publishableKey: "sb_publishable_R6znWnBZPpAjeKFx29gWtg_93oUMsHf"
+            url: URL(string: supabaseURL)!,
+            publishableKey: supabasePublishableKey
         )
+        
+        KakaoSDK.initSDK(appKey: kakaoAppKey)
+        
         
         let container = DependencyContainer(configuration: configuration)
         self.container = container
 
-        // 알림을 눌러 앱이 켜지는 경우도 받으려면 실행이 끝나기 전에 delegate를 정해야 합니다.
         notificationDelegate = LocalNotificationDelegate(router: router)
         UNUserNotificationCenter.current().delegate = notificationDelegate
         container.hospitalArrivalService.start()
