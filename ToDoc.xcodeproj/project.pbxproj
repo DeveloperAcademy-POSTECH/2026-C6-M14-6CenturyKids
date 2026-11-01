@@ -222,11 +222,11 @@
 				};
 			};
 			buildConfigurationList = A13BCAF53077425800901BFD /* Build configuration list for PBXProject "ToDoc" */;
-			developmentRegion = en;
+			developmentRegion = ko;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
 				Base,
+				ko,
 			);
 			mainGroup = A13BCAF13077425800901BFD;
 			minimizedProjectReferenceProxies = 1;
