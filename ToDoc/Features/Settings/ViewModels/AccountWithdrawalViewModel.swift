@@ -8,6 +8,7 @@ final class AccountWithdrawalViewModel {
     private let authRepository: any AuthRepository
     private let authSession: AuthSessionState
 
+    private(set) var isLoading = true
     private(set) var signUpProvider: SignUpProvider?
     var password = ""
     private(set) var isWithdrawing = false
@@ -86,5 +87,27 @@ final class AccountWithdrawalViewModel {
         authSession.patient = nil
         password = ""
         didWithdraw = true
+    }
+    
+    func loadSignUpProvider() async {
+        defer { isLoading = false }
+        
+        do {
+            guard let provider = try await authRepository.getSignUpProvider() else {
+                errorMessage = "로그인 제공자 정보가 없어요."
+                return
+            }
+            
+            guard let resolvedProvider = SignUpProvider(rawValue: provider) else {
+                errorMessage = "지원하지 않는 로그인 제공자예요."
+                return
+            }
+            
+            signUpProvider = resolvedProvider
+        } catch is CancellationError {
+            return
+        } catch {
+            errorMessage = "로그인 제공자를 가져오지 못했어요."
+        }
     }
 }
