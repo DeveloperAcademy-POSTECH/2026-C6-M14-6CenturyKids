@@ -1,7 +1,6 @@
 import AuthenticationServices
 import SwiftUI
 
-/// 비밀번호 재확인과 Apple 재인증을 제공하는 탈퇴 화면.
 struct AccountWithdrawalView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -16,37 +15,37 @@ struct AccountWithdrawalView: View {
 
     var body: some View {
         SettingsScreen(title: "회원 탈퇴", isSaving: isBusy, cancel: { dismiss() }) {
-            Text("비밀번호 재확인").settingsText(16, bold: true)
-            Text("안전한 탈퇴를 위해 비밀번호를 다시 한 번 입력해주세요").settingsText(14).foregroundStyle(SettingsPalette.caption)
-            VStack(spacing: 0) {
-                SettingsPasswordField(title: "비밀번호", text: $viewModel.password, contentType: .password)
-            }.background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 26)).disabled(isBusy)
-            SettingsFeedback(busy: isBusy, error: viewModel.errorMessage)
-            Button { showsConfirmation = true } label: { Text("회원 탈퇴").frame(maxWidth: .infinity) }
-                .buttonStyle(.borderedProminent).controlSize(.large).buttonBorderShape(.capsule)
-                .disabled(viewModel.password.isEmpty || isBusy)
-            
-            HStack(spacing: 12) {
-                Rectangle().fill(Color(red: 222.0 / 255, green: 227.0 / 255, blue: 219.0 / 255)).frame(height: 1)
-                Text("또는 다음으로 계속")
-                    .fixedSize(horizontal: false, vertical: true)
-                    .multilineTextAlignment(.center)
-                    .layoutPriority(1)
-                Rectangle().fill(Color(red: 222.0 / 255, green: 227.0 / 255, blue: 219.0 / 255)).frame(height: 1)
+            if viewModel.isLoading {
+                ProgressView("가입 정보를 확인하고 있어요")
+            } else if let provider = viewModel.signUpProvider {
+                switch provider {
+                case .email:
+                    Text("비밀번호 재확인").settingsText(16, bold: true)
+                    Text("안전한 탈퇴를 위해 비밀번호를 다시 한 번 입력해주세요.").settingsText(14).foregroundStyle(SettingsPalette.caption)
+                    VStack(spacing: 0) {
+                        SettingsPasswordField(title: "비밀번호", text: $viewModel.password, contentType: .password)
+                    }.background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 26)).disabled(isBusy)
+                    SettingsFeedback(busy: isBusy, error: viewModel.errorMessage)
+                    Button { showsConfirmation = true } label: { Text("회원 탈퇴").frame(maxWidth: .infinity) }
+                        .buttonStyle(.borderedProminent).controlSize(.large).buttonBorderShape(.capsule)
+                        .disabled(viewModel.password.isEmpty || isBusy)
+                    
+                case .apple:
+                    Text("재인증").settingsText(16, bold: true)
+                    Text("아래 버튼을 눌러 사용자 본인을 확인하면 탈퇴 처리가 완료돼요.")
+                    SignInWithAppleButton(.continue) { request in
+                        request.requestedScopes = []
+                    } onCompletion: { result in
+                        Task { await viewModel.handleAppleAuthorization(result) }
+                    }
+                    .disabled(isBusy)
+                    .frame(height: 54)
+                    .cornerRadius(14)
+                    
+                case .kakao:
+                    Text("카카오 로그인 계정 탈퇴 준비 중").settingsText(16, bold: true)
+                }
             }
-            .font(Font(AppTypography.font(for: .captionRegular, size: 16)))
-            .foregroundStyle(Color(white: 74.0 / 255))
-            .frame(minHeight: 24)
-            .padding(.top, 100)
-            
-            SignInWithAppleButton(.continue) { request in
-                request.requestedScopes = []
-            } onCompletion: { result in
-                Task { await viewModel.handleAppleAuthorization(result) }
-            }
-            .disabled(isBusy)
-            .frame(height: 54)
-            .cornerRadius(14)
         }
         .alert("정말 탈퇴 하시겠습니까?", isPresented: $showsConfirmation) {
             Button("취소", role: .cancel) { }
@@ -58,6 +57,9 @@ struct AccountWithdrawalView: View {
         .onChange(of: viewModel.didWithdraw) { _, didWithdraw in
             guard didWithdraw else { return }
             dismiss()
+        }
+        .task {
+            await viewModel.loadSignUpProvider()
         }
     }
 }
