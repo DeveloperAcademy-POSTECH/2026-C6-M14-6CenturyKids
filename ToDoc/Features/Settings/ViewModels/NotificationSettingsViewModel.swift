@@ -97,22 +97,38 @@ final class NotificationSettingsViewModel {
         errorMessage = nil
     }
 
-    func saveTime() {
+    func saveTime() async {
         guard canSave,
               let hour = selectedTime.hour,
-              let minute = selectedTime.minute else { return }
+              let minute = selectedTime.minute,
+              Self.allowedMinutes.contains(hour * 60 + minute) else {
+            return
+        }
+
+        let timeToSave = DateComponents(hour: hour, minute: minute)
+
+        let settings = NotificationSettingsDTO(
+            userId: userId,
+            notificationTime: String(format: "%02d:%02d:00", hour, minute),
+            timezone: loadedSettings?.timezone ?? TimeZone.current.identifier,
+            isEnabled: loadedSettings?.isEnabled ?? true
+        )
 
         isSaving = true
         didSave = false
         errorMessage = nil
         defer { isSaving = false }
 
-        let minutesSinceMidnight = hour * 60 + minute
-        defaults.set(minutesSinceMidnight, forKey: Self.timeKey)
+        do {
+            try await notificationSettingsRepository.save(settings: settings)
 
-        savedTime = selectedTime
-        hasStoredTime = true
-        didSave = true
+            loadedSettings = settings
+            savedTime = timeToSave
+            hasStoredTime = true
+            didSave = true
+        } catch {
+            errorMessage = "알림 시간의 저장 결과를 확인하지 못했어요. 다시 시도해 주세요."
+        }
     }
 
     private func parseTime(_ value: String) -> DateComponents? {
