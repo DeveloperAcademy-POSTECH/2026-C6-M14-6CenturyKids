@@ -57,6 +57,15 @@ struct NotificationSettingsView: View {
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
                         .foregroundStyle(.red)
+
+                    if !viewModel.hasLoaded && !viewModel.isLoading {
+                        Button("다시 불러오기") {
+                            Task {
+                                await viewModel.loadTime()
+                            }
+                        }
+                        .disabled(viewModel.isSaving)
+                    }
                 }
 
                 if viewModel.didSave {
@@ -75,8 +84,8 @@ struct NotificationSettingsView: View {
         }
         .navigationTitle("알림 설정")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            viewModel.loadTime()
+        .task {
+            await viewModel.loadTime()
         }
     }
 
