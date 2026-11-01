@@ -10,14 +10,13 @@ import UserNotifications
 
 import KakaoSDKAuth
 import KakaoSDKCommon
-import KakaoSDKUser
 
 @main
 struct ToDocApp: App {
     private let container: DependencyContainer
     private let router = AppRouter()
     private let notificationDelegate: LocalNotificationDelegate
-
+    
     init() {
         guard let supabaseURL = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_URL") as? String,
               let supabasePublishableKey = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_ANON_KEY") as? String,
@@ -35,7 +34,7 @@ struct ToDocApp: App {
         
         let container = DependencyContainer(configuration: configuration)
         self.container = container
-
+        
         notificationDelegate = LocalNotificationDelegate(router: router)
         UNUserNotificationCenter.current().delegate = notificationDelegate
         container.hospitalArrivalService.start()
