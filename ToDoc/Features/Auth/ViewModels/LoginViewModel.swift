@@ -1,4 +1,8 @@
 import Foundation
+import KakaoSDKAuth
+import KakaoSDKCommon
+import KakaoSDKUser
+
 #if SWIFT_PACKAGE
 import ToDocDomain
 #endif
@@ -155,6 +159,19 @@ import ToDocDomain
             }
         }
     }
+    
+    func signInWithKakao() {
+        UserApi.shared.loginWithKakao(BridgeConfiguration(orientation: .auto, uiMode: .auto), loginProperties: LoginConfiguration()) { [weak self] token, error in
+            if let error = error {
+                print(error)
+                // 에러 처리
+                return
+            }
+            print("loginWithKakao() success.")
+            // 성공 시 동작 구현
+            _ = token
+        }
+    }
 
     /// 비밀번호 재설정 등으로 세션이 사라진 뒤 다시 로그인할 수 있게 이전 성공 표시를 해제합니다.
     func prepareForLogin() {
@@ -164,5 +181,6 @@ import ToDocDomain
 
     /// 요청 자체를 되돌리는 것은 아닙니다. 늦게 온 응답이 화면을 이동시키지 않도록 표시 권한만 폐기합니다.
     func cancel() { requestID = nil; currentNonce = nil }
+    
     private func isCurrent(_ token: UUID) -> Bool { requestID == token && !Task.isCancelled }
 }
