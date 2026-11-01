@@ -32,7 +32,7 @@ struct AccountWithdrawalView: View {
                     
                 case .apple:
                     Text("재인증").settingsText(16, bold: true)
-                    Text("아래 버튼을 눌러 사용자 본인을 확인하면 탈퇴 처리가 완료돼요.")
+                    Text("아래 버튼을 눌러 사용자 본인을 확인하면 탈퇴 처리가 완료돼요.").settingsText(14).foregroundStyle(SettingsPalette.caption)
                     SignInWithAppleButton(.continue) { request in
                         request.requestedScopes = []
                     } onCompletion: { result in
