@@ -32,15 +32,7 @@ struct ToDocApp: App {
     
     var body: some Scene {
         WindowGroup {
-            #if DEBUG
-            if let screen = AuthScreenCaptureView.requestedScreen {
-                AuthScreenCaptureView(screen: screen)
-            } else {
-                ContentView(container: container, router: router)
-            }
-            #else
             ContentView(container: container, router: router)
-            #endif
         }
     }
 }
