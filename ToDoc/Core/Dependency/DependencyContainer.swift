@@ -19,6 +19,7 @@ final class DependencyContainer {
     let deviceTokenRepository: any DeviceTokenRepository
     /// 앱 알림 목록은 서버 없이 폰에만 남긴다
     let notificationRepository: any NotificationRepository
+    let notificationSettingsRepository: any NotificationSettingsRepository
     
     let liveActivityService: LiveActivityService
     let locationPermission: LocationPermissionRequester
@@ -40,6 +41,9 @@ final class DependencyContainer {
         painRepository = SupabasePainRepository(client: client)
         deviceTokenRepository = SupabaseDeviceTokenRepository(client: client)
         notificationRepository = FileNotificationRepository()
+        notificationSettingsRepository = SupabaseNotificationSettingsRepository(
+            client: client
+        )
         
         self.liveActivityService = LiveActivityService(tokenRepository: deviceTokenRepository, authRepository: authRepository)
         locationPermission = LocationPermissionRequester()
@@ -73,8 +77,13 @@ final class DependencyContainer {
     }
 
     @MainActor
-    func makeNotificationSettingsViewModel() -> NotificationSettingsViewModel {
-        NotificationSettingsViewModel(defaults: .standard)
+    func makeNotificationSettingsViewModel(
+        userId: UUID
+    ) -> NotificationSettingsViewModel {
+        NotificationSettingsViewModel(
+            userId: userId,
+            notificationSettingsRepository: notificationSettingsRepository
+        )
     }
 
     @MainActor
