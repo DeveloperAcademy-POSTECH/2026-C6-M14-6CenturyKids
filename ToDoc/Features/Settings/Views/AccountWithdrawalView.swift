@@ -15,8 +15,6 @@ struct AccountWithdrawalView: View {
     }
 
     var body: some View {
-        @Bindable var viewModel = viewModel
-
         SettingsScreen(title: "회원 탈퇴", isSaving: isBusy, cancel: { dismiss() }) {
             Text("비밀번호 재확인").settingsText(16, bold: true)
             Text("안전한 탈퇴를 위해 비밀번호를 다시 한 번 입력해주세요").settingsText(14).foregroundStyle(SettingsPalette.caption)
@@ -53,7 +51,7 @@ struct AccountWithdrawalView: View {
         .alert("정말 탈퇴 하시겠습니까?", isPresented: $showsConfirmation) {
             Button("취소", role: .cancel) { }
             Button("확인", role: .destructive) {
-                confirmWithdrawal()
+                Task { await viewModel.withdrawEmailAccount() }
             }.disabled(isBusy)
         } message: { Text("앱 내 모든 데이터는 복구가 불가능합니다") }
         .onDisappear { viewModel.password = "" }
@@ -61,11 +59,6 @@ struct AccountWithdrawalView: View {
             guard didWithdraw else { return }
             dismiss()
         }
-    }
-
-    private func confirmWithdrawal() {
-        guard !viewModel.password.isEmpty, !isBusy else { return }
-        Task { await viewModel.withdrawEmailAccount() }
     }
 }
 
