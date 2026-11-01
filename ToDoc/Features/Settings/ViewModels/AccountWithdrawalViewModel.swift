@@ -8,6 +8,7 @@ final class AccountWithdrawalViewModel {
     private let authRepository: any AuthRepository
     private let authSession: AuthSessionState
 
+    private(set) var signUpProvider: SignUpProvider?
     var password = ""
     private(set) var isWithdrawing = false
     private(set) var errorMessage: String?
