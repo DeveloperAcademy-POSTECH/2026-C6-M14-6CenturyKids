@@ -110,4 +110,10 @@ final class SupabaseAuthRepository: AuthRepository {
         
         try await client.auth.signOut(scope: .global)
     }
+    
+    func getSignUpProvider() async throws -> String? {
+        let user = try await client.auth.user()
+        
+        return user.appMetadata["provider"]?.stringValue
+    }
 }
