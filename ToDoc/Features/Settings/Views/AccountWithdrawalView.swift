@@ -65,9 +65,36 @@ struct AccountWithdrawalView: View {
 }
 
 #if DEBUG
-#Preview("회원 탈퇴") {
+#Preview("이메일 회원 탈퇴") {
     NavigationStack {
-        AccountWithdrawalView(viewModel: AccountWithdrawalViewModel(authRepository: PreviewAuthRepository(), authSession: AuthSessionState()))
+        AccountWithdrawalView(
+            viewModel: AccountWithdrawalViewModel(
+                authRepository: PreviewAuthRepository(provider: .email),
+                authSession: AuthSessionState()
+            )
+        )
+    }
+}
+
+#Preview("Apple 회원 탈퇴") {
+    NavigationStack {
+        AccountWithdrawalView(
+            viewModel: AccountWithdrawalViewModel(
+                authRepository: PreviewAuthRepository(provider: .apple),
+                authSession: AuthSessionState()
+            )
+        )
+    }
+}
+
+#Preview("Kakao 회원 탈퇴") {
+    NavigationStack {
+        AccountWithdrawalView(
+            viewModel: AccountWithdrawalViewModel(
+                authRepository: PreviewAuthRepository(provider: .kakao),
+                authSession: AuthSessionState()
+            )
+        )
     }
 }
 #endif

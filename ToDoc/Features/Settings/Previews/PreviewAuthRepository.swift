@@ -5,10 +5,15 @@ import Foundation
 struct PreviewAuthRepository: AuthRepository {
     private let userID = UUID()
     private struct Unavailable: Error {}
+    let provider: SignUpProvider
+    
+    init(provider: SignUpProvider = .email) {
+        self.provider = provider
+    }
 
     func getCurrentUserId() async throws -> UUID { userID }
     func getCurrentUserEmail() async throws -> String? { "preview@example.com" }
-    func getSignUpProvider() async throws -> String? { "email" }
+    func getSignUpProvider() async throws -> String? { provider.rawValue }
     func isSignedIn() -> Bool { false }
 
     // Preview에서 실제 인증이나 계정 삭제가 실행되지 않도록 실패를 반환합니다.
