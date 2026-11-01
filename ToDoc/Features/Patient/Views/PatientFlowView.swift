@@ -202,6 +202,7 @@ extension PatientFlowView {
             painDetail: { .init() },
             settings: {
                 SettingsFlowView(
+                    withdrawal: { AccountWithdrawalView(viewModel: AccountWithdrawalViewModel(authRepository: PreviewAuthRepository(), authSession: AuthSessionState())) },
                     notifications: {
                         NotificationSettingsView(viewModel: NotificationSettingsViewModel())
                     }

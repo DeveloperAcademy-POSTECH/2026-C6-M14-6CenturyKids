@@ -4,34 +4,33 @@ import SwiftUI
 @MainActor struct AuthFlowView: View {
     typealias Screen = AuthEntry
     @Environment(\.dismiss) private var dismiss
-    @State private var model: AuthFlowViewModel
+    @State private var viewModel: AuthFlowViewModel
     var onClose: (() -> Void)?
     var onSignedIn: (() -> Void)?
 
-    init(entry: Screen = .login, model: AuthFlowViewModel? = nil,
+    init(entry: Screen = .login, viewModel: AuthFlowViewModel,
          onClose: (() -> Void)? = nil, onSignedIn: (() -> Void)? = nil) {
-        let model = model ?? AuthFlowViewModel()
-        if !model.showsAuth { model.screen = entry }
-        _model = State(initialValue: model)
+        if !viewModel.showsAuth { viewModel.screen = entry }
+        _viewModel = State(initialValue: viewModel)
         self.onClose = onClose; self.onSignedIn = onSignedIn
     }
     var body: some View {
         Group {
-            switch model.screen {
+            switch viewModel.screen {
             case .login:
-                LoginFormView(viewModel: model.login, onSignup: { model.open(.signup) },
-                              onPasswordReset: { model.open(.passwordReset) }, onBack: close)
+                LoginFormView(viewModel: viewModel.login, onSignup: { viewModel.open(.signup) },
+                              onPasswordReset: { viewModel.open(.passwordReset) }, onBack: close)
             case .signup:
-                SignupFormView(state: model.signup.state, onBack: model.backFromSignup,
-                               onLogin: model.loginAfterSignup, onRestart: model.restartSignupAfterConfirmation)
+                SignupFormView(state: viewModel.signup.state, onBack: viewModel.backFromSignup,
+                               onLogin: viewModel.loginAfterSignup, onRestart: viewModel.restartSignupAfterConfirmation)
             case .passwordReset:
-                PasswordResetView(state: model.reset.state, onBack: { model.open(.login) })
+                PasswordResetView(state: viewModel.reset.state, onBack: { viewModel.open(.login) })
             }
         }
-        .onChange(of: model.login.state.didSignIn) { _, signedIn in if signedIn { onSignedIn?() } }
+        .onChange(of: viewModel.login.state.didSignIn) { _, signedIn in if signedIn { onSignedIn?() } }
     }
     private func close() {
-        model.close()
+        viewModel.close()
         if let onClose { onClose() } else { dismiss() }
     }
 }

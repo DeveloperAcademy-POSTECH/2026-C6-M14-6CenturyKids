@@ -26,8 +26,7 @@ enum AuthEntry { case login, signup, passwordReset }
     @ObservationIgnored private var signupReturnsToLogin = false
 
     init(repositories: AuthRepositories = .init(), configuration: AuthConfiguration = .init(),
-         loginPreference: AuthLoginPreference? = nil) {
-        let session = AuthSessionState(loginPreference: loginPreference)
+         session: AuthSessionState) {
         self.session = session
         login = LoginViewModel(repositories: repositories, session: session)
         signup = SignupViewModel(repositories: repositories, session: session, configuration: configuration)

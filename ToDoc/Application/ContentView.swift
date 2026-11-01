@@ -17,7 +17,7 @@ struct ContentView: View {
 
     var body: some View {
         AuthRootView(authFlow: authFlow) { patient in
-            PatientFlowCompositionView(container: container,patientId: patient.user.id,authSession: authFlow.session)
+            PatientFlowCompositionView(container: container, patientId: patient.user.id)
                                           .task(id: patient.user.id) {
                     await syncLiveActivityToken()
                     await LocalNotificationAdapter.schedulePainReminders()

@@ -5,7 +5,7 @@ import SwiftUI
 /// 입력 예시와 미연결 오류를 확인하는 용도이며, 실제 로그인 성공을 흉내 내지 않습니다.
 @MainActor private enum AuthRepositoryPreview {
     static func model(_ entry: AuthEntry) -> AuthFlowViewModel {
-        let flow = AuthFlowViewModel()
+        let flow = AuthFlowViewModel(session: AuthSessionState())
         flow.open(entry)
         flow.login.state.email = "preview@example.com"
         flow.login.state.password = "Preview123!"
@@ -25,8 +25,8 @@ import SwiftUI
     }
 }
 
-#Preview("로그인 · 저장소 미연결") { AuthFlowView(model: AuthRepositoryPreview.model(.login)) }
-#Preview("가입 · 약관 본문 대기") { AuthFlowView(model: AuthRepositoryPreview.terms()) }
-#Preview("재설정 · 복귀 주소 대기") { AuthFlowView(model: AuthRepositoryPreview.model(.passwordReset)) }
+#Preview("로그인 · 저장소 미연결") { AuthFlowView(viewModel: AuthRepositoryPreview.model(.login)) }
+#Preview("가입 · 약관 본문 대기") { AuthFlowView(viewModel: AuthRepositoryPreview.terms()) }
+#Preview("재설정 · 복귀 주소 대기") { AuthFlowView(viewModel: AuthRepositoryPreview.model(.passwordReset)) }
 #Preview("새 비밀번호 · 화면 시안 대기") { PasswordResetView(state: AuthRepositoryPreview.recoveryForm()) }
 #endif

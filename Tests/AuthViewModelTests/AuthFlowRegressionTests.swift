@@ -4,7 +4,7 @@ import XCTest
 @MainActor final class AuthFlowRegressionTests: XCTestCase {
     func testUnsupportedLinkCannotChangeRouteOrDestroyExistingLogin() async throws {
         let f = AuthFixture(); try f.addProfile()
-        let flow = AuthFlowViewModel(repositories: f.repositories)
+        let flow = AuthFlowViewModel(repositories: f.repositories, session: AuthSessionState())
         flow.login.state.email = "patient@example.com"; flow.login.state.password = "password123"
         await flow.login.submit()
         XCTAssertEqual(flow.rootRoute, .patient)
@@ -16,7 +16,7 @@ import XCTest
         XCTAssertNotNil(flow.linkMessage)
     }
     func testUnrecognizedSignupLinkCannotCreateAccountOrEnterHome() async {
-        let f = AuthFixture(); let flow = AuthFlowViewModel(repositories: f.repositories)
+        let f = AuthFixture(); let flow = AuthFlowViewModel(repositories: f.repositories, session: AuthSessionState())
         await flow.handleURL(URL(string: "todoc-test://auth/signup?code=unverified")!)
         XCTAssertEqual(flow.rootRoute, .authentication)
         XCTAssertNil(flow.session.patient)
