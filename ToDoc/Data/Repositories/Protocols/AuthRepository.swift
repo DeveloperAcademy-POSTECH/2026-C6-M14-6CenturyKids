@@ -16,6 +16,8 @@ protocol AuthRepository {
     
     func signInWithApple(idToken: String, nonce: String) async throws -> UUID
     
+    func signInWithKakao(idToken: String) async throws -> UUID
+    
     func signOut() async throws
     
     func getCurrentUserEmail() async throws -> String?

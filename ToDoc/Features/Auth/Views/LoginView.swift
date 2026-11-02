@@ -114,6 +114,11 @@ struct LoginFormView: View {
             .foregroundStyle(Color(white: 74.0 / 255))
             .frame(minHeight: 24)
             .padding(.top, 100)
+            .padding(.bottom, 22)
+            
+            Button("임시 카카오 로그인 버튼") {
+                viewModel.signInWithKakao()
+            }
 
             SignInWithAppleButton(.signIn) { request in
                 request.requestedScopes = [.email, .fullName]

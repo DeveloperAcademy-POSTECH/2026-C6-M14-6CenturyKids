@@ -10,6 +10,8 @@ import Supabase
 
 final class SupabaseAuthRepository: AuthRepository {
     private let client: SupabaseClient
+    private let supabaseURL: URL
+    private let publishableKey: String
     
     init(client: SupabaseClient) {
         self.client = client
@@ -40,6 +42,55 @@ final class SupabaseAuthRepository: AuthRepository {
                 nonce: nonce
             )
         )
+        
+        return session.user.id
+    }
+    
+    private func makeKakaoSignInRequest(idToken: String) throws -> URLRequest {
+        let url = supabaseURL
+            .appendingPathComponent("auth/v1/token")
+        
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "grant_type", value: "id_token")
+        ]
+        
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "POST"
+        
+        request.setValue(publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body = KakaoSignInRequest(provider: "kakao", idToken: idToken)
+        request.httpBody = try JSONEncoder().encode(body)
+        
+        return request
+    }
+    
+    private func requestKakaoSession(idToken: String) async throws -> KakaoSignInResponse {
+        let request = try makeKakaoSignInRequest(idToken: idToken)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        
+        guard (200 ..< 300).contains(httpResponse.statusCode) else {
+            throw NSError(
+                domain: "KakaoSignIn",
+                code: httpResponse.statusCode,
+                userInfo: [NSLocalizedDescriptionKey: "Supabase 로그인 요청에 실패했어요. HTTP \(httpResponse.statusCode)"]
+            )
+        }
+        
+        return try JSONDecoder().decode(KakaoSignInResponse.self, from: data)
+    }
+    
+    func signInWithKakao(idToken: String) async throws -> UUID {
+        let response = try await requestKakaoSession(idToken: idToken)
+        
+        let session = try await client.auth.setSession(accessToken: response.accessToken, refreshToken: response.refreshToken)
         
         return session.user.id
     }
@@ -115,5 +166,25 @@ final class SupabaseAuthRepository: AuthRepository {
         let user = try await client.auth.user()
         
         return user.appMetadata["provider"]?.stringValue
+    }
+}
+
+private struct KakaoSignInRequest: Encodable {
+    let provider: String
+    let idToken: String
+    
+    enum CodingKeys: String, CodingKey {
+        case provider
+        case idToken = "id_token"
+    }
+}
+
+private struct KakaoSignInResponse: Decodable {
+    let accessToken: String
+    let refreshToken: String
+    
+    enum CodingKeys: String, CodingKey {
+        case accessToken = "access_token"
+        case refreshToken = "refresh_token"
     }
 }

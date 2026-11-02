@@ -162,14 +162,33 @@ import ToDocDomain
     
     func signInWithKakao() {
         UserApi.shared.loginWithKakao(BridgeConfiguration(orientation: .auto, uiMode: .auto), loginProperties: LoginConfiguration()) { [weak self] token, error in
-            if let error = error {
-                print(error)
-                // 에러 처리
-                return
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                
+                if let error = error {
+                    print("카카오 로그인 실패: ", error)
+                    return
+                }
+                
+                print("loginWithKakao() success.")
+                
+                guard let idToken = token?.idToken else {
+                    print("카카오 ID 토큰이 없습니다.")
+                    return
+                }
+                
+                guard let auth = repositories.auth else {
+                    state.errorMessage = "로그인 연결을 준비하지 못했어요."
+                    return
+                }
+                
+                do {
+                    let userId = try await auth.signInWithKakao(idToken: idToken)
+                } catch {
+                    state.errorMessage = "Supabase 로그인에 실패했어요."
+                    print("Supabase 로그인 실패: ", error)
+                }
             }
-            print("loginWithKakao() success.")
-            // 성공 시 동작 구현
-            _ = token
         }
     }
 
