@@ -9,6 +9,9 @@ struct PrevisitRecordView: View {
     var onSubmit: ((PrevisitDraft) -> Void)?
     var onReload: (() -> Void)?
     @State private var session: PrevisitSession
+    var isSubmitting = false
+    var submissionError: String?
+    @State private var showsSubmitConfirmation = false
     @FocusState private var writing: Bool
     @Environment(\.dismiss) private var dismiss
 
@@ -16,11 +19,13 @@ struct PrevisitRecordView: View {
          initialStep: PrevisitStep = .day, initialDraft: PrevisitDraft = .init(),
          onClose: (() -> Void)? = nil, onSubmit: ((PrevisitDraft) -> Void)? = nil,
          session: PrevisitSession? = nil, records: PrevisitRecordState? = nil,
-         onReload: (() -> Void)? = nil) {
+         onReload: (() -> Void)? = nil, isSubmitting: Bool = false, submissionError: String? = nil) {
         self.records = records ?? .loaded(days)
         self.doctorName = doctorName; self.patientName = patientName
         self.onClose = onClose; self.onSubmit = onSubmit
         self.onReload = onReload
+        self.isSubmitting = isSubmitting
+        self.submissionError = submissionError
         let session = session ?? PrevisitSession(step: initialStep, draft: initialDraft)
         _session = State(initialValue: session)
     }
@@ -55,6 +60,21 @@ struct PrevisitRecordView: View {
                 .background(AppColors.background)
             } else { footer }
         }
+        .disabled(isSubmitting)
+        .overlay {
+            if showsSubmitConfirmation {
+                ZStack {
+                    Color.black.opacity(0.6).ignoresSafeArea().accessibilityHidden(true)
+                    AppFeedback.Dialog("기록을 전송할까요?", message: "전송한 진료 전 기록은 수정하거나 삭제할 수 없어요. 내용을 확인한 뒤 전송해 주세요.",
+                        primary: .init("전송하기") {
+                            showsSubmitConfirmation = false
+                            onSubmit?(draft)
+                        }, secondary: .init("다시 확인하기") { showsSubmitConfirmation = false })
+                        .padding(.horizontal, AppLayout.Phone.horizontalMargin)
+                        .accessibilityAddTraits(.isModal)
+                }
+            }
+        }
         .background(AppColors.background.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar)
     }
@@ -70,7 +90,7 @@ struct PrevisitRecordView: View {
         case .loading, .failed: recordNotice
         case .loaded(let days):
             if days.isEmpty {
-                Text("아직 저장한 기록이 없어요. 통증이나 증상을 기록한 뒤 다시 열어 주세요.")
+                Text("최근 30일 이내에 저장한 기록이 없어요. 통증이나 증상을 기록한 뒤 다시 열어 주세요.")
                     .appTextStyle(.caption).foregroundStyle(.secondary)
                     .accessibilityIdentifier("previsit.empty")
             }
@@ -98,7 +118,6 @@ struct PrevisitRecordView: View {
         }
     }
     private var letter: some View {
-        @Bindable var session = session
         return VStack(spacing: 20) {
             if let day = draft.day { PrevisitDayCard(day: day) }
             VStack(alignment: .leading, spacing: 28) {
@@ -110,11 +129,16 @@ struct PrevisitRecordView: View {
                             .appTextStyle(.caption).foregroundStyle(AppColors.Previsit.placeholder)
                             .frame(maxWidth: .infinity).padding(.top, 38).allowsHitTesting(false).accessibilityHidden(true)
                     }
-                    TextEditor(text: $session.draft.letter).appFont(.body)
+                    TextEditor(text: Binding(
+                        get: { session.draft.letter },
+                        set: { session.draft.letter = String($0.prefix(200)) }
+                    )).appFont(.body)
                         .multilineTextAlignment(.center).scrollContentBackground(.hidden).focused($writing)
                         .frame(minHeight: 156).accessibilityLabel("선생님께 전할 이야기")
                         .accessibilityIdentifier("previsit.letter")
                 }
+                Text("\(draft.letter.count)/200자").appTextStyle(.caption)
+                    .foregroundStyle(draft.letter.count >= 200 ? AppColors.Feedback.error : AppColors.Semantic.Text.sub)
                 Text("From. \(patientName)").appTextStyle(.label).foregroundStyle(AppColors.Previsit.letterSignature)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }.padding(.horizontal, AppSpacing.screenHorizontal).padding(.vertical, 40).frame(minHeight: 340)
@@ -123,7 +147,7 @@ struct PrevisitRecordView: View {
     }
     private var moodList: some View {
         VStack(spacing: AppSpacing.item) {
-            ForEach(PrevisitMood.allCases) { mood in
+            ForEach(StateOfMind.allCases, id: \.self) { mood in
                 Button { session.draft.mood = mood } label: {
                     HStack(spacing: 20) {
                         PrevisitDoctorAvatar(mood: mood, size: 40)
@@ -142,8 +166,12 @@ struct PrevisitRecordView: View {
     }
     private var footer: some View {
         VStack(spacing: AppSpacing.compact) {
+            if isSubmitting { ProgressView("전송 중이에요") }
+            if let submissionError {
+                Text(submissionError).appTextStyle(.caption).foregroundStyle(.secondary)
+            }
             if step == .mood, onSubmit == nil {
-                Text("전송 기능을 준비 중이에요. 작성 내용은 이 로그인 동안만 임시로 보관돼요. 앱 종료·로그아웃 시 사라질 수 있어요.")
+                Text("현재 기록을 전송할 수 없어요. 화면을 닫고 다시 시도해 주세요.")
                     .appTextStyle(.caption).foregroundStyle(.secondary)
                     .accessibilityIdentifier("previsit.unsent")
             }
@@ -153,7 +181,7 @@ struct PrevisitRecordView: View {
                         .buttonStyle(AppButtonStyle(kind: .back)).accessibilityIdentifier("previsit.previous")
                 }
                 Button(action: next) {
-                    Text(step == .mood ? (onSubmit == nil ? "전송 준비 중" : "전송하기") : "다음").frame(maxWidth: .infinity)
+                    Text(step == .mood ? "전송하기" : "다음").frame(maxWidth: .infinity)
                         .overlay(alignment: .trailing) { Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(AppColors.Previsit.nextIcon) }
                 }.buttonStyle(AppButtonStyle()).disabled(!canContinue).accessibilityIdentifier("previsit.next")
             }
@@ -161,7 +189,7 @@ struct PrevisitRecordView: View {
             .background(AppColors.background)
     }
     private var canContinue: Bool {
-        guard session.canContinue else { return false }
+        guard !isSubmitting, draft.letter.count <= 200, session.canContinue else { return false }
         guard case .loaded(let days) = records else { return false }
         if step == .day {
             return days.contains { $0.id == draft.day?.id && $0.isSelectable }
@@ -171,10 +199,10 @@ struct PrevisitRecordView: View {
     private func next() {
         guard canContinue else { return }
         writing = false
-        if step == .mood { onSubmit?(draft) }
+        if step == .mood { showsSubmitConfirmation = true }
         else { session.next() }
     }
-    private func close() { if let onClose { onClose() } else { dismiss() } }
+    private func close() { guard !isSubmitting else { return }; if let onClose { onClose() } else { dismiss() } }
 }
 
 struct PrevisitDayCard: View {
@@ -214,7 +242,7 @@ struct PrevisitBackButton: View {
 }
 
 struct PrevisitDoctorAvatar: View {
-    var mood: PrevisitMood = .candid
+    var mood: StateOfMind = .candid
     var size: CGFloat = 40
     var body: some View {
         Circle().fill(color)

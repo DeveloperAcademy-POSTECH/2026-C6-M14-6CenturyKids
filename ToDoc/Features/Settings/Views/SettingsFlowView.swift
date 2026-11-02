@@ -14,7 +14,7 @@ struct SettingsFlowView: View {
     init(state: SettingsScreenState = .init(), personal: @escaping () -> PersonalInfoEditView = { .init() },
          cancer: @escaping () -> CancerTypeEditView = { .init() }, stage: @escaping () -> CancerStageEditView = { .init() },
          hospital: @escaping () -> HospitalConnectionView = { .init() },
-         withdrawal: @escaping () -> AccountWithdrawalView = { .init() },
+         withdrawal: @escaping () -> AccountWithdrawalView,
          notifications: @escaping @MainActor () -> NotificationSettingsView) {
         viewModel = nil
         _state = State(initialValue: state); self.personal = personal; self.cancer = cancer
@@ -117,7 +117,9 @@ struct SettingsFlowView: View {
 #if DEBUG
 #Preview {
     SettingsFlowView(
+        withdrawal: { AccountWithdrawalView(viewModel: AccountWithdrawalViewModel(authRepository: PreviewAuthRepository(), authSession: AuthSessionState())) },
         notifications: { NotificationSettingsView(viewModel: NotificationSettingsViewModel.preview()) }
     )
 }
+
 #endif

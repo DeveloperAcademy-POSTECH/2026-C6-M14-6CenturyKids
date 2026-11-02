@@ -2,7 +2,8 @@ import AuthenticationServices
 import SwiftUI
 
 struct LoginView: View {
-    var body: some View { AuthFlowView() }
+    let viewModel: AuthFlowViewModel
+    var body: some View { AuthFlowView(viewModel: viewModel) }
 }
 
 struct LoginFormView: View {
@@ -216,4 +217,4 @@ private struct LoginActionButtonStyle: ButtonStyle {
     }
 }
 
-#Preview { NavigationStack { LoginView() } }
+#Preview { NavigationStack { LoginView(viewModel: AuthFlowViewModel(session: AuthSessionState())) } }

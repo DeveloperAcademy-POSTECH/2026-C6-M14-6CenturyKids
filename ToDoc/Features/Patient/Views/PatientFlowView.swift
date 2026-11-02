@@ -102,7 +102,6 @@ struct PatientFlowView: View {
                                 PrevisitLetterListView(viewModel: previsitLetters) { path.append(.previsitLetter($0)) }
                             case .previsitLetter(let id):
                                 PrevisitLetterView(viewModel: previsitLetters, id: id, patientName: home.patientName ?? "")
-                                    .onDisappear { if previsitLetters.notice == .saved { previsitLetters.clearNotice() } }
                             }
                         }.toolbar(.hidden, for: .tabBar)
                     }
@@ -135,18 +134,6 @@ struct PatientFlowView: View {
         }
         .fullScreenCover(isPresented: $showsPrevisit, onDismiss: { previsitSession.pause(); openPrevisitNext() }) {
             NavigationStack { previsit(previsitSession) }
-        }
-        // Figma 07: 기록을 지우면 들어왔던 바텀시트로 돌아가 위에 안내를 띄웁니다
-        .onChange(of: previsitLetters.notice) { _, notice in
-            guard notice == .deleted else { return }
-            path.removeAll()
-            if showsPrevisit { previsitNext = .prompt; showsPrevisit = false } else { showsPrevisitPrompt = true }
-        }
-        .overlay(alignment: .top) {
-            if previsitLetters.notice == .deleted {
-                PrevisitToast(message: PrevisitLetterViewModel.Notice.deleted.message)
-                    .padding(.top, 8)
-            }
         }
         .onAppear { updateHomeContext() }
         .onChange(of: isHomeVisible) { updateHomeContext() }
@@ -215,6 +202,7 @@ extension PatientFlowView {
             painDetail: { .init() },
             settings: {
                 SettingsFlowView(
+                    withdrawal: { AccountWithdrawalView(viewModel: AccountWithdrawalViewModel(authRepository: PreviewAuthRepository(), authSession: AuthSessionState())) },
                     notifications: {
                         NotificationSettingsView(viewModel: NotificationSettingsViewModel.preview())
                     }

@@ -8,12 +8,12 @@ import XCTest
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let first = AuthFlowViewModel(repositories: f.repositories,
-                                      loginPreference: AuthLoginPreference(defaults: defaults))
+                                      session: AuthSessionState(loginPreference: AuthLoginPreference(defaults: defaults)))
         first.login.state.email = "patient@example.com"; first.login.state.password = "password"
         await first.login.submit()
         XCTAssertNotNil(first.session.patient)
         let next = AuthFlowViewModel(repositories: f.repositories,
-                                     loginPreference: AuthLoginPreference(defaults: defaults))
+                                     session: AuthSessionState(loginPreference: AuthLoginPreference(defaults: defaults)))
         await next.restoreSessionOnce()
         XCTAssertEqual(next.session.patient?.user.id, f.auth.id)
         XCTAssertEqual(f.auth.signInCount, 1, "복원할 때 비밀번호 로그인을 다시 요청하지 않습니다.")
@@ -22,7 +22,7 @@ import XCTest
 
     func testUnverifiedSDKSessionDoesNotRestore() async {
         let f = AuthFixture(); f.auth.signedIn = true
-        let flow = AuthFlowViewModel(repositories: f.repositories)
+        let flow = AuthFlowViewModel(repositories: f.repositories, session: AuthSessionState())
         await flow.restoreSessionOnce()
         XCTAssertNil(flow.session.patient)
         XCTAssertFalse(f.auth.signedIn)
@@ -32,7 +32,7 @@ import XCTest
     func testFailedLoginCannotRestoreButSuccessfulRetryCan() async throws {
         let f = AuthFixture(); try f.addProfile()
         let preference = AuthLoginPreference()
-        let flow = AuthFlowViewModel(repositories: f.repositories, loginPreference: preference)
+        let flow = AuthFlowViewModel(repositories: f.repositories, session: AuthSessionState(loginPreference: preference))
         flow.login.state.email = "patient@example.com"; flow.login.state.password = "password"
         f.auth.signInError = AuthFlowError("테스트 실패")
         await flow.login.submit()
@@ -40,7 +40,7 @@ import XCTest
         f.auth.signInError = nil
         await flow.login.submit()
         XCTAssertTrue(preference.isEnabled)
-        let next = AuthFlowViewModel(repositories: f.repositories, loginPreference: preference)
+        let next = AuthFlowViewModel(repositories: f.repositories, session: AuthSessionState(loginPreference: preference))
         await next.restoreSessionOnce()
         XCTAssertEqual(next.session.patient?.user.id, f.auth.id)
     }
@@ -57,7 +57,7 @@ import XCTest
     }
 
     func testIntroAdvancesEveryPageAndLastPageOpensSignup() {
-        let flow = AuthFlowViewModel()
+        let flow = AuthFlowViewModel(session: AuthSessionState())
         for page in 1...4 {
             flow.advanceOnboarding()
             XCTAssertEqual(flow.onboarding.page, page); XCTAssertFalse(flow.showsAuth)
@@ -68,7 +68,7 @@ import XCTest
     }
 
     func testSignupBackRespectsEntryAndCompletedSignupStartsFresh() {
-        let flow = AuthFlowViewModel()
+        let flow = AuthFlowViewModel(session: AuthSessionState())
         flow.open(.login); flow.open(.signup)
         flow.backFromSignup()
         XCTAssertTrue(flow.showsAuth); XCTAssertEqual(flow.screen, .login)

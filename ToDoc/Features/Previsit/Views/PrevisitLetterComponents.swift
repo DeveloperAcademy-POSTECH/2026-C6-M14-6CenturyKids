@@ -19,38 +19,7 @@ struct PrevisitScreenHeader: View {
     }
 }
 
-/// 공용 Toast를 띄우고 VoiceOver로도 알립니다. 사라지는 시간은 ViewModel의 notice가 정합니다
-struct PrevisitToast: View {
-    let message: String
-
-    var body: some View {
-        AppFeedback.Toast(message)
-            .onAppear { AccessibilityNotification.Announcement(message).post() }
-    }
-}
-
-/// 화면을 어둡게 덮고 가운데에 되돌릴 수 없는 동작을 묻는 공용 Dialog를 띄웁니다
-struct PrevisitConfirmDialog: View {
-    let title: String
-    let message: String
-    let destructiveTitle: String
-    let cancelTitle: String
-    let onDestructive: () -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.6).ignoresSafeArea().accessibilityHidden(true)
-            AppFeedback.Dialog(title, message: message,
-                               primary: .init(destructiveTitle, action: onDestructive), primaryKind: .destructive,
-                               secondary: .init(cancelTitle, action: onCancel))
-                .padding(.horizontal, AppLayout.Phone.horizontalMargin)
-                .accessibilityAddTraits(.isModal)
-        }
-    }
-}
-
-extension PrevisitMood {
+extension StateOfMind {
     /// Figma Avatar 기분 단계 (Calm·Worried·Anxious·NotReady·Unsure)
     var avatar: AppFeedback.Avatar {
         switch self {

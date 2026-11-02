@@ -3,10 +3,14 @@ import SwiftUI
 /// 원본 게이지 에셋 위에서 정수 점수만 선택합니다. 분류 구간을 추정하지 않습니다.
 struct PainScoreGauge: View {
     @Binding var value: Int?
+    /// 고르기 전(value가 nil)에 보여 줄 자리. 선택한 값으로 치지 않습니다
+    var initialValue: Int?
     var before: Int?
     let label: String
     var descriptor: (Int) -> String? = { _ in nil }
     private let height: CGFloat = 347.622
+
+    private var shown: Int? { value ?? initialValue }
 
     var body: some View {
         GeometryReader { geometry in
@@ -15,21 +19,21 @@ struct PainScoreGauge: View {
                 gauge.position(x: x, y: 54 + height / 2)
                 badge(10, size: 30).position(x: x, y: 15).accessibilityHidden(true)
                 badge(0, size: 30).position(x: x, y: 437).accessibilityHidden(true)
-                if let value {
+                if let shown {
                     Group {
                         if let before {
                             VStack(spacing: 0) {
                                 scoreLabel(before).padding(.bottom, 15)
                                 Image("PainComparisonDown")
-                                    .renderingMode(value > before ? .template : .original)
+                                    .renderingMode(shown > before ? .template : .original)
                                     .foregroundStyle(AppColors.Semantic.Chart.Score.score100)
-                                    .rotationEffect(.degrees(value > before ? 180 : 0))
-                                    .opacity(value == before ? 0 : 1)
+                                    .rotationEffect(.degrees(shown > before ? 180 : 0))
+                                    .opacity(shown == before ? 0 : 1)
                                     .frame(width: 24, height: 24)
                                     .accessibilityHidden(true).padding(.bottom, 20)
-                                scoreLabel(value)
+                                scoreLabel(shown)
                             }
-                        } else { scoreLabel(value) }
+                        } else { scoreLabel(shown) }
                     }
                     .frame(width: 96)
                     .position(x: min(geometry.size.width - 48, x + 109), y: before == nil ? 231 : 228.5)
@@ -40,10 +44,10 @@ struct PainScoreGauge: View {
     }
 
     private var gauge: some View {
-        let position = CGFloat(10 - min(10, max(0, value ?? 10))) / 10 * height
+        let position = CGFloat(10 - min(10, max(0, shown ?? 10))) / 10 * height
         return ZStack(alignment: .top) {
             Image("PainGauge").resizable()
-            if value != nil {
+            if shown != nil {
                 Image("PainGauge").resizable().renderingMode(.template)
                     .foregroundStyle(Color(white: 217 / 255))
                     .mask(alignment: .top) { Rectangle().frame(height: position) }
@@ -61,7 +65,7 @@ struct PainScoreGauge: View {
             value = Int((10 - fraction * 10).rounded())
         })
         .accessibilityRepresentation {
-            Slider(value: Binding(get: { Double(value ?? 0) }, set: { value = Int($0.rounded()) }), in: 0...10, step: 1) {
+            Slider(value: Binding(get: { Double(shown ?? 0) }, set: { value = Int($0.rounded()) }), in: 0...10, step: 1) {
                 Text(label)
             }
             .accessibilityValue(value.map { "\($0)점" } ?? "선택하지 않음")

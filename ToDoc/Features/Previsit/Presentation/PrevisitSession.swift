@@ -43,7 +43,7 @@ import Observation
         switch step {
         case .day: step = .letter
         case .letter: step = .mood
-        case .mood: break // 기분 선택 이후는 실제 저장 계약이 연결되어야 합니다.
+        case .mood: break // 전송은 부모 흐름에서 처리합니다.
         }
     }
 

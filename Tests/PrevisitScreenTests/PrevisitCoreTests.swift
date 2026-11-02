@@ -15,20 +15,60 @@ final class PrevisitCoreTests: XCTestCase {
                        painBefore: before, painAfter: after)
     }
 
-    func testBadgePainPrefersLastCompleteRecordThenLastBeforeScore() throws {
+    func testBadgePainPrefersSmallestReductionThenHighestBeforeScore() throws {
         let day = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 27)))
-        let morning = try pain(on: day.addingTimeInterval(9 * 3600), patientID: patientID, before: 7, after: 3)
+        let morning = try pain(on: day.addingTimeInterval(9 * 3600), patientID: patientID, before: 7, after: 6)
         let noon = try pain(on: day.addingTimeInterval(12 * 3600), patientID: patientID, before: 5, after: 4)
         let waiting = try pain(on: day.addingTimeInterval(14 * 3600), patientID: patientID, before: 8, after: nil)
 
         let mixed = try XCTUnwrap(PrevisitRecordedDays.make(pain: [waiting, morning, noon], symptoms: [],
                                                             patientID: patientID, calendar: calendar).first)
-        XCTAssertEqual([mixed.painBefore, mixed.painAfter], [5, 4], "완성된 기록 중 마지막")
+        XCTAssertEqual([mixed.painBefore, mixed.painAfter], [7, 6], "감소 폭이 같으면 복용 후 통증이 높은 기록")
 
-        let onlyWaiting = try XCTUnwrap(PrevisitRecordedDays.make(pain: [waiting], symptoms: [],
+        let onlyWaiting = try XCTUnwrap(PrevisitRecordedDays.make(pain: [waiting, pain(on: day.addingTimeInterval(15 * 3600), patientID: patientID, before: 3, after: nil)], symptoms: [],
                                                                   patientID: patientID, calendar: calendar).first)
         XCTAssertEqual(onlyWaiting.painBefore, 8)
         XCTAssertNil(onlyWaiting.painAfter)
+    }
+
+    func testBadgePrefersHighestPainAfterIncreaseOverLargestIncrease() throws {
+        let date = calendar.startOfDay(for: Date())
+        let records = try [
+            pain(on: date, patientID: patientID, before: 1, after: 7),
+            pain(on: date.addingTimeInterval(60), patientID: patientID, before: 8, after: 9),
+            pain(on: date.addingTimeInterval(120), patientID: patientID, before: 10, after: 10),
+            pain(on: date.addingTimeInterval(180), patientID: patientID, before: 10, after: nil)
+        ]
+        let result = try XCTUnwrap(PrevisitRecordedDays.make(pain: records, symptoms: [],
+            patientID: patientID, calendar: calendar).first)
+        XCTAssertEqual([result.painBefore, result.painAfter], [8, 9])
+    }
+
+    func testBadgePrefersSmallestReductionOverLatestRecord() throws {
+        let date = calendar.startOfDay(for: Date())
+        let records = try [
+            pain(on: date, patientID: patientID, before: 5, after: 4),
+            pain(on: date.addingTimeInterval(60), patientID: patientID, before: 9, after: 6)
+        ]
+        let result = try XCTUnwrap(PrevisitRecordedDays.make(pain: records, symptoms: [],
+            patientID: patientID, calendar: calendar).first)
+        XCTAssertEqual([result.painBefore, result.painAfter], [5, 4])
+    }
+
+    func testSelectableDaysIncludesTodayAndPrevious29DaysOnly() throws {
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 31, hour: 18)))
+        let today = calendar.startOfDay(for: now)
+        let range = try XCTUnwrap(PrevisitRecordedDays.selectionRange(now: now, calendar: calendar))
+        XCTAssertEqual(range.start, calendar.date(byAdding: .day, value: -29, to: today))
+        XCTAssertEqual(range.end, calendar.date(byAdding: .day, value: 1, to: today))
+        func day(_ offset: Int) throws -> PrevisitDay {
+            let date = try XCTUnwrap(calendar.date(byAdding: .day, value: offset, to: today))
+            return PrevisitDay(id: String(offset), dateLabel: "", weekday: "", entries: ["기록"], recordedDate: date)
+        }
+        let days = try [-30, -29, -1, 0, 1].map(day)
+        let missingDate = PrevisitDay(id: "missing", dateLabel: "", weekday: "", entries: ["기록"])
+        let result = PrevisitRecordedDays.selectableDays(days + [missingDate], now: now, calendar: calendar)
+        XCTAssertEqual(result.map(\.id), ["-29", "-1", "0"])
     }
 
     func testSavedDaysKeepDatesAndOriginalIDsAndRejectForeignPatients() throws {

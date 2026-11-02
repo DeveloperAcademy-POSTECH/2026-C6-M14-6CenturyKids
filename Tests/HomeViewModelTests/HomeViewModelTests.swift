@@ -8,14 +8,14 @@ import ToDocDomain
     private let secondDoctor = UUID()
     private var patients = Patients()
     private var doctors = Doctors()
-    private var model: HomeViewModel!
+    private var viewModel: HomeViewModel!
 
     private func reset() {
         patients = Patients()
         doctors = Doctors()
         patients.value = patient(patientID, doctorID: firstDoctor)
         doctors.value = doctor(firstDoctor)
-        model = HomeViewModel(repositories: .init(patients: patients, doctors: doctors))
+        viewModel = HomeViewModel(repositories: .init(patients: patients, doctors: doctors))
     }
     private func context(_ id: UUID, visible: Bool = true) -> HomeContext {
         .init(patientID: id, isVisible: visible, isAppActive: true)
@@ -23,28 +23,28 @@ import ToDocDomain
 
     func testHomeReentryReadsChangedDoctorAndDisconnection() async {
         reset()
-        await model.updateContext(context(patientID))?.value
-        XCTAssertEqual(model.state.doctorName, "첫 의사")
-        model.updateContext(context(patientID, visible: false))
+        await viewModel.updateContext(context(patientID))?.value
+        XCTAssertEqual(viewModel.state.doctorName, "첫 의사")
+        viewModel.updateContext(context(patientID, visible: false))
         patients.value = patient(patientID, doctorID: secondDoctor)
         doctors.value = doctor(secondDoctor)
-        await model.updateContext(context(patientID))?.value
-        XCTAssertEqual(model.state.doctorName, "새 의사")
-        model.updateContext(context(patientID, visible: false))
+        await viewModel.updateContext(context(patientID))?.value
+        XCTAssertEqual(viewModel.state.doctorName, "새 의사")
+        viewModel.updateContext(context(patientID, visible: false))
         patients.value = patient(patientID, doctorID: nil)
-        await model.updateContext(context(patientID))?.value
-        XCTAssertEqual(model.state.doctor, .loaded(.unlinked))
-        XCTAssertNil(model.state.doctorName)
+        await viewModel.updateContext(context(patientID))?.value
+        XCTAssertEqual(viewModel.state.doctor, .loaded(.unlinked))
+        XCTAssertNil(viewModel.state.doctorName)
     }
 
     func testLookupFailureCanBeRetried() async {
         reset()
         patients.load = { throw LookupFailure() }
-        await model.updateContext(context(patientID))?.value
-        XCTAssertEqual(model.state.doctor, .failed(.loadFailed, previous: nil))
+        await viewModel.updateContext(context(patientID))?.value
+        XCTAssertEqual(viewModel.state.doctor, .failed(.loadFailed, previous: nil))
         patients.load = nil
-        await model.reload()?.value
-        XCTAssertEqual(model.state.doctorName, "첫 의사")
+        await viewModel.reload()?.value
+        XCTAssertEqual(viewModel.state.doctorName, "첫 의사")
     }
 
     func testBothLookupsRejectLateRepliesAfterCancellationOrAccountChange() async {
@@ -55,7 +55,7 @@ import ToDocDomain
                 let doctorReply = Reply<Doctor?>()
                 if doctorLookup { doctors.load = { try await doctorReply.wait() } }
                 else { patients.load = { try await patientReply.wait() } }
-                let request = model.updateContext(context(patientID))
+                let request = viewModel.updateContext(context(patientID))
                 await fulfillment(of: [doctorLookup ? doctorReply.started : patientReply.started], timeout: 2)
                 patients.load = nil
                 doctors.load = nil
@@ -63,20 +63,20 @@ import ToDocDomain
                     let nextPatient = UUID()
                     patients.value = patient(nextPatient, doctorID: secondDoctor)
                     doctors.value = doctor(secondDoctor)
-                    await model.updateContext(context(nextPatient))?.value
-                    XCTAssertEqual(model.state.doctorName, "새 의사")
+                    await viewModel.updateContext(context(nextPatient))?.value
+                    XCTAssertEqual(viewModel.state.doctorName, "새 의사")
                 } else {
-                    model.cancel()
-                    XCTAssertEqual(model.state.doctor, .idle)
+                    viewModel.cancel()
+                    XCTAssertEqual(viewModel.state.doctor, .idle)
                 }
-                let expected = model.state.doctor
+                let expected = viewModel.state.doctor
                 if doctorLookup {
                     doctorReply.finish(accountChange ? .success(doctor(firstDoctor)) : .failure(LookupFailure()))
                 } else {
                     patientReply.finish(accountChange ? .success(patient(patientID, doctorID: firstDoctor)) : .failure(LookupFailure()))
                 }
                 await request?.value
-                XCTAssertEqual(model.state.doctor, expected)
+                XCTAssertEqual(viewModel.state.doctor, expected)
             }
         }
     }

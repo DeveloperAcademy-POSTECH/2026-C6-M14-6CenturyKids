@@ -132,11 +132,11 @@ final class PainRecordViewModel {
         painAfter = score
     }
 
-    /// 입력을 비우고 먹기 전 점수는 10점, 먹은 뒤 점수는 0점에서 시작합니다.
+    /// 입력을 비웁니다. 점수는 환자가 직접 고르기 전까지 비워 두어 다음·저장을 막습니다 (게이지의 10·0은 화면 표시일 뿐입니다).
     func startNewRecord() {
         selectedLocations = []
-        painBefore = 10
-        painAfter = 0
+        painBefore = nil
+        painAfter = nil
     }
 
     /// 먹기 전 통증을 저장하고 1시간 뒤 알림을 예약합니다. 저장한 시각이 기록 시각입니다.

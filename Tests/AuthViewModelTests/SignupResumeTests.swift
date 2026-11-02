@@ -25,7 +25,7 @@ private final class ResumeDoctors: DoctorRepository {
                       configuration: AuthConfiguration = .init()) -> AuthFlowViewModel {
         var repositories = f.repositories
         repositories.doctors = doctors
-        return AuthFlowViewModel(repositories: repositories, configuration: configuration)
+        return AuthFlowViewModel(repositories: repositories, configuration: configuration, session: AuthSessionState())
     }
     private func login(_ flow: AuthFlowViewModel) async {
         flow.open(.login)
@@ -48,7 +48,7 @@ private final class ResumeDoctors: DoctorRepository {
     func testAppRestartAfterAccountCreationCanFinishThroughLoginWithoutAnotherSignup() async {
         let f = AuthFixture()
         var configuration = AuthConfiguration(); configuration.allowsSignupRequests = true
-        var first: AuthFlowViewModel? = AuthFlowViewModel(repositories: f.repositories, configuration: configuration)
+        var first: AuthFlowViewModel? = AuthFlowViewModel(repositories: f.repositories, configuration: configuration, session: AuthSessionState())
         let state = first!.signup.state
         state.email = "patient@example.com"; state.password = "password123"; state.passwordConfirmation = state.password
         state.acceptedTerms = Set(SignupTerm.allCases); state.step = .terms
@@ -82,7 +82,7 @@ private final class ResumeDoctors: DoctorRepository {
 
     func testMissingTermsWaitInsteadOfBypassingThemOnResume() async {
         var configuration = AuthConfiguration(); configuration.terms = [:]
-        let f = AuthFixture(), resumed = AuthFlowViewModel(repositories: f.repositories, configuration: configuration)
+        let f = AuthFixture(), resumed = AuthFlowViewModel(repositories: f.repositories, configuration: configuration, session: AuthSessionState())
         await login(resumed)
         resumed.signup.state.acceptedTerms = Set(SignupTerm.allCases)
         XCTAssertFalse(resumed.signup.state.canProceedFromTerms)

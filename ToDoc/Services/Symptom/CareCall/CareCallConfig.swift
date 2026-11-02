@@ -72,11 +72,22 @@ struct CareCallConfig: Decodable, Sendable {
         func details(heard quotes: [String]) -> [Detail] {
             let heard = details.filter { detail in
                 guard let keywords = detail.keywords else { return true }
-                let matcher = KeywordMatcher(keywords: keywords, prefixNegation: true)
-                return quotes.contains { matcher.matches($0) != nil }
+                return quotes.contains { Self.said(keywords, in: $0) }
             }
             return heard.contains { $0.keywords != nil } ? heard : details
         }
+
+        /// 꼬리질문 낱말을 부정 없이 말한 절이 있는지. 낱말이 줄기("메스", "울렁")라 KeywordMatcher가 뒤 부정을 못 볼 때가 있어
+        /// 그 절에 부정·괜찮다·나았다는 말이 있으면 부정으로 본다 ("메스껍지도 않아요"가 '있음'이 되고,
+        /// "메스꺼운 건 없었는데 한 번 토했어요"에 메스꺼움 시작을 물었다, 2026-10-30 확인 세트)
+        static func said(_ words: [String], in text: String) -> Bool {
+            let matcher = KeywordMatcher(keywords: words, prefixNegation: true)
+            return AnswerReading.parts(text).contains { clause in
+                matcher.matches(clause) != nil && clause.range(of: Self.deniedInClause, options: .regularExpression) == nil
+            }
+        }
+
+        private static let deniedInClause = #"않|없|아니|괜찮|(^|\s)안\s|나았|멈췄|그쳤|가라앉|풀렸|사라졌"#
     }
 
     let version: String
@@ -110,6 +121,10 @@ struct CareCallConfig: Decodable, Sendable {
     let repeatPrefix: String
     /// 다른 항목으로 돌아가 물을 때 앞에 붙이는 말. {name} = spokenName
     let returnPrefix: String
+    /// 유무 질문에 다른 증상만 말해 이 항목을 다시 물을 때 repeatPrefix 대신 붙이는 말 ("변비 있으셨나요?" → "설사를 했어요"). {name} = 말한 증상
+    let notedOtherPrefix: String
+    /// 다른 질문에서 말한 증상의 횟수·부위를 처음 물을 때 붙이는 말 (그 증상의 유무는 묻지 않았다). {name} = spokenName
+    let mentionedPrefix: String
     /// '그 밖에'에서 기타 증상을 말하면 한 번 더 묻고(question) 답을 그대로 기록(label)한 뒤 마무리 인사 앞에 붙이는 말(recorded)
     let otherDetail: OtherDetail
     let locationPrompt: String
@@ -131,6 +146,8 @@ struct CareCallConfig: Decodable, Sendable {
     /// 환자 말은 그대로 남긴다 (모델은 이런 답을 대부분 '있음'으로 기록했다, 2026-10-14 평가. 초안).
     /// 다시 거는 통화의 첫 질문에 이런 답이면 '달라진 점'을 '모름'으로 남긴다
     let vagueAnswers: [String]
+    /// '모름'으로 남기거나 다시 물어도 분명하지 않아 닫고 다음 질문으로 넘어갈 때 앞에 붙이는 말
+    let unsureNoted: String
     /// '그 밖에' 질문에 "모르겠어요"·"그냥 그래요"라고 하면 이 이름의 기타 항목에 '모름'으로 원문을 남긴다
     let otherUnclearName: String
     /// '그 밖에' 질문에 이 말로 끝나는 답은 더 말할 게 없다는 뜻 ("그게 다예요", "할 말은 다 했어요"). 증상 표현·항목 낱말·몸 부위가
@@ -143,6 +160,14 @@ struct CareCallConfig: Decodable, Sendable {
 
     func returnPrefix(for effect: Effect) -> String {
         returnPrefix.replacingOccurrences(of: "{name}", with: effect.spokenName)
+    }
+
+    func notedOtherPrefix(for effect: Effect) -> String {
+        notedOtherPrefix.replacingOccurrences(of: "{name}", with: effect.spokenName)
+    }
+
+    func mentionedPrefix(for effect: Effect) -> String {
+        mentionedPrefix.replacingOccurrences(of: "{name}", with: effect.spokenName)
     }
 
     struct OpeningTransition: Decodable, Sendable {
@@ -168,6 +193,8 @@ struct CareCallConfig: Decodable, Sendable {
         let notedAndResume: String
         /// 달라진 게 없음 → 마무리 인사 앞에
         let unchanged: String
+        /// 첫 답에서 목록 밖 증상만 말함 → '그 밖에' 질문 앞에
+        let notedOther: String
         /// 첫 질문에 "글쎄요"처럼 답하면 이 이름의 기타 항목에 '모름'으로 남긴다
         let unclearName: String
         /// 증상이 그쳤다는 낱말 ("멈췄어요"). 첫 답에서 모델이 그 증상을 못 잡으면 '없음'으로 남긴다.

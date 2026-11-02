@@ -91,6 +91,27 @@ struct EngineGuardTests {
         #expect(!out.utterance.contains("에 대해 여쭤볼게요"))
     }
 
+    /// 2026-11-02 QA: 변비 질문에 설사만 말하면 "죄송해요, 다시 한 번"으로 되묻고, 변비에 답하자 바로 "설사는 하루에 몇 번…"
+    @Test func 유무_질문에_다른_증상만_말하면_받았다고_하고_다시_묻는다() async throws {
+        let engine = InterviewEngine(config: try fixture(CareCallConfig.self, "side_effects"),
+                                     rules: try fixture(EmergencyRules.self, "emergency_rules"),
+                                     analyzer: ScriptedAnalyzer { request in
+                                         .mentions(Mention(effectId: "diarrhea", presence: .present, quote: request.patientText))
+                                     })
+        _ = engine.start()
+        for _ in 0..<10 where engine.phase != .slot(key: "constipation", step: .presence) {
+            _ = await engine.handle(patientText: "없어요")
+        }
+        let reask = await engine.handle(patientText: "변비는 없고 설사를 했어요")
+        #expect(engine.phase == .slot(key: "constipation", step: .presence))
+        #expect(reask.utterance == "말씀하신 설사도 기록해 둘게요. 변을 보기 힘들거나 변비가 있으셨나요?")
+        // 설사 유무는 묻지 않았으니 횟수를 물을 때 그 말을 듣고 묻는다고 먼저 말한다
+        let count = await engine.handle(patientText: "아니요")
+        #expect(engine.ledger["constipation"]?.presence == .absent)
+        #expect(engine.phase == .slot(key: "diarrhea", step: .detail))
+        #expect(count.utterance == "아까 말씀하신 설사에 대해 조금 더 여쭤볼게요. 설사는 하루에 몇 번 정도 하셨나요?")
+    }
+
     /// 2026-10-08 기기: '그 밖에' 답 "뭐 있더라 잠을 잠 못 잡니다."를 모델이 비우고(따라 하기만) 기록 없이 마무리됨
     /// "모르겠어요"는 기타 '모름' + 원문으로 남긴다 (VagueAnswerTests)
     @Test(arguments: [("뭐 있더라 잠을 잠 못 잡니다.", true), ("딱히 없는 것 같아요", false), ("아니 괜찮아", false)])
@@ -282,6 +303,21 @@ struct QuickAnswerTests {
 /// 응급 키워드 부정 처리. 애매하면 응급 쪽으로 (가상 문장)
 @MainActor
 struct KeywordMatcherTests {
+    /// 2026-11-02 평가: "변을 봐도 시원하지 않아요"가 '않아요'로 끝나 모델 없이 변비 '없음'이 됨
+    @Test(arguments: [("변을 봐도 시원하지 않아요", true), ("화장실 다녀와도 개운찮아요", true),
+                      ("다 안 나오고 남은 느낌이에요", true), ("시원하지 않은 건 없어요", false)])
+    func 변비_질문에_시원하지_않다는_답은_있음(answer: String, present: Bool) async throws {
+        let engine = InterviewEngine(config: try fixture(CareCallConfig.self, "side_effects"),
+                                     rules: try fixture(EmergencyRules.self, "emergency_rules"),
+                                     analyzer: ScriptedAnalyzer { _ in .mentions() })
+        _ = engine.start()
+        for _ in 0..<10 where engine.phase != .slot(key: "constipation", step: .presence) {
+            _ = await engine.handle(patientText: "없어요")
+        }
+        _ = await engine.handle(patientText: answer)
+        #expect((engine.ledger["constipation"]?.presence == .present) == present)
+    }
+
     @Test(arguments: [
         ("열은 없고 숨이 차지도 않아요", false),
         ("숨이 차진 않아요", false),
@@ -506,6 +542,8 @@ struct SymptomHintMatcherTests {
         ("열이 안 나요", false),
         ("안 아파요", false),
         ("머리가 좀 아파요", true),
+        // 구내염 낱말과 함께 오는 말이라 '그 밖에'로 따로 저장하지 않는다 (2026-10-30 회귀 세트)
+        ("잇몸이 붓고 쓰라려요", false),
     ])
     func 증상_표현_판별(text: String, hit: Bool) throws {
         let config = try fixture(CareCallConfig.self, "side_effects")

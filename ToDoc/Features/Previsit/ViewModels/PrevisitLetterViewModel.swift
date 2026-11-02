@@ -6,23 +6,29 @@
 //
 
 import Foundation
+#if SWIFT_PACKAGE
+import ToDocDomain
+#endif
 import Observation
 
-/// 보낸 진료 전 기록(고른 날·하고싶은말·기분)을 월별 목록·상세로 보여 주고, 하고싶은말·기분을 고치거나 지운다.
-/// 저장 계약이 아직 없어 로그인 동안 메모리에만 둔다 (앱을 다시 켜면 사라진다)
+/// 저장소에 전송된 기록을 조회하고, 새 기록을 전송합니다. 전송 후 변경 기능은 제공하지 않습니다.
 @MainActor
 @Observable
 final class PrevisitLetterViewModel {
-    /// 저장·삭제 뒤 화면이 잠깐 띄우는 안내
-    enum Notice: Equatable {
-        case saved, deleted
-        var message: String {
-            switch self {
-            case .saved: "수정한 내용이 선생님께도 전달됐어요"
-            case .deleted: "기록을 삭제했어요"
-            }
-        }
-    }
+    typealias Load = () async throws -> [PrevisitRecord]
+    typealias LoadDay = (Date) async throws -> PrevisitDay?
+    typealias Save = (PrevisitRecord) async throws -> Void
+    private let patientID: UUID?
+    private let loadRecords: Load?
+    private let saveRecord: Save?
+    private let loadDay: LoadDay?
+    private(set) var loadingDetails: Set<UUID> = []
+    private(set) var detailErrors: [UUID: String] = [:]
+    private(set) var isLoading = false
+    private(set) var isSubmitting = false
+    private(set) var errorMessage: String?
+    private var days: [PrevisitDay] = []
+    private var doctorName = "선생님"
 
     /// 목록의 한 달 묶음 ("2026년 10월")
     struct Month: Identifiable {
@@ -32,22 +38,85 @@ final class PrevisitLetterViewModel {
 
     /// 최신순
     private(set) var letters: [PrevisitLetter] = []
-    /// 고치는 중인 기록 (nil이면 고치는 중이 아님)
-    private(set) var editingID: UUID?
-    var editingLetter = ""
-    var editingMood: PrevisitMood?
-    /// 잠깐 띄우는 안내. 띄운 뒤 noticeDuration이 지나면 스스로 사라진다
-    /// (화면 전환 중에 토스트 뷰가 잠깐 사라졌다 나타나도 안내가 지워지지 않게 ViewModel이 시간을 잰다)
-    private(set) var notice: Notice?
-    @ObservationIgnored private var noticeTask: Task<Void, Never>?
-    private let noticeDuration: Duration
     private let calendar: Calendar
-    private let now: () -> Date
 
-    init(calendar: Calendar = .current, now: @escaping () -> Date = Date.init, noticeDuration: Duration = .seconds(2)) {
+    init(patientID: UUID? = nil, calendar: Calendar = .current,
+         load: Load? = nil, save: Save? = nil, loadDay: LoadDay? = nil) {
+        self.patientID = patientID
         self.calendar = calendar
-        self.now = now
-        self.noticeDuration = noticeDuration
+        self.loadRecords = load
+        self.saveRecord = save
+        self.loadDay = loadDay
+    }
+
+    func load(days: [PrevisitDay], doctorName: String) async {
+        guard let loadRecords, !isLoading else { return }
+        self.days = days
+        self.doctorName = doctorName
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            let records = try await loadRecords()
+            try Task.checkCancellation()
+            letters = records.sorted { $0.submittedAt > $1.submittedAt }.map(display)
+        } catch {
+            if !Task.isCancelled { errorMessage = "진료 전 기록을 불러오지 못했어요. 다시 시도해 주세요." }
+        }
+    }
+
+    /// 상세에서는 대표 배지와 별개로 선택한 날짜의 전체 기록을 다시 조회합니다.
+    func loadDetail(_ id: UUID) async {
+        guard let loadDay, let letter = letter(id), let date = letter.draft.day?.recordedDate,
+              !loadingDetails.contains(id) else { return }
+        loadingDetails.insert(id)
+        detailErrors[id] = nil
+        defer { loadingDetails.remove(id) }
+        do {
+            let day = try await loadDay(date)
+            try Task.checkCancellation()
+            guard let index = letters.firstIndex(where: { $0.id == id }) else { return }
+            var draft = letter.draft
+            // 조회 결과가 비어도 이전 기록을 남기지 않습니다.
+            draft.day = day ?? PrevisitDay(id: date.description, dateLabel: letter.draft.day?.dateLabel ?? "",
+                                          weekday: letter.draft.day?.weekday ?? "", entries: [], recordedDate: date)
+            letters[index] = PrevisitLetter(id: letter.id, sentAt: letter.sentAt,
+                                           doctorName: letter.doctorName, draft: draft)
+        } catch {
+            if !Task.isCancelled { detailErrors[id] = "해당 날짜의 기록을 불러오지 못했어요. 다시 시도해 주세요." }
+        }
+    }
+
+    func reload() async { await load(days: days, doctorName: doctorName) }
+
+    func send(_ draft: PrevisitDraft, to doctorName: String) async -> UUID? {
+        guard !isSubmitting, let patientID, let saveRecord,
+              let date = draft.day?.recordedDate, let mood = draft.mood else { return nil }
+        isSubmitting = true
+        errorMessage = nil
+        defer { isSubmitting = false }
+        do {
+            let record = try PrevisitRecord(patientId: patientID, selectedDate: date,
+                                           memo: draft.letter.isEmpty ? nil : draft.letter, stateOfMind: mood)
+            try await saveRecord(record)
+            // 같은 날 재전송해도 이미 보낸 기록을 덮어쓰지 않습니다.
+            letters.insert(PrevisitLetter(id: record.id, sentAt: record.submittedAt,
+                                         doctorName: doctorName, draft: draft), at: 0)
+            return record.id
+        } catch {
+            errorMessage = "전송하지 못했어요. 작성한 내용은 유지돼요. 다시 시도해 주세요."
+            return nil
+        }
+    }
+
+    private func display(_ record: PrevisitRecord) -> PrevisitLetter {
+        let day = days.first { $0.recordedDate.map { calendar.isDate($0, inSameDayAs: record.selectedDate) } == true }
+            ?? PrevisitDay(id: record.selectedDate.description,
+                           dateLabel: "\(calendar.component(.month, from: record.selectedDate))/\(calendar.component(.day, from: record.selectedDate))",
+                           weekday: calendar.weekdaySymbols[calendar.component(.weekday, from: record.selectedDate) - 1],
+                           entries: [], recordedDate: record.selectedDate)
+        return PrevisitLetter(id: record.id, sentAt: record.submittedAt, doctorName: doctorName,
+                              draft: .init(day: day, letter: record.memo ?? "", mood: record.stateOfMind))
     }
 
     var latest: PrevisitLetter? { letters.first }
@@ -66,64 +135,6 @@ final class PrevisitLetterViewModel {
             }
         }
         return result
-    }
-
-    /// 보낸 날 기준 하루 1건: 같은 날 다시 보내면 그날 기록을 새 내용으로 덮어쓴다 (같은 기록이라 id는 그대로)
-    func send(_ draft: PrevisitDraft, to doctorName: String) {
-        cancelEdit()
-        let sentAt = now()
-        let id = letters.first { calendar.isDate($0.sentAt, inSameDayAs: sentAt) }?.id ?? UUID()
-        letters.removeAll { $0.id == id }
-        letters.insert(PrevisitLetter(id: id, sentAt: sentAt, doctorName: doctorName, draft: draft), at: 0)
-    }
-
-    // MARK: - 수정·삭제
-
-    func beginEdit(_ id: UUID) {
-        guard let letter = letter(id) else { return }
-        editingID = id
-        editingLetter = letter.draft.letter
-        editingMood = letter.draft.mood
-    }
-
-    /// 저장 버튼과 '수정을 그만둘까요?' 알림을 정한다
-    var hasEditChanges: Bool {
-        guard let editingID, let letter = letter(editingID) else { return false }
-        return editingLetter != letter.draft.letter || editingMood != letter.draft.mood
-    }
-
-    /// 고친 원문을 그대로 남긴다 (편지는 선택 입력이라 빈 글도 허용, 기분은 비울 수 없다)
-    func saveEdit() {
-        guard hasEditChanges, let editingID, let editingMood,
-              let index = letters.firstIndex(where: { $0.id == editingID }) else { return }
-        letters[index].draft.letter = editingLetter
-        letters[index].draft.mood = editingMood
-        self.editingID = nil
-        show(.saved)
-    }
-
-    func cancelEdit() { editingID = nil }
-
-    func delete(_ id: UUID) {
-        guard letters.contains(where: { $0.id == id }) else { return }
-        letters.removeAll { $0.id == id }
-        if editingID == id { cancelEdit() }
-        show(.deleted)
-    }
-
-    func clearNotice() {
-        noticeTask?.cancel()
-        notice = nil
-    }
-
-    private func show(_ notice: Notice) {
-        noticeTask?.cancel()
-        self.notice = notice
-        noticeTask = Task { [weak self, noticeDuration] in
-            try? await Task.sleep(for: noticeDuration)
-            guard !Task.isCancelled else { return }
-            self?.notice = nil
-        }
     }
 
     // MARK: - 표시 문구

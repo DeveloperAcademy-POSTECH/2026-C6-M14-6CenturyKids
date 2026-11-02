@@ -24,11 +24,12 @@ struct KeywordMatcher: Sendable {
                 while let range = clause.range(of: Self.pattern(keyword, maxGapWords: maxGapWords), options: .regularExpression, range: from..<clause.endIndex) {
                     let rest = clause[range.upperBound...].replacingOccurrences(of: " ", with: "")
                     let before = clause[..<range.lowerBound].trimmingCharacters(in: .whitespaces)
-                    // 증상 표현 모드: 앞의 "안"("안 아파요")과 바로 뒤의 "안"("열이 안 나요")도 부정
-                    let negatedBefore = prefixNegation && (before == "안" || before.hasSuffix(" 안") || rest.hasPrefix("안"))
-                    // 증상 표현 모드: "뻐근한 데는 없어요", "쑤시는 데 없어요", "저린 건 아니고"도 부정 ("아픈데 없어지질 않아요", "없진 않아요"는 아니다)
+                    // 증상 표현 모드: 앞의 "안"("안 아파요")과 바로 뒤의 "안"("열이 안 나요"), 조사 뒤 "안 했다"("토는 안 했어요")도 부정
+                    let negatedBefore = prefixNegation && (before == "안" || before.hasSuffix(" 안") || rest.hasPrefix("안")
+                        || rest.range(of: #"^[은는도]?(?:한번도|전혀|하나도|통)?안(?:하|했|해)"#, options: .regularExpression) != nil)
+                    // 증상 표현 모드: "뻐근한 데는 없어요", "쑤시는 데 없어요", "저린 건 아니고", "토한 적은 없어요"도 부정 ("아픈데 없어지질 않아요", "없진 않아요"는 아니다)
                     let negatedPlace = prefixNegation
-                        && rest.range(of: #"^(?:하|한|는|은)?(?:데|곳|부분|부위|건|게|거)(?:는|도|은|가)?(?:없(?!어지|어져|진|지는|지않)|않|아니)"#,
+                        && rest.range(of: #"^(?:하|한|는|은)?(?:데|곳|부분|부위|건|게|거|적)(?:는|도|은|가|이)?(?:없(?!어지|어져|진|지는|지않)|않|아니)"#,
                                       options: .regularExpression) != nil
                     // 다 나았다는 말 ("쑤시던 건 다 나았어요", "결리던 것도 다 풀렸어요")
                     let resolved = prefixNegation

@@ -391,9 +391,12 @@ final class InterviewEngine {
                               since before: Ledger) -> (ask: String?, recordedPrefix: String?) {
         switch current {
         case .slot(let key, let step) where step != .detail
-            && (reading.isUnknownAnswer(patientText) || (step == .presence && reading.isVagueAnswer(patientText))
+            && (reading.isUnknownAnswer(patientText)
+                || (step == .presence && (reading.isVagueAnswer(patientText) || reading.deniesOnePartButComplains(patientText, for: key)))
                 || (step == .location && reading.isNoLocation(patientText))):
             ledger.markUnknown(key, step: step, quote: patientText) // '모름' + 원문
+            // 바로 다음 질문을 하면 말을 끊은 것 같다 (2026-10-29 팀 테스트)
+            return (nil, config.unsureNoted)
         case .other where otherDetailKey == nil && reading.soundsUnsure(patientText) && ledger.sameRecords(as: before):
             // '그 밖에'에 "모르겠어요"·"그냥 그래요": 기타 '모름' + 원문으로 남기고 마무리 (증상 '있음'으로는 남기지 않는다)
             recordUnclearOther(patientText, name: config.otherUnclearName)
@@ -401,7 +404,9 @@ final class InterviewEngine {
         case .slot(let key, .detail):
             // 이 답 전에 물은 꼬리질문 (꼬리질문 답은 모델 없이 처리해 그사이 기록이 바뀌지 않는다)
             if let detail = pendingDetail(for: key) {
-                let answer = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+                // "네"·"네네"만 한 답은 꼬리질문의 답이 아니다: 빈 답으로 두어 저장 내용에 "네네"가 남지 않게 한다 (2026-10-29 팀 테스트, 음성)
+                let answer = reading.isShortYes(patientText) ? ""
+                    : patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
                 ledger.addDetail(answer, label: detail.label, for: key)
             }
         case .other:
@@ -433,10 +438,10 @@ final class InterviewEngine {
         return (nil, nil)
     }
 
-    /// 유무·부위 질문의 답이 분명하지 않으면(다시 묻게 됨) 답을 모아 둔다. 이 답으로 다른 증상이 기록됐으면 그 증상의 말이라 모으지 않는다
+    /// 유무·부위 질문의 답이 분명하지 않으면(다시 묻게 됨) 답을 모아 둔다. 다시 물어도 분명하지 않아 닫으면 이 답들을 검토 필요로 남긴다.
+    /// 다른 증상으로 기록된 답("구토 있으셨나요?" → "설사해요")도 이 질문에 한 답이라 모은다 (2026-10-29 사용자 결정)
     private func collectUnsettled(during current: InterviewPhase, patientText: String, since before: Ledger) {
         guard case .slot(let key, let step) = current, step != .detail,
-              ledger.order.allSatisfy({ $0 == key || (ledger[$0]?.presence == before[$0]?.presence && ledger[$0]?.locations == before[$0]?.locations) }),
               let entry = ledger[key], !entry.unknownSteps.contains(step),
               step == .presence ? (entry.presence == nil || entry.presence == .unclear) : entry.locations.isEmpty else { return }
         let said = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
@@ -450,16 +455,25 @@ final class InterviewEngine {
         // 원래 질문을 다시 쓰거나, 환자 말에 물음표만 붙인 것이었다 (2026-10-21 Foundation Models 평가: 되묻기 7번 모두)
         let followUp = quick?.utterance.isEmpty == false ? quick?.utterance : nil
         let recordedThisTurn = !ledger.sameRecords(as: before) // advance()가 '물음' 표시를 남기기 전에 본다
-        var utterance = await advance(from: current, followUp: followUp)
+        let closedBefore = Set(ledger.order.filter { ledger[$0]?.closed == true })
+        // 이번 답에서 새로 '있음'이 된 다른 목록 증상 (지금 묻는 항목을 다시 물을 때 그 증상은 받았다고 말한다)
+        let notedOther = ledger.order.lazy.filter { key in
+            key != current.slotKey && self.ledger[key]?.presence == .present && before[key]?.presence != .present
+        }.compactMap(config.effect).first
+        var utterance = await advance(from: current, followUp: followUp, notedOther: notedOther)
+        let closedNow = ledger.order.contains { ledger[$0]?.closed == true && !closedBefore.contains($0) }
         if current == .opening, let unasked {
             // 다시 거는 통화: 말한 증상·못 물은 항목을 묻는다고 알리거나, 달라진 게 없으면 그대로 둔다고 말하고 마무리
             let f = config.followUpCall
             // 기타 증상만 말했으면 곧바로 '그 밖에'로 가므로 "말씀하신 증상에 대해 조금 더 여쭤볼게요"는 붙이지 않는다
             let toldListedSymptom = ledger.order.contains { knownIds.contains($0) && ledger[$0]?.presence == .present }
+            // 목록 밖 증상만 말하고 바로 '그 밖에'를 물으면 말을 듣지 않은 것 같다 (2026-10-29 팀 테스트: "배가 며칠 전부터 아팠던 거 같아요")
+            let toldOther = ledger.order.contains { $0.hasPrefix("other:") && ledger[$0]?.presence == .present && before[$0] == nil }
             let transition: String? = switch (toldListedSymptom, unasked.isEmpty) {
             case (true, true): f.noted
             case (true, false): f.notedAndResume
             case (false, false): f.resume
+            case (false, true) where toldOther: f.notedOther
             case (false, true): reading.isUnchanged(patientText) && !reading.isUnclearChange(patientText) ? f.unchanged : nil
             }
             utterance = [transition, utterance].compactMap(\.self).joined(separator: " ")
@@ -469,7 +483,7 @@ final class InterviewEngine {
             let transition = openingFirstAnswer != nil ? t.afterFollowUp : recordedThisTurn ? t.noted : t.fine
             utterance = transition + " " + utterance
         }
-        if let prefix = recordedPrefix {
+        if let prefix = recordedPrefix ?? (closedNow ? config.unsureNoted : nil) {
             utterance = prefix + " " + utterance
         }
         return utterance
@@ -569,7 +583,10 @@ final class InterviewEngine {
         for detail in effect.details where !entry.details.contains(where: { $0.label == detail.label }) {
             let gate = KeywordMatcher(keywords: detail.keywords ?? effect.keywords, prefixNegation: true)
             let clauses = KeywordMatcher.clauses(patientText)
-            guard let clause = clauses.first(where: { gate.matches($0) != nil }),
+            // 낱말이 따로 없는 꼬리질문(설사 횟수)은 "네"로 시작한 한 절 답이면 그 절을 본다 ("네 어제 두 번인가 했어요", 2026-10-29 팀 테스트)
+            let saidYes = patientText.split(separator: " ").first.map { reading.isShortYes(String($0)) } ?? false
+            guard let clause = clauses.first(where: { gate.matches($0) != nil })
+                    ?? (detail.keywords == nil && clauses.count == 1 && saidYes ? clauses.first : nil),
                   clauses.filter({ $0 != clause }).allSatisfy({ NumberParser.count(in: $0) == nil && NumberParser.minutes(in: $0) == nil })
             else { continue }
             // 저장할 때는 문장 전체에서 다시 읽는다. 그 절과 같은 값이 읽힐 때만 채운다
@@ -609,13 +626,13 @@ final class InterviewEngine {
 
     // MARK: - 진행
 
-    private func advance(from current: InterviewPhase, followUp: String?) async -> String {
+    private func advance(from current: InterviewPhase, followUp: String?, notedOther: CareCallConfig.Effect? = nil) async -> String {
         while true {
             // 다시 거는 통화는 이번에 말한 항목과 지난 통화에서 못 물은 항목만 묻는다
             switch SlotPlanner.next(ledger: ledger, config: config, otherAsked: otherAsked, only: unasked.map { $0.union(ledger.order) }) {
             case .slot(let key, let step):
                 guard ledger.markAsked(key, step: step) else {
-                    // 두 번 다시 물어도 분명하지 않아 닫음 → 그동안 받은 답을 원문으로 남기고 다음 항목
+                    // 한 번 다시 물어도 분명하지 않아 닫음 → 그동안 받은 답을 원문으로 남기고 다음 항목
                     ledger.addUnsure(unsettledAnswers.removeValue(forKey: "\(key)|\(step)") ?? [], step: step, for: key)
                     continue
                 }
@@ -623,7 +640,18 @@ final class InterviewEngine {
                 phase = .slot(key: key, step: step)
                 let q = question(key: key, step: step, followUp: isRepeat ? followUp : nil)
                 // 오류·불분명으로 같은 질문을 다시 하면 다시 묻는다고 말한다 (모델이 다른 말로 되묻는 경우는 제외)
-                if isRepeat && q == lastQuestion { return say(config.repeatPrefix + " " + q) }
+                if isRepeat && q == lastQuestion {
+                    // 다른 증상만 말해 이 항목이 정해지지 않았으면 사과하지 않고, 그 증상은 받았다고 말한 뒤 다시 묻는다
+                    // (2026-11-02 QA: "변비 있으셨나요?" → "변비는 없고 설사를 했어요" → "죄송해요, 다시 한 번…")
+                    if step == .presence, let notedOther { return say(config.notedOtherPrefix(for: notedOther) + " " + q) }
+                    return say(config.repeatPrefix + " " + q)
+                }
+                // 다른 질문에서 말해 유무를 묻지 않은 증상의 횟수·부위로 넘어가면, 그 말을 듣고 묻는다고 먼저 말한다
+                // (2026-11-02 QA: 변비 질문에 설사를 말한 뒤 바로 "설사는 하루에 몇 번…"이라 변비 답에 이어 묻는 것처럼 들림)
+                if step != .presence, current != .opening, current.slotKey != key, let effect = config.effect(key),
+                   ledger[key]?.askedSteps.contains(.presence) == false {
+                    return say(config.mentionedPrefix(for: effect) + " " + q)
+                }
                 // 다른 항목·'그 밖에'를 묻다가 이 항목의 횟수·부위로 돌아가면 무엇을 묻는지 이름을 먼저 말한다
                 // (첫 질문 답에서 바로 이어 물을 때는 환자가 방금 말한 증상이라 붙이지 않는다)
                 // (2026-10-08 기기: 식사 질문 뒤 구내염을 이름 없이 다시 물어 환자가 식사에 대한 답을 함)
@@ -926,6 +954,7 @@ final class InterviewEngine {
             || (Self.nowWords.contains(where: compact.contains) && lastNormal) {
             return (.absent, nil)
         }
+        if reading.deniesOnePartAffirmsOther(patientText, for: key) { return (.present, nil) }
         if parts.count > 1, lastNormal, let clause = parts.dropLast().first(where: {
             effect.affirmed(in: $0, minLength: 2) && !reading.soundsNegative($0) && !$0.contains("않") && $0.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil
         }) {

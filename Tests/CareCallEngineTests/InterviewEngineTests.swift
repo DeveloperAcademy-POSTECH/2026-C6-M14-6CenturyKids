@@ -93,7 +93,7 @@ struct InterviewEngineTests {
         let questions = config.effects[0].details
         #expect(asked == labels.map { label in questions.first { $0.label == label }!.question })
         #expect(engine.ledger["nausea_vomiting"]?.details.map(\.label) == labels)
-        #expect(engine.ledger["nausea_vomiting"]?.followUps == 0) // 두 번째 꼬리질문은 되묻기가 아니다
+        #expect(engine.ledger["nausea_vomiting"]?.followUps.isEmpty == true) // 두 번째 꼬리질문은 되묻기가 아니다
         #expect(out.phase == .slot(key: "constipation", step: .presence))
     }
 
@@ -110,7 +110,7 @@ struct InterviewEngineTests {
         #expect(other.ledger.conditionText == "좀 피곤해요 / 그저께부터요")
     }
 
-    @Test func 불명확하면_꼬리질문은_2회까지_후_검토필요로_넘어간다() async {
+    @Test func 불명확하면_한_번_다시_묻고_검토필요로_넘어간다() async {
         _ = engine.start()
         _ = await engine.handle(patientText: "없어요") // opening (Mock: 언급 없음)
         #expect(engine.phase == .slot(key: "nausea_vomiting", step: .presence))
@@ -120,12 +120,11 @@ struct InterviewEngineTests {
         #expect(f1.phase == .slot(key: "nausea_vomiting", step: .presence))
         let ask = engine.config.effects.first { $0.id == "nausea_vomiting" }!.ask
         #expect(f1.utterance == engine.config.repeatPrefix + " " + ask) // 모델 꼬리질문은 쓰지 않고 같은 질문을 다시 한다
-        let f2 = await engine.handle(patientText: "음 그게요")
-        #expect(f2.phase == .slot(key: "nausea_vomiting", step: .presence))
-        let moved = await engine.handle(patientText: "모르겠어요")
+        // 다시 묻는 건 한 번만: 또 분명하지 않으면 닫고 다음 항목
+        let moved = await engine.handle(patientText: "음 그게요")
 
         #expect(moved.phase == .slot(key: "constipation", step: .presence))
-        #expect(engine.ledger["nausea_vomiting"]?.followUps == 2)
+        #expect(engine.ledger["nausea_vomiting"]?.followUps[.presence] == 1)
         #expect(engine.ledger["nausea_vomiting"]?.needsReview == true)
     }
 
@@ -472,7 +471,7 @@ struct InterviewEngineTests {
         let out = await engine.handle(patientText: "???")
         #expect(mock.requests.filter { $0.patientText == "???" }.count == 1) // 취소 오류는 다시 분석하지 않는다
         #expect(out.phase == .slot(key: "nausea_vomiting", step: .presence))
-        #expect(engine.ledger["nausea_vomiting"]?.followUps == 1)
+        #expect(engine.ledger["nausea_vomiting"]?.followUps[.presence] == 1)
     }
 }
 

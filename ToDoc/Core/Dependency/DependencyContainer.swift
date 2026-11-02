@@ -7,7 +7,10 @@
 
 import Foundation
 
+@MainActor
 final class DependencyContainer {
+    /// 로그인·설정·탈퇴가 함께 사용하는 앱 수명의 인증 상태입니다.
+    let authSession: AuthSessionState
     let supabaseProvider: SupabaseClientProvider
     let authRepository: any AuthRepository
     let userRepository: any UserRepository
@@ -15,6 +18,7 @@ final class DependencyContainer {
     let doctorRepository: any DoctorRepository
     let patientRepository: any PatientRepository
     let symptomRepository: any SymptomRepository
+    let previsitRepository: any PrevisitRepository
     let painRepository: any PainRepository
     let deviceTokenRepository: any DeviceTokenRepository
     /// 앱 알림 목록은 서버 없이 폰에만 남긴다
@@ -26,6 +30,7 @@ final class DependencyContainer {
     let hospitalArrivalService: HospitalArrivalService
     
     init(configuration: SupabaseConfiguration) {
+        authSession = AuthSessionState(loginPreference: AuthLoginPreference(defaults: .standard))
         let provider = SupabaseClientProvider(
             configuration: configuration
         )
@@ -38,6 +43,7 @@ final class DependencyContainer {
         doctorRepository = SupabaseDoctorRepository(client: client)
         patientRepository = SupabasePatientRepository(client: client)
         symptomRepository = SupabaseSymptomRepository(client: client)
+        previsitRepository = SupabasePrevisitRepository(client: client)
         painRepository = SupabasePainRepository(client: client)
         deviceTokenRepository = SupabaseDeviceTokenRepository(client: client)
         notificationRepository = FileNotificationRepository()
@@ -64,7 +70,7 @@ final class DependencyContainer {
     }
 
     @MainActor
-    func makeSettingsViewModel(patientId: UUID, authSession: AuthSessionState) -> SettingsViewModel {
+    func makeSettingsViewModel(patientId: UUID) -> SettingsViewModel {
         SettingsViewModel(
             patientId: patientId,
             authRepository: authRepository,
@@ -116,7 +122,7 @@ final class DependencyContainer {
             repositories: .init(auth: authRepository, users: userRepository, patients: patientRepository,
                                 doctors: doctorRepository, hospitals: hospitalRepository),
             configuration: AuthConfiguration(),
-            loginPreference: AuthLoginPreference(defaults: .standard)
+            session: authSession
         )
     }
 
@@ -146,4 +152,10 @@ final class DependencyContainer {
             patientRepository: patientRepository
         )
     }
+
+    @MainActor
+    func makeAccountWithdrawalViewModel() -> AccountWithdrawalViewModel {
+        AccountWithdrawalViewModel(authRepository: authRepository, authSession: authSession)
+    }
+
 }

@@ -1,17 +1,17 @@
 import SwiftUI
 
 @MainActor struct OnboardingView: View {
-    @State private var model: AuthFlowViewModel
-    init(model: AuthFlowViewModel? = nil) {
-        _model = State(initialValue: model ?? AuthFlowViewModel())
+    @State private var viewModel: AuthFlowViewModel
+    init(viewModel: AuthFlowViewModel) {
+        _viewModel = State(initialValue: viewModel)
     }
-    private var page: Int { model.onboarding.page }
+    private var page: Int { viewModel.onboarding.page }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        @Bindable var model = model
+        @Bindable var viewModel = viewModel
         NavigationStack {
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
@@ -27,7 +27,7 @@ import SwiftUI
                 } else {
                     VStack(spacing: 0) {
                         header
-                        TabView(selection: Binding(get: { page }, set: { model.onboarding.selectPage($0) })) {
+                        TabView(selection: Binding(get: { page }, set: { viewModel.onboarding.selectPage($0) })) {
                             welcome.tag(0)
                             OnboardingDailyCareView().tag(1)
                             OnboardingConversationView().tag(2)
@@ -42,8 +42,8 @@ import SwiftUI
             .padding(.top, 6)
             .background(AppColors.Semantic.Background.surface.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(isPresented: $model.showsAuth) {
-                AuthFlowView(model: model, onClose: model.close)
+            .navigationDestination(isPresented: $viewModel.showsAuth) {
+                AuthFlowView(viewModel: viewModel, onClose: viewModel.close)
             }
         }
     }
@@ -116,10 +116,10 @@ import SwiftUI
 
     private var footer: some View {
         VStack(spacing: 8) {
-            if let error = model.onboarding.errorMessage { AuthMessage(text: error) }
+            if let error = viewModel.onboarding.errorMessage { AuthMessage(text: error) }
             AppActions.Button(page == 0 ? "시작하기" : "다음") {
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
-                    model.advanceOnboarding()
+                    viewModel.advanceOnboarding()
                 }
             }
         }
@@ -127,12 +127,12 @@ import SwiftUI
     }
 
     private func openLogin() {
-        model.open(.login)
+        viewModel.open(.login)
     }
 
     private func selectPage(_ index: Int) {
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { model.onboarding.selectPage(index) }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { viewModel.onboarding.selectPage(index) }
     }
 }
 
-#Preview { OnboardingView() }
+#Preview { OnboardingView(viewModel: AuthFlowViewModel(session: AuthSessionState())) }
