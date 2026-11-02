@@ -10,12 +10,16 @@ import UserNotifications
 
 @main
 struct ToDocApp: App {
+    private let analytics: AmplitudeAnalytics
     private let container: DependencyContainer
     private let router = AppRouter()
     /// 알림 센터는 delegate를 약하게 잡으므로 앱이 들고 있습니다.
     private let notificationDelegate: LocalNotificationDelegate
 
     init() {
+        let analytics = AmplitudeAnalytics()
+        self.analytics = analytics
+        analytics.sendIntegrationTestIfRequested()
         let configuration = SupabaseConfiguration(
             url: URL(string: "https://jsvwsiiqijwrraffvatd.supabase.co")!,
                      publishableKey: "sb_publishable_R6znWnBZPpAjeKFx29gWtg_93oUMsHf"

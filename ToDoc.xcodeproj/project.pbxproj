@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		643EF1C43098EF32001D9222 /* AmplitudeSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 643EF1C33098EF32001D9222 /* AmplitudeSwift */; };
 		A1B02669307B83AE00547CD2 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A1B02668307B83AE00547CD2 /* Supabase */; };
 		A1E7CDA03088AA9D007C0049 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E7CD9F3088AA9D007C0049 /* WidgetKit.framework */; };
 		A1E7CDA23088AA9D007C0049 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E7CDA13088AA9D007C0049 /* SwiftUI.framework */; };
@@ -53,6 +54,7 @@
 				Domain/Exercise/Enums/.gitkeep,
 				Domain/Hospital/Enums/.gitkeep,
 				Info.plist,
+				Resources/Config/Amplitude.local.xcconfig,
 			);
 			target = A13BCAF93077425800901BFD /* ToDoc */;
 		};
@@ -98,6 +100,7 @@
 		A13BCAF73077425800901BFD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				643EF1C43098EF32001D9222 /* AmplitudeSwift in Frameworks */,
 				A1B02669307B83AE00547CD2 /* Supabase in Frameworks */,
 			);
 		};
@@ -162,6 +165,7 @@
 			name = ToDoc;
 			packageProductDependencies = (
 				A1B02668307B83AE00547CD2 /* Supabase */,
+				643EF1C33098EF32001D9222 /* AmplitudeSwift */,
 			);
 			productName = ToDoc;
 			productReference = A13BCAFA3077425800901BFD /* ToDoc.app */;
@@ -214,6 +218,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				643EF1C23098EF32001D9222 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A13BCAFB3077425800901BFD /* Products */;
@@ -384,6 +389,8 @@
 		};
 		A13BCB063077425900901BFD /* Debug configuration for PBXNativeTarget "ToDoc" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = A13BCAFC3077425800901BFD /* ToDoc */;
+			baseConfigurationReferenceRelativePath = Resources/Config/Amplitude.local.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Sokdoc;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -432,6 +439,8 @@
 		};
 		A13BCB073077425900901BFD /* Release configuration for PBXNativeTarget "ToDoc" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = A13BCAFC3077425800901BFD /* ToDoc */;
+			baseConfigurationReferenceRelativePath = Resources/Config/Amplitude.local.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Sokdoc;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -579,6 +588,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		643EF1C23098EF32001D9222 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/amplitude/Amplitude-Swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
 		A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
@@ -592,6 +609,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		643EF1C33098EF32001D9222 /* AmplitudeSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 643EF1C23098EF32001D9222 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */;
+			productName = AmplitudeSwift;
+		};
 		A1B02668307B83AE00547CD2 /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */;
