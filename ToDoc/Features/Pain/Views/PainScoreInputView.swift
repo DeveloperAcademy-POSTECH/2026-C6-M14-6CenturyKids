@@ -46,7 +46,8 @@ struct PainScoreInputView: View {
     private var inputContent: some View {
         VStack(spacing: 0) {
             if before == nil {
-                AppHeader(title: "통증 변화 기록", description: "약을 복용하기 전 통증 강도는 어떠셨나요?")
+                // Figma 6-1
+                AppHeader(title: "약을 먹기 전, 얼마나 아프세요?", description: "손잡이를 위아래로 움직여 점수를 골라주세요")
                     .padding(.top, typeSize.isAccessibilitySize ? 44 : 0)
             } else {
                 // Figma 9: 작은 윗글 + 제목
@@ -73,12 +74,7 @@ struct PainScoreInputView: View {
     private var footer: some View {
         VStack(spacing: 24) {
             if let errorMessage { Text(errorMessage).font(.body).foregroundStyle(.red).padding(.horizontal, 24) }
-            if before == nil {
-                Text("막대를 위아래로 움직여 통증 정도를 조절하세요")
-                    .appTextStyle(.caption).foregroundStyle(Color(white: 114 / 255))
-                    .multilineTextAlignment(.center).padding(.horizontal, 24)
-            }
-            PainInputFooter(title: isSaving ? "저장 중" : before == nil ? "다음" : "통증 점수 저장하기", isEnabled: score != nil && !isSaving,
+            PainInputFooter(title: isSaving ? "저장 중" : "통증 점수 저장하기", isEnabled: score != nil && !isSaving,
                             isPreviousEnabled: !isSaving, onPrevious: onPrevious, onNext: onNext)
         }
     }
