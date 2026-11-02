@@ -65,7 +65,8 @@ final class DependencyContainer {
             patientRepository: patientRepository,
             painRepository: painRepository,
             scheduleAfterReminder: LocalNotificationAdapter.schedulePainAfterReminder(at:),
-            cancelAfterReminder: LocalNotificationAdapter.cancelPainAfterReminder
+            cancelAfterReminder: LocalNotificationAdapter.cancelPainAfterReminder,
+            checkRemindersAllowed: LocalNotificationAdapter.isPainReminderAllowed
         )
     }
 

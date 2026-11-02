@@ -106,6 +106,30 @@ struct PainRecordViewModelTests {
         }
     }
 
+    @Test func 알림을_다시_켜면_남은_시간에_맞춰_알림을_다시_예약한다() async throws {
+        let saved = Date(timeIntervalSince1970: 1_000_000)
+        var allowed = false
+        var reminders: [Date] = []
+        let viewModel = PainRecordViewModel(patientId: patientId,
+                                            painRepository: StubPainRepository(latest: try record(at: saved, after: nil)),
+                                            scheduleAfterReminder: { reminders.append($0) },
+                                            checkRemindersAllowed: { allowed })
+        await viewModel.load()
+
+        await viewModel.refreshReminderPermission(now: saved.addingTimeInterval(10 * 60))
+        #expect(!viewModel.remindersAllowed)
+        #expect(reminders.isEmpty)
+
+        allowed = true
+        await viewModel.refreshReminderPermission(now: saved.addingTimeInterval(10 * 60))
+        #expect(viewModel.remindersAllowed)
+        #expect(reminders == [saved.addingTimeInterval(60 * 60)])
+
+        // 시간이 이미 지났으면 다시 예약하지 않습니다
+        await viewModel.refreshReminderPermission(now: saved.addingTimeInterval(2 * 60 * 60))
+        #expect(reminders.count == 1)
+    }
+
     @Test func 부위를_다시_누르면_빠지고_모두_지우면_비어있다() {
         let viewModel = PainRecordViewModel(patientId: patientId, painRepository: StubPainRepository(latest: nil))
         let back = BodyLocation(bodyPart: .backLowerBack, bodySide: .center, bodyView: .back)
