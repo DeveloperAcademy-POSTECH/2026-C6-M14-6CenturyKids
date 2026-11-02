@@ -29,8 +29,23 @@ struct PainRecordViewModelTests {
         let empty = PainRecordViewModel(patientId: patientId, painRepository: StubPainRepository(latest: nil))
         await empty.load()
         #expect(empty.pendingRecord == nil)
-        #expect(empty.painBefore == 10)
-        #expect(empty.painAfter == 0)
+        #expect(empty.painBefore == nil)
+        #expect(empty.painAfter == nil)
+    }
+
+    @Test func 점수를_고르지_않으면_먹기_전도_먹은_뒤도_저장하지_않는다() async throws {
+        let repository = StubPainRepository(latest: nil)
+        let viewModel = PainRecordViewModel(patientId: patientId, painRepository: repository)
+        await viewModel.load()
+        viewModel.selectLocation(chest)
+
+        await #expect(throws: PainRecordViewModel.SaveError.missingScore) { _ = try await viewModel.saveBeforeRecord() }
+        #expect(repository.saved.isEmpty)
+
+        viewModel.setBeforeScore(7)
+        _ = try await viewModel.saveBeforeRecord()
+        await #expect(throws: PainRecordViewModel.SaveError.missingScore) { _ = try await viewModel.saveAfterRecord() }
+        #expect(repository.filled.isEmpty)
     }
 
     @Test func 먹기_전_통증은_복용_후_점수_없이_저장하고_그_기록을_기다린다() async throws {
@@ -80,6 +95,7 @@ struct PainRecordViewModelTests {
 
         viewModel.startNewRecord()
         viewModel.selectLocation(chest)
+        viewModel.setBeforeScore(8)
         let new = try await viewModel.saveBeforeRecord()
 
         #expect(repository.filled.isEmpty)
