@@ -29,11 +29,11 @@ struct PasswordCodeEntryView: View {
                         .padding(.horizontal, 16)
                         .frame(minHeight: 56)
                         .background(.white, in: RoundedRectangle(cornerRadius: 14))
-                        .disabled(state.isSendingCode || state.isSaving)
+                        .disabled(isBusy)
                         .accessibilityIdentifier("settings.password.code")
 
                     SettingsFeedback(
-                        busy: state.isSendingCode,
+                        busy: state.isSendingCode || state.isVerifyingCode,
                         error: state.codeError ?? state.errorMessage
                     )
                 }
@@ -44,8 +44,10 @@ struct PasswordCodeEntryView: View {
             .scrollDismissesKeyboard(.interactively)
 
             Button {
-                guard state.onContinue?() == true else { return }
-                onConfirm()
+                Task {
+                    guard await state.onContinue?() == true else { return }
+                    onConfirm()
+                }
             } label: {
                 Text("확인")
                     .settingsText(17, bold: true)
@@ -53,7 +55,7 @@ struct PasswordCodeEntryView: View {
                     .foregroundStyle(.white)
                     .background(.blue, in: Capsule())
             }
-            .disabled(state.isSendingCode || state.isSaving)
+            .disabled(isBusy)
             .accessibilityIdentifier("settings.password.codeConfirm")
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
@@ -63,6 +65,8 @@ struct PasswordCodeEntryView: View {
         .toolbar(.hidden, for: .navigationBar)
     }
 
+    private var isBusy: Bool { state.isSendingCode || state.isVerifyingCode || state.isSaving }
+
     private var header: some View {
         HStack {
             Button { dismiss() } label: {
@@ -71,7 +75,7 @@ struct PasswordCodeEntryView: View {
                     .frame(width: 10, height: 19)
                     .frame(width: 44, height: 44)
             }
-            .disabled(state.isSendingCode || state.isSaving)
+            .disabled(isBusy)
             .accessibilityLabel("뒤로 가기")
             .accessibilityIdentifier("settings.password.back")
 

@@ -42,6 +42,8 @@ struct DoctorDisplayData {
     var codeError: String?
     var isSendingCode = false
     var hasSentCode = false
+    var isVerifyingCode = false
+    var isCodeVerified = false
     var newPassword = ""
     var passwordConfirmation = ""
     var newPasswordError: String?
@@ -51,7 +53,7 @@ struct DoctorDisplayData {
     var didSave = false
     var errorMessage: String?
     @ObservationIgnored var onSendCode: (() -> Void)?
-    @ObservationIgnored var onContinue: (() -> Bool)?
+    @ObservationIgnored var onContinue: (() async -> Bool)?
     @ObservationIgnored var onInputChanged: (() -> Void)?
     @ObservationIgnored var onSave: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?
