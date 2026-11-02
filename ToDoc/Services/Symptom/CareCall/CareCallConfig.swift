@@ -121,6 +121,10 @@ struct CareCallConfig: Decodable, Sendable {
     let repeatPrefix: String
     /// 다른 항목으로 돌아가 물을 때 앞에 붙이는 말. {name} = spokenName
     let returnPrefix: String
+    /// 유무 질문에 다른 증상만 말해 이 항목을 다시 물을 때 repeatPrefix 대신 붙이는 말 ("변비 있으셨나요?" → "설사를 했어요"). {name} = 말한 증상
+    let notedOtherPrefix: String
+    /// 다른 질문에서 말한 증상의 횟수·부위를 처음 물을 때 붙이는 말 (그 증상의 유무는 묻지 않았다). {name} = spokenName
+    let mentionedPrefix: String
     /// '그 밖에'에서 기타 증상을 말하면 한 번 더 묻고(question) 답을 그대로 기록(label)한 뒤 마무리 인사 앞에 붙이는 말(recorded)
     let otherDetail: OtherDetail
     let locationPrompt: String
@@ -156,6 +160,14 @@ struct CareCallConfig: Decodable, Sendable {
 
     func returnPrefix(for effect: Effect) -> String {
         returnPrefix.replacingOccurrences(of: "{name}", with: effect.spokenName)
+    }
+
+    func notedOtherPrefix(for effect: Effect) -> String {
+        notedOtherPrefix.replacingOccurrences(of: "{name}", with: effect.spokenName)
+    }
+
+    func mentionedPrefix(for effect: Effect) -> String {
+        mentionedPrefix.replacingOccurrences(of: "{name}", with: effect.spokenName)
     }
 
     struct OpeningTransition: Decodable, Sendable {

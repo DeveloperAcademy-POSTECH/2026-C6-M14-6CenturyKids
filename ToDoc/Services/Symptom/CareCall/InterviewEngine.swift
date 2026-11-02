@@ -456,7 +456,11 @@ final class InterviewEngine {
         let followUp = quick?.utterance.isEmpty == false ? quick?.utterance : nil
         let recordedThisTurn = !ledger.sameRecords(as: before) // advance()가 '물음' 표시를 남기기 전에 본다
         let closedBefore = Set(ledger.order.filter { ledger[$0]?.closed == true })
-        var utterance = await advance(from: current, followUp: followUp)
+        // 이번 답에서 새로 '있음'이 된 다른 목록 증상 (지금 묻는 항목을 다시 물을 때 그 증상은 받았다고 말한다)
+        let notedOther = ledger.order.lazy.filter { key in
+            key != current.slotKey && self.ledger[key]?.presence == .present && before[key]?.presence != .present
+        }.compactMap(config.effect).first
+        var utterance = await advance(from: current, followUp: followUp, notedOther: notedOther)
         let closedNow = ledger.order.contains { ledger[$0]?.closed == true && !closedBefore.contains($0) }
         if current == .opening, let unasked {
             // 다시 거는 통화: 말한 증상·못 물은 항목을 묻는다고 알리거나, 달라진 게 없으면 그대로 둔다고 말하고 마무리
@@ -622,7 +626,7 @@ final class InterviewEngine {
 
     // MARK: - 진행
 
-    private func advance(from current: InterviewPhase, followUp: String?) async -> String {
+    private func advance(from current: InterviewPhase, followUp: String?, notedOther: CareCallConfig.Effect? = nil) async -> String {
         while true {
             // 다시 거는 통화는 이번에 말한 항목과 지난 통화에서 못 물은 항목만 묻는다
             switch SlotPlanner.next(ledger: ledger, config: config, otherAsked: otherAsked, only: unasked.map { $0.union(ledger.order) }) {
@@ -636,7 +640,18 @@ final class InterviewEngine {
                 phase = .slot(key: key, step: step)
                 let q = question(key: key, step: step, followUp: isRepeat ? followUp : nil)
                 // 오류·불분명으로 같은 질문을 다시 하면 다시 묻는다고 말한다 (모델이 다른 말로 되묻는 경우는 제외)
-                if isRepeat && q == lastQuestion { return say(config.repeatPrefix + " " + q) }
+                if isRepeat && q == lastQuestion {
+                    // 다른 증상만 말해 이 항목이 정해지지 않았으면 사과하지 않고, 그 증상은 받았다고 말한 뒤 다시 묻는다
+                    // (2026-11-02 QA: "변비 있으셨나요?" → "변비는 없고 설사를 했어요" → "죄송해요, 다시 한 번…")
+                    if step == .presence, let notedOther { return say(config.notedOtherPrefix(for: notedOther) + " " + q) }
+                    return say(config.repeatPrefix + " " + q)
+                }
+                // 다른 질문에서 말해 유무를 묻지 않은 증상의 횟수·부위로 넘어가면, 그 말을 듣고 묻는다고 먼저 말한다
+                // (2026-11-02 QA: 변비 질문에 설사를 말한 뒤 바로 "설사는 하루에 몇 번…"이라 변비 답에 이어 묻는 것처럼 들림)
+                if step != .presence, current != .opening, current.slotKey != key, let effect = config.effect(key),
+                   ledger[key]?.askedSteps.contains(.presence) == false {
+                    return say(config.mentionedPrefix(for: effect) + " " + q)
+                }
                 // 다른 항목·'그 밖에'를 묻다가 이 항목의 횟수·부위로 돌아가면 무엇을 묻는지 이름을 먼저 말한다
                 // (첫 질문 답에서 바로 이어 물을 때는 환자가 방금 말한 증상이라 붙이지 않는다)
                 // (2026-10-08 기기: 식사 질문 뒤 구내염을 이름 없이 다시 물어 환자가 식사에 대한 답을 함)
