@@ -2,7 +2,6 @@ import SwiftUI
 
 extension AppColors {
     enum Pain {
-        static let locationChip = Color(red: 240 / 255, green: 240 / 255, blue: 238 / 255)
         /// Figma background/inverse-subtle: 부위 화면에서 고른 부위 칩
         static let selectedLocationChip = Color(red: 104 / 255, green: 100 / 255, blue: 104 / 255)
         /// Figma background/primary-subtle: 앞뒤 돌리기·시트 닫기 버튼

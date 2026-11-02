@@ -9,17 +9,18 @@ struct PainRecordView: View {
     @State private var savedRecord: PainRecord?
     @State private var showsSaveFailed = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     var onClose: (() -> Void)?
     var onShowRecord: ((PainRecord) -> Void)?
     var onHome: (() -> Void)?
     var onCancel: (() -> Void)?
 
     private enum Stage {
-        /// 기다리는 기록이 있으면 대기 화면이나 분기 화면, 없으면 부위 선택
+        /// 기다리는 기록이 있으면 1시간 뒤 기록 타이머, 없으면 부위 선택.
+        /// 타이머가 도는 동안에는 새 통증을 기록하지 않습니다 (Figma 8).
         case start
         case location
         case before
-        case beforeSaved
         case after
     }
 
@@ -84,19 +85,14 @@ struct PainRecordView: View {
             switch stage {
             case .start:
                 if let pending = viewModel.pendingRecord, let availableDate = viewModel.afterAvailableDate {
-                    // 대기 화면은 남은 시간을 스스로 세므로, 여기서는 기록할 수 있게 되는 순간에 한 번만 바꿉니다.
-                    TimelineView(.explicit([.now, availableDate])) { context in
-                        if context.date < availableDate {
-                            PainAfterWaitingView(locations: pending.location, before: pending.painBefore,
-                                                 availableDate: availableDate,
-                                                 onNewRecord: beginNewRecord, onClose: close)
-                        } else {
-                            PainRecordChoiceView(locations: pending.location, before: pending.painBefore,
-                                                 recordedDate: pending.recordedDate,
-                                                 onContinue: { stage = .after },
-                                                 onNewRecord: beginNewRecord, onClose: close)
+                    PainAfterTimerView(locations: pending.location, before: pending.painBefore,
+                                       recordedDate: pending.recordedDate, availableDate: availableDate,
+                                       remindersAllowed: viewModel.remindersAllowed,
+                                       onLater: home, onRecord: { stage = .after }, onClose: close)
+                        // 설정에서 알림을 켜고 돌아오면 안내를 지우고 알림을 다시 예약합니다
+                        .task(id: scenePhase) {
+                            if scenePhase == .active { await viewModel.refreshReminderPermission() }
                         }
-                    }
                 } else {
                     locationSelection
                 }
@@ -107,8 +103,6 @@ struct PainRecordView: View {
                     isSaving: viewModel.isSaving, errorMessage: state.errorMessage,
                     onPrevious: { stage = .location }, onReselectLocations: { stage = .location },
                     onNext: saveBefore, onClose: close)
-            case .beforeSaved:
-                PainBeforeSavedView(before: viewModel.pendingRecord?.painBefore ?? 0, onHome: home)
             case .after:
                 if let pending = viewModel.pendingRecord {
                     PainAfterMedicationView(locations: pending.location, before: pending.painBefore,
@@ -161,7 +155,7 @@ struct PainRecordView: View {
             do {
                 _ = try await viewModel.saveBeforeRecord()
                 state.errorMessage = nil
-                stage = .beforeSaved
+                stage = .start
             } catch PainRecordViewModel.SaveError.alreadySaving {
                 return
             } catch {
@@ -229,7 +223,7 @@ extension PainRecordView {
 
 #Preview("입력 화면 · 저장 미연결") { PainRecordView.preview() }
 #Preview("1시간 전 · 대기") { PainRecordView.preview(beforeSavedAgo: 20 * 60) }
-#Preview("1시간 뒤 · 이어가기 선택") { PainRecordView.preview(beforeSavedAgo: 90 * 60) }
+#Preview("1시간 뒤 · 기록할 시간") { PainRecordView.preview(beforeSavedAgo: 90 * 60) }
 #Preview("완료 화면 · 예시 결과") {
     let state = PainScreenState()
     state.completion = .init(location: [.init(bodyPart: .chest, bodySide: .center, bodyView: .front)],
