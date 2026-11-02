@@ -216,7 +216,7 @@ extension PatientFlowView {
             settings: {
                 SettingsFlowView(
                     notifications: {
-                        NotificationSettingsView(viewModel: NotificationSettingsViewModel())
+                        NotificationSettingsView(viewModel: NotificationSettingsViewModel.preview())
                     }
                 )
             }

@@ -114,8 +114,10 @@ struct SettingsFlowView: View {
         viewModel.passwordChangeState.onSendCode?()
     }
 }
+#if DEBUG
 #Preview {
     SettingsFlowView(
-        notifications: { NotificationSettingsView(viewModel: NotificationSettingsViewModel()) }
+        notifications: { NotificationSettingsView(viewModel: NotificationSettingsViewModel.preview()) }
     )
 }
+#endif

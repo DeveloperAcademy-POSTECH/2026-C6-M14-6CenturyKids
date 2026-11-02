@@ -121,8 +121,37 @@ struct NotificationSettingsView: View {
     }
 }
 
-#Preview("알림 시간 설정") {
-    NavigationStack {
-        NotificationSettingsView(viewModel: NotificationSettingsViewModel())
+#if DEBUG
+@MainActor
+private final class PreviewNotificationSettingsRepository: NotificationSettingsRepository {
+    private var settings: NotificationSettingsDTO?
+
+    func fetch(userId: UUID) async throws -> NotificationSettingsDTO? {
+        guard let settings, settings.userId == userId else {
+            return nil
+        }
+
+        return settings
+    }
+
+    func save(settings: NotificationSettingsDTO) async throws {
+        self.settings = settings
     }
 }
+
+extension NotificationSettingsViewModel {
+    @MainActor
+    static func preview() -> NotificationSettingsViewModel {
+        NotificationSettingsViewModel(
+            userId: UUID(),
+            notificationSettingsRepository: PreviewNotificationSettingsRepository()
+        )
+    }
+}
+
+#Preview("알림 시간 설정") {
+    NavigationStack {
+        NotificationSettingsView(viewModel: NotificationSettingsViewModel.preview())
+    }
+}
+#endif

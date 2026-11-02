@@ -121,12 +121,14 @@ struct SettingsView: View {
         }
     }
 }
+#if DEBUG
 #Preview {
     NavigationStack {
         SettingsView(
             notificationSettings: {
-                NotificationSettingsView(viewModel: NotificationSettingsViewModel())
+                NotificationSettingsView(viewModel: NotificationSettingsViewModel.preview())
             }
         )
     }
 }
+#endif
