@@ -105,7 +105,8 @@ struct PainRecordView: View {
             case .before:
                 PainBeforeMedicationView(locations: viewModel.selectedLocations, score: beforeScoreBinding,
                     isSaving: viewModel.isSaving, errorMessage: state.errorMessage,
-                    onPrevious: { stage = .location }, onNext: saveBefore, onClose: close)
+                    onPrevious: { stage = .location }, onReselectLocations: { stage = .location },
+                    onNext: saveBefore, onClose: close)
             case .beforeSaved:
                 PainBeforeSavedView(before: viewModel.pendingRecord?.painBefore ?? 0, onHome: home)
             case .after:
