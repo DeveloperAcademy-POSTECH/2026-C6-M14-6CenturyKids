@@ -38,19 +38,19 @@ struct PainLocationSelectionView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showsAllLocations) {
-            PainLocationSheet(locations: locations, onRemove: onRemove, onRemoveAll: onRemoveAll,
-                              onClose: { showsAllLocations = false })
-        }
         // 시트에서 부위를 모두 빼면 시트를 닫고 처음 화면으로 돌아갑니다
         .onChange(of: locations.isEmpty) { _, isEmpty in
             if isEmpty { showsAllLocations = false }
         }
+        .painSheet(isPresented: $showsAllLocations) {
+            PainLocationSheet(locations: locations, onRemove: onRemove, onRemoveAll: onRemoveAll,
+                              onClose: { showsAllLocations = false })
+        }
     }
 
     private var header: some View {
-        AppHeader(title: "지금 어디가 아프세요?", description: "그림에서 아픈 부위를 선택해 주세요.")
-            .padding(.top, typeSize.isAccessibilitySize ? 44 : 0)
+        PainHeader(title: "지금 어디가 아프세요?", description: "그림에서 아픈 부위를 선택해 주세요.")
+            .padding(.top, typeSize.isAccessibilitySize ? 76 : 36)
     }
 
     /// Figma Body Map Area: 몸 그림은 가운데, 돌리기 버튼은 오른쪽 아래에 고정합니다.
@@ -64,7 +64,7 @@ struct PainLocationSelectionView: View {
                     bodyView = bodyView == .front ? .back : .front
                 }
                 .foregroundStyle(AppColors.Semantic.Text.default)
-                .padding(.bottom, 38)
+                .padding(.bottom, 32)
                 .accessibilityIdentifier("pain.location.rotate")
             }
             .padding(.top, 24)
@@ -191,28 +191,29 @@ private struct PainBodyMap: View {
     }
 
     // 원본 1:1957의 이미지 좌표에 정규화한 조작 영역입니다. 의료 진단 영역이 아닙니다.
+    // 고른 표시점은 영역 가운데에 그려서, Figma 2~4의 표시점 자리(어깨·팔·다리는 몸 쪽으로, 전체는 약 9pt 아래)에 맞췄습니다.
     private static let regions: [Region] = [
-        .init(.headFace, .center, .front, 0.27, 0.105, 0.11, 0.13),
-        .init(.neck, .center, .front, 0.27, 0.20, 0.09, 0.06),
-        .init(.shoulder, .right, .front, 0.18, 0.235, 0.08, 0.10),
-        .init(.shoulder, .left, .front, 0.36, 0.235, 0.08, 0.10),
-        .init(.chest, .center, .front, 0.27, 0.277, 0.14, 0.09),
-        .init(.abdomen, .center, .front, 0.27, 0.37, 0.14, 0.095),
-        .init(.pelvisButtocks, .center, .front, 0.27, 0.475, 0.17, 0.115),
-        .init(.armHand, .right, .front, 0.105, 0.425, 0.11, 0.29),
-        .init(.armHand, .left, .front, 0.433, 0.425, 0.11, 0.29),
-        .init(.legFoot, .right, .front, 0.224, 0.735, 0.085, 0.40),
-        .init(.legFoot, .left, .front, 0.312, 0.735, 0.085, 0.40),
-        .init(.headFace, .center, .back, 0.727, 0.105, 0.11, 0.13),
-        .init(.neck, .center, .back, 0.727, 0.20, 0.09, 0.06),
-        .init(.shoulder, .left, .back, 0.637, 0.235, 0.08, 0.10),
-        .init(.shoulder, .right, .back, 0.817, 0.235, 0.08, 0.10),
-        .init(.backLowerBack, .center, .back, 0.727, 0.369, 0.14, 0.17),
-        .init(.pelvisButtocks, .center, .back, 0.727, 0.49, 0.17, 0.07),
-        .init(.armHand, .left, .back, 0.565, 0.425, 0.11, 0.29),
-        .init(.armHand, .right, .back, 0.890, 0.425, 0.11, 0.29),
-        .init(.legFoot, .left, .back, 0.683, 0.735, 0.085, 0.40),
-        .init(.legFoot, .right, .back, 0.771, 0.735, 0.085, 0.40)
+        .init(.headFace, .center, .front, 0.27, 0.122, 0.11, 0.13),
+        .init(.neck, .center, .front, 0.27, 0.217, 0.09, 0.06),
+        .init(.shoulder, .right, .front, 0.192, 0.252, 0.08, 0.10),
+        .init(.shoulder, .left, .front, 0.348, 0.252, 0.08, 0.10),
+        .init(.chest, .center, .front, 0.27, 0.294, 0.14, 0.09),
+        .init(.abdomen, .center, .front, 0.27, 0.387, 0.14, 0.095),
+        .init(.pelvisButtocks, .center, .front, 0.27, 0.492, 0.17, 0.115),
+        .init(.armHand, .right, .front, 0.1265, 0.442, 0.11, 0.29),
+        .init(.armHand, .left, .front, 0.4115, 0.442, 0.11, 0.29),
+        .init(.legFoot, .right, .front, 0.230, 0.755, 0.085, 0.40),
+        .init(.legFoot, .left, .front, 0.306, 0.755, 0.085, 0.40),
+        .init(.headFace, .center, .back, 0.727, 0.122, 0.11, 0.13),
+        .init(.neck, .center, .back, 0.727, 0.217, 0.09, 0.06),
+        .init(.shoulder, .left, .back, 0.649, 0.252, 0.08, 0.10),
+        .init(.shoulder, .right, .back, 0.805, 0.252, 0.08, 0.10),
+        .init(.backLowerBack, .center, .back, 0.727, 0.386, 0.14, 0.17),
+        .init(.pelvisButtocks, .center, .back, 0.727, 0.507, 0.17, 0.07),
+        .init(.armHand, .left, .back, 0.5865, 0.442, 0.11, 0.29),
+        .init(.armHand, .right, .back, 0.8685, 0.442, 0.11, 0.29),
+        .init(.legFoot, .left, .back, 0.689, 0.755, 0.085, 0.40),
+        .init(.legFoot, .right, .back, 0.765, 0.755, 0.085, 0.40)
     ]
 }
 
