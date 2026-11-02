@@ -73,6 +73,11 @@ final class SupabaseAuthRepository: AuthRepository {
         try await client.auth.resetPasswordForEmail(email, redirectTo: url)
     }
     
+    // 재설정 메일의 인증코드 확인 (성공하면 비밀번호를 바꿀 수 있는 세션이 생김)
+    func verifyPasswordResetCode(email: String, code: String) async throws {
+        try await client.auth.verifyOTP(email: email, token: code, type: .recovery)
+    }
+    
     // 비밀번호 업데이트
     func updatePassword(to newPassword: String, nonce: String?) async throws {
         try await client.auth.update(user: UserAttributes(password: newPassword, nonce: nonce))

@@ -24,6 +24,7 @@ struct PreviewAuthRepository: AuthRepository {
     func resendSignUpConfirmationEmail(to email: String, redirectTo url: URL?) async throws { throw Unavailable() }
     func requestPasswordChangeVerification() async throws { throw Unavailable() }
     func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws { throw Unavailable() }
+    func verifyPasswordResetCode(email: String, code: String) async throws { throw Unavailable() }
     func updatePassword(to newPassword: String, nonce: String?) async throws { throw Unavailable() }
     func deleteAccount() async throws { throw Unavailable() }
     func withdrawAppleAccount(authorizationCode: String) async throws { throw Unavailable() }
