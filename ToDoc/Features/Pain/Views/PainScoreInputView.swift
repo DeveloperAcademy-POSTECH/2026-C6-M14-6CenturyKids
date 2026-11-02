@@ -11,7 +11,6 @@ struct PainScoreInputView: View {
     var onReselectLocations: (() -> Void)?
     var onNext: (() -> Void)?
     var onClose: (() -> Void)?
-    var descriptor: (Int) -> String? = { _ in nil }
 
     @State private var showsLocations = false
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -46,17 +45,26 @@ struct PainScoreInputView: View {
 
     private var inputContent: some View {
         VStack(spacing: 0) {
-            AppHeader(title: "통증 변화 기록", description: before == nil
-                      ? "약을 복용하기 전 통증 강도는 어떠셨나요?"
-                      : "약을 복용한 뒤의 통증 강도는 어떠셨나요?")
-                .padding(.top, typeSize.isAccessibilitySize ? 44 : 0)
+            if before == nil {
+                AppHeader(title: "통증 변화 기록", description: "약을 복용하기 전 통증 강도는 어떠셨나요?")
+                    .padding(.top, typeSize.isAccessibilitySize ? 44 : 0)
+            } else {
+                // Figma 9: 작은 윗글 + 제목
+                VStack(spacing: 8) {
+                    Text("약 먹고 1시간 뒤").appTypography(.body).foregroundStyle(AppColors.Semantic.Text.sub)
+                    Text("지금 통증은 어떤가요?").appTypography(.title).foregroundStyle(AppColors.Semantic.Text.default)
+                        .accessibilityAddTraits(.isHeader)
+                }
+                .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 24)
+                .padding(.top, typeSize.isAccessibilitySize ? 76 : 32)
+            }
             PainMoreLocationsChip(title: painLocationSummary(locations)) { showsLocations = true }
                 .padding(.horizontal, 24).padding(.top, 24)
                 .accessibilityIdentifier("pain.score.locations")
             // 고르기 전에는 먹기 전 10점, 먹은 뒤 0점 자리에 보여 주기만 합니다 (score는 nil로 남아 다음을 막습니다)
             PainScoreGauge(value: $score, initialValue: before == nil ? 10 : 0, before: before,
                            label: before == nil ? "약 복용 전 통증 점수" : "약 복용 후 통증 점수",
-                           descriptor: descriptor)
+                           descriptor: painScoreWord)
                 .padding(.horizontal, 24).padding(.top, 24).disabled(isSaving)
         }
         .padding(.bottom, 12)
@@ -65,10 +73,12 @@ struct PainScoreInputView: View {
     private var footer: some View {
         VStack(spacing: 24) {
             if let errorMessage { Text(errorMessage).font(.body).foregroundStyle(.red).padding(.horizontal, 24) }
-            Text("막대를 위아래로 움직여 통증 정도를 조절하세요")
-                .appTextStyle(.caption).foregroundStyle(Color(white: 114 / 255))
-                .multilineTextAlignment(.center).padding(.horizontal, 24)
-            PainInputFooter(title: isSaving ? "저장 중" : "다음", isEnabled: score != nil && !isSaving,
+            if before == nil {
+                Text("막대를 위아래로 움직여 통증 정도를 조절하세요")
+                    .appTextStyle(.caption).foregroundStyle(Color(white: 114 / 255))
+                    .multilineTextAlignment(.center).padding(.horizontal, 24)
+            }
+            PainInputFooter(title: isSaving ? "저장 중" : before == nil ? "다음" : "통증 점수 저장하기", isEnabled: score != nil && !isSaving,
                             isPreviousEnabled: !isSaving, onPrevious: onPrevious, onNext: onNext)
         }
     }
