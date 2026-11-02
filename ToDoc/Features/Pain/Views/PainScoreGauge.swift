@@ -38,6 +38,12 @@ struct PainScoreGauge: View {
             }
         }
         .frame(height: 452)
+        // Figma Pain Scale의 Hit 영역: 게이지 막대만이 아니라 줄 전체(가로 전부, 1점 = 35)를 눌러도 그 점수를 고릅니다
+        .contentShape(Rectangle())
+        .highPriorityGesture(DragGesture(minimumDistance: 0).onChanged { gesture in
+            let fraction = min(1, max(0, (gesture.location.y - 54) / height))
+            value = Int((10 - fraction * 10).rounded())
+        })
     }
 
     private func handleOffset(_ score: Int) -> CGFloat {
@@ -60,11 +66,6 @@ struct PainScoreGauge: View {
                 .offset(y: position - 14)
         }
         .frame(width: 94.135, height: height)
-        .contentShape(Rectangle())
-        .highPriorityGesture(DragGesture(minimumDistance: 0).onChanged { gesture in
-            let fraction = min(1, max(0, gesture.location.y / height))
-            value = Int((10 - fraction * 10).rounded())
-        })
         .accessibilityRepresentation {
             Slider(value: Binding(get: { Double(shown ?? 0) }, set: { value = Int($0.rounded()) }), in: 0...10, step: 1) {
                 Text(label)
