@@ -105,6 +105,22 @@ struct PainRecordViewModelTests {
                 .saveAfterRecord()
         }
     }
+
+    @Test func 부위를_다시_누르면_빠지고_모두_지우면_비어있다() {
+        let viewModel = PainRecordViewModel(patientId: patientId, painRepository: StubPainRepository(latest: nil))
+        let back = BodyLocation(bodyPart: .backLowerBack, bodySide: .center, bodyView: .back)
+
+        viewModel.toggleLocation(chest)
+        viewModel.toggleLocation(back)
+        #expect(viewModel.selectedLocations == [chest, back])
+
+        viewModel.toggleLocation(chest)
+        #expect(viewModel.selectedLocations == [back])
+
+        viewModel.toggleLocation(chest)
+        viewModel.removeAllLocations()
+        #expect(viewModel.selectedLocations.isEmpty)
+    }
 }
 
 private final class StubPainRepository: PainRepository {
