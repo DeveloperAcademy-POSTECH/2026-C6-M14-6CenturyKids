@@ -48,7 +48,9 @@ struct PatientFlowCompositionView: View {
             initialValue: container.makeSettingsViewModel(patientId: patientId)
         )
         _notificationSettingsViewModel = State(
-            initialValue: container.makeNotificationSettingsViewModel()
+            initialValue: container.makeNotificationSettingsViewModel(
+                userId: patientId
+            )
         )
         let recordDetailViewModel = container.makeRecordDetailViewModel(patientId: patientId)
         _recordDetailViewModel = State(initialValue: recordDetailViewModel)

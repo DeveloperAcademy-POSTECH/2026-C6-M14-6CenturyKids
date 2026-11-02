@@ -18,7 +18,7 @@ struct ScreenCatalogPreview: View {
     @State private var cancer = DiagnosisScreenState()
     @State private var stage = DiagnosisScreenState()
     @State private var hospital = previewHospital()
-    @State private var notificationSettingsViewModel = NotificationSettingsViewModel()
+    @State private var notificationSettingsViewModel = NotificationSettingsViewModel.preview()
     var body: some View {
         VStack(spacing: 0) {
             Text("화면 예시 · 실제 인증/조회/저장 없음").font(.caption).padding(8)

@@ -1,19 +1,12 @@
-//
-//  NotificationSettingsViewModel.swift
-//  ToDoc
-//
-//  Created by 허지우 on 10/19/26.
-//
-
 import Foundation
 import Observation
 
 @MainActor
 @Observable
 final class NotificationSettingsViewModel {
-    @ObservationIgnored private let defaults: UserDefaults
-    private static let timeKey = "notification.liveActivityTimeMinutes"
-    /// 선택 가능한 알림 시간: 20:00~23:59 (자정부터 분 단위)
+    @ObservationIgnored private let userId: UUID
+    @ObservationIgnored private let notificationSettingsRepository: any NotificationSettingsRepository
+    @ObservationIgnored private var loadedSettings: NotificationSettingsDTO?
     static let allowedMinutes = (20 * 60)..<(24 * 60)
 
     private(set) var savedTime = DateComponents(hour: 20, minute: 0)
@@ -25,7 +18,6 @@ final class NotificationSettingsViewModel {
     private(set) var didSave = false
     private(set) var errorMessage: String?
 
-    /// 저장된 알림 시간을 "HH:mm:ss" 문자열로 돌려준다. 예: "22:59:00"
     var savedTimeString: String {
         String(format: "%02d:%02d:00", savedTime.hour ?? 20, savedTime.minute ?? 0)
     }
@@ -35,11 +27,15 @@ final class NotificationSettingsViewModel {
         hasLoaded && !isLoading && !isSaving && (!hasStoredTime || hasChanges)
     }
 
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
+    init(
+        userId: UUID,
+        notificationSettingsRepository: any NotificationSettingsRepository
+    ) {
+        self.userId = userId
+        self.notificationSettingsRepository = notificationSettingsRepository
     }
 
-    func loadTime() {
+    func loadTime() async {
         guard !isLoading, !isSaving else { return }
 
         isLoading = true
@@ -48,40 +44,42 @@ final class NotificationSettingsViewModel {
         errorMessage = nil
         defer { isLoading = false }
 
-        let defaultTime = DateComponents(hour: 20, minute: 0)
+        do {
+            let settings = try await notificationSettingsRepository.fetch(
+                userId: userId
+            )
+            try Task.checkCancellation()
 
-        guard let stored = defaults.object(forKey: Self.timeKey) else {
-            savedTime = defaultTime
-            selectedTime = defaultTime
-            hasStoredTime = false
+            loadedSettings = settings
+
+            let defaultTime = DateComponents(hour: 20, minute: 0)
+
+            guard let settings else {
+                savedTime = defaultTime
+                selectedTime = defaultTime
+                hasStoredTime = false
+                hasLoaded = true
+                return
+            }
+
+            guard let time = parseTime(settings.notificationTime) else {
+                savedTime = defaultTime
+                selectedTime = defaultTime
+                hasStoredTime = false
+                hasLoaded = true
+                errorMessage = "저장된 알림 시간을 읽을 수 없어요. 다시 설정해 주세요."
+                return
+            }
+
+            savedTime = time
+            selectedTime = time
+            hasStoredTime = true
             hasLoaded = true
+        } catch is CancellationError {
             return
+        } catch {
+            errorMessage = "알림 시간을 불러오지 못했어요. 다시 시도해 주세요."
         }
-
-        guard let minutes = stored as? Int,
-              (0..<1440).contains(minutes) else {
-            savedTime = defaultTime
-            selectedTime = defaultTime
-            hasStoredTime = false
-            hasLoaded = true
-            errorMessage = "저장된 알림 시간을 읽을 수 없어요. 다시 설정해 주세요."
-            return
-        }
-
-        // 범위가 생기기 전에 저장된 값은 기본값으로 보여 주고 다시 저장할 수 있게 둔다.
-        guard Self.allowedMinutes.contains(minutes) else {
-            savedTime = defaultTime
-            selectedTime = defaultTime
-            hasStoredTime = false
-            hasLoaded = true
-            return
-        }
-
-        let time = DateComponents(hour: minutes / 60, minute: minutes % 60)
-        savedTime = time
-        selectedTime = time
-        hasStoredTime = true
-        hasLoaded = true
     }
 
     func selectTime(_ time: DateComponents) {
@@ -99,21 +97,57 @@ final class NotificationSettingsViewModel {
         errorMessage = nil
     }
 
-    func saveTime() {
+    func saveTime() async {
         guard canSave,
               let hour = selectedTime.hour,
-              let minute = selectedTime.minute else { return }
+              let minute = selectedTime.minute,
+              Self.allowedMinutes.contains(hour * 60 + minute) else {
+            return
+        }
+
+        let timeToSave = DateComponents(hour: hour, minute: minute)
+
+        let settings = NotificationSettingsDTO(
+            userId: userId,
+            notificationTime: String(format: "%02d:%02d:00", hour, minute),
+            timezone: loadedSettings?.timezone ?? TimeZone.current.identifier,
+            isEnabled: loadedSettings?.isEnabled ?? true
+        )
 
         isSaving = true
         didSave = false
         errorMessage = nil
         defer { isSaving = false }
 
-        let minutesSinceMidnight = hour * 60 + minute
-        defaults.set(minutesSinceMidnight, forKey: Self.timeKey)
+        do {
+            try await notificationSettingsRepository.save(settings: settings)
 
-        savedTime = selectedTime
-        hasStoredTime = true
-        didSave = true
+            loadedSettings = settings
+            savedTime = timeToSave
+            hasStoredTime = true
+            didSave = true
+        } catch {
+            errorMessage = "알림 시간의 저장 결과를 확인하지 못했어요. 다시 시도해 주세요."
+        }
+    }
+
+    private func parseTime(_ value: String) -> DateComponents? {
+        let parts = value.split(
+            separator: ":",
+            omittingEmptySubsequences: false
+        )
+
+        guard parts.count == 3,
+              let hour = Int(parts[0]),
+              let minute = Int(parts[1]),
+              let second = Double(parts[2]),
+              (0..<24).contains(hour),
+              (0..<60).contains(minute),
+              second == 0,
+              Self.allowedMinutes.contains(hour * 60 + minute) else {
+            return nil
+        }
+
+        return DateComponents(hour: hour, minute: minute)
     }
 }

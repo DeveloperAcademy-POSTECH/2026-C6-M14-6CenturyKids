@@ -118,7 +118,7 @@ struct SettingsFlowView: View {
 #Preview {
     SettingsFlowView(
         withdrawal: { AccountWithdrawalView(viewModel: AccountWithdrawalViewModel(authRepository: PreviewAuthRepository(), authSession: AuthSessionState())) },
-        notifications: { NotificationSettingsView(viewModel: NotificationSettingsViewModel()) }
+        notifications: { NotificationSettingsView(viewModel: NotificationSettingsViewModel.preview()) }
     )
 }
 

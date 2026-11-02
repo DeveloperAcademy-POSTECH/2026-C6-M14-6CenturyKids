@@ -57,6 +57,15 @@ struct NotificationSettingsView: View {
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
                         .foregroundStyle(.red)
+
+                    if !viewModel.hasLoaded && !viewModel.isLoading {
+                        Button("다시 불러오기") {
+                            Task {
+                                await viewModel.loadTime()
+                            }
+                        }
+                        .disabled(viewModel.isSaving)
+                    }
                 }
 
                 if viewModel.didSave {
@@ -65,7 +74,9 @@ struct NotificationSettingsView: View {
                 }
 
                 Button("저장") {
-                    viewModel.saveTime()
+                    Task {
+                        await viewModel.saveTime()
+                    }
                 }
                 .disabled(!viewModel.canSave)
                 .accessibilityIdentifier("settings.notification.save")
@@ -73,8 +84,8 @@ struct NotificationSettingsView: View {
         }
         .navigationTitle("알림 설정")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            viewModel.loadTime()
+        .task {
+            await viewModel.loadTime()
         }
     }
 
@@ -110,8 +121,37 @@ struct NotificationSettingsView: View {
     }
 }
 
-#Preview("알림 시간 설정") {
-    NavigationStack {
-        NotificationSettingsView(viewModel: NotificationSettingsViewModel())
+#if DEBUG
+@MainActor
+private final class PreviewNotificationSettingsRepository: NotificationSettingsRepository {
+    private var settings: NotificationSettingsDTO?
+
+    func fetch(userId: UUID) async throws -> NotificationSettingsDTO? {
+        guard let settings, settings.userId == userId else {
+            return nil
+        }
+
+        return settings
+    }
+
+    func save(settings: NotificationSettingsDTO) async throws {
+        self.settings = settings
     }
 }
+
+extension NotificationSettingsViewModel {
+    @MainActor
+    static func preview() -> NotificationSettingsViewModel {
+        NotificationSettingsViewModel(
+            userId: UUID(),
+            notificationSettingsRepository: PreviewNotificationSettingsRepository()
+        )
+    }
+}
+
+#Preview("알림 시간 설정") {
+    NavigationStack {
+        NotificationSettingsView(viewModel: NotificationSettingsViewModel.preview())
+    }
+}
+#endif

@@ -204,7 +204,7 @@ extension PatientFlowView {
                 SettingsFlowView(
                     withdrawal: { AccountWithdrawalView(viewModel: AccountWithdrawalViewModel(authRepository: PreviewAuthRepository(), authSession: AuthSessionState())) },
                     notifications: {
-                        NotificationSettingsView(viewModel: NotificationSettingsViewModel())
+                        NotificationSettingsView(viewModel: NotificationSettingsViewModel.preview())
                     }
                 )
             }
