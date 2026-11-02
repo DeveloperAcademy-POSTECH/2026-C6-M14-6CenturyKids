@@ -248,6 +248,7 @@ private struct PainBottomSheet<Sheet: View>: ViewModifier {
             ZStack(alignment: .bottom) {
                 if isPresented {
                     Color.black.opacity(0.4)
+                        .ignoresSafeArea()
                         .onTapGesture { isPresented = false }
                         .accessibilityHidden(true)
                         .transition(.opacity)
