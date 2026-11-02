@@ -434,13 +434,22 @@ final class SettingsViewModel {
             }
 
             do {
+                // 설정에서는 특수문자·이모지가 든 이름을 저장하지 않습니다.
+                guard name.rangeOfCharacter(from: .punctuationCharacters.union(.symbols)) == nil else {
+                    throw NameValidationError.invalidCharacter
+                }
                 try user.updateName(name)
-                try user.updateBirthday(birthday)
-                user.updateSex(sex)
             } catch {
-                personalInfoState.validationMessage = "이름과 생년월일을 확인해 주세요."
+                personalInfoState.validationMessage = "이름을 다시 확인해 주세요."
                 return
             }
+            do {
+                try user.updateBirthday(birthday)
+            } catch {
+                personalInfoState.validationMessage = "생년월일을 확인해 주세요."
+                return
+            }
+            user.updateSex(sex)
 
             try await userRepository.save(user: user)
             screenState.profile?.name = user.name
