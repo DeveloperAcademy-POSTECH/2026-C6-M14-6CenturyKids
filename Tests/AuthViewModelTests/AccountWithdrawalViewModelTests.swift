@@ -140,6 +140,7 @@ private final class WithdrawalAuthDouble: AuthRepository {
     func signUp(email: String, password: String) async throws -> UUID { throw Failure() }
     func resendSignUpConfirmationEmail(to email: String, redirectTo url: URL?) async throws {}
     func signInWithApple(idToken: String, nonce: String) async throws -> UUID { throw Failure() }
+    func signInWithKakao(idToken: String) async throws -> UUID { throw Failure() }
     func signOut() async throws {}
     func isSignedIn() -> Bool { true }
     func requestPasswordChangeVerification() async throws {}

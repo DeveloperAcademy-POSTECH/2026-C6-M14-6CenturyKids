@@ -43,6 +43,9 @@ with tempfile.TemporaryDirectory(prefix="todoc-auth-tests-") as directory:
     connection_info = "Hospital/Models/DoctorConnectionInfo.swift"
     copy("ToDoc/Domain/" + connection_info, "Sources/ToDocAuth/" + connection_info)
     (package / "Sources/ToDocDomain" / connection_info).unlink()
+    provider = "Auth/SignUpProvider.swift"
+    copy("ToDoc/Domain/" + provider, "Sources/ToDocAuth/" + provider)
+    (package / "Sources/ToDocDomain" / provider).unlink()
     for area in ["Auth/Presentation", "Auth/ViewModels", "Auth/Utilities", "Onboarding/ViewModels"]:
         copy("ToDoc/Features/" + area, "Sources/ToDocAuth/" + area)
     copy("ToDoc/Features/Settings/ViewModels/AccountWithdrawalViewModel.swift",
