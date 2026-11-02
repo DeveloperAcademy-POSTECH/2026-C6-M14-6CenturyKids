@@ -20,31 +20,32 @@ struct PainScoreGauge: View {
                 badge(10, size: 30).position(x: x, y: 15).accessibilityHidden(true)
                 badge(0, size: 30).position(x: x, y: 437).accessibilityHidden(true)
                 if let shown {
-                    Group {
-                        if let before {
-                            VStack(spacing: 0) {
-                                scoreLabel(before).padding(.bottom, 15)
-                                Image("PainComparisonDown")
-                                    .renderingMode(shown > before ? .template : .original)
-                                    .foregroundStyle(AppColors.Semantic.Chart.Score.score100)
-                                    .rotationEffect(.degrees(shown > before ? 180 : 0))
-                                    .opacity(shown == before ? 0 : 1)
-                                    .frame(width: 24, height: 24)
-                                    .accessibilityHidden(true).padding(.bottom, 20)
-                                scoreLabel(shown)
-                            }
-                        } else { scoreLabel(shown) }
+                    // Figma Pain Scale: 통증 말은 게이지 왼쪽(13 떨어짐)에서 손잡이와 같은 높이로 움직입니다
+                    if let text = descriptor(shown) {
+                        Text(text).appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.placeholder)
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                            .frame(width: max(0, x - 47 - 13), alignment: .trailing)
+                            .position(x: (x - 47 - 13) / 2, y: 54 + handleOffset(shown))
+                            .accessibilityHidden(true)
                     }
-                    .frame(width: 96)
-                    .position(x: min(geometry.size.width - 48, x + 109), y: before == nil ? 231 : 228.5)
+                    // 먹기 전 점수(회색)는 위에 고정하고, 지금 점수는 손잡이와 상관없이 같은 자리에 둡니다 (Figma 9 · 이전 회색 · 위 고정)
+                    if let before {
+                        scoreCircle(before, previous: true).position(x: x + 98.5, y: 229 - 67)
+                        Image("PainPreviousArrow").position(x: x + 98.5, y: 229 - 35).accessibilityHidden(true)
+                    }
+                    scoreCircle(shown).position(x: x + 98.5, y: 229)
                 }
             }
         }
         .frame(height: 452)
     }
 
+    private func handleOffset(_ score: Int) -> CGFloat {
+        CGFloat(10 - min(10, max(0, score))) / 10 * height
+    }
+
     private var gauge: some View {
-        let position = CGFloat(10 - min(10, max(0, shown ?? 10))) / 10 * height
+        let position = handleOffset(shown ?? 10)
         return ZStack(alignment: .top) {
             Image("PainGauge").resizable()
             if shown != nil {
@@ -72,25 +73,27 @@ struct PainScoreGauge: View {
         }
     }
 
-    private func scoreLabel(_ score: Int) -> some View {
-        VStack(spacing: 3) {
-            badge(score, size: 42)
-            if let text = descriptor(score) { Text(text).appTextStyle(.label) }
-            else { Color.clear.frame(height: 21).accessibilityHidden(true) }
-        }
+    /// Figma 점수 원(42): 지금 점수는 점수 색, 먹기 전 점수는 회색
+    private func scoreCircle(_ score: Int, previous: Bool = false) -> some View {
+        Text(String(score))
+            .appTypography(.title)
+            .foregroundStyle(previous ? AppColors.Semantic.Text.sub : textColor(score))
+            .frame(width: 42, height: 42)
+            .background(previous ? AppColors.Semantic.Background.secondary : color(score), in: Circle())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(previous ? "먹기 전 \(score)점" : "\(score)점, \(descriptor(score) ?? "")")
     }
 
     private func badge(_ score: Int, size: CGFloat) -> some View {
         Text(String(score))
             .font(Font(AppTypography.Style.label.font(at: size == 30 ? 16 : 22.4)))
-            .foregroundStyle(score == 0 ? Color(white: 160 / 255) : score == 1 ? Color.black : .white)
+            .foregroundStyle(score == 0 ? Color(white: 176 / 255) : .white)
             .frame(width: size, height: size)
-            .background(color(score), in: Circle())
+            .background(score == 0 ? Color(white: 217 / 255) : color(score), in: Circle())
     }
 
     private func color(_ score: Int) -> Color {
-        // 원본 게이지 색상에 따른 표시이며 의료 분류 기준이 아닙니다. 0점(통증 없음)은 회색입니다.
-        if score <= 0 { return Color(white: 232 / 255) }
+        // 원본 게이지 색상에 따른 표시이며 의료 분류 기준이 아닙니다. 0점은 1점과 같은 연두입니다 (Figma 9 · 지금 0점).
         let stops: [(Int, (Double, Double, Double))] = [
             (1, (197, 242, 118)), (3, (253, 208, 72)), (7, (254, 150, 70)), (10, (255, 73, 70))
         ]
@@ -102,5 +105,15 @@ struct PainScoreGauge: View {
         func component(_ from: Double, _ to: Double) -> Double { (from + (to - from) * ratio) / 255 }
         return Color(red: component(start.1.0, end.1.0), green: component(start.1.1, end.1.1),
                      blue: component(start.1.2, end.1.2))
+    }
+
+    /// Figma 점수 원 글자: 0점 brand/800, 5점 red/800, 10점 red/950.
+    // ponytail: 시안에 있는 0·5·10점 사이는 가까운 색으로 나눴습니다. 점수별 글자색이 정해지면 바꿉니다.
+    private func textColor(_ score: Int) -> Color {
+        switch score {
+        case ...2: Color(red: 60 / 255, green: 88 / 255, blue: 26 / 255)
+        case 3...8: Color(red: 139 / 255, green: 35 / 255, blue: 31 / 255)
+        default: Color(red: 73 / 255, green: 21 / 255, blue: 18 / 255)
+        }
     }
 }
