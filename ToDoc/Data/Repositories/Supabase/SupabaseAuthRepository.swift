@@ -13,8 +13,10 @@ final class SupabaseAuthRepository: AuthRepository {
     private let supabaseURL: URL
     private let publishableKey: String
     
-    init(client: SupabaseClient) {
+    init(client: SupabaseClient, configuration: SupabaseConfiguration) {
         self.client = client
+        self.supabaseURL = configuration.url
+        self.publishableKey = configuration.publishableKey
     }
     
     func signUp(email: String, password: String) async throws -> UUID {
