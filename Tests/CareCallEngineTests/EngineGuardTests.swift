@@ -282,6 +282,21 @@ struct QuickAnswerTests {
 /// 응급 키워드 부정 처리. 애매하면 응급 쪽으로 (가상 문장)
 @MainActor
 struct KeywordMatcherTests {
+    /// 2026-11-02 평가: "변을 봐도 시원하지 않아요"가 '않아요'로 끝나 모델 없이 변비 '없음'이 됨
+    @Test(arguments: [("변을 봐도 시원하지 않아요", true), ("화장실 다녀와도 개운찮아요", true),
+                      ("다 안 나오고 남은 느낌이에요", true), ("시원하지 않은 건 없어요", false)])
+    func 변비_질문에_시원하지_않다는_답은_있음(answer: String, present: Bool) async throws {
+        let engine = InterviewEngine(config: try fixture(CareCallConfig.self, "side_effects"),
+                                     rules: try fixture(EmergencyRules.self, "emergency_rules"),
+                                     analyzer: ScriptedAnalyzer { _ in .mentions() })
+        _ = engine.start()
+        for _ in 0..<10 where engine.phase != .slot(key: "constipation", step: .presence) {
+            _ = await engine.handle(patientText: "없어요")
+        }
+        _ = await engine.handle(patientText: answer)
+        #expect((engine.ledger["constipation"]?.presence == .present) == present)
+    }
+
     @Test(arguments: [
         ("열은 없고 숨이 차지도 않아요", false),
         ("숨이 차진 않아요", false),
