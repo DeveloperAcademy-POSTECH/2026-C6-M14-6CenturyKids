@@ -37,7 +37,7 @@ struct PainScoreInputView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showsLocations) {
+        .painSheet(isPresented: $showsLocations) {
             PainLocationSheet(locations: locations, onReselect: onReselectLocations.map { reselect in
                 { showsLocations = false; reselect() }
             }, onClose: { showsLocations = false })
