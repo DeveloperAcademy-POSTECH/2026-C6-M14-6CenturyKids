@@ -140,9 +140,6 @@ struct PainLocationSheet: View {
     var onRemoveAll: (() -> Void)?
     var onReselect: (() -> Void)?
     let onClose: () -> Void
-    @State private var headerHeight: CGFloat = 79
-    @State private var listHeight: CGFloat = 300
-    @State private var bottomInset: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -156,19 +153,12 @@ struct PainLocationSheet: View {
                 }
             }
             .padding(.horizontal, 24).padding(.top, 10)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
-            // 부위가 많아 화면을 넘으면 시트 안에서 스크롤합니다
-            ScrollView {
-                list.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
+            // 부위가 많아 화면을 넘을 때만 시트 안에서 스크롤합니다
+            ViewThatFits(in: .vertical) {
+                list
+                ScrollView { list }.scrollBounceBehavior(.basedOnSize)
             }
-            .scrollBounceBehavior(.basedOnSize)
         }
-        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: { bottomInset = $0 }
-        // Figma 시트 아래 여백 40은 홈 표시줄 자리를 포함하므로, 시트가 더하는 아래 안전 영역만큼 뺍니다
-        .presentationDetents([.height(headerHeight + listHeight - bottomInset)])
-        .presentationDragIndicator(.hidden) // Figma 손잡이를 직접 그립니다
-        .presentationCornerRadius(40)
-        .presentationBackground(AppColors.Semantic.Background.surface)
     }
 
     private var list: some View {
@@ -230,6 +220,61 @@ struct PainLocationSheet: View {
     }
 }
 
+/// Figma Header(1177:16474): 제목 Bold 20과 설명 Medium 14를 가운데 정렬합니다.
+struct PainHeader: View {
+    let title: String
+    let description: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Text(title).appTypography(.title).foregroundStyle(AppColors.Semantic.Text.default)
+                .accessibilityAddTraits(.isHeader)
+            Text(description).appTypography(.label).foregroundStyle(AppColors.Semantic.Text.sub)
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+    }
+}
+
+/// Figma 바텀시트 패턴: 폭 전체, 위 모서리 40, 뒤는 검정 40% 막.
+/// 시스템 시트는 iOS 26부터 좌우·아래가 떠 있는 모양이라 화면 위에 직접 그립니다.
+private struct PainBottomSheet<Sheet: View>: ViewModifier {
+    @Binding var isPresented: Bool
+    let sheet: () -> Sheet
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            ZStack(alignment: .bottom) {
+                if isPresented {
+                    Color.black.opacity(0.4)
+                        .onTapGesture { isPresented = false }
+                        .accessibilityHidden(true)
+                        .transition(.opacity)
+                    sheet()
+                        .frame(maxWidth: .infinity)
+                        .background(AppColors.Semantic.Background.surface,
+                                    in: UnevenRoundedRectangle(topLeadingRadius: 40, topTrailingRadius: 40))
+                        .padding(.top, 60)
+                        .gesture(DragGesture().onEnded { if $0.translation.height > 80 { isPresented = false } })
+                        .accessibilityAddTraits(.isModal)
+                        .accessibilityAction(.escape) { isPresented = false }
+                        .transition(.move(edge: .bottom))
+                }
+            }
+            // Figma 시트 아래 여백 40은 홈 표시줄 자리를 포함합니다
+            .ignoresSafeArea(edges: .bottom)
+            .animation(.snappy, value: isPresented)
+        }
+    }
+}
+
+extension View {
+    func painSheet<Sheet: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Sheet) -> some View {
+        modifier(PainBottomSheet(isPresented: isPresented, sheet: content))
+    }
+}
+
 struct PainInputFooter: View {
     var title = "다음"
     var isEnabled = false
@@ -241,21 +286,16 @@ struct PainInputFooter: View {
         let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 20))
         layout {
             if let onPrevious {
-                Button("이전", action: onPrevious)
-                    .buttonStyle(AppButtonStyle(kind: typeSize.isAccessibilitySize ? .secondary : .back))
-                    .disabled(!isPreviousEnabled)
-            }
-            Button { onNext?() } label: {
-                HStack {
-                    Color.clear.frame(width: 12, height: 12)
-                    Spacer(minLength: 8)
-                    Text(title)
-                    Spacer(minLength: 8)
-                    Image("CareConversationNext").frame(width: 12, height: 12).accessibilityHidden(true)
+                if typeSize.isAccessibilitySize {
+                    AppActions.Button("이전", kind: .secondary, action: onPrevious).disabled(!isPreviousEnabled)
+                } else {
+                    AppActions.BackButton(action: onPrevious).disabled(!isPreviousEnabled)
                 }
             }
-            .buttonStyle(AppButtonStyle()).disabled(!isEnabled || onNext == nil)
-            .accessibilityIdentifier("pain.next")
+            // Figma Button: 꺼졌을 때 글자는 text/on-primary-disabled
+            AppActions.Button(title) { onNext?() }
+                .disabled(!isEnabled || onNext == nil)
+                .accessibilityIdentifier("pain.next")
         }
         .padding(.horizontal, 24).padding(.bottom, 2)
     }

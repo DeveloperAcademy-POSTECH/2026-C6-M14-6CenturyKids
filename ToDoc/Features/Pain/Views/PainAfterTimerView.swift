@@ -42,14 +42,15 @@ struct PainAfterTimerView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showsLocations) {
+        .painSheet(isPresented: $showsLocations) {
             PainLocationSheet(locations: locations, onClose: { showsLocations = false })
         }
         .overlay {
             if showsEarlyConfirmation {
                 ZStack {
-                    Color.black.opacity(0.6).ignoresSafeArea().accessibilityHidden(true)
-                    AppFeedback.Dialog("지금 기록할까요?",
+                    // Figma 8-A: 뒤 화면은 검정 40% 막, 제목은 title 크기
+                    Color.black.opacity(0.4).ignoresSafeArea().accessibilityHidden(true)
+                    AppFeedback.Dialog("지금 기록할까요?", titleStyle: .title,
                                        message: "아직 약효가 다 나타나지 않았을 수 있어요.\n그래도 지금 점수로 기록할 수 있어요.",
                                        primary: .init("지금 기록하기") {
                                            showsEarlyConfirmation = false

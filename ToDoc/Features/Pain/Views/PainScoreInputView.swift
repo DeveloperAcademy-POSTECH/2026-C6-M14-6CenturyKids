@@ -16,16 +16,18 @@ struct PainScoreInputView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
             if typeSize.isAccessibilitySize {
                 // 큰 글자에서는 안내/버튼이 게이지를 가리지 않도록 전체를 스크롤합니다.
-                ScrollView { VStack(spacing: 24) { inputContent; footer } }
+                ScrollView { VStack(spacing: 24) { header; locationChip; gauge } }
             } else {
-                VStack(spacing: 0) {
+                // Figma Pain Scale Area: 칩 아래 남은 자리의 세로 가운데에 게이지를 둡니다. 자리가 모자라면 스크롤합니다.
+                ViewThatFits(in: .vertical) {
+                    inputContent
                     ScrollView { inputContent }
-                    footer
                 }
             }
+            footer
         }
         .background(.white)
         .overlay(alignment: .topLeading) {
@@ -36,7 +38,7 @@ struct PainScoreInputView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showsLocations) {
+        .painSheet(isPresented: $showsLocations) {
             PainLocationSheet(locations: locations, onReselect: onReselectLocations.map { reselect in
                 { showsLocations = false; reselect() }
             }, onClose: { showsLocations = false })
@@ -45,30 +47,43 @@ struct PainScoreInputView: View {
 
     private var inputContent: some View {
         VStack(spacing: 0) {
-            if before == nil {
-                // Figma 6-1
-                AppHeader(title: "약을 먹기 전, 얼마나 아프세요?", description: "손잡이를 위아래로 움직여 점수를 골라주세요")
-                    .padding(.top, typeSize.isAccessibilitySize ? 44 : 0)
-            } else {
-                // Figma 9: 작은 윗글 + 제목
-                VStack(spacing: 8) {
-                    Text("약 먹고 1시간 뒤").appTypography(.body).foregroundStyle(AppColors.Semantic.Text.sub)
-                    Text("지금 통증은 어떤가요?").appTypography(.title).foregroundStyle(AppColors.Semantic.Text.default)
-                        .accessibilityAddTraits(.isHeader)
-                }
-                .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 24)
-                .padding(.top, typeSize.isAccessibilitySize ? 76 : 32)
-            }
-            PainMoreLocationsChip(title: painLocationSummary(locations)) { showsLocations = true }
-                .padding(.horizontal, 24).padding(.top, 24)
-                .accessibilityIdentifier("pain.score.locations")
-            // 고르기 전에는 먹기 전 10점, 먹은 뒤 0점 자리에 보여 주기만 합니다 (score는 nil로 남아 다음을 막습니다)
-            PainScoreGauge(value: $score, initialValue: before == nil ? 10 : 0, before: before,
-                           label: before == nil ? "약 복용 전 통증 점수" : "약 복용 후 통증 점수",
-                           descriptor: painScoreWord)
-                .padding(.horizontal, 24).padding(.top, 24).disabled(isSaving)
+            header
+            locationChip
+            gauge.frame(maxHeight: .infinity).padding(.top, 24)
         }
-        .padding(.bottom, 12)
+    }
+
+    @ViewBuilder private var header: some View {
+        if before == nil {
+            // Figma 6-1: Header(제목 + 설명), 아래 칩까지 24
+            PainHeader(title: "약을 먹기 전, 얼마나 아프세요?", description: "손잡이를 위아래로 움직여 점수를 골라주세요")
+                .padding(.top, typeSize.isAccessibilitySize ? 76 : 36)
+                .padding(.bottom, 24)
+        } else {
+            // Figma 9: 작은 윗글 + 제목, 아래 칩까지 16
+            VStack(spacing: 8) {
+                Text("약 먹고 1시간 뒤").appTypography(.body).foregroundStyle(AppColors.Semantic.Text.sub)
+                Text("지금 통증은 어떤가요?").appTypography(.title).foregroundStyle(AppColors.Semantic.Text.default)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 24)
+            .padding(.top, typeSize.isAccessibilitySize ? 76 : 32)
+            .padding(.bottom, 16)
+        }
+    }
+
+    private var locationChip: some View {
+        PainMoreLocationsChip(title: painLocationSummary(locations)) { showsLocations = true }
+            .padding(.horizontal, 24)
+            .accessibilityIdentifier("pain.score.locations")
+    }
+
+    /// 고르기 전에는 먹기 전 10점, 먹은 뒤 0점 자리에 보여 주기만 합니다 (score는 nil로 남아 다음을 막습니다)
+    private var gauge: some View {
+        PainScoreGauge(value: $score, initialValue: before == nil ? 10 : 0, before: before,
+                       label: before == nil ? "약 복용 전 통증 점수" : "약 복용 후 통증 점수",
+                       descriptor: painScoreWord)
+            .padding(.horizontal, 24).disabled(isSaving)
     }
 
     private var footer: some View {
