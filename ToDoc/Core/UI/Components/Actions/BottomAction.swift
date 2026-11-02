@@ -21,7 +21,8 @@ extension AppActions {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                VStack(spacing: 32) {
+                // Figma Bottom Action(1455:21551): 버튼과 보조 액션 글자 사이 24
+                VStack(spacing: 24) {
                     VStack(spacing: 20) {
                         HStack(alignment: .top, spacing: AppLayout.Phone.columnSpacing) {
                             if let backAction {
@@ -38,8 +39,10 @@ extension AppActions {
                     }
 
                     if let subAction {
+                        // 글자 칸은 Figma처럼 19로 홈 표시줄 바로 위에 두고, 누르는 영역 44는 위아래로 겹쳐 유지합니다
                         TextButton(subAction.title, action: subAction.perform)
                             .disabled(!subAction.isEnabled)
+                            .padding(.vertical, -12.5)
                     }
                 }
             }
