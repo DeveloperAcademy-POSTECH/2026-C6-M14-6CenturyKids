@@ -43,7 +43,8 @@ struct PainScoreInputView: View {
                       : "약을 복용한 뒤의 통증 강도는 어떠셨나요?")
                 .padding(.top, typeSize.isAccessibilitySize ? 44 : 0)
             PainLocationChips(locations: locations).padding(.horizontal, 24).padding(.top, 24)
-            PainScoreGauge(value: $score, before: before,
+            // 고르기 전에는 먹기 전 10점, 먹은 뒤 0점 자리에 보여 주기만 합니다 (score는 nil로 남아 다음을 막습니다)
+            PainScoreGauge(value: $score, initialValue: before == nil ? 10 : 0, before: before,
                            label: before == nil ? "약 복용 전 통증 점수" : "약 복용 후 통증 점수",
                            descriptor: descriptor)
                 .padding(.horizontal, 24).padding(.top, 24).disabled(isSaving)
