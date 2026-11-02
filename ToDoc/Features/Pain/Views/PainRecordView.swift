@@ -75,7 +75,6 @@ struct PainRecordView: View {
         if let completion = state.completion {
             PainCompletionView(
                 record: completion,
-                onRecordAgain: beginNewRecord,
                 onShowRecord: onShowRecord.map { destination in
                     { if let savedRecord { destination(savedRecord) } }
                 },
@@ -137,15 +136,6 @@ struct PainRecordView: View {
                 if let score { viewModel.setAfterScore(score) }
             }
         )
-    }
-
-    /// 새로 기록하면 기다리던 기록은 먹기 전 점수만 남습니다. 새 기록을 저장할 때 알림도 새 기록으로 바뀝니다.
-    private func beginNewRecord() {
-        viewModel.startNewRecord()
-        savedRecord = nil
-        state.completion = nil
-        state.errorMessage = nil
-        stage = .location
     }
 
     private func saveBefore() {
