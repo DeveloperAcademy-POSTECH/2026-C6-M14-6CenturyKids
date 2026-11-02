@@ -8,6 +8,11 @@ struct SymptomNumberWheel: View {
     var hasSelection = true
     let onSelect: (Int) -> Void
     @Environment(\.isEnabled) private var isEnabled
+    /// 끌기를 시작할 때의 선택. 끄는 동안 이 값에서 끈 거리만큼 넘긴다
+    @State private var dragStart: Int?
+
+    /// 이만큼 끌면 숫자 하나를 넘긴다
+    private static let step: CGFloat = 62
 
     private var index: Int { min(max(0, selectedIndex), max(0, labels.count - 1)) }
 
@@ -21,27 +26,32 @@ struct SymptomNumberWheel: View {
                 ForEach(-2...1, id: \.self) { offset in
                     let candidate = index + offset
                     if labels.indices.contains(candidate) {
-                        Button { choose(candidate) } label: {
-                            Text(labels[candidate])
-                                .font(Font(AppTypography.Style.heading.font(at: offset == 0 ? 100 : 40)))
-                                .foregroundStyle(offset == 0 ? .black : Color(white: offset == -2 ? 235 / 255 : 206 / 255))
-                                .tracking(offset == 0 ? -1 : 0)
-                                .minimumScaleFactor(0.2)
-                                .lineLimit(1)
-                                .frame(maxWidth: .infinity, minHeight: offset == 0 ? 109 : 52)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .position(x: geometry.size.width / 2, y: position(for: offset))
+                        Text(labels[candidate])
+                            .font(Font(AppTypography.Style.heading.font(at: offset == 0 ? 100 : 40)))
+                            .foregroundStyle(offset == 0 ? .black : Color(white: offset == -2 ? 235 / 255 : 206 / 255))
+                            .tracking(offset == 0 ? -1 : 0)
+                            .minimumScaleFactor(0.2)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, minHeight: offset == 0 ? 109 : 52)
+                            .position(x: geometry.size.width / 2, y: position(for: offset))
                     }
                 }
             }
             .contentShape(Rectangle())
-            .highPriorityGesture(DragGesture(minimumDistance: 15).onEnded { value in
-                guard abs(value.translation.height) > abs(value.translation.width) else { return }
-                let steps = max(1, Int(abs(value.translation.height) / 62))
-                choose(index + (value.translation.height < 0 ? steps : -steps))
-            })
+            // 닿자마자 잡아야 바깥 질문 화면의 스크롤이 끌기를 가져가지 않는다. 그래서 누르기도 여기서 처리한다
+            .highPriorityGesture(DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    let start = dragStart ?? index
+                    dragStart = start
+                    // 손가락을 따라 넘긴다: 위로 끌면 아래 숫자(큰 수)가 가운데로 온다. 닿기만 해서는 고른 것으로 치지 않는다
+                    let steps = Int((-value.translation.height / Self.step).rounded())
+                    if steps != 0 || index != start { choose(start + steps) }
+                }
+                .onEnded { value in
+                    defer { dragStart = nil }
+                    guard abs(value.translation.height) < 10, abs(value.translation.width) < 10 else { return }
+                    choose(index + tappedOffset(at: value.location.y))
+                })
         }
         .frame(height: 312)
         .accessibilityElement(children: .ignore)
@@ -60,6 +70,12 @@ struct SymptomNumberWheel: View {
     private func choose(_ candidate: Int) {
         guard isEnabled, !labels.isEmpty else { return }
         onSelect(min(max(0, candidate), labels.count - 1))
+    }
+
+    /// 누른 자리에서 가장 가까운 숫자 (보이는 숫자만)
+    private func tappedOffset(at y: CGFloat) -> Int {
+        (-2...1).filter { labels.indices.contains(index + $0) }
+            .min { abs(position(for: $0) - y) < abs(position(for: $1) - y) } ?? 0
     }
 
     private func position(for offset: Int) -> CGFloat {
