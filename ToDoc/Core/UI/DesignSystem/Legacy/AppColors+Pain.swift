@@ -3,7 +3,10 @@ import SwiftUI
 extension AppColors {
     enum Pain {
         static let locationChip = Color(red: 240 / 255, green: 240 / 255, blue: 238 / 255)
-        static let removableLocationChip = Color(white: 231 / 255)
+        /// Figma background/inverse-subtle: 부위 화면에서 고른 부위 칩
+        static let selectedLocationChip = Color(red: 104 / 255, green: 100 / 255, blue: 104 / 255)
+        /// Figma background/primary-subtle: 앞뒤 돌리기·시트 닫기 버튼
+        static let primarySubtle = Color(red: 239 / 255, green: 251 / 255, blue: 212 / 255)
         static let summaryDivider = Color(red: 213 / 255, green: 213 / 255, blue: 210 / 255)
         static let gaugeHandle = Color(white: 176 / 255)
         static let gaugeZero = Color(white: 217 / 255)

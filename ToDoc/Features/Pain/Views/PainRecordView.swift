@@ -121,14 +121,8 @@ struct PainRecordView: View {
 
     private var locationSelection: some View {
         PainLocationSelectionView(locations: viewModel.selectedLocations, errorMessage: state.errorMessage,
-            onToggle: { location in
-                if viewModel.selectedLocations.contains(location) {
-                    viewModel.removeLocation(location)
-                } else {
-                    viewModel.selectLocation(location)
-                }
-            },
-            onRemove: { location in viewModel.removeLocation(location) },
+            onToggle: viewModel.toggleLocation, onRemove: viewModel.removeLocation,
+            onRemoveAll: viewModel.removeAllLocations,
             onNext: { stage = .before }, onClose: close)
     }
 
