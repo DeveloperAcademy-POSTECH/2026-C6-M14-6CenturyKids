@@ -641,6 +641,7 @@ final class FakeAuth: AuthRepository {
         return userId
     }
     func getCurrentUserEmail() async throws -> String? { nil }
+    func getSignUpProvider() async throws -> String? { nil }
     func isSignedIn() -> Bool { signedIn }
     func signUp(email: String, password: String) async throws -> UUID { throw Failure() }
     func resendSignUpConfirmationEmail(to email: String, redirectTo url: URL?) async throws {}
