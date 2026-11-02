@@ -123,7 +123,8 @@ struct VagueAnswerTests {
         let call = await atFirstSymptom()
         let again = await call.handle(patientText: "설사해요") // 구토 질문에 설사 답 → 설사 기록, 구토는 한 번 다시 물음
         #expect(again.phase == .slot(key: "nausea_vomiting", step: .presence))
-        #expect(again.utterance.hasPrefix(config.repeatPrefix))
+        // 사과하지 않고 설사는 받았다고 말한 뒤 다시 묻는다 (2026-11-02 QA)
+        #expect(again.utterance.hasPrefix(config.notedOtherPrefix(for: config.effect("diarrhea")!)))
         let next = await call.handle(patientText: "설사해요")
         #expect(next.phase != .slot(key: "nausea_vomiting", step: .presence)) // 더 묻지 않는다
         let nausea = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.first { $0.symptomType == .nauseaVomiting }

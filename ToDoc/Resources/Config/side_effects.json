@@ -222,6 +222,8 @@
   "otherFollowUp": "어떤 점이 불편하신지 말씀해 주시겠어요?",
   "repeatPrefix": "죄송해요, 다시 한 번 여쭤볼게요.",
   "returnPrefix": "{name}에 대해 여쭤볼게요.",
+  "notedOtherPrefix": "말씀하신 {name}도 기록해 둘게요.",
+  "mentionedPrefix": "아까 말씀하신 {name}에 대해 조금 더 여쭤볼게요.",
   "otherDetail": {"question": "언제부터 그러셨어요?", "label": "시작", "recorded": "알겠어요, 기록해 둘게요."},
   "locationPrompt": "어느 부위에 그런 증상이 있으세요?",
   "noPrefixes": [

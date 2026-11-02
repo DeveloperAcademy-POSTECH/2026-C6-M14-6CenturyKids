@@ -91,6 +91,27 @@ struct EngineGuardTests {
         #expect(!out.utterance.contains("에 대해 여쭤볼게요"))
     }
 
+    /// 2026-11-02 QA: 변비 질문에 설사만 말하면 "죄송해요, 다시 한 번"으로 되묻고, 변비에 답하자 바로 "설사는 하루에 몇 번…"
+    @Test func 유무_질문에_다른_증상만_말하면_받았다고_하고_다시_묻는다() async throws {
+        let engine = InterviewEngine(config: try fixture(CareCallConfig.self, "side_effects"),
+                                     rules: try fixture(EmergencyRules.self, "emergency_rules"),
+                                     analyzer: ScriptedAnalyzer { request in
+                                         .mentions(Mention(effectId: "diarrhea", presence: .present, quote: request.patientText))
+                                     })
+        _ = engine.start()
+        for _ in 0..<10 where engine.phase != .slot(key: "constipation", step: .presence) {
+            _ = await engine.handle(patientText: "없어요")
+        }
+        let reask = await engine.handle(patientText: "변비는 없고 설사를 했어요")
+        #expect(engine.phase == .slot(key: "constipation", step: .presence))
+        #expect(reask.utterance == "말씀하신 설사도 기록해 둘게요. 변을 보기 힘들거나 변비가 있으셨나요?")
+        // 설사 유무는 묻지 않았으니 횟수를 물을 때 그 말을 듣고 묻는다고 먼저 말한다
+        let count = await engine.handle(patientText: "아니요")
+        #expect(engine.ledger["constipation"]?.presence == .absent)
+        #expect(engine.phase == .slot(key: "diarrhea", step: .detail))
+        #expect(count.utterance == "아까 말씀하신 설사에 대해 조금 더 여쭤볼게요. 설사는 하루에 몇 번 정도 하셨나요?")
+    }
+
     /// 2026-10-08 기기: '그 밖에' 답 "뭐 있더라 잠을 잠 못 잡니다."를 모델이 비우고(따라 하기만) 기록 없이 마무리됨
     /// "모르겠어요"는 기타 '모름' + 원문으로 남긴다 (VagueAnswerTests)
     @Test(arguments: [("뭐 있더라 잠을 잠 못 잡니다.", true), ("딱히 없는 것 같아요", false), ("아니 괜찮아", false)])
