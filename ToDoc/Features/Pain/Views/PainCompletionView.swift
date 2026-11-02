@@ -27,7 +27,7 @@ struct PainCompletionView: View {
         }
         .background(AppColors.Semantic.Background.surface)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showsLocations) {
+        .painSheet(isPresented: $showsLocations) {
             PainLocationSheet(locations: record.location, onClose: { showsLocations = false })
         }
     }
