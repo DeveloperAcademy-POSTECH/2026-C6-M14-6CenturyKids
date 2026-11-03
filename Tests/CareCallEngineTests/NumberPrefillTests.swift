@@ -45,21 +45,17 @@ struct NumberPrefillTests {
         #expect(entry(call, .diarrhea)?.occurrenceCount == 3)
     }
 
-    @Test func 유무_질문에_지속_시간까지_말하면_묻지_않고_부위를_묻는다() async {
+    @Test func 저림은_시간을_말해도_시작_시점을_묻는다() async {
         let call = await ask("neuropathy")
         let next = await call.handle(patientText: "네 한 30분씩 저려요")
-        #expect(next.phase == .slot(key: "neuropathy", step: .location)) // "얼마나 가나요?"를 건너뛴다
-        #expect(entry(call, .numbness)?.durationMinutes == 30)
+        #expect(next.phase == .slot(key: "neuropathy", step: .detail))
+        #expect(next.utterance.contains("언제부터 그랬나요?"))
     }
 
     @Test(arguments: [
         ("nausea_vomiting", "네 한 번이요"),            // 구토 낱말("토")이 없어 구토 횟수인지 모른다
         ("nausea_vomiting", "네 두세 번 토했어요"),      // 어림수
         ("nausea_vomiting", "네 열 번 넘게 토했어요"),   // 넘게
-        ("neuropathy", "네 30분 전부터 저려요"),        // 시작 시점
-        ("neuropathy", "네 아침부터 한 시간쯤 저려요"),  // 시작 시점이 섞임
-        ("neuropathy", "네 30분 됐어요"),              // 시작 시점 ("됐")
-        ("neuropathy", "네 손이 저려요, 30분"),        // 지속을 뜻하는 말이 없음
         ("diarrhea", "네, 약을 세 번 먹고 나서 그래요"),  // 설사 낱말이 없어 설사 횟수인지 모른다
         ("diarrhea", "네 설사 두 번, 약은 세 번 먹었어요"), // 다른 절에 다른 숫자
         ("nausea_vomiting", "네 한 번 토했어요, 그 전날은 두세 번"), // 문장 전체로는 어림수라 저장될 횟수가 없다

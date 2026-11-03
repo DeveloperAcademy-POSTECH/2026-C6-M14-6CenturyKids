@@ -18,7 +18,7 @@ struct CareCallConfig: Decodable, Sendable {
         /// 환자가 이 증상을 직접 말했는지 보는 낱말 (다른 항목을 묻는 중 번복 판단용, 초안)
         let keywords: [String]
         let requiresLocation: Bool
-        /// 있음 다음에 묻는 꼬리질문 (횟수·시작 시점·지속 시간·섭취량). 답은 모델 없이 환자 말 그대로 기록
+        /// 있음 다음에 묻는 꼬리질문 (횟수·시작 시점·섭취량). 답은 모델 없이 환자 말 그대로 기록
         let details: [Detail]
         /// 다른 항목을 묻다가 이 항목의 횟수·부위로 돌아갈 때 앞에 말하는 이름 ("입안이 헐거나 아픈 것")
         let spokenName: String
@@ -47,13 +47,14 @@ struct CareCallConfig: Decodable, Sendable {
             /// 기록에 붙이는 이름 ("횟수", "구토 횟수"). 한 항목 안에서 겹치지 않는다
             let label: String
             let question: String
-            /// 저장할 때 답에서 읽을 숫자 (count → occurrenceCount, minutes → durationMinutes). 없으면 답만 남긴다
+            /// 저장할 때 답에서 읽을 숫자 (count → occurrenceCount). 없으면 답만 남긴다.
+            /// 지속 시간(분)은 묻지 않는다: 저림·발진도 시작 시점을 묻는다 (2026-11-03 팀 결정, 꼬리질문은 횟수 아니면 시작 시점)
             let number: Number?
             /// 환자가 이 말을 했을 때만 묻는다 (구토 → 횟수, 메스꺼움 → 시작). 없으면 늘 묻는다
             let keywords: [String]?
 
             enum Number: String, Decodable, Sendable {
-                case count, minutes
+                case count
             }
         }
 
