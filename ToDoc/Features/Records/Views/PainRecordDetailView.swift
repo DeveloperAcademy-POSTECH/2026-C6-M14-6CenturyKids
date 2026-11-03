@@ -76,9 +76,12 @@ private struct RecordPainChart: View {
                     .accessibilityLabel("\(time(record.recordedDate)), \(painDescription(before: Double(record.painBefore), after: record.painAfter.map { Double($0) }))")
                 }
             }
+            // 스크롤 뷰는 밖을 잘라서, 10점 원이 위로 반 넘치는 만큼 위에 자리를 두고 그만큼 올려 놓습니다
+            .padding(.top, width/2)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .frame(width: size.width, height: size.height + Self.timeGap + timeHeight, alignment: .topLeading)
+        .frame(width: size.width, height: width/2 + size.height + Self.timeGap + timeHeight, alignment: .topLeading)
+        .padding(.top, -width/2)
     }
     private func time(_ date: Date) -> String {
         let formatter = DateFormatter()
