@@ -25,6 +25,7 @@ struct PainRecordView: View {
         let id = UUID()
         var didSelectLocation = false
         var didConfirmScore = false
+        var lastInteractedScore: Int?
     }
 
     private enum Stage {
@@ -142,7 +143,8 @@ struct PainRecordView: View {
                 PainBeforeMedicationView(locations: viewModel.selectedLocations, score: beforeScoreBinding,
                     isSaving: viewModel.isSaving, errorMessage: state.errorMessage,
                     onPrevious: returnToLocationSelection, onReselectLocations: returnToLocationSelection,
-                    onNext: saveBefore, onClose: close)
+                    onNext: saveBefore, onClose: close,
+                    onScoreInteractionEnded: { trackScoreInteractionEnded($0, phase: "before") })
                     .onAppear {
                         trackInputEvent("pain_step_moved", phase: "before", step: "score_input", properties: [
                             "from_step": "location_selection",
@@ -155,7 +157,8 @@ struct PainRecordView: View {
                     PainAfterMedicationView(locations: pending.location, before: pending.painBefore,
                         score: afterScoreBinding, isSaving: viewModel.isSaving,
                         errorMessage: state.errorMessage,
-                        onPrevious: returnToTimer, onNext: saveAfter, onClose: close)
+                        onPrevious: returnToTimer, onNext: saveAfter, onClose: close,
+                        onScoreInteractionEnded: { trackScoreInteractionEnded($0, phase: "after") })
                         .onAppear {
                             startAttemptIfNeeded(phase: "after", step: "score_input")
                         }
@@ -304,6 +307,17 @@ struct PainRecordView: View {
             "from_step": "score_input",
             "to_step": destination,
             "direction": "previous"
+        ])
+    }
+
+    private func trackScoreInteractionEnded(_ score: Int, phase: String) {
+        guard let attempt else { return }
+
+        let previousScore = attempt.lastInteractedScore
+        self.attempt?.lastInteractedScore = score
+        trackInputEvent("pain_score_interaction_ended", phase: phase, step: "score_input", properties: [
+            "is_first_selection": previousScore == nil,
+            "did_change": previousScore.map { $0 != score } ?? false
         ])
     }
 
