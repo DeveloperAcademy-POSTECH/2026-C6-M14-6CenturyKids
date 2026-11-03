@@ -4,6 +4,8 @@ import SwiftUI
 /// 먹기 전 통증을 먼저 저장하고, 1시간 뒤 같은 기록에 먹은 뒤 통증을 이어서 기록합니다.
 struct PainRecordView: View {
     let viewModel: PainRecordViewModel
+    private let analytics: AmplitudeAnalytics?
+    @State private var attempt: InputAttempt?
     @State private var state: PainScreenState
     @State private var stage = Stage.start
     @State private var savedRecord: PainRecord?
@@ -15,6 +17,11 @@ struct PainRecordView: View {
     var onHome: (() -> Void)?
     var onCancel: (() -> Void)?
 
+    private struct InputAttempt {
+        let id = UUID()
+        var didConfirmScore = false
+    }
+
     private enum Stage {
         /// 기다리는 기록이 있으면 1시간 뒤 기록 타이머, 없으면 부위 선택.
         /// 타이머가 도는 동안에는 새 통증을 기록하지 않습니다 (Figma 8).
@@ -25,9 +32,11 @@ struct PainRecordView: View {
     }
 
     init(viewModel: PainRecordViewModel, state: PainScreenState = PainScreenState(),
+         analytics: AmplitudeAnalytics? = nil,
          onClose: (() -> Void)? = nil, onShowRecord: ((PainRecord) -> Void)? = nil,
          onHome: (() -> Void)? = nil, onCancel: (() -> Void)? = nil) {
         self.viewModel = viewModel
+        self.analytics = analytics
         _state = State(initialValue: state)
         self.onClose = onClose; self.onShowRecord = onShowRecord
         self.onHome = onHome; self.onCancel = onCancel
@@ -108,6 +117,7 @@ struct PainRecordView: View {
                         score: afterScoreBinding, isSaving: viewModel.isSaving,
                         errorMessage: state.errorMessage,
                         onPrevious: { stage = .start }, onNext: saveAfter, onClose: close)
+                        .onAppear(perform: startAttemptIfNeeded)
                 }
             }
         }
@@ -118,6 +128,7 @@ struct PainRecordView: View {
             onToggle: viewModel.toggleLocation, onRemove: viewModel.removeLocation,
             onRemoveAll: viewModel.removeAllLocations,
             onNext: { stage = .before }, onClose: close)
+            .onAppear(perform: startAttemptIfNeeded)
     }
 
     private var beforeScoreBinding: Binding<Int?> {
@@ -139,7 +150,8 @@ struct PainRecordView: View {
     }
 
     private func saveBefore() {
-        guard !viewModel.isSaving else { return }
+        guard !viewModel.isSaving, viewModel.painBefore != nil else { return }
+        trackScoreConfirmed(phase: "before")
 
         Task { @MainActor in
             do {
@@ -155,7 +167,8 @@ struct PainRecordView: View {
     }
 
     private func saveAfter() {
-        guard !viewModel.isSaving else { return }
+        guard !viewModel.isSaving, viewModel.painAfter != nil else { return }
+        trackScoreConfirmed(phase: "after")
 
         Task { @MainActor in
             do {
@@ -174,6 +187,21 @@ struct PainRecordView: View {
                 showsSaveFailed = true
             }
         }
+    }
+
+    private func startAttemptIfNeeded() {
+        if attempt == nil { attempt = InputAttempt() }
+    }
+
+    private func trackScoreConfirmed(phase: String) {
+        guard let analytics, let currentAttempt = attempt, !currentAttempt.didConfirmScore else { return }
+
+        attempt?.didConfirmScore = true
+        analytics.track("pain_score_confirmed", properties: [
+            "attempt_id": currentAttempt.id.uuidString,
+            "phase": phase,
+            "step": "score_input"
+        ])
     }
 
     private func home() { if let onHome { onHome() } else { dismiss() } }

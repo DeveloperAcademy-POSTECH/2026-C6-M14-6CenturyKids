@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		643EF1C43098EF32001D9222 /* AmplitudeSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 643EF1C33098EF32001D9222 /* AmplitudeSwift */; };
 		A15E989D309791B60067C458 /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A15E989C309791B60067C458 /* KakaoSDKAuth */; };
 		A15E989F309791B60067C458 /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A15E989E309791B60067C458 /* KakaoSDKCommon */; };
 		A15E98A1309791B60067C458 /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = A15E98A0309791B60067C458 /* KakaoSDKUser */; };
@@ -79,6 +80,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		643E00A530998EE2001D9222 /* Configuration */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Configuration;
+			sourceTree = "<group>";
+		};
 		A13BCAFC3077425800901BFD /* ToDoc */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -107,6 +113,7 @@
 		A13BCAF73077425800901BFD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				643EF1C43098EF32001D9222 /* AmplitudeSwift in Frameworks */,
 				A15E98A1309791B60067C458 /* KakaoSDKUser in Frameworks */,
 				A1B02669307B83AE00547CD2 /* Supabase in Frameworks */,
 				A15E989F309791B60067C458 /* KakaoSDKCommon in Frameworks */,
@@ -177,6 +184,7 @@
 			name = ToDoc;
 			packageProductDependencies = (
 				A1B02668307B83AE00547CD2 /* Supabase */,
+				643EF1C33098EF32001D9222 /* AmplitudeSwift */,
 				A15E989C309791B60067C458 /* KakaoSDKAuth */,
 				A15E989E309791B60067C458 /* KakaoSDKCommon */,
 				A15E98A0309791B60067C458 /* KakaoSDKUser */,
@@ -232,6 +240,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				643EF1C23098EF32001D9222 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */,
 				A15E989B309791B60067C458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -407,6 +416,8 @@
 		};
 		A13BCB063077425900901BFD /* Debug configuration for PBXNativeTarget "ToDoc" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 643E00A530998EE2001D9222 /* Configuration */;
+			baseConfigurationReferenceRelativePath = amplitude.local.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Sokdoc;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -455,6 +466,8 @@
 		};
 		A13BCB073077425900901BFD /* Release configuration for PBXNativeTarget "ToDoc" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 643E00A530998EE2001D9222 /* Configuration */;
+			baseConfigurationReferenceRelativePath = amplitude.local.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Sokdoc;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -602,6 +615,12 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		643EF1C23098EF32001D9222 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/amplitude/Amplitude-Swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
 		A15E989B309791B60067C458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
@@ -623,6 +642,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		643EF1C33098EF32001D9222 /* AmplitudeSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 643EF1C23098EF32001D9222 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */;
+			productName = AmplitudeSwift;
 		A15E989C309791B60067C458 /* KakaoSDKAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A15E989B309791B60067C458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
