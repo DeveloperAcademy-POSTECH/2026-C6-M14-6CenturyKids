@@ -99,6 +99,7 @@ struct PainRecordView: View {
                                        onLater: home, onRecord: { stage = .after },
                                        onNewRecord: {
                                            viewModel.startNewRecord()
+                                           attempt = nil
                                            stage = .location
                                        },
                                        onClose: close)
@@ -162,6 +163,7 @@ struct PainRecordView: View {
             do {
                 _ = try await viewModel.saveBeforeRecord()
                 state.errorMessage = nil
+                attempt = nil
                 stage = .start
             } catch PainRecordViewModel.SaveError.alreadySaving {
                 return
