@@ -20,6 +20,7 @@ struct PreviewAuthRepository: AuthRepository {
     func signUp(email: String, password: String) async throws -> UUID { throw Unavailable() }
     func signIn(email: String, password: String) async throws -> UUID { throw Unavailable() }
     func signInWithApple(idToken: String, nonce: String) async throws -> UUID { throw Unavailable() }
+    func signInWithKakao(idToken: String) async throws -> UUID { throw Unavailable() }
     func signOut() async throws { throw Unavailable() }
     func resendSignUpConfirmationEmail(to email: String, redirectTo url: URL?) async throws { throw Unavailable() }
     func requestPasswordChangeVerification() async throws { throw Unavailable() }
@@ -27,5 +28,6 @@ struct PreviewAuthRepository: AuthRepository {
     func updatePassword(to newPassword: String, nonce: String?) async throws { throw Unavailable() }
     func deleteAccount() async throws { throw Unavailable() }
     func withdrawAppleAccount(authorizationCode: String) async throws { throw Unavailable() }
+    func withdrawKakaoAccount() async throws { throw Unavailable() }
 }
 #endif

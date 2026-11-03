@@ -1,4 +1,5 @@
 import SwiftUI
+import KakaoSDKAuth
 
 @MainActor
 struct ContentView: View {
@@ -49,7 +50,9 @@ struct ContentView: View {
         }
         .environment(router)
         .onOpenURL { url in
-            if let deepLink = DeepLink(url: url) {
+            if AuthApi.isKakaoTalkLoginUrl(url) {
+                _ = AuthController.handleOpenUrl(url: url)
+            } else if let deepLink = DeepLink(url: url) {
                 router.handle(deepLink)
             } else {
                 Task {

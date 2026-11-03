@@ -16,6 +16,8 @@ protocol AuthRepository {
     
     func signInWithApple(idToken: String, nonce: String) async throws -> UUID
     
+    func signInWithKakao(idToken: String) async throws -> UUID
+    
     func signOut() async throws
     
     func getCurrentUserEmail() async throws -> String?
@@ -33,6 +35,8 @@ protocol AuthRepository {
     func deleteAccount() async throws
 
     func withdrawAppleAccount(authorizationCode: String) async throws
+    
+    func withdrawKakaoAccount() async throws
     
     func getSignUpProvider() async throws -> String?
 }

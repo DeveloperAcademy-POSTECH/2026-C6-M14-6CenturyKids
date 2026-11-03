@@ -1,4 +1,10 @@
 import Foundation
+#if canImport(KakaoSDKUser)
+import KakaoSDKAuth
+import KakaoSDKCommon
+import KakaoSDKUser
+#endif
+
 #if SWIFT_PACKAGE
 import ToDocDomain
 #endif
@@ -12,7 +18,7 @@ import ToDocDomain
         state.onSubmit = { [weak self] in Task { await self?.submit() } }
         state.onCancel = { [weak self] in self?.cancel() }
     }
-    var onIncompleteSignup: ((UUID, String) -> Void)?
+    var onIncompleteSignup: ((UUID, String?) -> Void)?
     private var requestID: UUID?
     private var currentNonce: String?
 
@@ -93,51 +99,86 @@ import ToDocDomain
         
         currentNonce = nil
         
+        await signInWithSocialProvider(failureMessage: "Apple 로그인에 실패했어요. 다시 시도해 주세요.") { auth in
+            try await auth.signInWithApple(idToken: idToken, nonce: nonce)
+        }
+    }
+
+    func signInWithKakao() {
+        guard !state.isSubmitting, !state.didSignIn else { return }
+        Task { @MainActor [weak self] in
+            await self?.signInWithSocialProvider(failureMessage: "카카오 로그인에 실패했어요. 다시 시도해 주세요.") { auth in
+                #if canImport(KakaoSDKUser)
+                let idToken: String = try await withCheckedThrowingContinuation { continuation in
+                    UserApi.shared.loginWithKakao(
+                        BridgeConfiguration(orientation: .auto, uiMode: .auto),
+                        loginProperties: LoginConfiguration()
+                    ) { token, error in
+                        if let error {
+                            continuation.resume(throwing: error)
+                        } else if let idToken = token?.idToken, !idToken.isEmpty {
+                            continuation.resume(returning: idToken)
+                        } else {
+                            continuation.resume(throwing: AuthFlowError("카카오 ID 토큰을 확인하지 못했어요. 다시 시도해 주세요."))
+                        }
+                    }
+                }
+                
+                try Task.checkCancellation()
+                guard let self, self.requestID != nil else { throw CancellationError() }
+                return try await auth.signInWithKakao(idToken: idToken)
+                #else
+                throw AuthFlowError("카카오 로그인 연결을 준비하지 못했어요.")
+                #endif
+            }
+        }
+    }
+
+    func signInWithKakao(idToken: String) async {
+        await signInWithSocialProvider(failureMessage: "카카오 로그인에 실패했어요. 다시 시도해 주세요.") { auth in
+            try await auth.signInWithKakao(idToken: idToken)
+        }
+    }
+
+    private func signInWithSocialProvider(
+        failureMessage: String,
+        authenticate: (AuthRepository) async throws -> UUID
+    ) async {
+        guard !state.isSubmitting, !state.didSignIn else { return }
+        state.errorMessage = nil
         guard let auth = repositories.auth, let patients = repositories.patients else {
             state.errorMessage = "로그인 연결을 준비하지 못했어요."
             return
         }
-        
         guard let token = session.begin() else {
             state.errorMessage = "이전 인증 요청을 마무리하고 있어요. 다시 시도해 주세요."
             return
         }
-        
         requestID = token
         state.isSubmitting = true
         session.loginPreference.isEnabled = false
-        
         defer {
             session.finish(token)
             state.isSubmitting = false
         }
-        
         do {
-            let id = try await auth.signInWithApple(idToken: idToken, nonce: nonce)
+            let id = try await authenticate(auth)
             guard isCurrent(token) else { throw CancellationError() }
-            
             let patient = try await patients.findById(id)
             guard isCurrent(token) else { throw CancellationError() }
-
             guard let patient else {
                 guard let onIncompleteSignup else {
                     throw AuthFlowError("가입 화면을 연결하지 못했어요.")
                 }
                 let email = try await auth.getCurrentUserEmail()
                 guard isCurrent(token) else { throw CancellationError() }
-                
-                guard let email, !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                    throw AuthFlowError("가입에 필요한 이메일을 확인하지 못했어요.")
-                }
                 state.password = ""
                 onIncompleteSignup(id, email)
                 return
             }
-            
             guard patient.user.id == id else {
                 throw AuthFlowError("사용자 정보가 일치하지 않아요.")
             }
-            
             session.loginPreference.isEnabled = true
             session.patient = patient
             state.password = ""
@@ -150,8 +191,7 @@ import ToDocDomain
                 state.errorMessage = "인증 상태를 정리하지 못했어요. 다시 로그인해 주세요."
             }
             if isCurrent(token), state.errorMessage == nil {
-                state.errorMessage = (error as? AuthFlowError)?.message
-                    ?? "Apple 로그인에 실패했어요. 다시 시도해 주세요."
+                state.errorMessage = (error as? AuthFlowError)?.message ?? failureMessage
             }
         }
     }
@@ -164,5 +204,6 @@ import ToDocDomain
 
     /// 요청 자체를 되돌리는 것은 아닙니다. 늦게 온 응답이 화면을 이동시키지 않도록 표시 권한만 폐기합니다.
     func cancel() { requestID = nil; currentNonce = nil }
+    
     private func isCurrent(_ token: UUID) -> Bool { requestID == token && !Task.isCancelled }
 }
