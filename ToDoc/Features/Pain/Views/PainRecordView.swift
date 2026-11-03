@@ -24,7 +24,7 @@ struct PainRecordView: View {
 
     private enum Stage {
         /// 기다리는 기록이 있으면 1시간 뒤 기록 타이머, 없으면 부위 선택.
-        /// 타이머가 도는 동안에는 새 통증을 기록하지 않습니다 (Figma 8).
+        /// 타이머가 도는 동안 새로운 통증을 기록하면 부위 선택으로 가고, 저장하면 이전 기록은 먹기 전 점수만 남습니다.
         case start
         case location
         case before
@@ -96,7 +96,12 @@ struct PainRecordView: View {
                     PainAfterTimerView(locations: pending.location, before: pending.painBefore,
                                        recordedDate: pending.recordedDate, availableDate: availableDate,
                                        remindersAllowed: viewModel.remindersAllowed,
-                                       onLater: home, onRecord: { stage = .after }, onClose: close)
+                                       onLater: home, onRecord: { stage = .after },
+                                       onNewRecord: {
+                                           viewModel.startNewRecord()
+                                           stage = .location
+                                       },
+                                       onClose: close)
                         // 설정에서 알림을 켜고 돌아오면 안내를 지우고 알림을 다시 예약합니다
                         .task(id: scenePhase) {
                             if scenePhase == .active { await viewModel.refreshReminderPermission() }
