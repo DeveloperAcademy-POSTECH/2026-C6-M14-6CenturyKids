@@ -33,6 +33,7 @@ final class PainRecordViewModel {
         case patientUnavailable
         case missingScore
         case noPendingRecord
+        case tooEarly
         case alreadySaving
     }
 
@@ -184,10 +185,11 @@ final class PainRecordViewModel {
         return record
     }
 
-    /// 기다리던 기록에 먹은 뒤 통증을 채우고 남은 알림을 지웁니다.
-    func saveAfterRecord() async throws -> PainRecord {
+    /// 기다리던 기록에 먹은 뒤 통증을 채우고 남은 알림을 지웁니다. 1시간이 지나기 전에는 저장하지 않습니다.
+    func saveAfterRecord(at date: Date = Date()) async throws -> PainRecord {
         guard !isSaving else { throw SaveError.alreadySaving }
         guard let pending = pendingRecord else { throw SaveError.noPendingRecord }
+        guard let availableDate = afterAvailableDate, date >= availableDate else { throw SaveError.tooEarly }
         guard let painAfter else { throw SaveError.missingScore }
 
         let record = try PainRecord(
