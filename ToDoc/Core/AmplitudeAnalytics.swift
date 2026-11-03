@@ -36,6 +36,14 @@ final class AmplitudeAnalytics {
         logger.notice("Analytics initialized. Automatic event capture is disabled.")
     }
 
+    func track(_ eventName: String, properties: [String: Any] = [:]) {
+        guard let client else { return }
+
+        var eventProperties = properties
+        eventProperties["schema_version"] = 1
+        client.track(eventType: eventName, eventProperties: eventProperties)
+    }
+
     /// 개발자가 실행 인자를 지정한 경우에만 가상 이벤트 한 건을 전송합니다.
     func sendIntegrationTestIfRequested() {
         #if DEBUG
