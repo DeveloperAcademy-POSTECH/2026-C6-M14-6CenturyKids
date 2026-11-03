@@ -52,12 +52,12 @@ struct PainScoreCapsule: View {
     var isAfter = false
     var change: Int?
 
-    private var clamped: Int { min(max(score, 0), 10) }
+    private var height: CGFloat { 144 + CGFloat(min(max(score, 0), 10)) * 10 }
 
     var body: some View {
-        VStack(spacing: 24) {
-            if isAfter, let change, change != 0, let length = arrowLength {
-                PainChangeArrow(length: length, isDown: change > 0)
+        VStack(spacing: arrow.gap) {
+            if isAfter, let change, change != 0 {
+                PainChangeArrow(length: arrow.length, isDown: change > 0)
             }
             VStack(spacing: 8) {
                 Text("\(score)점").appTypography(.headline)
@@ -66,7 +66,7 @@ struct PainScoreCapsule: View {
             .foregroundStyle(isAfter ? AppColors.Semantic.Text.default : AppColors.Semantic.Text.sub)
         }
         .padding(.bottom, 39)
-        .frame(width: 144, height: 144 + CGFloat(clamped) * 10, alignment: .bottom)
+        .frame(width: 144, height: height, alignment: .bottom)
         .background {
             if isAfter {
                 LinearGradient(colors: [AppColors.Semantic.Primary.default, AppColors.Semantic.Primary.default.opacity(0.25)],
@@ -80,10 +80,13 @@ struct PainScoreCapsule: View {
         .accessibilityLabel("\(isAfter ? "1시간 뒤" : "먹기 전") \(score)점, \(painScoreWord(score))")
     }
 
-    /// 길이 = min(40, 남는 자리), 남는 자리 = 10 × 점수 − 11. 20 미만이면 숨깁니다 (1시간 뒤 0–3점).
-    private var arrowLength: CGFloat? {
-        let room = CGFloat(10 * clamped - 11)
-        return room < 20 ? nil : min(40, room)
+    /// 글자 위 빈 자리 = 높이 − 105. 4점 이상은 규칙표대로 위 여백 26·글자와 간격 24를 두고 남는 만큼(최대 40) 그립니다.
+    /// 0~3점은 자리가 모자라 4점(여백 26 + 화살표 29 + 간격 24 = 79)의 비율대로 줄여 원 안에 넣습니다.
+    private var arrow: (length: CGFloat, gap: CGFloat) {
+        let free = height - 105
+        if free >= 79 { return (min(40, free - 50), 24) }
+        let scale = free / 79
+        return (29 * scale, 24 * scale)
     }
 }
 
