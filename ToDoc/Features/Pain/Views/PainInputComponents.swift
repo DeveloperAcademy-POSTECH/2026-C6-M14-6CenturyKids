@@ -45,20 +45,19 @@ func painLocationBadge(_ location: BodyLocation) -> String? {
     }
 }
 
-/// Figma 캡슐: 폭 144, 높이 174 + 점수 × 7(0점 174 ~ 10점 244), 글자 묶음은 바닥 동그라미 정가운데(바닥에서 39).
-/// 0점도 화살표 자리가 남도록 규칙표(144 + 점수 × 10)보다 0점을 30 높였습니다.
+/// Figma 캡슐(규칙표): 폭 144, 높이 144 + 점수 × 10, 글자 묶음은 바닥 동그라미 정가운데(바닥에서 39).
 /// 먹기 전은 회색, 1시간 뒤는 라임 그라데이션이고 change(먹기 전 − 1시간 뒤)가 있으면 화살표를 그립니다.
 struct PainScoreCapsule: View {
     let score: Int
     var isAfter = false
     var change: Int?
 
-    private var height: CGFloat { 174 + CGFloat(min(max(score, 0), 10)) * 7 }
+    private var height: CGFloat { 144 + CGFloat(min(max(score, 0), 10)) * 10 }
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: arrow.gap) {
             if isAfter, let change, change != 0 {
-                PainChangeArrow(length: arrowLength, isDown: change > 0)
+                PainChangeArrow(length: arrow.length, isDown: change > 0)
             }
             VStack(spacing: 8) {
                 Text("\(score)점").appTypography(.headline)
@@ -81,9 +80,13 @@ struct PainScoreCapsule: View {
         .accessibilityLabel("\(isAfter ? "1시간 뒤" : "먹기 전") \(score)점, \(painScoreWord(score))")
     }
 
-    /// 길이 = min(40, 남는 자리), 남는 자리 = 높이 − 155(0점 19, 3점부터 40). 가장 짧아도 19라 늘 보입니다.
-    private var arrowLength: CGFloat {
-        min(40, height - 155)
+    /// 글자 위 빈 자리 = 높이 − 105. 4점 이상은 규칙표대로 위 여백 26·글자와 간격 24를 두고 남는 만큼(최대 40) 그립니다.
+    /// 0~3점은 자리가 모자라 4점(여백 26 + 화살표 29 + 간격 24 = 79)의 비율대로 줄여 원 안에 넣습니다.
+    private var arrow: (length: CGFloat, gap: CGFloat) {
+        let free = height - 105
+        if free >= 79 { return (min(40, free - 50), 24) }
+        let scale = free / 79
+        return (29 * scale, 24 * scale)
     }
 }
 
