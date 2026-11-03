@@ -7,10 +7,13 @@ struct PainScoreInputView: View {
     var isSaving = false
     var errorMessage: String?
     var onPrevious: (() -> Void)?
+    /// 있으면 고른 부위 시트에 '부위 다시 고르기'를 보여 줍니다. 먹은 뒤 점수는 부위가 이미 저장돼 없습니다.
+    var onReselectLocations: (() -> Void)?
     var onNext: (() -> Void)?
     var onClose: (() -> Void)?
     var descriptor: (Int) -> String? = { _ in nil }
 
+    @State private var showsLocations = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
@@ -34,6 +37,18 @@ struct PainScoreInputView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .painSheet(isPresented: $showsLocations) {
+            PainLocationSheet(locations: locations, onReselect: onReselectLocations.map { reselect in
+                { showsLocations = false; reselect() }
+            }, onClose: { showsLocations = false })
+        }
+    }
+
+    /// Figma 6-1: '가슴 외 2부위 ›'
+    private var locationSummary: String {
+        guard let first = locations.first else { return "" }
+        let name = painLocationName(first, among: locations)
+        return locations.count > 1 ? "\(name) 외 \(locations.count - 1)부위" : name
     }
 
     private var inputContent: some View {
@@ -42,7 +57,9 @@ struct PainScoreInputView: View {
                       ? "약을 복용하기 전 통증 강도는 어떠셨나요?"
                       : "약을 복용한 뒤의 통증 강도는 어떠셨나요?")
                 .padding(.top, typeSize.isAccessibilitySize ? 44 : 0)
-            PainLocationChips(locations: locations).padding(.horizontal, 24).padding(.top, 24)
+            PainMoreLocationsChip(title: locationSummary) { showsLocations = true }
+                .padding(.horizontal, 24).padding(.top, 24)
+                .accessibilityIdentifier("pain.score.locations")
             // 고르기 전에는 먹기 전 10점, 먹은 뒤 0점 자리에 보여 주기만 합니다 (score는 nil로 남아 다음을 막습니다)
             PainScoreGauge(value: $score, initialValue: before == nil ? 10 : 0, before: before,
                            label: before == nil ? "약 복용 전 통증 점수" : "약 복용 후 통증 점수",

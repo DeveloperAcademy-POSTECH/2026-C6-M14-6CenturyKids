@@ -124,6 +124,19 @@ final class PainRecordViewModel {
         selectedLocations.removeAll { $0 == location }
     }
 
+    /// 몸 그림에서 누른 부위를 고르거나, 이미 골랐으면 뺍니다.
+    func toggleLocation(_ location: BodyLocation) {
+        if selectedLocations.contains(location) {
+            removeLocation(location)
+        } else {
+            selectLocation(location)
+        }
+    }
+
+    func removeAllLocations() {
+        selectedLocations = []
+    }
+
     func setBeforeScore(_ score: Int) {
         painBefore = score
     }

@@ -105,7 +105,8 @@ struct PainRecordView: View {
             case .before:
                 PainBeforeMedicationView(locations: viewModel.selectedLocations, score: beforeScoreBinding,
                     isSaving: viewModel.isSaving, errorMessage: state.errorMessage,
-                    onPrevious: { stage = .location }, onNext: saveBefore, onClose: close)
+                    onPrevious: { stage = .location }, onReselectLocations: { stage = .location },
+                    onNext: saveBefore, onClose: close)
             case .beforeSaved:
                 PainBeforeSavedView(before: viewModel.pendingRecord?.painBefore ?? 0, onHome: home)
             case .after:
@@ -121,14 +122,8 @@ struct PainRecordView: View {
 
     private var locationSelection: some View {
         PainLocationSelectionView(locations: viewModel.selectedLocations, errorMessage: state.errorMessage,
-            onToggle: { location in
-                if viewModel.selectedLocations.contains(location) {
-                    viewModel.removeLocation(location)
-                } else {
-                    viewModel.selectLocation(location)
-                }
-            },
-            onRemove: { location in viewModel.removeLocation(location) },
+            onToggle: viewModel.toggleLocation, onRemove: viewModel.removeLocation,
+            onRemoveAll: viewModel.removeAllLocations,
             onNext: { stage = .before }, onClose: close)
     }
 

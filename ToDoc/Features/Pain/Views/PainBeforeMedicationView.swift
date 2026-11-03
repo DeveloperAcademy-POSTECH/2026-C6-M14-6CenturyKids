@@ -6,11 +6,12 @@ struct PainBeforeMedicationView: View {
     var isSaving = false
     var errorMessage: String?
     var onPrevious: (() -> Void)?
+    var onReselectLocations: (() -> Void)?
     var onNext: (() -> Void)?
     var onClose: (() -> Void)?
     var body: some View {
         PainScoreInputView(locations: locations, score: $score, isSaving: isSaving, errorMessage: errorMessage,
-                           onPrevious: onPrevious, onNext: onNext, onClose: onClose)
+                           onPrevious: onPrevious, onReselectLocations: onReselectLocations, onNext: onNext, onClose: onClose)
     }
 }
 
