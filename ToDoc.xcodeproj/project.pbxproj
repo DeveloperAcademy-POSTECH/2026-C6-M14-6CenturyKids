@@ -435,10 +435,10 @@
 				INFOPLIST_FILE = ToDoc/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "속닥";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "앱을 쓰지 않을 때도 병원 근처에 오면 진료 전 기록 알림을 보내드려요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않습니다.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "병원 근처에 오면 진료 전 기록을 알려드리기 위해 위치를 사용해요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않습니다.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "증상 확인 대화를 듣기 위해 마이크를 사용합니다. 음성은 기기 안에서만 처리됩니다.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "말씀하신 내용을 글로 바꾸기 위해 기기 안의 음성 인식을 사용합니다.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "앱을 쓰지 않을 때도 연결된 병원 근처에 오면 진료 전 기록 알림을 보내드려요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않아요.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "연결된 병원 근처에 오면 진료 전 기록을 알려드리기 위해 위치를 사용해요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않아요.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "증상 확인 대화를 위해 마이크를 사용해요. 음성은 서버로 전송되지 않아요.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "말씀하신 내용을 글로 바꾸기 위해 음성 인식을 사용해요.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -450,7 +450,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -486,10 +486,10 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "속닥";
 				"INFOPLIST_KEY_CFBundleDisplayName[sdk=iphoneos*]" = "속닥";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "앱을 쓰지 않을 때도 병원 근처에 오면 진료 전 기록 알림을 보내드려요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않습니다.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "병원 근처에 오면 진료 전 기록을 알려드리기 위해 위치를 사용해요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않습니다.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "증상 확인 대화를 듣기 위해 마이크를 사용합니다. 음성은 기기 안에서만 처리됩니다.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "말씀하신 내용을 글로 바꾸기 위해 기기 안의 음성 인식을 사용합니다.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "앱을 쓰지 않을 때도 연결된 병원 근처에 오면 진료 전 기록 알림을 보내드려요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않아요.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "연결된 병원 근처에 오면 진료 전 기록을 알려드리기 위해 위치를 사용해요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않아요.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "증상 확인 대화를 위해 마이크를 사용해요. 음성은 서버로 전송되지 않아요.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "말씀하신 내용을 글로 바꾸기 위해 음성 인식을 사용해요.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -501,7 +501,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
