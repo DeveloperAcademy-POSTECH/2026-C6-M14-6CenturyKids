@@ -217,6 +217,7 @@ struct PainRecordView: View {
                 return
             } catch {
                 showsSaveFailed = true
+                trackInputEvent("pain_save_failed", phase: "before", step: "score_input")
             }
         }
     }
@@ -240,6 +241,7 @@ struct PainRecordView: View {
                 return
             } catch {
                 showsSaveFailed = true
+                trackInputEvent("pain_save_failed", phase: "after", step: "score_input")
             }
         }
     }
