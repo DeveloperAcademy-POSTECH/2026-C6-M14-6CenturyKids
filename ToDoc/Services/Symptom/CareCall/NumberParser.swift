@@ -10,7 +10,7 @@ import Foundation
 /// 환자 발화의 숫자를 읽는다.
 /// - numbers: 0~10 숫자·"N점" (강도 점수를 묻던 때의 판단. 숫자가 섞인 답을 걸러 낼 때는 hasNumber)
 /// - hasNumber: 답에 숫자가 있는지. 말로 한 횟수·시간("두 번", "한 시간", "두세 번")까지 본다
-/// - count·minutes: 횟수·기간 답에서 분명한 값 하나 (증상 기록의 occurrenceCount·durationMinutes)
+/// - count: 횟수 답에서 분명한 값 하나 (증상 기록의 occurrenceCount)
 enum NumberParser {
     private static let words: [String: Int] = [
         "영": 0, "빵": 0,
@@ -35,7 +35,7 @@ enum NumberParser {
         return found
     }
 
-    // MARK: - 횟수·기간 (증상 기록 저장용)
+    // MARK: - 횟수 (증상 기록 저장용)
 
     /// "한두", "두세"처럼 두 수를 붙여 말한 어림수. 하나로 정할 수 없어 읽지 않는다
     private static let approximate = ["한두", "두세", "서너", "너덧", "네다섯", "대여섯", "예닐곱", "일여덟", "엳아홉",
@@ -43,7 +43,6 @@ enum NumberParser {
     private static let native: [String: Int] = [
         "한": 1, "두": 2, "세": 3, "네": 4, "다섯": 5, "여섯": 6, "일곱": 7, "여덟": 8, "아홉": 9,
     ]
-    private static let sino: [Character: Int] = ["일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "칠": 7, "팔": 8, "구": 9]
 
     /// 답에 숫자가 있는지: 숫자 글자, "N점", 말로 한 횟수·시간 ("두 번", "열두 번", "한 시간", "삼십 분", "두세 번").
     /// 숫자가 섞인 답은 짧은 답 규칙('없음'·'모름'·애매한 답)으로 처리하지 않고 모델이 보게 할 때 쓴다 (넓게 잡아도 모델이 볼 뿐이다)
@@ -59,22 +58,9 @@ enum NumberParser {
     /// 어림수("두세 번"), 범위("2~3번"), 서로 다른 횟수가 둘 이상이면 nil. 1~100만 (SymptomEntry 규칙)
     static func count(in raw: String) -> Int? {
         guard !isAmbiguous(raw) else { return nil }
-        let values = Set(raw.matches(of: /(\d+|[가-힣]{1,3})\s?(?:번|회|차례)(?!째)/).compactMap { value(of: String($0.1), allowsSino: false) })
+        let values = Set(raw.matches(of: /(\d+|[가-힣]{1,3})\s?(?:번|회|차례)(?!째)/).compactMap { value(of: String($0.1)) })
         guard values.count == 1, let n = values.first, (1...100).contains(n) else { return nil }
         return n
-    }
-
-    /// 기간 답에서 분명한 길이 하나를 분으로 ("30분쯤" → 30, "한 시간 반" → 90, "1시간 30분" → 90).
-    /// 어림수·범위, 길이가 둘 이상이면 nil. 10~1440분만 (SymptomEntry 규칙). "삼분의 일" 같은 분수는 기간이 아니다
-    static func minutes(in raw: String) -> Int? {
-        guard !isAmbiguous(raw) else { return nil }
-        let hours = raw.matches(of: /(\d+|[가-힣]{1,3})\s?시간(\s?반)?/).compactMap { m in
-            value(of: String(m.1), allowsSino: false).map { $0 * 60 + (m.2 == nil ? 0 : 30) }
-        }
-        let mins = raw.matches(of: /(\d+|[가-힣]{1,4})\s?분(?!의)/).compactMap { value(of: String($0.1), allowsNative: false) }
-        guard hours.count <= 1, mins.count <= 1, !(hours.isEmpty && mins.isEmpty) else { return nil }
-        let total = (hours.first ?? 0) + (mins.first ?? 0)
-        return (10...1440).contains(total) ? total : nil
     }
 
     /// 어림수·범위, 그보다 많거나 적다는 말 (정확한 값이 아니다)
@@ -87,16 +73,11 @@ enum NumberParser {
     /// 단위 뒤 조사(은·도·이)와 정도 말(좀·훨씬·정도)은 건너뛴다. "넘어졌어요"·"넘겼어요"·"이상했어요"는 수량 말이 아니다
     private static let overOrUnder = /[\d한두세네섯곱덟홉열물무백십일이삼사오육칠팔구]\s?(시간\s?반|번|회|차례|시간|분)(은|는|도|이|가)?\s?(좀|조금|약간|훨씬|더|정도)?\s?(넘(게|었|어(?![지졌져질])|는|을|지|고|음)|이상(?![해하한했할함히])|남짓|가까이|이하|미만|안팎|이내|안\s?[되돼됐]|못\s?[되돼됐])|적어도|최소/
 
-    /// 숫자, 또는 수를 나타내는 우리말("세", "열두")·한자어("삼십")를 읽는다. 앞에 다른 말이 붙어 있으면("하루세") 뒤쪽만 본다.
-    /// 횟수·시간은 우리말만("이번 주"의 "이", "이 시간"을 수로 읽지 않게), 분은 한자어만("두 분"은 사람 수)
-    private static func value(of token: String, allowsNative: Bool = true, allowsSino: Bool = true) -> Int? {
+    /// 숫자, 또는 수를 나타내는 우리말("세", "열두")을 읽는다. 앞에 다른 말이 붙어 있으면("하루세") 뒤쪽만 본다.
+    /// 한자어는 읽지 않는다 ("이번 주"의 "이"를 수로 읽지 않게)
+    private static func value(of token: String) -> Int? {
         if let n = Int(token) { return n }
-        for start in token.indices {
-            let tail = String(token[start...])
-            if allowsNative, let n = nativeValue(tail) { return n }
-            if allowsSino, let n = sinoValue(tail) { return n }
-        }
-        return nil
+        return token.indices.lazy.compactMap { nativeValue(String(token[$0...])) }.first
     }
 
     /// 우리말 수: 한~아홉, 열·열한~열아홉, 스무·스물
@@ -108,14 +89,5 @@ enum NumberParser {
             if let n = native[rest] { return tens + n }
         }
         return nil
-    }
-
-    /// 한자어 수: 일~구, 십, 이십·삼십…, 십오·이십오… (분을 말할 때)
-    private static func sinoValue(_ s: String) -> Int? {
-        guard !s.isEmpty, s.allSatisfy({ sino[$0] != nil || $0 == "십" }) else { return nil }
-        guard let ten = s.firstIndex(of: "십") else { return s.count == 1 ? sino[s.first!] : nil }
-        let before = s[..<ten], after = s[s.index(after: ten)...]
-        guard before.count <= 1, after.count <= 1 else { return nil }
-        return (before.first.flatMap { sino[$0] } ?? 1) * 10 + (after.first.flatMap { sino[$0] } ?? 0)
     }
 }

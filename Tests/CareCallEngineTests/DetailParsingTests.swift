@@ -63,20 +63,4 @@ struct DetailNumberTests {
     func 모호하거나_횟수가_아니면_nil(text: String) {
         #expect(NumberParser.count(in: text) == nil)
     }
-
-    @Test(arguments: [
-        ("30분쯤", 30), ("한 시간 반", 90), ("두 시간 정도요", 120), ("1시간 30분", 90), ("삼십 분", 30), ("십오 분", 15), ("30분 정도 이상하게 저려요", 30), ("30분쯤, 기분이 이상했어요", 30),
-    ])
-    func 분명한_기간을_분으로(text: String, minutes: Int) {
-        #expect(NumberParser.minutes(in: text) == minutes)
-    }
-
-    @Test(arguments: [
-        "평소의 삼분의 일 정도요", "아픈 부분이 있어요", "20~30분", "하루 종일요", "5분", "25시간", "두 분이 오셨어요",
-        "이 시간쯤", "한두 시간", "이삼십 분이요", "사오십 분", "한 시간 넘게요", "30분 이상",
-        "한 시간은 넘게요", "삼십 분도 넘었어요", "한 시간 넘을 거예요", "적어도 30분", "한 시간 반 이상이요", "삼십 분 이내", "한 시간 가까이", "한 시간 안 돼요",
-    ])
-    func 모호하거나_기간이_아니면_nil(text: String) {
-        #expect(NumberParser.minutes(in: text) == nil)
-    }
 }

@@ -61,22 +61,20 @@ struct CareCallTextModeTests {
         #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?")
     }
 
-    @Test func 횟수_지속_시간_질문이면_입력_칸을_바꾸고_답을_문장으로_넘긴다() async {
+    @Test func 횟수_질문이면_횟수_칸을_보이고_답을_문장으로_넘긴다() async {
         await enterText()
-        service.replies = [turn("구토는 하루에 몇 번 정도 하셨나요?", .count), turn("한 번 그러면 얼마나 가나요?", .minutes),
-                           turn("변비는 있으셨나요?")]
+        service.replies = [turn("구토는 하루에 몇 번 정도 하셨나요?", .count), turn("언제부터 그랬나요?"), turn("변비는 있으셨나요?")]
         await viewModel.answer(.text("  어제 좀 토했어요 "))?.value
         #expect(conversation.question?.input == .frequency)
         await viewModel.answer(.frequency(.tenPlus))?.value
-        #expect(conversation.question?.input == .duration)
-        await viewModel.answer(.durationMinutes(90))?.value
+        #expect(conversation.question?.input == .text) // 시작 시점은 글자로
+        await viewModel.answer(.text("어제부터요"))?.value
         #expect(conversation.question?.input == .text && conversation.question?.text == "변비는 있으셨나요?")
-        #expect(service.answers == ["어제 좀 토했어요", "열 번 넘게", "1시간 30분"])
+        #expect(service.answers == ["어제 좀 토했어요", "열 번 넘게", "어제부터요"])
     }
 
     @Test(arguments: [
-        (SymptomConversationAnswer.frequency(.count(3)), "3번"), (.durationMinutes(30), "30분"), (.durationMinutes(120), "2시간"),
-        (.durationMinutes(1440), "24시간"),
+        (SymptomConversationAnswer.frequency(.count(3)), "3번"), (.frequency(.tenPlus), "열 번 넘게"),
     ])
     func 숫자_입력은_엔진이_읽는_문장으로(answer: SymptomConversationAnswer, sentence: String) {
         #expect(CareCallViewModel.sentence(for: answer) == sentence)
@@ -85,8 +83,6 @@ struct CareCallTextModeTests {
     @Test func 숫자_문장은_엔진이_같은_값으로_읽고_10회_이상은_정확한_값으로_남기지_않는다() {
         #expect(NumberParser.count(in: CareCallViewModel.sentence(for: .frequency(.count(7)))) == 7)
         #expect(NumberParser.count(in: CareCallViewModel.sentence(for: .frequency(.tenPlus))) == nil)
-        #expect(NumberParser.minutes(in: CareCallViewModel.sentence(for: .durationMinutes(90))) == 90)
-        #expect(NumberParser.minutes(in: CareCallViewModel.sentence(for: .durationMinutes(180))) == 180)
     }
 
     @Test func 빈_답이나_처리_중에는_보내지_않는다() async {
@@ -355,8 +351,7 @@ struct CareCallTextModeTests {
     @Test(arguments: [
         ("열 번 넘게", SymptomConversationQuestion.Input.frequency, SymptomConversationAnswer.frequency(.tenPlus)),
         ("3번", .frequency, .frequency(.count(3))),
-        ("1시간 30분", .duration, .durationMinutes(90)),
-        ("하루 종일요", .duration, .text("하루 종일요")),
+        ("1시간 30분", .duration, .text("1시간 30분")), // 케어콜은 지속 시간을 묻지 않는다
         ("어제부터요", .text, .text("어제부터요")),
     ])
     func 되돌린_답은_입력_칸_값으로(text: String, input: SymptomConversationQuestion.Input, expected: SymptomConversationAnswer) {

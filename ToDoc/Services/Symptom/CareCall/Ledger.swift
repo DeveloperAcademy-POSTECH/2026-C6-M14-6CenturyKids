@@ -18,7 +18,7 @@ struct Ledger: Sendable {
         var otherName: String?
         var presence: MentionPresence?
         var locations: [String] = []
-        /// 꼬리질문(횟수·시작 시점·지속 시간·섭취량) 답. 물은 순서대로
+        /// 꼬리질문(횟수·시작 시점·섭취량) 답. 물은 순서대로
         var details: [Detail] = []
         var quotes: [String] = []
         var needsReview = false
