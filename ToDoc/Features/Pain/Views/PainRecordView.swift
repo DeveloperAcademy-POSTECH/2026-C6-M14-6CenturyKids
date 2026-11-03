@@ -141,7 +141,7 @@ struct PainRecordView: View {
             case .before:
                 PainBeforeMedicationView(locations: viewModel.selectedLocations, score: beforeScoreBinding,
                     isSaving: viewModel.isSaving, errorMessage: state.errorMessage,
-                    onPrevious: { stage = .location }, onReselectLocations: { stage = .location },
+                    onPrevious: returnToLocationSelection, onReselectLocations: returnToLocationSelection,
                     onNext: saveBefore, onClose: close)
                     .onAppear {
                         trackInputEvent("pain_step_moved", phase: "before", step: "score_input", properties: [
@@ -155,7 +155,7 @@ struct PainRecordView: View {
                     PainAfterMedicationView(locations: pending.location, before: pending.painBefore,
                         score: afterScoreBinding, isSaving: viewModel.isSaving,
                         errorMessage: state.errorMessage,
-                        onPrevious: { stage = .start }, onNext: saveAfter, onClose: close)
+                        onPrevious: returnToTimer, onNext: saveAfter, onClose: close)
                         .onAppear {
                             startAttemptIfNeeded(phase: "after", step: "score_input")
                         }
@@ -166,8 +166,10 @@ struct PainRecordView: View {
 
     private var locationSelection: some View {
         PainLocationSelectionView(locations: viewModel.selectedLocations, errorMessage: state.errorMessage,
-            onToggle: toggleLocation, onRemove: viewModel.removeLocation,
-            onRemoveAll: viewModel.removeAllLocations,
+            onToggle: toggleLocation,
+            onRemove: { removeLocation($0, source: "selected_chip") },
+            onRemoveFromSheet: { removeLocation($0, source: "location_sheet") },
+            onRemoveAll: clearLocations,
             onNext: { stage = .before }, onClose: close)
             .onAppear {
                 if trackedTimerStates.isEmpty, attempt == nil {
@@ -246,13 +248,63 @@ struct PainRecordView: View {
     }
 
     private func toggleLocation(_ location: BodyLocation) {
+        let previousCount = viewModel.selectedLocations.count
         viewModel.toggleLocation(location)
         let selectedCount = viewModel.selectedLocations.count
+        guard selectedCount != previousCount else { return }
+
+        trackLocationChange(action: selectedCount > previousCount ? "select" : "deselect",
+                            source: "body_map")
         guard selectedCount > 0, attempt?.didSelectLocation == false else { return }
 
         attempt?.didSelectLocation = true
         trackInputEvent("pain_location_selected", phase: "before", step: "location_selection",
                         properties: ["selected_count": selectedCount])
+    }
+
+    private func removeLocation(_ location: BodyLocation, source: String) {
+        let previousCount = viewModel.selectedLocations.count
+        viewModel.removeLocation(location)
+        guard viewModel.selectedLocations.count < previousCount else { return }
+
+        trackLocationChange(action: "deselect", source: source)
+    }
+
+    private func clearLocations() {
+        let removedCount = viewModel.selectedLocations.count
+        guard removedCount > 0 else { return }
+
+        viewModel.removeAllLocations()
+        trackLocationChange(action: "clear_all", source: "location_sheet", removedCount: removedCount)
+    }
+
+    private func trackLocationChange(action: String, source: String, removedCount: Int? = nil) {
+        var properties: [String: Any] = [
+            "action": action,
+            "source": source,
+            "selected_count": viewModel.selectedLocations.count
+        ]
+        properties["removed_count"] = removedCount
+        trackInputEvent("pain_location_changed", phase: "before", step: "location_selection",
+                        properties: properties)
+    }
+
+    private func returnToLocationSelection() {
+        stage = .location
+        trackPreviousStep(phase: "before", destination: "location_selection")
+    }
+
+    private func returnToTimer() {
+        stage = .start
+        trackPreviousStep(phase: "after", destination: "timer")
+    }
+
+    private func trackPreviousStep(phase: String, destination: String) {
+        trackInputEvent("pain_step_moved", phase: phase, step: destination, properties: [
+            "from_step": "score_input",
+            "to_step": destination,
+            "direction": "previous"
+        ])
     }
 
     private func trackScoreConfirmed(phase: String) {
