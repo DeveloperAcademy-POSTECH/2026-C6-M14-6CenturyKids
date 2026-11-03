@@ -9,6 +9,7 @@ import Foundation
 
 @MainActor
 final class DependencyContainer {
+    let analytics: AmplitudeAnalytics
     /// 로그인·설정·탈퇴가 함께 사용하는 앱 수명의 인증 상태입니다.
     let authSession: AuthSessionState
     let supabaseProvider: SupabaseClientProvider
@@ -29,7 +30,8 @@ final class DependencyContainer {
     let locationPermission: LocationPermissionRequester
     let hospitalArrivalService: HospitalArrivalService
     
-    init(configuration: SupabaseConfiguration) {
+    init(configuration: SupabaseConfiguration, analytics: AmplitudeAnalytics) {
+        self.analytics = analytics
         authSession = AuthSessionState(loginPreference: AuthLoginPreference(defaults: .standard))
         let provider = SupabaseClientProvider(
             configuration: configuration

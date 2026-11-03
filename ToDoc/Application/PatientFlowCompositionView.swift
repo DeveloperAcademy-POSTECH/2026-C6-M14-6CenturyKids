@@ -90,7 +90,7 @@ struct PatientFlowCompositionView: View {
             },
             previsitLetters: previsitLetterViewModel,
             pain: { navigation in
-                PainRecordView(viewModel: painViewModel, onShowRecord: navigation.showRecord)
+                PainRecordView(viewModel: painViewModel, analytics: container.analytics, onShowRecord: navigation.showRecord)
             },
             preparePainDetail: { date in
                 recordDetailViewModel.pain.period = .day

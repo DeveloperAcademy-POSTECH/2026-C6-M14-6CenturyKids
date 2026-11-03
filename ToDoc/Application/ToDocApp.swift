@@ -25,7 +25,7 @@ struct ToDocApp: App {
                      publishableKey: "sb_publishable_R6znWnBZPpAjeKFx29gWtg_93oUMsHf"
         )
         
-        let container = DependencyContainer(configuration: configuration)
+        let container = DependencyContainer(configuration: configuration, analytics: analytics)
         self.container = container
 
         // 알림을 눌러 앱이 켜지는 경우도 받으려면 실행이 끝나기 전에 delegate를 정해야 합니다.
