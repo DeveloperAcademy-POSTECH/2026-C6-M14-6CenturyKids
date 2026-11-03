@@ -132,5 +132,4 @@ iOSInjectionProject/
 # End of https://www.toptal.com/developers/gitignore/api/swift,macos,xcode
 
 # Amplitude 로컬 설정: 실제 키가 들어가므로 Git에서 제외
-/Config/Amplitude.local.xcconfig
-/ToDoc/Resources/Config/Amplitude.local.xcconfig
+Configuration/amplitude.local.xcconfig
