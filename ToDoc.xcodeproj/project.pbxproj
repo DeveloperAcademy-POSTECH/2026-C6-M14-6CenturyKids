@@ -80,11 +80,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		643E00A530998EE2001D9222 /* Configuration */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Configuration;
-			sourceTree = "<group>";
-		};
 		A13BCAFC3077425800901BFD /* ToDoc */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -416,8 +411,6 @@
 		};
 		A13BCB063077425900901BFD /* Debug configuration for PBXNativeTarget "ToDoc" */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 643E00A530998EE2001D9222 /* Configuration */;
-			baseConfigurationReferenceRelativePath = amplitude.local.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Sokdoc;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -466,8 +459,6 @@
 		};
 		A13BCB073077425900901BFD /* Release configuration for PBXNativeTarget "ToDoc" */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 643E00A530998EE2001D9222 /* Configuration */;
-			baseConfigurationReferenceRelativePath = amplitude.local.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Sokdoc;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -621,6 +612,8 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.0.0;
+			};
+		};
 		A15E989B309791B60067C458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
@@ -646,6 +639,7 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 643EF1C23098EF32001D9222 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */;
 			productName = AmplitudeSwift;
+		};
 		A15E989C309791B60067C458 /* KakaoSDKAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A15E989B309791B60067C458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
