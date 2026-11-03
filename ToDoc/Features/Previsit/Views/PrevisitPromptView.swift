@@ -8,6 +8,8 @@ struct PrevisitPromptView: View {
     var doctorName = "선생님"
     var patientName = ""
     var startTitle: String?
+    /// 오늘 이미 보냈으면 false: 작성 버튼을 막고 지난 기록 보기만 남깁니다
+    var canStart = true
     var onStart: () -> Void = {}
     var onRecords: () -> Void = {}
     var onClose: () -> Void = {}
@@ -45,7 +47,8 @@ struct PrevisitPromptView: View {
             }
             // 홈의 통증 기록하기·증상 대화하기 카드 간격(14)과 맞춤
             VStack(spacing: 14) {
-                AppActions.Button(startTitle ?? "진료 전 기록하기", action: onStart).accessibilityIdentifier("previsit.start")
+                AppActions.Button(canStart ? startTitle ?? "진료 전 기록하기" : "오늘 기록은 이미 보냈어요", action: onStart)
+                    .disabled(!canStart).accessibilityIdentifier("previsit.start")
                 AppActions.Button("지난 기록 전체보기", kind: .secondary, action: onRecords)
                     .accessibilityIdentifier("previsit.records")
             }
