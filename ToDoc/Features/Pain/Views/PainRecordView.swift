@@ -85,8 +85,25 @@ struct PainRecordView: View {
 
     private func load() async {
         await viewModel.load()
-        guard !Task.isCancelled, case .ready = viewModel.connectionState else { return }
-        stage = viewModel.pendingRecord == nil ? .location : .start
+        guard !Task.isCancelled else { return }
+
+        switch viewModel.connectionState {
+        case .ready:
+            stage = viewModel.pendingRecord == nil ? .location : .start
+        case .patientUnavailable:
+            trackPreparationFailure("patient_unavailable")
+        case .failed:
+            trackPreparationFailure("load_failed")
+        case .loading, .signedOut:
+            break
+        }
+    }
+
+    private func trackPreparationFailure(_ errorCode: String) {
+        trackPainEvent("pain_preparation_failed", properties: [
+            "failure_step": "preparation",
+            "error_code": errorCode
+        ])
     }
 
     @ViewBuilder private var recordContent: some View {
@@ -105,7 +122,7 @@ struct PainRecordView: View {
                     PainAfterTimerView(locations: pending.location, before: pending.painBefore,
                                        recordedDate: pending.recordedDate, availableDate: availableDate,
                                        remindersAllowed: viewModel.remindersAllowed,
-                                       onLater: home, onRecord: { stage = .after },
+                                       onLater: deferFollowup, onRecord: { stage = .after },
                                        onNewRecord: {
                                            viewModel.startNewRecord()
                                            attempt = nil
@@ -282,7 +299,43 @@ struct PainRecordView: View {
     }
 
     private func home() { if let onHome { onHome() } else { dismiss() } }
-    private func close() { if let onClose { onClose() } else { dismiss() } }
+    private func close() {
+        trackFlowClosed(reason: "back")
+        if let onClose { onClose() } else { dismiss() }
+    }
+
+    private func deferFollowup() {
+        trackFlowClosed(reason: "defer_followup")
+        home()
+    }
+
+    private func trackFlowClosed(reason: String) {
+        var properties: [String: Any] = ["exit_reason": reason]
+        let step: String
+        let phase: String?
+
+        switch stage {
+        case .start where viewModel.pendingRecord != nil && viewModel.afterAvailableDate != nil:
+            step = "timer"
+            phase = nil
+        case .start, .location:
+            step = "location_selection"
+            phase = "before"
+        case .before:
+            step = "score_input"
+            phase = "before"
+        case .after:
+            step = "score_input"
+            phase = "after"
+        }
+
+        properties["step"] = step
+        if let phase {
+            properties["phase"] = phase
+            properties["attempt_id"] = attempt?.id.uuidString
+        }
+        trackPainEvent("pain_flow_closed", properties: properties)
+    }
 }
 #if DEBUG
 private struct PreviewPainRepository: PainRepository {
