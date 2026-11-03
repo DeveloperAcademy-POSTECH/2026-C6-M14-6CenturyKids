@@ -10,6 +10,7 @@ struct PainRecordView: View {
     @State private var didTrackFlowEntry = false
     @State private var trackedTimerStates: Set<String> = []
     @State private var attempt: InputAttempt?
+    @State private var activeInterval: ActiveInterval?
     @State private var state: PainScreenState
     @State private var stage = Stage.start
     @State private var savedRecord: PainRecord?
@@ -26,6 +27,17 @@ struct PainRecordView: View {
         var didSelectLocation = false
         var didConfirmScore = false
         var lastInteractedScore: Int?
+    }
+
+    private struct InputStep: Equatable {
+        let attemptID: UUID
+        let phase: String
+        let name: String
+    }
+
+    private struct ActiveInterval {
+        let step: InputStep
+        let startedAt: ContinuousClock.Instant
     }
 
     private enum Stage {
@@ -76,7 +88,16 @@ struct PainRecordView: View {
             trackFlowEntryIfNeeded()
             await load()
         }
-        .onDisappear { onCancel?() }
+        .onChange(of: activeInputStep, initial: true) { _, step in
+            finishActiveInterval()
+            if let step {
+                activeInterval = ActiveInterval(step: step, startedAt: ContinuousClock().now)
+            }
+        }
+        .onDisappear {
+            finishActiveInterval()
+            onCancel?()
+        }
         .alert("기록을 저장하지 못했어요", isPresented: $showsSaveFailed) {
             Button("확인", role: .cancel) {}
         } message: {
@@ -357,6 +378,38 @@ struct PainRecordView: View {
         trackPainEvent("pain_entry_screen_viewed", properties: [
             "screen": state == "waiting" ? "waiting" : "followup_choice",
             "timer_state": state
+        ])
+    }
+
+    private var activeInputStep: InputStep? {
+        guard scenePhase == .active, case .ready = viewModel.connectionState,
+              state.completion == nil, let attempt else { return nil }
+
+        switch stage {
+        case .start:
+            guard viewModel.pendingRecord == nil || viewModel.afterAvailableDate == nil else { return nil }
+            return InputStep(attemptID: attempt.id, phase: "before", name: "location_selection")
+        case .location:
+            return InputStep(attemptID: attempt.id, phase: "before", name: "location_selection")
+        case .before:
+            return InputStep(attemptID: attempt.id, phase: "before", name: "score_input")
+        case .after:
+            guard viewModel.pendingRecord != nil else { return nil }
+            return InputStep(attemptID: attempt.id, phase: "after", name: "score_input")
+        }
+    }
+
+    private func finishActiveInterval() {
+        guard let interval = activeInterval else { return }
+        activeInterval = nil
+
+        let elapsed = interval.startedAt.duration(to: ContinuousClock().now).components
+        let milliseconds = elapsed.seconds * 1_000 + elapsed.attoseconds / 1_000_000_000_000_000
+        trackPainEvent("pain_step_engagement", properties: [
+            "attempt_id": interval.step.attemptID.uuidString,
+            "phase": interval.step.phase,
+            "step": interval.step.name,
+            "active_duration_ms": milliseconds
         ])
     }
 
