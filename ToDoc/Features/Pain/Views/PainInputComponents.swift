@@ -46,18 +46,20 @@ func painLocationBadge(_ location: BodyLocation) -> String? {
 }
 
 /// Figma 캡슐(규칙표): 폭 144, 높이 144 + 점수 × 10, 글자 묶음은 바닥 동그라미 정가운데(바닥에서 39).
+/// 0~3점은 화살표 자리를 남기려고 3점 높이(174)로 맞춥니다.
 /// 먹기 전은 회색, 1시간 뒤는 라임 그라데이션이고 change(먹기 전 − 1시간 뒤)가 있으면 화살표를 그립니다.
 struct PainScoreCapsule: View {
     let score: Int
     var isAfter = false
     var change: Int?
 
-    private var clamped: Int { min(max(score, 0), 10) }
+    /// 높이를 정하는 점수: 0~3점은 3점으로 봅니다.
+    private var sizeScore: Int { min(max(score, 3), 10) }
 
     var body: some View {
         VStack(spacing: 24) {
-            if isAfter, let change, change != 0, let length = arrowLength {
-                PainChangeArrow(length: length, isDown: change > 0)
+            if isAfter, let change, change != 0 {
+                PainChangeArrow(length: arrowLength, isDown: change > 0)
             }
             VStack(spacing: 8) {
                 Text("\(score)점").appTypography(.headline)
@@ -66,7 +68,7 @@ struct PainScoreCapsule: View {
             .foregroundStyle(isAfter ? AppColors.Semantic.Text.default : AppColors.Semantic.Text.sub)
         }
         .padding(.bottom, 39)
-        .frame(width: 144, height: 144 + CGFloat(clamped) * 10, alignment: .bottom)
+        .frame(width: 144, height: 144 + CGFloat(sizeScore) * 10, alignment: .bottom)
         .background {
             if isAfter {
                 LinearGradient(colors: [AppColors.Semantic.Primary.default, AppColors.Semantic.Primary.default.opacity(0.25)],
@@ -80,10 +82,9 @@ struct PainScoreCapsule: View {
         .accessibilityLabel("\(isAfter ? "1시간 뒤" : "먹기 전") \(score)점, \(painScoreWord(score))")
     }
 
-    /// 길이 = min(40, 남는 자리), 남는 자리 = 10 × 점수 − 11. 20 미만이면 숨깁니다 (1시간 뒤 0–3점).
-    private var arrowLength: CGFloat? {
-        let room = CGFloat(10 * clamped - 11)
-        return room < 20 ? nil : min(40, room)
+    /// 길이 = min(40, 남는 자리), 남는 자리 = 10 × 점수 − 11. 높이를 3점 이상으로 맞춰 가장 짧아도 19라 늘 보입니다.
+    private var arrowLength: CGFloat {
+        min(40, CGFloat(10 * sizeScore - 11))
     }
 }
 
