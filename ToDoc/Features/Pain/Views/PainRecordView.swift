@@ -19,6 +19,7 @@ struct PainRecordView: View {
 
     private struct InputAttempt {
         let id = UUID()
+        var didSelectLocation = false
         var didConfirmScore = false
     }
 
@@ -117,13 +118,22 @@ struct PainRecordView: View {
                     isSaving: viewModel.isSaving, errorMessage: state.errorMessage,
                     onPrevious: { stage = .location }, onReselectLocations: { stage = .location },
                     onNext: saveBefore, onClose: close)
+                    .onAppear {
+                        trackInputEvent("pain_step_moved", phase: "before", step: "score_input", properties: [
+                            "from_step": "location_selection",
+                            "to_step": "score_input",
+                            "direction": "next"
+                        ])
+                    }
             case .after:
                 if let pending = viewModel.pendingRecord {
                     PainAfterMedicationView(locations: pending.location, before: pending.painBefore,
                         score: afterScoreBinding, isSaving: viewModel.isSaving,
                         errorMessage: state.errorMessage,
                         onPrevious: { stage = .start }, onNext: saveAfter, onClose: close)
-                        .onAppear(perform: startAttemptIfNeeded)
+                        .onAppear {
+                            startAttemptIfNeeded(phase: "after", step: "score_input")
+                        }
                 }
             }
         }
@@ -131,10 +141,12 @@ struct PainRecordView: View {
 
     private var locationSelection: some View {
         PainLocationSelectionView(locations: viewModel.selectedLocations, errorMessage: state.errorMessage,
-            onToggle: viewModel.toggleLocation, onRemove: viewModel.removeLocation,
+            onToggle: toggleLocation, onRemove: viewModel.removeLocation,
             onRemoveAll: viewModel.removeAllLocations,
             onNext: { stage = .before }, onClose: close)
-            .onAppear(perform: startAttemptIfNeeded)
+            .onAppear {
+                startAttemptIfNeeded(phase: "before", step: "location_selection")
+            }
     }
 
     private var beforeScoreBinding: Binding<Int?> {
@@ -196,19 +208,38 @@ struct PainRecordView: View {
         }
     }
 
-    private func startAttemptIfNeeded() {
-        if attempt == nil { attempt = InputAttempt() }
+    private func startAttemptIfNeeded(phase: String, step: String) {
+        guard attempt == nil else { return }
+        attempt = InputAttempt()
+        trackInputEvent("pain_input_started", phase: phase, step: step)
+    }
+
+    private func toggleLocation(_ location: BodyLocation) {
+        viewModel.toggleLocation(location)
+        let selectedCount = viewModel.selectedLocations.count
+        guard selectedCount > 0, attempt?.didSelectLocation == false else { return }
+
+        attempt?.didSelectLocation = true
+        trackInputEvent("pain_location_selected", phase: "before", step: "location_selection",
+                        properties: ["selected_count": selectedCount])
     }
 
     private func trackScoreConfirmed(phase: String) {
-        guard let analytics, let currentAttempt = attempt, !currentAttempt.didConfirmScore else { return }
+        guard attempt?.didConfirmScore == false else { return }
 
         attempt?.didConfirmScore = true
-        analytics.track("pain_score_confirmed", properties: [
-            "attempt_id": currentAttempt.id.uuidString,
-            "phase": phase,
-            "step": "score_input"
-        ])
+        trackInputEvent("pain_score_confirmed", phase: phase, step: "score_input")
+    }
+
+    private func trackInputEvent(_ name: String, phase: String, step: String,
+                                 properties: [String: Any] = [:]) {
+        guard let attempt else { return }
+
+        var eventProperties = properties
+        eventProperties["attempt_id"] = attempt.id.uuidString
+        eventProperties["phase"] = phase
+        eventProperties["step"] = step
+        analytics?.track(name, properties: eventProperties)
     }
 
     private func home() { if let onHome { onHome() } else { dismiss() } }
