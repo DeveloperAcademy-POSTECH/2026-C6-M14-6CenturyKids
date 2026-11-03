@@ -5,6 +5,10 @@ import SwiftUI
 struct PainRecordView: View {
     let viewModel: PainRecordViewModel
     private let analytics: AmplitudeAnalytics?
+    private let entrySource: String?
+    @State private var flowID = UUID()
+    @State private var didTrackFlowEntry = false
+    @State private var trackedTimerStates: Set<String> = []
     @State private var attempt: InputAttempt?
     @State private var state: PainScreenState
     @State private var stage = Stage.start
@@ -33,11 +37,12 @@ struct PainRecordView: View {
     }
 
     init(viewModel: PainRecordViewModel, state: PainScreenState = PainScreenState(),
-         analytics: AmplitudeAnalytics? = nil,
+         analytics: AmplitudeAnalytics? = nil, entrySource: String? = nil,
          onClose: (() -> Void)? = nil, onShowRecord: ((PainRecord) -> Void)? = nil,
          onHome: (() -> Void)? = nil, onCancel: (() -> Void)? = nil) {
         self.viewModel = viewModel
         self.analytics = analytics
+        self.entrySource = entrySource
         _state = State(initialValue: state)
         self.onClose = onClose; self.onShowRecord = onShowRecord
         self.onHome = onHome; self.onCancel = onCancel
@@ -66,7 +71,10 @@ struct PainRecordView: View {
                 }
             }
         }
-        .task { await load() }
+        .task {
+            trackFlowEntryIfNeeded()
+            await load()
+        }
         .onDisappear { onCancel?() }
         .alert("기록을 저장하지 못했어요", isPresented: $showsSaveFailed) {
             Button("확인", role: .cancel) {}
@@ -103,7 +111,7 @@ struct PainRecordView: View {
                                            attempt = nil
                                            stage = .location
                                        },
-                                       onClose: close)
+                                       onClose: close, onStateViewed: trackTimerState)
                         // 설정에서 알림을 켜고 돌아오면 안내를 지우고 알림을 다시 예약합니다
                         .task(id: scenePhase) {
                             if scenePhase == .active { await viewModel.refreshReminderPermission() }
@@ -145,6 +153,12 @@ struct PainRecordView: View {
             onRemoveAll: viewModel.removeAllLocations,
             onNext: { stage = .before }, onClose: close)
             .onAppear {
+                if trackedTimerStates.isEmpty, attempt == nil {
+                    trackFlowEntryIfNeeded()
+                    trackPainEvent("pain_entry_screen_viewed", properties: [
+                        "screen": "location_selection"
+                    ])
+                }
                 startAttemptIfNeeded(phase: "before", step: "location_selection")
             }
     }
@@ -239,6 +253,31 @@ struct PainRecordView: View {
         eventProperties["attempt_id"] = attempt.id.uuidString
         eventProperties["phase"] = phase
         eventProperties["step"] = step
+        trackPainEvent(name, properties: eventProperties)
+    }
+
+    private func trackFlowEntryIfNeeded() {
+        guard !didTrackFlowEntry else { return }
+
+        didTrackFlowEntry = true
+        var properties: [String: Any] = [:]
+        properties["entry_source"] = entrySource
+        trackPainEvent("pain_flow_entered", properties: properties)
+    }
+
+    private func trackTimerState(_ state: String) {
+        trackFlowEntryIfNeeded()
+        guard trackedTimerStates.insert(state).inserted else { return }
+
+        trackPainEvent("pain_entry_screen_viewed", properties: [
+            "screen": state == "waiting" ? "waiting" : "followup_choice",
+            "timer_state": state
+        ])
+    }
+
+    private func trackPainEvent(_ name: String, properties: [String: Any]) {
+        var eventProperties = properties
+        eventProperties["flow_id"] = flowID.uuidString
         analytics?.track(name, properties: eventProperties)
     }
 
