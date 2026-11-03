@@ -10,21 +10,36 @@ final class PrevisitLetterViewModelTests: XCTestCase {
                     recordedDate: Date(timeIntervalSince1970: 1793314800), painBefore: 7, painAfter: 6)
     }
 
-    func testSendPersistsDomainAndNeverOverwritesSentRecord() async throws {
+    func testSendPersistsDomainAndAllowsOnlyOnePerDay() async throws {
         var saved: [PrevisitRecord] = []
         let model = PrevisitLetterViewModel(patientID: patientID, save: { saved.append($0) })
         let draft = PrevisitDraft(day: day, letter: "하고 싶은 말", mood: .comfortable)
+        XCTAssertFalse(model.hasSentToday)
         let first = await model.send(draft, to: "선생님")
+        XCTAssertTrue(model.hasSentToday)
         let second = await model.send(draft, to: "선생님")
         XCTAssertNotNil(first)
-        XCTAssertNotEqual(first, second)
-        XCTAssertEqual(saved.count, 2)
+        XCTAssertNil(second)
+        XCTAssertNotNil(model.errorMessage)
+        XCTAssertEqual(saved.count, 1)
         XCTAssertEqual(saved.first?.patientId, patientID)
         XCTAssertEqual(saved.first?.selectedDate, day.recordedDate)
         XCTAssertEqual(saved.first?.memo, draft.letter)
         XCTAssertEqual(saved.first?.stateOfMind, .comfortable)
-        XCTAssertEqual(model.letters.count, 2)
+        XCTAssertEqual(model.letters.count, 1)
         XCTAssertEqual(model.badges(model.letters[0]), ["통증 7점→6점"])
+    }
+
+    func testLetterSentYesterdayDoesNotBlockToday() async throws {
+        let sentAt = Date(timeIntervalSince1970: 1793314800)
+        var today = sentAt
+        let record = try PrevisitRecord(id: UUID(), patientId: patientID, selectedDate: sentAt, memo: nil,
+                                        stateOfMind: .unsure, submittedAt: sentAt)
+        let model = PrevisitLetterViewModel(patientID: patientID, now: { today }, load: { [record] })
+        await model.load(days: [], doctorName: "선생님")
+        XCTAssertTrue(model.hasSentToday)
+        today = sentAt.addingTimeInterval(24 * 60 * 60)
+        XCTAssertFalse(model.hasSentToday)
     }
 
     func testFailedSendDoesNotCreateLetterAndCanRetry() async {

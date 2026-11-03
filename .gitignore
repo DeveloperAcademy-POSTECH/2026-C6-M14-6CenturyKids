@@ -129,6 +129,9 @@ iOSInjectionProject/
 *.mobileprovision
 *.provisionprofile
 
+### 키 값 ###
+Configuration/Secrets.xcconfig
+
 # End of https://www.toptal.com/developers/gitignore/api/swift,macos,xcode
 
 # Amplitude 로컬 설정: 실제 키가 들어가므로 Git에서 제외

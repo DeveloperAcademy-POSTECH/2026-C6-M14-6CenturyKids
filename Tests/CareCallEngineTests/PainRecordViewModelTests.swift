@@ -43,8 +43,10 @@ struct PainRecordViewModelTests {
         #expect(repository.saved.isEmpty)
 
         viewModel.setBeforeScore(7)
-        _ = try await viewModel.saveBeforeRecord()
-        await #expect(throws: PainRecordViewModel.SaveError.missingScore) { _ = try await viewModel.saveAfterRecord() }
+        let saved = try await viewModel.saveBeforeRecord()
+        await #expect(throws: PainRecordViewModel.SaveError.missingScore) {
+            _ = try await viewModel.saveAfterRecord(at: saved.recordedDate.addingTimeInterval(60 * 60))
+        }
         #expect(repository.filled.isEmpty)
     }
 
@@ -87,6 +89,22 @@ struct PainRecordViewModelTests {
         #expect(cancelled == 1)
     }
 
+    @Test func 한_시간이_지나기_전에는_복용_후_점수를_저장하지_않는다() async throws {
+        let saved = Date(timeIntervalSince1970: 1_000_000)
+        let repository = StubPainRepository(latest: try record(at: saved, after: nil))
+        let viewModel = PainRecordViewModel(patientId: patientId, painRepository: repository)
+        await viewModel.load()
+        viewModel.setAfterScore(2)
+
+        await #expect(throws: PainRecordViewModel.SaveError.tooEarly) {
+            _ = try await viewModel.saveAfterRecord(at: saved.addingTimeInterval(60 * 60 - 1))
+        }
+        #expect(repository.filled.isEmpty)
+
+        _ = try await viewModel.saveAfterRecord(at: saved.addingTimeInterval(60 * 60))
+        #expect(repository.filled.count == 1)
+    }
+
     @Test func 새로운_통증을_기록하면_이전_기록은_먹기_전_점수만_남는다() async throws {
         let old = try record(at: Date(timeIntervalSince1970: 1_000_000), after: nil)
         let repository = StubPainRepository(latest: old)
@@ -104,6 +122,46 @@ struct PainRecordViewModelTests {
             _ = try await PainRecordViewModel(patientId: patientId, painRepository: StubPainRepository(latest: nil))
                 .saveAfterRecord()
         }
+    }
+
+    @Test func 알림을_다시_켜면_남은_시간에_맞춰_알림을_다시_예약한다() async throws {
+        let saved = Date(timeIntervalSince1970: 1_000_000)
+        var allowed = false
+        var reminders: [Date] = []
+        let viewModel = PainRecordViewModel(patientId: patientId,
+                                            painRepository: StubPainRepository(latest: try record(at: saved, after: nil)),
+                                            scheduleAfterReminder: { reminders.append($0) },
+                                            checkRemindersAllowed: { allowed })
+        await viewModel.load()
+
+        await viewModel.refreshReminderPermission(now: saved.addingTimeInterval(10 * 60))
+        #expect(!viewModel.remindersAllowed)
+        #expect(reminders.isEmpty)
+
+        allowed = true
+        await viewModel.refreshReminderPermission(now: saved.addingTimeInterval(10 * 60))
+        #expect(viewModel.remindersAllowed)
+        #expect(reminders == [saved.addingTimeInterval(60 * 60)])
+
+        // 시간이 이미 지났으면 다시 예약하지 않습니다
+        await viewModel.refreshReminderPermission(now: saved.addingTimeInterval(2 * 60 * 60))
+        #expect(reminders.count == 1)
+    }
+
+    @Test func 부위를_다시_누르면_빠지고_모두_지우면_비어있다() {
+        let viewModel = PainRecordViewModel(patientId: patientId, painRepository: StubPainRepository(latest: nil))
+        let back = BodyLocation(bodyPart: .backLowerBack, bodySide: .center, bodyView: .back)
+
+        viewModel.toggleLocation(chest)
+        viewModel.toggleLocation(back)
+        #expect(viewModel.selectedLocations == [chest, back])
+
+        viewModel.toggleLocation(chest)
+        #expect(viewModel.selectedLocations == [back])
+
+        viewModel.toggleLocation(chest)
+        viewModel.removeAllLocations()
+        #expect(viewModel.selectedLocations.isEmpty)
     }
 }
 

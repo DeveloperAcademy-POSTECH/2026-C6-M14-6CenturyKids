@@ -568,41 +568,31 @@ final class InterviewEngine {
         return mentions.filter { $0.effectId != effect.id } + [Mention(effectId: effect.id, presence: .absent, quote: patientText)]
     }
 
-    /// 증상 유무 질문에 횟수·지속 시간까지 답하면 그 꼬리질문의 답으로 채워 다시 묻지 않는다
+    /// 증상 유무 질문에 횟수까지 답하면 그 꼬리질문의 답으로 채워 다시 묻지 않는다
     /// ("구토를 하셨나요?" → "네 한 번 토했어요" → 구토 횟수 1. 2026-10-17 실기기에서 횟수를 또 물음).
     /// 숫자가 다른 일(약·식사)이나 시작 시점일 수 있어 좁게 본다 (아니면 지금처럼 묻는다):
     /// - 그 증상의 유무 질문에 대한 답이고, 이번 답으로 '있음'이 된 목록 증상이 그것 하나
     /// - 숫자가 그 꼬리질문 낱말(없으면 증상 낱말)과 같은 절에 있고, 답의 다른 곳에는 숫자가 없을 때
     /// - 숫자가 분명할 때만 ("두세 번", "열 번 넘게"는 묻는다)
-    /// - 지속 시간은 "씩·동안·정도·가요"처럼 지속을 뜻하는 말이 있고 "전·부터·됐·째" 같은 시작 시점 말이 없을 때만
     private func prefillNumber(from patientText: String, since before: Ledger, during current: InterviewPhase) {
         guard case .slot(let key, .presence) = current, let entry = ledger[key], entry.presence == .present,
               before[key]?.presence != .present, let effect = config.effect(key),
               ledger.order.filter({ knownIds.contains($0) && ledger[$0]?.presence == .present && before[$0]?.presence != .present }) == [key]
         else { return }
-        for detail in effect.details where !entry.details.contains(where: { $0.label == detail.label }) {
+        for detail in effect.details where detail.number == .count && !entry.details.contains(where: { $0.label == detail.label }) {
             let gate = KeywordMatcher(keywords: detail.keywords ?? effect.keywords, prefixNegation: true)
             let clauses = KeywordMatcher.clauses(patientText)
             // 낱말이 따로 없는 꼬리질문(설사 횟수)은 "네"로 시작한 한 절 답이면 그 절을 본다 ("네 어제 두 번인가 했어요", 2026-10-29 팀 테스트)
             let saidYes = patientText.split(separator: " ").first.map { reading.isShortYes(String($0)) } ?? false
             guard let clause = clauses.first(where: { gate.matches($0) != nil })
                     ?? (detail.keywords == nil && clauses.count == 1 && saidYes ? clauses.first : nil),
-                  clauses.filter({ $0 != clause }).allSatisfy({ NumberParser.count(in: $0) == nil && NumberParser.minutes(in: $0) == nil })
+                  clauses.filter({ $0 != clause }).allSatisfy({ NumberParser.count(in: $0) == nil })
             else { continue }
             // 저장할 때는 문장 전체에서 다시 읽는다. 그 절과 같은 값이 읽힐 때만 채운다
             // ("한 번 토했어요, 그 전날은 두세 번"은 전체가 어림수라 횟수가 비어 저장되므로 묻는다)
-            let found = switch detail.number {
-            case .count?: NumberParser.count(in: clause).map { $0 == NumberParser.count(in: patientText) } ?? false
-            case .minutes?: NumberParser.minutes(in: clause).map { $0 == NumberParser.minutes(in: patientText) } ?? false
-                && Self.durationMarkers.contains(where: clause.contains) && !Self.onsetMarkers.contains(where: patientText.contains)
-            case nil: false
-            }
-            if found { ledger.addDetail(patientText.trimmingCharacters(in: .whitespacesAndNewlines), label: detail.label, for: key) }
+            if let n = NumberParser.count(in: clause), n == NumberParser.count(in: patientText) { ledger.addDetail(patientText.trimmingCharacters(in: .whitespacesAndNewlines), label: detail.label, for: key) }
         }
     }
-
-    private static let durationMarkers = ["씩", "동안", "정도", "가요", "계속", "지속"]
-    private static let onsetMarkers = ["전", "부터", "됐", "지났", "째", "시작"]
 
     /// 다시 거는 통화에서 새로 '있음'으로 말한 증상이 있음 (기타 포함)
     private var toldNewSymptom: Bool {
@@ -1014,7 +1004,7 @@ final class InterviewEngine {
             // "모르겠어요"·"그냥 그래요": 모델 없이 '모름' + 원문으로 기록 (아래 switch)
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
                               emergencySignal: false, utterance: "")
-        case .slot(_, .detail): // 횟수·시작 시점·지속 시간·섭취량: 모델 없이 환자 말 그대로 기록 (아래 switch)
+        case .slot(_, .detail): // 횟수·시작 시점·섭취량: 모델 없이 환자 말 그대로 기록 (아래 switch)
             return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
                               emergencySignal: false, utterance: "")
         // 달라진 게 없다는 답은 짧을 때만 모델 없이 처리한다 ("똑같아요", "없어요"). 긴 답은 증상이 섞였을 수 있어 모델이 먼저 본다
@@ -1060,7 +1050,7 @@ final class InterviewEngine {
         }
     }
 
-    /// 지금 묻는 세부 질문이 받는 숫자 (횟수·지속 시간). 문자 대화에서 입력 칸을 고른다. 글자로 받으면 nil
+    /// 지금 묻는 세부 질문이 받는 숫자 (횟수). 문자 대화에서 입력 칸을 고른다. 글자로 받으면 nil
     var expectedNumber: CareCallConfig.Effect.Detail.Number? {
         guard case .slot(let key, .detail) = phase else { return nil }
         return pendingDetail(for: key)?.number
@@ -1167,7 +1157,7 @@ final class InterviewEngine {
         return Double(done) / Double(effects.count + 2)
     }
 
-    /// 말한 증상을 더 묻는 꼬리질문 (횟수·시작 시점·지속 시간·부위, 기타 증상의 시작 시점)
+    /// 말한 증상을 더 묻는 꼬리질문 (횟수·시작 시점·부위, 기타 증상의 시작 시점)
     var asksMore: Bool {
         switch phase {
         case .slot(_, let step): step != .presence

@@ -47,6 +47,12 @@ final class TestAuthRepository: AuthRepository {
         signedIn = true
         return signInResponseID ?? id
     }
+    func signInWithKakao(idToken: String) async throws -> UUID {
+        await beforeSignIn?()
+        if let signInError { throw signInError }
+        signedIn = true
+        return signInResponseID ?? id
+    }
     func signOut() async throws {
         signOutCount += 1
         if failSignOut { throw AuthFlowError("로그아웃 실패") }

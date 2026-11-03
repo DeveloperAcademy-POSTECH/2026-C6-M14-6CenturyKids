@@ -121,10 +121,12 @@ struct PatientFlowView: View {
         }
         .sheet(isPresented: $showsPrevisitPrompt, onDismiss: openPrevisitNext) {
             PrevisitPromptView(startTitle: previsitSession.hasDraft ? "이어서 작성하기" : nil,
+                               canStart: !previsitLetters.hasSentToday,
                                onStart: { closePrevisitPrompt(then: .write) },
                                onRecords: { closePrevisitPrompt(then: .letters) },
                                onClose: { showsPrevisitPrompt = false },
-                               onDiscard: previsitSession.hasDraft ? { showsPrevisitDiscard = true } : nil)
+                               onDiscard: previsitSession.hasDraft && !previsitLetters.hasSentToday
+                                   ? { showsPrevisitDiscard = true } : nil)
                 .alert("작성 내용을 지울까요?", isPresented: $showsPrevisitDiscard) {
                     Button("유지하기", role: .cancel) { }
                     Button("지우기", role: .destructive) { previsitSession.discard() }
@@ -164,8 +166,13 @@ struct PatientFlowView: View {
             path = [.pain]
         case .previsit:
             tab = .home
-            previsitSession.start()
-            showsPrevisit = true
+            // 오늘 이미 보냈으면 작성 대신 바텀시트(지난 기록 보기)를 엽니다
+            if previsitLetters.hasSentToday {
+                showsPrevisitPrompt = true
+            } else {
+                previsitSession.start()
+                showsPrevisit = true
+            }
         }
 
         router.pendingDeepLink = nil

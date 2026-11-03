@@ -389,7 +389,7 @@ final class CareCallViewModel {
         return turn
     }
 
-    /// 문자 답을 보낸다. 횟수·지속 시간 입력은 말로 한 답처럼 문장으로 바꿔 같은 엔진에 넣는다
+    /// 문자 답을 보낸다. 횟수 입력은 말로 한 답처럼 문장으로 바꿔 같은 엔진에 넣는다
     @discardableResult
     func answer(_ answer: SymptomConversationAnswer) -> Task<Void, Never>? {
         let text = Self.sentence(for: answer)
@@ -439,7 +439,6 @@ final class CareCallViewModel {
         keep(service.progress)
         let input: SymptomConversationQuestion.Input = switch turn.number {
         case .count?: .frequency
-        case .minutes?: .duration
         case nil: .text
         }
         conversation.question = question(turn.utterance, of: turn, input: input)
@@ -476,8 +475,6 @@ final class CareCallViewModel {
         case .frequency:
             if text == sentence(for: .frequency(.tenPlus)) { return .frequency(.tenPlus) }
             if let count = NumberParser.count(in: text), (0...10).contains(count) { return .frequency(.count(count)) }
-        case .duration:
-            if let minutes = NumberParser.minutes(in: text), (10...1440).contains(minutes) { return .durationMinutes(minutes) }
         case .text:
             break
         }
@@ -490,9 +487,6 @@ final class CareCallViewModel {
         case .text(let text): text.trimmingCharacters(in: .whitespacesAndNewlines)
         case .frequency(.count(let count)): "\(count)번"
         case .frequency(.tenPlus): "열 번 넘게"
-        case .durationMinutes(let minutes) where minutes >= 60:
-            minutes % 60 == 0 ? "\(minutes / 60)시간" : "\(minutes / 60)시간 \(minutes % 60)분"
-        case .durationMinutes(let minutes): "\(minutes)분"
         }
     }
 

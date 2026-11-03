@@ -39,7 +39,7 @@ final class DependencyContainer {
 
         supabaseProvider = provider
         let client = provider.client
-        authRepository = SupabaseAuthRepository(client: client)
+        authRepository = SupabaseAuthRepository(client: client, configuration: configuration)
         userRepository = SupabaseUserRepository(client: client)
         hospitalRepository = SupabaseHospitalRepository(client: client)
         doctorRepository = SupabaseDoctorRepository(client: client)
@@ -67,7 +67,8 @@ final class DependencyContainer {
             patientRepository: patientRepository,
             painRepository: painRepository,
             scheduleAfterReminder: LocalNotificationAdapter.schedulePainAfterReminder(at:),
-            cancelAfterReminder: LocalNotificationAdapter.cancelPainAfterReminder
+            cancelAfterReminder: LocalNotificationAdapter.cancelPainAfterReminder,
+            checkRemindersAllowed: LocalNotificationAdapter.isPainReminderAllowed
         )
     }
 

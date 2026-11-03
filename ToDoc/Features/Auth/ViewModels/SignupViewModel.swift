@@ -31,10 +31,10 @@ import ToDocDomain
         let doctorID: UUID?
     }
     /// 로그인으로 확인된 계정만 받습니다. 이전 VM의 입력·비밀번호·동의는 재사용하지 않습니다.
-    func resumeAuthenticatedAccount(id: UUID, email: String) {
+    func resumeAuthenticatedAccount(id: UUID, email: String?) {
         accountID = id
         needsProfileCheck = true
-        state.email = email
+        state.email = email.map(AuthFormValidation.email) ?? ""
         state.hasAuthenticatedAccount = true
         state.step = .terms
     }

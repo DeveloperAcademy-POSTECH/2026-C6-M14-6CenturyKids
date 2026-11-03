@@ -10,13 +10,15 @@ extension AppActions {
         private let title: String
         private let icon: Image
         private let kind: Kind
+        private let fill: Color
         private let action: () -> Void
 
         init(_ title: String, icon: Image, type: Kind = .default,
-             action: @escaping () -> Void) {
+             fill: Color = AppColors.Semantic.Background.default, action: @escaping () -> Void) {
             self.title = title
             self.icon = icon
             self.kind = type
+            self.fill = fill
             self.action = action
         }
 
@@ -28,7 +30,7 @@ extension AppActions {
                         .scaledToFit()
                         .frame(width: 24, height: 24)
                         .frame(width: diameter, height: diameter)
-                        .background(AppColors.Semantic.Background.default, in: Circle())
+                        .background(fill, in: Circle())
                         .accessibilityHidden(true)
 
                     if case .labeled = kind {

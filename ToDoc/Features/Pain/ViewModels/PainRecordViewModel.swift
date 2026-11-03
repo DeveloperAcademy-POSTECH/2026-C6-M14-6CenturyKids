@@ -33,6 +33,7 @@ final class PainRecordViewModel {
         case patientUnavailable
         case missingScore
         case noPendingRecord
+        case tooEarly
         case alreadySaving
     }
 
@@ -43,6 +44,8 @@ final class PainRecordViewModel {
     /// 먹은 뒤 통증을 기록할 시각에 한 번 알리고, 기록하면 지웁니다. 기기 알림은 컨테이너가 넣습니다.
     @ObservationIgnored private let scheduleAfterReminder: (Date) async -> Void
     @ObservationIgnored private let cancelAfterReminder: () -> Void
+    /// 기기 알림이 꺼져 있으면 false입니다. 기기 설정은 컨테이너가 넣습니다.
+    @ObservationIgnored private let checkRemindersAllowed: () async -> Bool
     private var patientId: UUID?
     private let painRepository: any PainRepository
     private var isLoading = false
@@ -54,6 +57,8 @@ final class PainRecordViewModel {
     private(set) var painBefore: Int?
     private(set) var painAfter: Int?
     private(set) var isSaving = false
+    /// 꺼져 있으면 타이머 화면이 1시간 뒤에 알려 줄 수 없다고 안내합니다.
+    private(set) var remindersAllowed = true
 
     /// 이 시각부터 이어서 기록할 수 있습니다.
     var afterAvailableDate: Date? {
@@ -65,23 +70,27 @@ final class PainRecordViewModel {
         patientRepository: any PatientRepository,
         painRepository: any PainRepository,
         scheduleAfterReminder: @escaping (Date) async -> Void = { _ in },
-        cancelAfterReminder: @escaping () -> Void = {}
+        cancelAfterReminder: @escaping () -> Void = {},
+        checkRemindersAllowed: @escaping () async -> Bool = { true }
     ) {
         patientSource = .repositories(auth: authRepository, patient: patientRepository)
         self.painRepository = painRepository
         self.scheduleAfterReminder = scheduleAfterReminder
         self.cancelAfterReminder = cancelAfterReminder
+        self.checkRemindersAllowed = checkRemindersAllowed
     }
 
     #if DEBUG
     init(patientId: UUID, painRepository: any PainRepository,
          scheduleAfterReminder: @escaping (Date) async -> Void = { _ in },
-         cancelAfterReminder: @escaping () -> Void = {}) {
+         cancelAfterReminder: @escaping () -> Void = {},
+         checkRemindersAllowed: @escaping () async -> Bool = { true }) {
         patientSource = .knownPatient(patientId)
         self.patientId = patientId
         self.painRepository = painRepository
         self.scheduleAfterReminder = scheduleAfterReminder
         self.cancelAfterReminder = cancelAfterReminder
+        self.checkRemindersAllowed = checkRemindersAllowed
     }
     #endif
 
@@ -124,6 +133,19 @@ final class PainRecordViewModel {
         selectedLocations.removeAll { $0 == location }
     }
 
+    /// 몸 그림에서 누른 부위를 고르거나, 이미 골랐으면 뺍니다.
+    func toggleLocation(_ location: BodyLocation) {
+        if selectedLocations.contains(location) {
+            removeLocation(location)
+        } else {
+            selectLocation(location)
+        }
+    }
+
+    func removeAllLocations() {
+        selectedLocations = []
+    }
+
     func setBeforeScore(_ score: Int) {
         painBefore = score
     }
@@ -163,10 +185,11 @@ final class PainRecordViewModel {
         return record
     }
 
-    /// 기다리던 기록에 먹은 뒤 통증을 채우고 남은 알림을 지웁니다.
-    func saveAfterRecord() async throws -> PainRecord {
+    /// 기다리던 기록에 먹은 뒤 통증을 채우고 남은 알림을 지웁니다. 1시간이 지나기 전에는 저장하지 않습니다.
+    func saveAfterRecord(at date: Date = Date()) async throws -> PainRecord {
         guard !isSaving else { throw SaveError.alreadySaving }
         guard let pending = pendingRecord else { throw SaveError.noPendingRecord }
+        guard let availableDate = afterAvailableDate, date >= availableDate else { throw SaveError.tooEarly }
         guard let painAfter else { throw SaveError.missingScore }
 
         let record = try PainRecord(
@@ -185,6 +208,15 @@ final class PainRecordViewModel {
         pendingRecord = nil
         cancelAfterReminder()
         return record
+    }
+
+    /// 타이머 화면에 들어오거나 설정에서 돌아오면 알림 권한을 다시 확인합니다.
+    /// 다시 켰으면 남은 알림을 예약합니다 (같은 식별자라 이미 있으면 바뀝니다).
+    func refreshReminderPermission(now: Date = Date()) async {
+        remindersAllowed = await checkRemindersAllowed()
+        if remindersAllowed, let date = afterAvailableDate, date > now {
+            await scheduleAfterReminder(date)
+        }
     }
 
     private func resolvePatientId() async throws -> UUID? {

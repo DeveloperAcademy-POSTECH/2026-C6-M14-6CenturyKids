@@ -58,11 +58,11 @@ struct VagueAnswerTests {
         _ = await call.handle(patientText: "괜찮아요")
         while call.phase != .slot(key: "neuropathy", step: .presence) { _ = await call.handle(patientText: "아니요") }
         _ = await call.handle(patientText: "네")
-        _ = await call.handle(patientText: "한 30분이요") // 지속 시간
+        _ = await call.handle(patientText: "어제부터요") // 시작 시점
         #expect(call.phase == .slot(key: "neuropathy", step: .location))
         _ = await call.handle(patientText: "잘 모르겠어요")
         let entry = converter.record(from: call.ledger, patientId: UUID(), date: Date()).symptoms.first { $0.symptomType == .numbness }
-        #expect(entry?.presence == .present && entry?.detail == "[검토 필요] 한 30분이요 / 부위: 잘 모르겠어요")
+        #expect(entry?.presence == .present && entry?.detail == "[검토 필요] 어제부터요 / 부위: 잘 모르겠어요")
     }
 
     @Test func 유무를_다시_물었어도_부위는_따로_한_번_다시_묻는다() async {
@@ -73,7 +73,7 @@ struct VagueAnswerTests {
         _ = await call.handle(patientText: "어떤 거 말씀이세요?")
         #expect(call.phase == .slot(key: "neuropathy", step: .presence)) // 유무를 한 번 다시 묻는다
         _ = await call.handle(patientText: "네")
-        _ = await call.handle(patientText: "한 30분이요") // 지속 시간
+        _ = await call.handle(patientText: "어제부터요") // 시작 시점
         #expect(call.phase == .slot(key: "neuropathy", step: .location))
         let reasked = await call.handle(patientText: "어디 말씀이세요?")
         #expect(reasked.phase == .slot(key: "neuropathy", step: .location)) // 다시 묻기는 질문마다 한 번

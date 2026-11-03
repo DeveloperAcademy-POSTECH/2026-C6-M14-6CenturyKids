@@ -6,7 +6,7 @@ import Observation
 
 /// 엔진 질문에 대한 입력 그대로입니다. 해석·검증은 호수의 새 ViewModel 담당입니다.
 enum SymptomConversationAnswer: Equatable {
-    case text(String), frequency(Frequency), durationMinutes(Int)
+    case text(String), frequency(Frequency)
 }
 struct SymptomEntryDisplay: Identifiable {
     let id: UUID

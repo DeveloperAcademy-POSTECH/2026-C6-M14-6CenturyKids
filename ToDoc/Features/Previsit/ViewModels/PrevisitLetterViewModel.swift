@@ -12,6 +12,7 @@ import ToDocDomain
 import Observation
 
 /// 저장소에 전송된 기록을 조회하고, 새 기록을 전송합니다. 전송 후 변경 기능은 제공하지 않습니다.
+/// 진료 전 기록은 보낸 날 기준 하루에 한 번만 보낼 수 있습니다.
 @MainActor
 @Observable
 final class PrevisitLetterViewModel {
@@ -39,11 +40,13 @@ final class PrevisitLetterViewModel {
     /// 최신순
     private(set) var letters: [PrevisitLetter] = []
     private let calendar: Calendar
+    private let now: () -> Date
 
-    init(patientID: UUID? = nil, calendar: Calendar = .current,
+    init(patientID: UUID? = nil, calendar: Calendar = .current, now: @escaping () -> Date = { .now },
          load: Load? = nil, save: Save? = nil, loadDay: LoadDay? = nil) {
         self.patientID = patientID
         self.calendar = calendar
+        self.now = now
         self.loadRecords = load
         self.saveRecord = save
         self.loadDay = loadDay
@@ -89,9 +92,16 @@ final class PrevisitLetterViewModel {
 
     func reload() async { await load(days: days, doctorName: doctorName) }
 
+    /// 오늘 이미 보냈으면 새로 작성할 수 없습니다 (보낸 기록 보기만 가능)
+    var hasSentToday: Bool { letters.contains { calendar.isDate($0.sentAt, inSameDayAs: now()) } }
+
     func send(_ draft: PrevisitDraft, to doctorName: String) async -> UUID? {
         guard !isSubmitting, let patientID, let saveRecord,
               let date = draft.day?.recordedDate, let mood = draft.mood else { return nil }
+        guard !hasSentToday else {
+            errorMessage = "진료 전 기록은 하루에 한 번만 보낼 수 있어요."
+            return nil
+        }
         isSubmitting = true
         errorMessage = nil
         defer { isSubmitting = false }
@@ -99,7 +109,6 @@ final class PrevisitLetterViewModel {
             let record = try PrevisitRecord(patientId: patientID, selectedDate: date,
                                            memo: draft.letter.isEmpty ? nil : draft.letter, stateOfMind: mood)
             try await saveRecord(record)
-            // 같은 날 재전송해도 이미 보낸 기록을 덮어쓰지 않습니다.
             letters.insert(PrevisitLetter(id: record.id, sentAt: record.submittedAt,
                                          doctorName: doctorName, draft: draft), at: 0)
             return record.id

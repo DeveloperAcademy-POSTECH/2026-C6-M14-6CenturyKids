@@ -1,5 +1,5 @@
 import Foundation
 
 extension SymptomConversationQuestion {
-    enum Input: Sendable { case text, frequency, duration }
+    enum Input: Sendable { case text, frequency }
 }

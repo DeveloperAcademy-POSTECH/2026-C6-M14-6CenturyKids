@@ -670,7 +670,7 @@ struct OpeningFollowUpTests {
     }
 }
 
-/// 횟수·시작 시점·지속 시간·섭취량 질문 (환자 말 그대로 기록)
+/// 횟수·시작 시점·섭취량 질문 (환자 말 그대로 기록)
 @MainActor
 struct DetailStepTests {
     @Test func 탈수_영양은_섭취량을_묻고_다음으로_넘어간다() async throws {

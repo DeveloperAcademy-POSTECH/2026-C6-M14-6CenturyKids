@@ -36,7 +36,7 @@ struct LoginFormView: View {
                     Text("만나서 반가워요")
                         .appTypography(.titleLarge)
                         .accessibilityAddTraits(.isHeader)
-                        .padding(.bottom, 84)
+                        .padding(.bottom, 40)
                     VStack(alignment: .leading, spacing: 10) {
                         AuthTextField(title: "이메일", placeholder: "이메일", text: $state.email,
                                       keyboard: .emailAddress, contentType: .username,
@@ -67,17 +67,6 @@ struct LoginFormView: View {
                 .padding(.bottom, 34)
             }
             .scrollDismissesKeyboard(.interactively)
-            .overlay(alignment: .topLeading) {
-                if let onBack {
-                    Button(action: onBack) {
-                        Image(systemName: "chevron.left")
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.leading, AppLayout.Phone.horizontalMargin)
-                    .accessibilityLabel("온보딩으로 돌아가기")
-                }
-            }
         }
         .environment(\.authInputDismissal, inputDismissal)
         .background(AppColors.Semantic.Background.surface.ignoresSafeArea())
@@ -113,7 +102,23 @@ struct LoginFormView: View {
             .font(Font(AppTypography.font(for: .captionRegular, size: separatorFontSize)))
             .foregroundStyle(Color(white: 74.0 / 255))
             .frame(minHeight: 24)
-            .padding(.top, 100)
+            .padding(.top, 48)
+            .padding(.bottom, 28)
+            
+            Button {
+                viewModel.signInWithKakao()
+            } label: {
+                HStack(spacing: 8) {
+                    Image("Auth/KakaoSymbolImage")
+                    Text("카카오 로그인")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color("Auth/KakaoLabel"))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(Color("Auth/KakaoContainer"))
+            .cornerRadius(14)
 
             SignInWithAppleButton(.signIn) { request in
                 request.requestedScopes = [.email, .fullName]
@@ -151,7 +156,7 @@ struct LoginFormView: View {
                     .strokeBorder(Color(white: 77.0 / 255), lineWidth: 1)
                     .allowsHitTesting(false)
             }
-            .padding(.top, 22)
+            .padding(.top, 16)
         }
     }
 
