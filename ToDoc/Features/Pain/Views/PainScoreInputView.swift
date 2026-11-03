@@ -44,20 +44,13 @@ struct PainScoreInputView: View {
         }
     }
 
-    /// Figma 6-1: '가슴 외 2부위 ›'
-    private var locationSummary: String {
-        guard let first = locations.first else { return "" }
-        let name = painLocationName(first, among: locations)
-        return locations.count > 1 ? "\(name) 외 \(locations.count - 1)부위" : name
-    }
-
     private var inputContent: some View {
         VStack(spacing: 0) {
             AppHeader(title: "통증 변화 기록", description: before == nil
                       ? "약을 복용하기 전 통증 강도는 어떠셨나요?"
                       : "약을 복용한 뒤의 통증 강도는 어떠셨나요?")
                 .padding(.top, typeSize.isAccessibilitySize ? 44 : 0)
-            PainMoreLocationsChip(title: locationSummary) { showsLocations = true }
+            PainMoreLocationsChip(title: painLocationSummary(locations)) { showsLocations = true }
                 .padding(.horizontal, 24).padding(.top, 24)
                 .accessibilityIdentifier("pain.score.locations")
             // 고르기 전에는 먹기 전 10점, 먹은 뒤 0점 자리에 보여 주기만 합니다 (score는 nil로 남아 다음을 막습니다)

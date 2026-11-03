@@ -39,7 +39,8 @@ enum LocalNotificationAdapter {
         let center = UNUserNotificationCenter.current()
         do {
             let content = UNMutableNotificationContent()
-            content.body = "약을 드신 지 1시간이 지났어요. 복용 후 통증을 기록해 주세요."
+            content.title = "통증을 다시 기록할 시간이에요"
+            content.body = "약 먹고 1시간이 지났어요. 지금 통증은 어떤가요?"
             content.sound = .default
             content.userInfo = [deepLinkKey: "todoc://record/pain"]
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, date.timeIntervalSinceNow), repeats: false)
@@ -47,6 +48,11 @@ enum LocalNotificationAdapter {
         } catch {
             print("복용 후 통증 알림 예약 실패: ", error)
         }
+    }
+
+    /// 기기 설정에서 알림을 끄면 false. 아직 묻지 않았으면 위치 권한 뒤에 물으므로 켜진 것으로 본다.
+    static func isPainReminderAllowed() async -> Bool {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus != .denied
     }
 
     /// 먹은 뒤 통증을 기록하면 남은 알림을 지운다.
