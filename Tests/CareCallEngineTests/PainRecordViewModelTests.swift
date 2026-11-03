@@ -43,8 +43,10 @@ struct PainRecordViewModelTests {
         #expect(repository.saved.isEmpty)
 
         viewModel.setBeforeScore(7)
-        _ = try await viewModel.saveBeforeRecord()
-        await #expect(throws: PainRecordViewModel.SaveError.missingScore) { _ = try await viewModel.saveAfterRecord() }
+        let saved = try await viewModel.saveBeforeRecord()
+        await #expect(throws: PainRecordViewModel.SaveError.missingScore) {
+            _ = try await viewModel.saveAfterRecord(at: saved.recordedDate.addingTimeInterval(60 * 60))
+        }
         #expect(repository.filled.isEmpty)
     }
 
@@ -85,6 +87,22 @@ struct PainRecordViewModelTests {
         #expect(record.painChange == 5)
         #expect(viewModel.pendingRecord == nil)
         #expect(cancelled == 1)
+    }
+
+    @Test func 한_시간이_지나기_전에는_복용_후_점수를_저장하지_않는다() async throws {
+        let saved = Date(timeIntervalSince1970: 1_000_000)
+        let repository = StubPainRepository(latest: try record(at: saved, after: nil))
+        let viewModel = PainRecordViewModel(patientId: patientId, painRepository: repository)
+        await viewModel.load()
+        viewModel.setAfterScore(2)
+
+        await #expect(throws: PainRecordViewModel.SaveError.tooEarly) {
+            _ = try await viewModel.saveAfterRecord(at: saved.addingTimeInterval(60 * 60 - 1))
+        }
+        #expect(repository.filled.isEmpty)
+
+        _ = try await viewModel.saveAfterRecord(at: saved.addingTimeInterval(60 * 60))
+        #expect(repository.filled.count == 1)
     }
 
     @Test func 새로운_통증을_기록하면_이전_기록은_먹기_전_점수만_남는다() async throws {
