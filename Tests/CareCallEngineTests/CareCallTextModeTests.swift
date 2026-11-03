@@ -351,7 +351,6 @@ struct CareCallTextModeTests {
     @Test(arguments: [
         ("열 번 넘게", SymptomConversationQuestion.Input.frequency, SymptomConversationAnswer.frequency(.tenPlus)),
         ("3번", .frequency, .frequency(.count(3))),
-        ("1시간 30분", .duration, .text("1시간 30분")), // 케어콜은 지속 시간을 묻지 않는다
         ("어제부터요", .text, .text("어제부터요")),
     ])
     func 되돌린_답은_입력_칸_값으로(text: String, input: SymptomConversationQuestion.Input, expected: SymptomConversationAnswer) {

@@ -475,7 +475,7 @@ final class CareCallViewModel {
         case .frequency:
             if text == sentence(for: .frequency(.tenPlus)) { return .frequency(.tenPlus) }
             if let count = NumberParser.count(in: text), (0...10).contains(count) { return .frequency(.count(count)) }
-        case .duration, .text: // 케어콜은 지속 시간을 묻지 않는다 (꼬리질문은 횟수 아니면 시작 시점, 2026-11-03)
+        case .text:
             break
         }
         return .text(text)
@@ -487,9 +487,6 @@ final class CareCallViewModel {
         case .text(let text): text.trimmingCharacters(in: .whitespacesAndNewlines)
         case .frequency(.count(let count)): "\(count)번"
         case .frequency(.tenPlus): "열 번 넘게"
-        case .durationMinutes(let minutes) where minutes >= 60:
-            minutes % 60 == 0 ? "\(minutes / 60)시간" : "\(minutes / 60)시간 \(minutes % 60)분"
-        case .durationMinutes(let minutes): "\(minutes)분"
         }
     }
 

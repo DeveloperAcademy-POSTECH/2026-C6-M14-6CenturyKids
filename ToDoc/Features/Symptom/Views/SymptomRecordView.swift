@@ -75,7 +75,6 @@ private struct SymptomConversationContent: View {
     let onEnd: () -> Void
     let onSwitch: (SymptomConversationMode) -> Void
     @State private var frequency: SymptomConversationAnswer.Frequency?
-    @State private var duration: Int?
 
     var body: some View {
         Group {
@@ -96,21 +95,12 @@ private struct SymptomConversationContent: View {
                                               showsPrevious: question.allowsPrevious, onPrevious: previous,
                                               onSubmit: { value in state.onAction?(.answer(.frequency(value))) },
                                               onEnd: onEnd, onSwitchToVoice: { onSwitch(.voice) })
-                case .duration:
-                    SymptomDurationInputView(question: question, durationMinutes: $duration, isSubmitting: state.isWorking || state.onAction == nil,
-                                             showsPrevious: question.allowsPrevious, onPrevious: previous,
-                                             onSubmit: { value in state.onAction?(.answer(.durationMinutes(value))) },
-                                             onEnd: onEnd, onSwitchToVoice: { onSwitch(.voice) })
                 }
             }
         }
         .onAppear {
             // 이전 질문으로 돌아오면 그때 한 답을 다시 채운다
-            switch state.restoredAnswer {
-            case .frequency(let value): frequency = value
-            case .durationMinutes(let value): duration = value
-            case .text, nil: break
-            }
+            if case .frequency(let value) = state.restoredAnswer { frequency = value }
         }
     }
 
