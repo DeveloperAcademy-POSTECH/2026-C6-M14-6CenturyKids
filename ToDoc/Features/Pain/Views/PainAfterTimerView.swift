@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Figma '통증 부위 선택 플로우' 8~8-D: 먹기 전 통증을 저장한 뒤 1시간 뒤 기록까지 기다리는 화면입니다.
-/// 1시간이 지나야 기록할 수 있어, 기다리는 동안에는 '지금 기록하기'(8-A)를 두지 않습니다.
+/// 1시간이 지나야 기록할 수 있습니다. 기다리는 동안에는 확인 창을 거쳐 새로운 통증을 기록할 수 있고,
+/// 그러면 이 기록은 먹기 전 점수만 남습니다.
 struct PainAfterTimerView: View {
     let locations: [BodyLocation]
     let before: Int
@@ -10,10 +11,12 @@ struct PainAfterTimerView: View {
     var remindersAllowed = true
     var onLater: (() -> Void)?
     var onRecord: (() -> Void)?
+    var onNewRecord: (() -> Void)?
     /// 피그마에는 없지만, 시간이 다 되면 기록 말고 나갈 길이 없어 다른 통증 화면처럼 둡니다.
     var onClose: (() -> Void)?
 
     @State private var showsLocations = false
+    @State private var showsNewRecordConfirmation = false
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -43,6 +46,23 @@ struct PainAfterTimerView: View {
         .toolbar(.hidden, for: .navigationBar)
         .painSheet(isPresented: $showsLocations) {
             PainLocationSheet(locations: locations, onClose: { showsLocations = false })
+        }
+        .overlay {
+            if showsNewRecordConfirmation {
+                ZStack {
+                    // Figma 8-A 자리: 뒤 화면은 검정 40% 막, 제목은 title 크기
+                    Color.black.opacity(0.4).ignoresSafeArea().accessibilityHidden(true)
+                    AppFeedback.Dialog("새로운 통증을 기록할까요?", titleStyle: .title,
+                                       message: "새로운 통증을 기록하면 이전 통증 기록은\n약물 복용 후 점수를 기록하지 못 합니다.",
+                                       primary: .init("새로운 통증 기록하기") {
+                                           showsNewRecordConfirmation = false
+                                           onNewRecord?()
+                                       },
+                                       secondary: .init("닫기") { showsNewRecordConfirmation = false })
+                        .padding(.horizontal, AppLayout.Phone.horizontalMargin)
+                        .accessibilityAddTraits(.isModal)
+                }
+            }
         }
     }
 
@@ -184,7 +204,10 @@ struct PainAfterTimerView: View {
 
     @ViewBuilder private func bottomAction(_ phase: Phase) -> some View {
         if case .waiting = phase {
-            AppActions.BottomAction(primary: .init("1시간 뒤에 돌아오기", isEnabled: onLater != nil) { onLater?() })
+            AppActions.BottomAction(primary: .init("1시간 뒤에 돌아오기", isEnabled: onLater != nil) { onLater?() },
+                                    subAction: .init("새로운 통증 기록하기", isEnabled: onNewRecord != nil) {
+                                        showsNewRecordConfirmation = true
+                                    })
         } else {
             AppActions.BottomAction(primary: .init("선택 부위 통증 고르기", isEnabled: onRecord != nil) { onRecord?() })
         }
@@ -201,7 +224,7 @@ struct PainAfterTimerView: View {
     PainAfterTimerView(locations: [.init(bodyPart: .chest, bodySide: .center, bodyView: .front),
                                    .init(bodyPart: .backLowerBack, bodySide: .center, bodyView: .back)],
                        before: 8, recordedDate: .now.addingTimeInterval(-30 * 60),
-                       availableDate: .now.addingTimeInterval(30 * 60), onLater: {}, onRecord: {})
+                       availableDate: .now.addingTimeInterval(30 * 60), onLater: {}, onRecord: {}, onNewRecord: {})
 }
 
 #Preview("알림 꺼짐") {

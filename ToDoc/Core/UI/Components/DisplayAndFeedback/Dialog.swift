@@ -10,6 +10,7 @@ extension AppFeedback {
         }
 
         private let title: String
+        private let titleStyle: AppTypography.Semantic
         private let message: String?
         private let style: Style
         private let icon: Image?
@@ -19,6 +20,7 @@ extension AppFeedback {
 
         init(
             _ title: String,
+            titleStyle: AppTypography.Semantic = .labelLarge,
             message: String? = nil,
             style: Style = .button,
             icon: Image? = nil,
@@ -27,6 +29,7 @@ extension AppFeedback {
             secondary: AppActions.Action
         ) {
             self.title = title
+            self.titleStyle = titleStyle
             self.message = message
             self.style = style
             self.icon = icon
@@ -63,7 +66,7 @@ extension AppFeedback {
                         .accessibilityHidden(true)
                 }
                 Text(title)
-                    .appTypography(.labelLarge)
+                    .appTypography(titleStyle)
                     .foregroundStyle(AppColors.Semantic.Text.default)
                     .accessibilityAddTraits(.isHeader)
                 if let message, !message.isEmpty {
