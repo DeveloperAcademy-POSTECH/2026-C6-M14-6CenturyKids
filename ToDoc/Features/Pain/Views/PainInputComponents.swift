@@ -45,16 +45,15 @@ func painLocationBadge(_ location: BodyLocation) -> String? {
     }
 }
 
-/// Figma 캡슐(규칙표): 폭 144, 높이 144 + 점수 × 10, 글자 묶음은 바닥 동그라미 정가운데(바닥에서 39).
-/// 0~3점은 화살표 자리를 남기려고 3점 높이(174)로 맞춥니다.
+/// Figma 캡슐: 폭 144, 높이 174 + 점수 × 7(0점 174 ~ 10점 244), 글자 묶음은 바닥 동그라미 정가운데(바닥에서 39).
+/// 0점도 화살표 자리가 남도록 규칙표(144 + 점수 × 10)보다 0점을 30 높였습니다.
 /// 먹기 전은 회색, 1시간 뒤는 라임 그라데이션이고 change(먹기 전 − 1시간 뒤)가 있으면 화살표를 그립니다.
 struct PainScoreCapsule: View {
     let score: Int
     var isAfter = false
     var change: Int?
 
-    /// 높이를 정하는 점수: 0~3점은 3점으로 봅니다.
-    private var sizeScore: Int { min(max(score, 3), 10) }
+    private var height: CGFloat { 174 + CGFloat(min(max(score, 0), 10)) * 7 }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -68,7 +67,7 @@ struct PainScoreCapsule: View {
             .foregroundStyle(isAfter ? AppColors.Semantic.Text.default : AppColors.Semantic.Text.sub)
         }
         .padding(.bottom, 39)
-        .frame(width: 144, height: 144 + CGFloat(sizeScore) * 10, alignment: .bottom)
+        .frame(width: 144, height: height, alignment: .bottom)
         .background {
             if isAfter {
                 LinearGradient(colors: [AppColors.Semantic.Primary.default, AppColors.Semantic.Primary.default.opacity(0.25)],
@@ -82,9 +81,9 @@ struct PainScoreCapsule: View {
         .accessibilityLabel("\(isAfter ? "1시간 뒤" : "먹기 전") \(score)점, \(painScoreWord(score))")
     }
 
-    /// 길이 = min(40, 남는 자리), 남는 자리 = 10 × 점수 − 11. 높이를 3점 이상으로 맞춰 가장 짧아도 19라 늘 보입니다.
+    /// 길이 = min(40, 남는 자리), 남는 자리 = 높이 − 155(0점 19, 3점부터 40). 가장 짧아도 19라 늘 보입니다.
     private var arrowLength: CGFloat {
-        min(40, CGFloat(10 * sizeScore - 11))
+        min(40, height - 155)
     }
 }
 

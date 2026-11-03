@@ -115,7 +115,7 @@ struct PainAfterTimerView: View {
         }
     }
 
-    /// Figma Capsules: 먹기 전 캡슐(높이 144 + 점수 × 10, 0~3점은 174)과 1시간 뒤 원(144)을 바닥에 맞춰 놓습니다.
+    /// Figma Capsules: 먹기 전 캡슐(높이 174 + 점수 × 7)과 1시간 뒤 원(144)을 바닥에 맞춰 놓습니다.
     private func capsules(_ phase: Phase, now: Date) -> some View {
         HStack(alignment: .bottom, spacing: 28) {
             VStack(spacing: 10) {
