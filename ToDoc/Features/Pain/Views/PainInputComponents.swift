@@ -45,6 +45,71 @@ func painLocationBadge(_ location: BodyLocation) -> String? {
     }
 }
 
+/// Figma 캡슐(규칙표): 폭 144, 높이 144 + 점수 × 10, 글자 묶음은 바닥 동그라미 정가운데(바닥에서 39).
+/// 먹기 전은 회색, 1시간 뒤는 라임 그라데이션이고 change(먹기 전 − 1시간 뒤)가 있으면 화살표를 그립니다.
+struct PainScoreCapsule: View {
+    let score: Int
+    var isAfter = false
+    var change: Int?
+
+    private var clamped: Int { min(max(score, 0), 10) }
+
+    var body: some View {
+        VStack(spacing: 24) {
+            if isAfter, let change, change != 0, let length = arrowLength {
+                PainChangeArrow(length: length, isDown: change > 0)
+            }
+            VStack(spacing: 8) {
+                Text("\(score)점").appTypography(.headline)
+                Text(painScoreWord(score)).appTypography(.bodySmall).lineLimit(1).fixedSize()
+            }
+            .foregroundStyle(isAfter ? AppColors.Semantic.Text.default : AppColors.Semantic.Text.sub)
+        }
+        .padding(.bottom, 39)
+        .frame(width: 144, height: 144 + CGFloat(clamped) * 10, alignment: .bottom)
+        .background {
+            if isAfter {
+                LinearGradient(colors: [AppColors.Semantic.Primary.default, AppColors.Semantic.Primary.default.opacity(0.25)],
+                               startPoint: .top, endPoint: .bottom)
+            } else {
+                AppColors.Semantic.Background.secondary
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 72))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(isAfter ? "1시간 뒤" : "먹기 전") \(score)점, \(painScoreWord(score))")
+    }
+
+    /// 길이 = min(40, 남는 자리), 남는 자리 = 10 × 점수 − 11. 20 미만이면 숨깁니다 (1시간 뒤 0–3점).
+    private var arrowLength: CGFloat? {
+        let room = CGFloat(10 * clamped - 11)
+        return room < 20 ? nil : min(40, room)
+    }
+}
+
+/// Figma 아래·위 화살표: 16 × 길이, 선 4, 끝 둥글게, 라임 그라데이션(옅음 → 진함). 올라감·내려감 모두 같은 색입니다.
+private struct PainChangeArrow: View {
+    let length: CGFloat
+    let isDown: Bool
+
+    var body: some View {
+        Path { path in
+            path.move(to: CGPoint(x: 8, y: 0))
+            path.addLine(to: CGPoint(x: 8, y: length))
+            path.move(to: CGPoint(x: 1, y: length - 7))
+            path.addLine(to: CGPoint(x: 8, y: length))
+            path.addLine(to: CGPoint(x: 15, y: length - 7))
+        }
+        .stroke(LinearGradient(colors: [Color(red: 201 / 255, green: 243 / 255, blue: 128 / 255),
+                                        Color(red: 113 / 255, green: 179 / 255, blue: 30 / 255)],
+                               startPoint: .top, endPoint: .bottom),
+                style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+        .frame(width: 16, height: length)
+        .rotationEffect(.degrees(isDown ? 0 : 180))
+        .accessibilityHidden(true)
+    }
+}
+
 /// Figma Chip(더 보기): '외 N부위 ›'처럼 고른 부위 시트를 엽니다.
 struct PainMoreLocationsChip: View {
     let title: String

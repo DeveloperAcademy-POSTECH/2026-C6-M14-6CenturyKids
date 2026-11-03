@@ -119,18 +119,9 @@ struct PainAfterTimerView: View {
     private func capsules(_ phase: Phase, now: Date) -> some View {
         HStack(alignment: .bottom, spacing: 28) {
             VStack(spacing: 10) {
-                VStack(spacing: 8) {
-                    Text("\(before)점").appTypography(.headline)
-                    Text(painScoreWord(before)).appTypography(.bodySmall)
-                }
-                .foregroundStyle(AppColors.Semantic.Text.sub)
-                .padding(.bottom, 39)
-                .frame(width: 144, height: 144 + CGFloat(min(max(before, 0), 10)) * 10, alignment: .bottom)
-                .background(AppColors.Semantic.Background.secondary, in: RoundedRectangle(cornerRadius: 72))
+                PainScoreCapsule(score: before)
                 Text("먹기 전").appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("먹기 전 \(before)점, \(painScoreWord(before))")
             VStack(spacing: 10) {
                 afterCircle(phase)
                 Text("1시간 뒤 · \(availableTime)").appTypography(.bodySmall)
