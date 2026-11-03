@@ -20,6 +20,10 @@ struct CustomCarcinomaEntryView: View {
                                 get: { state.customCancerName },
                                 set: { state.customCancerName = $0 }
                             ))
+                            // 바인딩에서 바로 자르면 값이 그대로라 화면이 갱신되지 않아, 바뀐 뒤에 자릅니다.
+                            .onChange(of: state.customCancerName) { _, name in
+                                if name.count > 15 { state.customCancerName = String(name.prefix(15)) }
+                            }
                             .settingsText()
                             .multilineTextAlignment(typeSize.isAccessibilitySize ? .leading : .trailing)
                             .autocorrectionDisabled()
