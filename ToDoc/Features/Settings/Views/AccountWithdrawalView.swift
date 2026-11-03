@@ -43,14 +43,40 @@ struct AccountWithdrawalView: View {
                     .cornerRadius(14)
                     
                 case .kakao:
-                    Text("카카오 로그인 계정 탈퇴 준비 중").settingsText(16, bold: true)
+                    Text("재인증").settingsText(16, bold: true)
+                    Text("아래 버튼을 눌러 사용자 본인을 확인하면 탈퇴 처리가 완료돼요.").settingsText(14).foregroundStyle(SettingsPalette.caption)
+                    Button {
+                        showsConfirmation = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image("Auth/KakaoSymbolImage")
+                            Text("카카오 계정 연결 해제하기")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color("Auth/KakaoLabel"))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(Color("Auth/KakaoContainer"))
+                    .cornerRadius(14)
                 }
             }
         }
         .alert("정말 탈퇴 하시겠습니까?", isPresented: $showsConfirmation) {
             Button("취소", role: .cancel) { }
             Button("확인", role: .destructive) {
-                Task { await viewModel.withdrawEmailAccount() }
+                Task {
+                    switch viewModel.signUpProvider {
+                    case .email:
+                        await viewModel.withdrawEmailAccount()
+
+                    case .kakao:
+                        await viewModel.withdrawKakaoAccount()
+                        
+                    default:
+                        break
+                    }
+                }
             }.disabled(isBusy)
         } message: { Text("앱 내 모든 데이터는 복구가 불가능합니다") }
         .onDisappear { viewModel.password = "" }

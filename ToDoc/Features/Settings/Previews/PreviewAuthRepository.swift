@@ -28,5 +28,6 @@ struct PreviewAuthRepository: AuthRepository {
     func updatePassword(to newPassword: String, nonce: String?) async throws { throw Unavailable() }
     func deleteAccount() async throws { throw Unavailable() }
     func withdrawAppleAccount(authorizationCode: String) async throws { throw Unavailable() }
+    func withdrawKakaoAccount() async throws { throw Unavailable() }
 }
 #endif

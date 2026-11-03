@@ -164,6 +164,21 @@ final class SupabaseAuthRepository: AuthRepository {
         try await client.auth.signOut(scope: .global)
     }
     
+    func withdrawKakaoAccount() async throws {
+        let session = try await client.auth.session
+
+        try await client.functions.invoke(
+            "delete-kakao-account",
+            options: FunctionInvokeOptions(
+                headers: [
+                    "Authorization": "Bearer \(session.accessToken)"
+                ]
+            )
+        )
+
+        try await client.auth.signOut(scope: .global)
+    }
+    
     func getSignUpProvider() async throws -> String? {
         let user = try await client.auth.user()
         

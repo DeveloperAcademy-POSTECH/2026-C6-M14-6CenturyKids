@@ -81,6 +81,21 @@ final class AccountWithdrawalViewModel {
             errorMessage = "탈퇴하지 못했어요. Apple 인증과 네트워크 연결을 확인해 주세요."
         }
     }
+    
+    func withdrawKakaoAccount() async {
+        guard !isWithdrawing, !didWithdraw else { return }
+        
+        isWithdrawing = true
+        errorMessage = nil
+        defer { isWithdrawing = false }
+        
+        do {
+            try await authRepository.withdrawKakaoAccount()
+            completeWithdrawal()
+        } catch {
+            errorMessage = "탈퇴하지 못했어요. 잠시 후 다시 시도해주세요."
+        }
+    }
 
     private func completeWithdrawal() {
         authSession.loginPreference.isEnabled = false
