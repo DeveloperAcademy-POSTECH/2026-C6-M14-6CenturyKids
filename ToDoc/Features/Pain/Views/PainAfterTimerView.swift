@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Figma '통증 부위 선택 플로우' 8~8-D: 먹기 전 통증을 저장한 뒤 1시간 뒤 기록까지 기다리는 화면입니다.
-/// 기다리는 동안에도 '지금 기록하기'로 확인 창(8-A)을 거쳐 일찍 기록할 수 있습니다.
+/// 1시간이 지나야 기록할 수 있어, 기다리는 동안에는 '지금 기록하기'(8-A)를 두지 않습니다.
 struct PainAfterTimerView: View {
     let locations: [BodyLocation]
     let before: Int
@@ -14,7 +14,6 @@ struct PainAfterTimerView: View {
     var onClose: (() -> Void)?
 
     @State private var showsLocations = false
-    @State private var showsEarlyConfirmation = false
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -44,23 +43,6 @@ struct PainAfterTimerView: View {
         .toolbar(.hidden, for: .navigationBar)
         .painSheet(isPresented: $showsLocations) {
             PainLocationSheet(locations: locations, onClose: { showsLocations = false })
-        }
-        .overlay {
-            if showsEarlyConfirmation {
-                ZStack {
-                    // Figma 8-A: 뒤 화면은 검정 40% 막, 제목은 title 크기
-                    Color.black.opacity(0.4).ignoresSafeArea().accessibilityHidden(true)
-                    AppFeedback.Dialog("지금 기록할까요?", titleStyle: .title,
-                                       message: "아직 약효가 다 나타나지 않았을 수 있어요.\n그래도 지금 점수로 기록할 수 있어요.",
-                                       primary: .init("지금 기록하기") {
-                                           showsEarlyConfirmation = false
-                                           onRecord?()
-                                       },
-                                       secondary: .init("기다릴게요") { showsEarlyConfirmation = false })
-                        .padding(.horizontal, AppLayout.Phone.horizontalMargin)
-                        .accessibilityAddTraits(.isModal)
-                }
-            }
         }
     }
 
@@ -202,10 +184,7 @@ struct PainAfterTimerView: View {
 
     @ViewBuilder private func bottomAction(_ phase: Phase) -> some View {
         if case .waiting = phase {
-            AppActions.BottomAction(primary: .init("1시간 뒤에 돌아오기", isEnabled: onLater != nil) { onLater?() },
-                                    subAction: .init("지금 기록하기", isEnabled: onRecord != nil) {
-                                        showsEarlyConfirmation = true
-                                    })
+            AppActions.BottomAction(primary: .init("1시간 뒤에 돌아오기", isEnabled: onLater != nil) { onLater?() })
         } else {
             AppActions.BottomAction(primary: .init("선택 부위 통증 고르기", isEnabled: onRecord != nil) { onRecord?() })
         }
