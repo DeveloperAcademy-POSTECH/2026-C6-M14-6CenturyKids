@@ -27,14 +27,19 @@ struct SettingsScreen<Content: View>: View {
     var cancelTitle = "이전"
     var canSave = false
     var isSaving = false
+    var fillsAvailableHeight = false
     var save: (() -> Void)?
     let cancel: () -> Void
     @ViewBuilder let content: () -> Content
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28, content: content)
-                .padding(.horizontal, 24).padding(.top, 30).padding(.bottom, 32).buttonStyle(.plain)
-        }.scrollDismissesKeyboard(.interactively)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28, content: content)
+                    .padding(.horizontal, 24).padding(.top, 30).padding(.bottom, 32)
+                    .frame(minHeight: fillsAvailableHeight ? geometry.size.height : 0, alignment: .top)
+                    .buttonStyle(.plain)
+            }.scrollDismissesKeyboard(.interactively)
+        }
         .foregroundStyle(SettingsPalette.primary).background(SettingsPalette.background.ignoresSafeArea())
         .navigationBarBackButtonHidden().navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)

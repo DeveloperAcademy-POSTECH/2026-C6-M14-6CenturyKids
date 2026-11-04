@@ -3,7 +3,7 @@ import ToDocDomain
 @testable import ToDocAuth
 
 @MainActor final class SignupResetTests: XCTestCase {
-    let configuration = AuthConfiguration(terms: Dictionary(uniqueKeysWithValues: SignupTerm.allCases.map { ($0, "테스트 전용 약관") }), termsVersion: "test-v1", redirectURL: URL(string: "todoc-test://auth/callback"))
+    let configuration = AuthConfiguration(redirectURL: URL(string: "todoc-test://auth/callback"))
     func ready(_ vm: SignupViewModel) {
         let s = vm.state
         s.step = .review; s.name = "테스트"; s.email = "patient@example.com"

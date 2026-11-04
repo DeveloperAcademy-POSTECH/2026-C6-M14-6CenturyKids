@@ -4,8 +4,7 @@ import ToDocDomain
 
 @MainActor final class SignupNavigationTests: XCTestCase {
     private let configuration = AuthConfiguration(
-        terms: Dictionary(uniqueKeysWithValues: SignupTerm.allCases.map { ($0, "테스트 약관") }),
-        termsVersion: "test-v1", redirectURL: URL(string: "todoc-test://auth/callback")
+        redirectURL: URL(string: "todoc-test://auth/callback")
     )
 
     private func makeViewModel(_ providedFixture: AuthFixture? = nil) -> SignupViewModel {

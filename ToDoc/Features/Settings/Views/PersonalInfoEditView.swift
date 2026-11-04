@@ -7,13 +7,14 @@ struct PersonalInfoEditView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var typeSize
+    var onWithdrawal: (() -> Void)?
     private let onSaved: () -> Void
     init(state: PersonalInfoScreenState? = nil, onSaved: @escaping () -> Void = {}) {
         _state = State(initialValue: state); self.onSaved = onSaved
     }
     var body: some View {
         SettingsScreen(title: "내 정보 수정", cancelTitle: "취소", canSave: state?.canSave == true && state?.onSave != nil,
-                       isSaving: state?.isSaving == true, save: save, cancel: { dismiss() }) {
+                       isSaving: state?.isSaving == true, fillsAvailableHeight: true, save: save, cancel: { dismiss() }) {
             if let state {
                 SettingsSection(title: "개인 정보", footer: "변경한 정보는 완료를 누르면 저장돼요.") {
                     SettingsInputRow(title: "이름") {
@@ -50,6 +51,15 @@ struct PersonalInfoEditView: View {
                 }
                 SettingsFeedback(error: state.validationMessage ?? state.errorMessage)
             } else { Text("개인정보를 먼저 불러와 주세요.").settingsText() }
+            Spacer(minLength: 0)
+            Button { onWithdrawal?() } label: {
+                Text("회원 탈퇴").foregroundStyle(.red)
+            }
+                .buttonStyle(.glass)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .disabled(state?.isSaving == true || onWithdrawal == nil)
+                .accessibilityIdentifier("settings.withdrawal")
         }
         .tint(SettingsPalette.action)
         .sheet(isPresented: $showsBirthday) {

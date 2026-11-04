@@ -13,8 +13,6 @@ import ToDocDomain
     let configuration: AuthConfiguration
     init(repositories: AuthRepositories, session: AuthSessionState, configuration: AuthConfiguration) {
         self.repositories = repositories; self.session = session; self.configuration = configuration
-        state.termsContent = configuration.terms; state.hasRequiredTermsContent = configuration.hasRequiredTerms
-        state.termsVersion = configuration.termsVersion; state.termsEffectiveDate = configuration.termsEffectiveDate
         state.onAction = { [weak self] action in self?.handle(action) }
     }
     private var requestID: UUID?
@@ -112,9 +110,8 @@ import ToDocDomain
         case .password: return AuthFormValidation.passwordError(state.password)
         case .passwordConfirmation: return state.passwordMatches ? nil : "비밀번호가 일치하지 않아요."
         case .terms:
-            guard configuration.hasRequiredTerms else { return "약관 본문·서비스명·운영사명과 적용 정보를 확인 중이에요. 준비 후 가입할 수 있어요." }
             guard SignupTerm.allCases.filter(\.isRequired).allSatisfy(state.acceptedTerms.contains) else { return "필수 약관에 동의해 주세요." }
-            return state.acceptedTerms.allSatisfy(configuration.hasContent(for:)) ? nil : "선택한 약관의 본문을 준비 중이에요."
+            return nil
         case .patientInfo:
             if let error = AuthFormValidation.nameError(state.name) { return error }
             guard let birthday = state.birthday, let sex = state.sex else { return "생년월일과 성별을 선택해 주세요." }
