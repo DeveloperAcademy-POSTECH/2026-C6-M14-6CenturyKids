@@ -51,7 +51,7 @@ struct OnboardingPageContent<Illustration: View>: View {
     }
 }
 
-/// 네 소개 화면에 공통으로 배치된 Figma 원본 이미지입니다.
+/// 환영 화면의 Figma 원본 이미지입니다.
 struct OnboardingDoctorIllustration: View {
     var body: some View {
         Image("OnboardingDoctor")
@@ -62,6 +62,48 @@ struct OnboardingDoctorIllustration: View {
             // 투명 여백을 포함한 원본 프레임의 중심이 화면 중심보다 11.365pt 오른쪽입니다.
             .padding(.leading, 22.73)
             .accessibilityHidden(true)
+    }
+}
+
+enum OnboardingFeatureIllustration: View {
+    case voice
+    case pain
+    case preVisit
+    case doctorReview
+
+    private var assetName: String {
+        switch self {
+        case .voice: "OnboardingVoice"
+        case .pain: "OnboardingPain"
+        case .preVisit: "OnboardingPreVisit"
+        case .doctorReview: "OnboardingDoctorReview"
+        }
+    }
+
+    // 402pt 기준에서 투명 여백을 포함한 원본 이미지의 위치와 크기입니다.
+    private var artworkFrame: CGRect {
+        switch self {
+        case .voice: CGRect(x: 10, y: 10, width: 402, height: 268)
+        case .pain: CGRect(x: -36, y: 7, width: 428, height: 286)
+        case .preVisit: CGRect(x: -22, y: 2.7, width: 452.6, height: 303.7)
+        case .doctorReview: CGRect(x: -16.5, y: -28.6, width: 344.7, height: 345.6)
+        }
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let scale = geometry.size.width / 402
+            let frame = artworkFrame
+            Image(assetName)
+                .resizable()
+                .frame(width: frame.width * scale, height: frame.height * scale)
+                .position(x: frame.midX * scale, y: frame.midY * scale)
+        }
+        .aspectRatio(402.0 / 300, contentMode: .fit)
+        .frame(maxWidth: 402)
+        .clipped()
+        .padding(.horizontal, -AppLayout.Phone.horizontalMargin)
+        .accessibilityHidden(true)
     }
 }
 
