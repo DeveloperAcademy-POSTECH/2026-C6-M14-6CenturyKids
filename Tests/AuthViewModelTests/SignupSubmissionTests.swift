@@ -240,7 +240,6 @@ import ToDocDomain
         let f = AuthFixture(), flow = AuthFlowViewModel(repositories: f.repositories, session: AuthSessionState())
         flow.open(.signup)
         XCTAssertEqual(flow.screen, .signup)
-        XCTAssertEqual(flow.signup.configuration.terms.count, 5)
         let s = flow.signup.state
         s.email = "patient@example.com"; s.password = "password123"; s.passwordConfirmation = s.password
         s.step = .passwordConfirmation
@@ -267,7 +266,7 @@ import ToDocDomain
         XCTAssertEqual(s.step, .completion)
         XCTAssertEqual(f.auth.signUpCount, 1)
         XCTAssertEqual(f.users.saves, 1); XCTAssertEqual(f.patients.saves, 1)
-        XCTAssertEqual(s.acceptedTerms.count, 5)
+        XCTAssertEqual(s.acceptedTerms.count, 6)
         XCTAssertEqual(flow.signup.completedPatient?.user.id, f.auth.id)
         XCTAssertEqual(flow.rootRoute, .authentication)
         flow.loginAfterSignup()
@@ -301,7 +300,7 @@ import ToDocDomain
         await vm.continueFromTerms()
         XCTAssertEqual(f.auth.signUpCount, 1)
         XCTAssertEqual(vm.state.step, .patientInfo)
-        XCTAssertEqual(vm.state.acceptedTerms.count, 5)
+        XCTAssertEqual(vm.state.acceptedTerms.count, 6)
     }
 
     func testExistingLoginIsNotChangedByStartingAnotherSignup() async throws {

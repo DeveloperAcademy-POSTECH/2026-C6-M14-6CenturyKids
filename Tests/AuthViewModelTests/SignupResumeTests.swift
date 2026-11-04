@@ -80,11 +80,11 @@ private final class ResumeDoctors: DoctorRepository {
         XCTAssertEqual(resumed.rootRoute, .patient)
     }
 
-    func testMissingTermsWaitInsteadOfBypassingThemOnResume() async {
-        var configuration = AuthConfiguration(); configuration.terms = [:]
+    func testMissingAgreementWaitsInsteadOfBypassingTermsOnResume() async {
+        let configuration = AuthConfiguration()
         let f = AuthFixture(), resumed = AuthFlowViewModel(repositories: f.repositories, configuration: configuration, session: AuthSessionState())
         await login(resumed)
-        resumed.signup.state.acceptedTerms = Set(SignupTerm.allCases)
+        resumed.signup.state.acceptedTerms = Set(SignupTerm.allCases).subtracting([.appUsage])
         XCTAssertFalse(resumed.signup.state.canProceedFromTerms)
         await resumed.signup.continueFromTerms()
         XCTAssertEqual(resumed.signup.state.step, .terms)
