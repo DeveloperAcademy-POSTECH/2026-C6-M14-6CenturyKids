@@ -15,7 +15,6 @@ struct SymptomVoiceInputView: View {
             Spacer(minLength: 24)
             SymptomVoiceCard(transcript: transcript, state: voiceState)
                 .background(alignment: .top) {
-                    // Figma에서 머리 위가 카드 위 337 위, 다리는 카드 뒤로 들어간다 (영상 680×1080)
                     SymptomCharacterVideos(state: voiceState)
                         .frame(width: 252, height: 400)
                         .offset(y: -337)
