@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Figma 1766:28104의 수신 화면. 준비/권한 정책은 상위 ViewModel에서 결정합니다.
-/// 가운데 캐릭터 영상 자리는 아직 비워 둡니다.
+/// 가운데에서 학로가 손을 흔드는 인사 영상을 반복 재생합니다.
 struct CareCallIncomingView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -37,7 +37,7 @@ struct CareCallIncomingView: View {
         .onAppear { if !reduceMotion { isRinging = true } }
     }
 
-    /// 배경 · 캐릭터 뒤 빛 · (영상 자리) · 아래 흰 덮개. 화면 크기에 영향을 주지 않게 배경으로 그린다
+    /// 배경 · 캐릭터 뒤 빛 · 인사 영상 · 아래 흰 덮개. 화면 크기에 영향을 주지 않게 배경으로 그린다
     private var backdrop: some View {
         LinearGradient(stops: [
             .init(color: Color(red: 239 / 255, green: 251 / 255, blue: 212 / 255), location: 0),
@@ -46,14 +46,23 @@ struct CareCallIncomingView: View {
         .overlay(alignment: .top) {
             Image("CareCallGlow").padding(.top, 200)
         }
+        .overlay(alignment: .top) {
+            // Figma 캐릭터 머리 위 250·키 약 440에 맞춘 크기 (영상 910×1080)
+            CareCallCharacterVideo(name: "CareCallHello")
+                .frame(width: 382, height: 453)
+                .padding(.top, 247)
+        }
         .overlay(alignment: .bottom) {
-            // 아래 버튼이 영상 위에서도 읽히게 흰색으로 덮는다
-            LinearGradient(stops: [
+            // 아래 버튼이 영상 위에서도 읽히게 흐리게 하고 흰색으로 덮는다 (Figma backdrop blur 15)
+            let fade = LinearGradient(stops: [
                 .init(color: .white.opacity(0), location: 0),
                 .init(color: .white.opacity(0.95), location: 0.45),
                 .init(color: .white, location: 1)
             ], startPoint: .top, endPoint: .bottom)
-            .frame(height: 330)
+            Rectangle().fill(.ultraThinMaterial)
+                .mask(fade)
+                .overlay(fade)
+                .frame(height: 330)
         }
         .clipped()
         .accessibilityHidden(true)
