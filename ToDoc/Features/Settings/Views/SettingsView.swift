@@ -12,112 +12,114 @@ struct SettingsView: View {
     private let onCancerStage: (() -> Void)?
     private let onHospital: (() -> Void)?
     private let onPasswordChange: (() -> Void)?
-    private let onWithdrawal: (() -> Void)?
     private let notificationSettings: @MainActor () -> NotificationSettingsView
     init(state: SettingsScreenState? = nil, onPersonalInfo: (() -> Void)? = nil,
          onCancerType: (() -> Void)? = nil, onCancerStage: (() -> Void)? = nil,
          onHospital: (() -> Void)? = nil,
-         onPasswordChange: (() -> Void)? = nil, onWithdrawal: (() -> Void)? = nil,
+         onPasswordChange: (() -> Void)? = nil,
          notificationSettings: @escaping @MainActor () -> NotificationSettingsView) {
         _state = State(initialValue: state ?? .init()); self.onPersonalInfo = onPersonalInfo
         self.onCancerType = onCancerType; self.onCancerStage = onCancerStage; self.onHospital = onHospital
         self.onPasswordChange = onPasswordChange
         self.notificationSettings = notificationSettings
-        self.onWithdrawal = onWithdrawal
     }
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                Text("마이페이지").settingsText(20, bold: true).frame(maxWidth: .infinity)
-                    .accessibilityAddTraits(.isHeader).padding(.vertical, 24)
-                if let patient = state.profile {
-                    Button { onPersonalInfo?() } label: {
-                        HStack(spacing: 17) {
-                            avatar
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(patient.name).settingsText(17)
-                                Text("개인 정보").settingsText(14).foregroundStyle(SettingsPalette.caption)
-                            }
-                            Spacer(minLength: 4)
-                            Image("SettingsChevron").resizable().frame(width: 6.8, height: 11.8).accessibilityHidden(true)
-                        }.padding(16).frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
-                            .background(.white, in: RoundedRectangle(cornerRadius: 26)).contentShape(Rectangle())
-                    }.disabled(!state.canEdit || onPersonalInfo == nil).accessibilityIdentifier("settings.personalInfo")
-                    SettingsSection(title: "건강 정보") {
-                        Button { onCancerType?() } label: { SettingsRow(title: "암종", value: patient.cancerName ?? "미등록", chevron: true) }
-                            .disabled(!state.canEdit || onCancerType == nil).accessibilityIdentifier("settings.cancerType")
-                        SettingsDivider()
-                        Button { onCancerStage?() } label: { SettingsRow(title: "병기", value: patient.stageName ?? "미등록", chevron: true) }
-                            .disabled(!state.canEdit || onCancerStage == nil).accessibilityIdentifier("settings.cancerStage")
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    Text("마이페이지").settingsText(20, bold: true).frame(maxWidth: .infinity)
+                        .accessibilityAddTraits(.isHeader).padding(.vertical, 24)
+                    if let patient = state.profile {
+                        Button { onPersonalInfo?() } label: {
+                            HStack(spacing: 17) {
+                                avatar
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(patient.name).settingsText(17)
+                                    Text("개인 정보").settingsText(14).foregroundStyle(SettingsPalette.caption)
+                                }
+                                Spacer(minLength: 4)
+                                Image("SettingsChevron").resizable().frame(width: 6.8, height: 11.8).accessibilityHidden(true)
+                            }.padding(16).frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
+                                .background(.white, in: RoundedRectangle(cornerRadius: 26)).contentShape(Rectangle())
+                        }.disabled(!state.canEdit || onPersonalInfo == nil).accessibilityIdentifier("settings.personalInfo")
+                        SettingsSection(title: "건강 정보") {
+                            Button { onCancerType?() } label: { SettingsRow(title: "암종", value: patient.cancerName ?? "미등록", chevron: true) }
+                                .disabled(!state.canEdit || onCancerType == nil).accessibilityIdentifier("settings.cancerType")
+                            SettingsDivider()
+                            Button { onCancerStage?() } label: { SettingsRow(title: "병기", value: patient.stageName ?? "미등록", chevron: true) }
+                                .disabled(!state.canEdit || onCancerStage == nil).accessibilityIdentifier("settings.cancerStage")
+                        }
+                        SettingsSection(title: "병원 정보") {
+                            SettingsRow(title: "병원", value: patient.hospitalName ?? "연결된 병원 없음")
+                            SettingsDivider()
+                            SettingsRow(title: "담당의", value: patient.doctorName.map { "\($0) 선생님" } ?? "없음")
+                            SettingsDivider()
+                            Button { onHospital?() } label: {
+                                SettingsRow(title: "병원 연결 관리", value: patient.doctorName == nil ? "연결 안 됨" : "연결됨", chevron: true, connected: patient.doctorName != nil)
+                            }.disabled(!state.canEdit || onHospital == nil).accessibilityIdentifier("settings.hospital")
+                        }
+                    } else {
+                        SettingsFeedback(busy: state.isLoading, error: loadMessage)
+                        if !state.isLoading {
+                            Button("정보 다시 불러오기") { state.onReload?() }
+                                .settingsText().foregroundStyle(SettingsPalette.action).frame(minHeight: 44)
+                                .disabled(state.onReload == nil).accessibilityIdentifier("settings.reloadProfile")
+                        }
                     }
-                    SettingsSection(title: "병원 정보") {
-                        SettingsRow(title: "병원", value: patient.hospitalName ?? "연결된 병원 없음")
-                        SettingsDivider()
-                        SettingsRow(title: "담당의", value: patient.doctorName.map { "\($0) 선생님" } ?? "없음")
-                        SettingsDivider()
-                        Button { onHospital?() } label: {
-                            SettingsRow(title: "병원 연결 관리", value: patient.doctorName == nil ? "연결 안 됨" : "연결됨", chevron: true, connected: patient.doctorName != nil)
-                        }.disabled(!state.canEdit || onHospital == nil).accessibilityIdentifier("settings.hospital")
-                    }
-                } else {
-                    SettingsFeedback(busy: state.isLoading, error: loadMessage)
-                    if !state.isLoading {
-                        Button("정보 다시 불러오기") { state.onReload?() }
-                            .settingsText().foregroundStyle(SettingsPalette.action).frame(minHeight: 44)
-                            .disabled(state.onReload == nil).accessibilityIdentifier("settings.reloadProfile")
-                    }
-                }
-                VStack(alignment: .leading, spacing: 8) {
                     SettingsSection(title: "계정") {
+                        NavigationLink { notificationSettings() } label: {
+                            SettingsRow(title: "알림 설정", chevron: true)
+                        }
+                        SettingsDivider()
                         Button { showsPasswordChangeNotice = true } label: {
                             SettingsRow(title: "비밀번호 재설정", chevron: true)
                         }
                         .disabled(onPasswordChange == nil)
                         .accessibilityIdentifier("settings.password.change")
-
-                        SettingsDivider()
-
-                        Button { showsLogoutConfirmation = true } label: {
-                            SettingsRow(title: "로그아웃")
+                    }
+                    SettingsSection(title: "기타") {
+                        Button(action: openCustomerSupport) {
+                            SettingsRow(title: "고객지원", chevron: true)
                         }
+                        .accessibilityIdentifier("settings.support")
+                        SettingsDivider()
+                        Button { selectedDocument = .terms } label: {
+                            SettingsRow(title: LegalDocument.terms.title, chevron: true)
+                        }
+                        .accessibilityIdentifier("settings.terms")
+                        SettingsDivider()
+                        Button { selectedDocument = .privacy } label: {
+                            SettingsRow(title: LegalDocument.privacy.title, chevron: true)
+                        }
+                        .accessibilityIdentifier("settings.privacy")
+                        SettingsDivider()
+                        NavigationLink { OpenSourceLicensesView() } label: {
+                            SettingsRow(title: "오픈소스 라이선스", chevron: true)
+                        }
+                        .accessibilityIdentifier("settings.licenses")
+                    }
+                    Spacer(minLength: 0)
+                    VStack(spacing: 8) {
+                        Button { showsLogoutConfirmation = true } label: {
+                            Text("로그아웃").foregroundStyle(.black)
+                        }
+                        .buttonStyle(.glass)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .frame(maxWidth: .infinity, alignment: .center)
                         .disabled(state.isSigningOut || state.onLogout == nil)
                         .accessibilityIdentifier("settings.logout")
                         .alert("로그아웃 하시겠습니까?", isPresented: $showsLogoutConfirmation) {
                             Button("취소", role: .cancel) {}
                             Button("로그아웃", role: .destructive) { state.onLogout?() }
                         }
+                        if state.isSigningOut || state.logoutErrorMessage != nil {
+                            SettingsFeedback(busy: state.isSigningOut, error: state.logoutErrorMessage)
+                                .padding(.horizontal, 16)
+                        }
                     }
-
-                    if state.isSigningOut || state.logoutErrorMessage != nil {
-                        SettingsFeedback(busy: state.isSigningOut, error: state.logoutErrorMessage)
-                            .padding(.horizontal, 16)
-                    }
-                }
-                SettingsSection(title: "기타") {
-                    NavigationLink { notificationSettings() } label: { SettingsRow(title: "알림 설정", chevron: true) }
-                    SettingsDivider()
-                    Button { selectedDocument = .terms } label: {
-                        SettingsRow(title: LegalDocument.terms.title, chevron: true)
-                    }
-                    .accessibilityIdentifier("settings.terms")
-                    SettingsDivider()
-                    Button { selectedDocument = .privacy } label: {
-                        SettingsRow(title: LegalDocument.privacy.title, chevron: true)
-                    }
-                    .accessibilityIdentifier("settings.privacy")
-                    SettingsDivider()
-                    Button(action: openCustomerSupport) {
-                        SettingsRow(title: "고객지원", chevron: true)
-                    }
-                    .accessibilityIdentifier("settings.support")
-                    SettingsDivider()
-                    NavigationLink { OpenSourceLicensesView() } label: { SettingsRow(title: "오픈소스 라이선스", chevron: true) }
-                        .accessibilityIdentifier("settings.licenses")
-                    SettingsDivider()
-                    Button { onWithdrawal?() } label: { SettingsRow(title: "회원 탈퇴", chevron: true) }
-                        .disabled(onWithdrawal == nil).accessibilityIdentifier("settings.withdrawal")
-                }
-            }.padding(.horizontal, 24).padding(.bottom, 32)
+                }.padding(.horizontal, 24).padding(.bottom, 32)
+                    .frame(minHeight: geometry.size.height, alignment: .top)
+            }
         }.background(SettingsPalette.background.ignoresSafeArea()).foregroundStyle(SettingsPalette.primary)
             .buttonStyle(.plain).toolbar(.hidden, for: .navigationBar)
             .alert("비밀번호 변경을 위한 인증코드를 가입한 이메일로 보내드릴게요.", isPresented: $showsPasswordChangeNotice) {

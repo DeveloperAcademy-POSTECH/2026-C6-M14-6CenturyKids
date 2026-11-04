@@ -57,9 +57,14 @@ struct SettingsFlowView: View {
             onCancerStage: { path.append(.stage) },
             onHospital: { path.append(.hospital) },
             onPasswordChange: passwordChangeAction,
-            onWithdrawal: { path.append(.withdrawal) },
             notificationSettings: notifications
         )
+    }
+
+    private var personalDestination: PersonalInfoEditView {
+        var view = personal()
+        view.onWithdrawal = { path.append(.withdrawal) }
+        return view
     }
 
     private var passwordChangeAction: (() -> Void)? {
@@ -70,7 +75,8 @@ struct SettingsFlowView: View {
     @ViewBuilder
     private func destinationView(for destination: Destination) -> some View {
         switch destination {
-        case .personal: personal()
+        case .personal:
+            personalDestination
         case .cancer: cancer()
         case .stage: stage()
         case .hospital: hospital()
