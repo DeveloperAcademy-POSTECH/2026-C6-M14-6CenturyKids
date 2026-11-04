@@ -109,6 +109,7 @@ struct PatientFlowView: View {
             records().tabItem { Label("기록확인", systemImage: "chart.bar.fill") }.tag(Tab.records)
             settings().tabItem { Label("설정", systemImage: "gearshape.fill") }.tag(Tab.settings)
         }
+        .tint(AppColors.Semantic.Text.action)
         .onChange(of: router.pendingDeepLink, initial: true) { _, deepLink in
             guard let deepLink else { return }
             // 바텀시트가 떠 있으면 먼저 닫는다. 닫는 중에는 다른 화면을 띄울 수 없어, 닫힌 뒤 openPrevisitNext가 이어서 연다
