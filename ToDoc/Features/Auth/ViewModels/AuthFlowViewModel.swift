@@ -1,7 +1,6 @@
 import Foundation
 import Observation
 
-/// 인증 화면의 이동 이름입니다. SwiftUI를 import하지 않아 화면 없이도 이동을 테스트할 수 있습니다.
 enum AuthRootRoute { case authentication, patient }
 
 enum AuthEntry { case login, signup, passwordReset }
@@ -56,17 +55,14 @@ enum AuthEntry { case login, signup, passwordReset }
         if entry == .passwordReset { reset.prepareEmailRequest() }
         screen = entry; showsAuth = true
     }
-    /// 소개의 4개 페이지를 순서대로 보여 주고 마지막 페이지에서 가입을 엽니다.
     func advanceOnboarding() {
         if onboarding.page < 4 { onboarding.selectPage(onboarding.page + 1) }
-        else { open(.signup) }
+        else { open(.login) }
     }
     func backFromSignup() {
         if signupReturnsToLogin { open(.login) }
         else { close() }
     }
-    /// 화면의 확인 대화상자에서 사용자가 재작성을 선택한 경우에만 호출합니다.
-    /// 서버의 계정을 삭제/취소하지 않습니다. 로컬 입력과 재시도 체크포인트만 새로 시작합니다.
     func restartSignupAfterConfirmation() {
         guard signup.state.isAccountLocked, !signup.state.isWorking, !session.isBusy else { return }
         if signup.state.hasAuthenticatedAccount { loginAfterSignup(); return }
