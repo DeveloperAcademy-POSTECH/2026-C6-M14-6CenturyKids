@@ -400,7 +400,7 @@ struct CareCallViewModelTests {
 
     @Test func 받기를_누르면_인사가_들어간_첫_문장을_바로_보여_주고_통화한다() async {
         await enterVoiceCall()
-        let opening = "안녕하세요. 지금부터 AI 음성으로 오늘 몸 상태를 여쭤볼게요. 오늘 컨디션은 어떠세요?"
+        let opening = "안녕하세요. 지금부터 AI 음성으로 오늘 몸 상태를 물어볼게요. 오늘 컨디션은 어떠세요?"
         service.voiceOpening = opening
         service.activities = [.speaking(opening)]
         service.hold = .call
