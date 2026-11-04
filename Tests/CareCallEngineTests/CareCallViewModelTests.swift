@@ -21,6 +21,8 @@ final class FakeCareCall: CareCalling {
     var replies: [CareCallTurn] = []
     var endOutcome: CareCallOutcome = .interrupted(nil)
     private(set) var current: CareCallTurn?
+    /// 음성 통화가 처음 말할 문장 (nil이면 화면은 첫 질문 그대로)
+    var voiceOpening: String?
     /// 지금까지 받은 답으로 만든 기록 (답마다 폰에 남기는지 볼 때)
     var progress: SymptomRecord?
     private(set) var answers: [String] = []
@@ -265,7 +267,18 @@ struct CareCallViewModelTests {
         for _ in 0..<1_000 where !service.isHolding { await Task.yield() }
         #expect(conversation.question?.text == "오늘 컨디션은 어떠세요?")
         #expect(conversation.transcript == "그럭저럭이요")
-        #expect(conversation.isWorking && !conversation.isListening) // 분석 중
+        #expect(conversation.isWorking && conversation.voiceState == .thinking) // 분석 중
+        service.release()
+        await task?.value
+    }
+
+    @Test func AI가_말하는_동안은_AI_차례로_보여_준다() async {
+        await enterVoiceCall()
+        service.activities = [.speaking("오늘 컨디션은 어떠세요?")]
+        service.hold = .call
+        let task = viewModel.startCall()
+        for _ in 0..<1_000 where !service.isHolding { await Task.yield() }
+        #expect(conversation.voiceState == .aiSpeaking && !conversation.isWorking)
         service.release()
         await task?.value
     }
@@ -277,7 +290,7 @@ struct CareCallViewModelTests {
         let task = viewModel.startCall()
         for _ in 0..<1_000 where !service.isHolding { await Task.yield() }
         #expect(conversation.transcript == "그럭저럭이요")
-        #expect(conversation.isListening && !conversation.isWorking) // 아직 듣는 중
+        #expect(conversation.voiceState == .patientSpeaking && !conversation.isWorking) // 아직 듣는 중
         service.release()
         await task?.value
     }
@@ -383,6 +396,20 @@ struct CareCallViewModelTests {
         service.release()
         for _ in 0..<1_000 where conversation.isCalling { await Task.yield() }
         #expect(!conversation.isCalling)
+    }
+
+    @Test func 받기를_누르면_인사가_들어간_첫_문장을_바로_보여_주고_통화한다() async {
+        await enterVoiceCall()
+        let opening = "안녕하세요. 지금부터 AI 음성으로 오늘 몸 상태를 여쭤볼게요. 오늘 컨디션은 어떠세요?"
+        service.voiceOpening = opening
+        service.activities = [.speaking(opening)]
+        service.hold = .call
+        viewModel.open()
+        await waitUntilHolding()
+        #expect(conversation.question?.text == opening)
+        #expect(conversation.voiceState == .aiSpeaking)
+        service.release()
+        for _ in 0..<1_000 where conversation.isCalling { await Task.yield() }
     }
 
     @Test func 통화를_걸기_전에_떠나면_걸지_않는다() async {
