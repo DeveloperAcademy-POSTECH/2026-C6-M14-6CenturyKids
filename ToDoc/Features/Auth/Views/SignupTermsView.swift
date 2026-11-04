@@ -72,7 +72,7 @@ struct SignupTermsView: View {
             Text("현재 입력을 지우고 처음부터 작성합니다. 기존 계정은 그대로 유지됩니다.")
         }
         .sheet(isPresented: $showsTerms) {
-            TermsWebView()
+            DocumentWebView(title: LegalDocument.terms.title, address: LegalDocument.terms.address)
                 .ignoresSafeArea()
         }
     }

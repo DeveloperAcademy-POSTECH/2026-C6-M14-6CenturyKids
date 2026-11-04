@@ -4,6 +4,7 @@ struct SettingsView: View {
     @State private var state: SettingsScreenState
     @State private var showsPasswordChangeNotice = false
     @State private var showsLogoutConfirmation = false
+    @State private var selectedDocument: LegalDocument?
     private let onPersonalInfo: (() -> Void)?
     private let onCancerType: (() -> Void)?
     private let onCancerStage: (() -> Void)?
@@ -93,6 +94,16 @@ struct SettingsView: View {
                 SettingsSection(title: "기타") {
                     NavigationLink { notificationSettings() } label: { SettingsRow(title: "알림 설정", chevron: true) }
                     SettingsDivider()
+                    Button { selectedDocument = .terms } label: {
+                        SettingsRow(title: LegalDocument.terms.title, chevron: true)
+                    }
+                    .accessibilityIdentifier("settings.terms")
+                    SettingsDivider()
+                    Button { selectedDocument = .privacy } label: {
+                        SettingsRow(title: LegalDocument.privacy.title, chevron: true)
+                    }
+                    .accessibilityIdentifier("settings.privacy")
+                    SettingsDivider()
                     NavigationLink { OpenSourceLicensesView() } label: { SettingsRow(title: "오픈소스 라이선스", chevron: true) }
                         .accessibilityIdentifier("settings.licenses")
                     SettingsDivider()
@@ -105,6 +116,10 @@ struct SettingsView: View {
             .alert("비밀번호 변경을 위한 인증코드를 가입한 이메일로 보내드릴게요.", isPresented: $showsPasswordChangeNotice) {
                 Button("취소", role: .cancel) {}
                 Button("확인") { onPasswordChange?() }
+            }
+            .sheet(item: $selectedDocument) { document in
+                DocumentWebView(title: document.title, address: document.address)
+                    .ignoresSafeArea()
             }
             .onAppear { state.onReload?() }
             .onDisappear { state.onCancel?() }
