@@ -21,13 +21,14 @@ extension AppNavigation {
             func makeBody(configuration: Configuration) -> some View {
                 GeometryReader { geometry in
                     RoundedRectangle(cornerRadius: 24)
-                        .fill(AppColors.Semantic.Primary.default)
+                        // Figma indicator/active(#AEE554)와 같은 값입니다.
+                        .fill(AppColors.Semantic.Primary.pressed)
                         .frame(width: geometry.size.width * (configuration.fractionCompleted ?? 0))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(AppColors.Semantic.Background.secondary)
                         .clipShape(RoundedRectangle(cornerRadius: 24))
                 }
-                .frame(height: 16)
+                .frame(height: 8)
             }
         }
     }
