@@ -1,10 +1,12 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.openURL) private var openURL
     @State private var state: SettingsScreenState
     @State private var showsPasswordChangeNotice = false
     @State private var showsLogoutConfirmation = false
     @State private var selectedDocument: LegalDocument?
+    @State private var showsSupportError = false
     private let onPersonalInfo: (() -> Void)?
     private let onCancerType: (() -> Void)?
     private let onCancerStage: (() -> Void)?
@@ -104,6 +106,11 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settings.privacy")
                     SettingsDivider()
+                    Button(action: openCustomerSupport) {
+                        SettingsRow(title: "고객지원", chevron: true)
+                    }
+                    .accessibilityIdentifier("settings.support")
+                    SettingsDivider()
                     NavigationLink { OpenSourceLicensesView() } label: { SettingsRow(title: "오픈소스 라이선스", chevron: true) }
                         .accessibilityIdentifier("settings.licenses")
                     SettingsDivider()
@@ -117,6 +124,11 @@ struct SettingsView: View {
                 Button("취소", role: .cancel) {}
                 Button("확인") { onPasswordChange?() }
             }
+            .alert("고객지원 페이지를 열 수 없어요", isPresented: $showsSupportError) {
+                Button("확인", role: .cancel) {}
+            } message: {
+                Text("잠시 후 다시 시도해 주세요.")
+            }
             .sheet(item: $selectedDocument) { document in
                 DocumentWebView(title: document.title, address: document.address)
                     .ignoresSafeArea()
@@ -124,6 +136,16 @@ struct SettingsView: View {
             .onAppear { state.onReload?() }
             .onDisappear { state.onCancel?() }
     }
+    private func openCustomerSupport() {
+        guard let url = URL(string: "https://forms.gle/QhVp3MZ3d7PT3Dav5") else {
+            showsSupportError = true
+            return
+        }
+        openURL(url) { accepted in
+            showsSupportError = !accepted
+        }
+    }
+
     private var avatar: some View {
         SettingsProfileAvatar(size: 64)
     }
