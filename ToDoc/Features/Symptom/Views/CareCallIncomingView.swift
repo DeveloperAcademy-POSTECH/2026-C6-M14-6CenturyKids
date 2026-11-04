@@ -43,13 +43,21 @@ struct CareCallIncomingView: View {
         .overlay(alignment: .top) {
             Image("CareCallGlow").padding(.top, 200)
         }
+        .overlay(alignment: .top) {
+            CareCallCharacterVideo(name: "CareCallHello", isPlaying: canAnswer)
+                .frame(width: 382, height: 453)
+                .padding(.top, 247)
+        }
         .overlay(alignment: .bottom) {
-            LinearGradient(stops: [
+            let fade = LinearGradient(stops: [
                 .init(color: .white.opacity(0), location: 0),
                 .init(color: .white.opacity(0.95), location: 0.45),
                 .init(color: .white, location: 1)
             ], startPoint: .top, endPoint: .bottom)
-            .frame(height: 330)
+            Rectangle().fill(.ultraThinMaterial)
+                .mask(fade)
+                .overlay(fade)
+                .frame(height: 330)
         }
         .clipped()
         .accessibilityHidden(true)

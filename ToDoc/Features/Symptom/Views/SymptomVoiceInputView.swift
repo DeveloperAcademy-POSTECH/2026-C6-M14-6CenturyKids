@@ -14,6 +14,11 @@ struct SymptomVoiceInputView: View {
                 .padding(.top, 40)
             Spacer(minLength: 24)
             SymptomVoiceCard(transcript: transcript, state: voiceState)
+                .background(alignment: .top) {
+                    SymptomCharacterVideos(state: voiceState)
+                        .frame(width: 252, height: 400)
+                        .offset(y: -337)
+                }
                 .padding(.bottom, 79)
             AppActions.TextButton("글로 입력할게요") { onSwitchToText?() }
                 .disabled(onSwitchToText == nil)
@@ -30,6 +35,23 @@ struct SymptomVoiceInputView: View {
             .ignoresSafeArea()
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+private struct SymptomCharacterVideos: View {
+    let state: SymptomVoiceState
+
+    var body: some View {
+        ZStack {
+            video("CareCallSpeaking", for: .aiSpeaking)
+            video("CareCallNodding", for: .patientSpeaking)
+            video("CareCallThinking", for: .thinking)
+        }
+    }
+
+    private func video(_ name: String, for owner: SymptomVoiceState) -> some View {
+        CareCallCharacterVideo(name: name, isPlaying: state == owner)
+            .opacity(state == owner ? 1 : 0)
     }
 }
 

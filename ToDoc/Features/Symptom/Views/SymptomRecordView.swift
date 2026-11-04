@@ -3,7 +3,6 @@ import UIKit
 
 struct SymptomRecordView: View {
     @State var state = SymptomScreenState()
-    /// 대화 중 종료하기를 눌러 기록 중단 팝업을 띄움
     @State private var confirmsEnd = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -20,7 +19,8 @@ struct SymptomRecordView: View {
                 SymptomSummaryLoadingView()
             } else if let question = state.question {
                 SymptomConversationContent(state: state, question: question, onEnd: askEnd,
-                    onSwitch: { state.onAction?(.switchMode($0)) }).id(question.id)
+                    onSwitch: { state.onAction?(.switchMode($0)) })
+                    .id(state.mode == .voice ? nil : question.id)
                     .overlay { popup }
             } else if state.errorMessage != nil, !state.isWorking {
                 SymptomServiceErrorView(onRetry: state.onAction.map { action in { action(.start) } },
@@ -34,7 +34,6 @@ struct SymptomRecordView: View {
             .onDisappear { state.onAction?(.cancel) }
     }
 
-    /// 질문 화면 위에 띄우는 팝업. 응급 → 기록 중단 → 오류 순으로 하나만
     @ViewBuilder
     private var popup: some View {
         if state.isEmergency {
@@ -100,7 +99,6 @@ private struct SymptomConversationContent: View {
             }
         }
         .onAppear {
-            // 이전 질문으로 돌아오면 그때 한 답을 다시 채운다
             if case .frequency(let value) = state.restoredAnswer { frequency = value }
         }
     }
