@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Figma 증상 대화 음성(1766:28140 듣는 중, 1766:28153 정리 중). 통화는 화면에 들어오고 1초 뒤 자동으로 걸립니다.
-/// 가운데 캐릭터 영상 자리는 아직 비워 둡니다.
+/// 카드 뒤에서 학로 영상이 차례(voiceState)에 맞춰 바뀝니다.
 struct SymptomVoiceInputView: View {
     let question: SymptomConversationQuestion
     var transcript = ""
@@ -15,9 +15,14 @@ struct SymptomVoiceInputView: View {
             AppNavigation.QuestionHeader(question.text, sub: question.guidance,
                                          progress: question.progress ?? 0, onClose: onEnd ?? {})
                 .padding(.top, 40)
-            // 캐릭터 영상 자리 (voiceState별 영상은 다음 작업)
             Spacer(minLength: 24)
             SymptomVoiceCard(transcript: transcript, state: voiceState)
+                .background(alignment: .top) {
+                    // Figma에서 머리 위가 카드 위 337 위, 다리는 카드 뒤로 들어간다 (영상 680×1080)
+                    SymptomCharacterVideos(state: voiceState)
+                        .frame(width: 252, height: 400)
+                        .offset(y: -337)
+                }
                 .padding(.bottom, 79)
             // Figma Bottom Action의 보조 액션 글자. 누르는 영역 44는 위아래로 겹친다
             AppActions.TextButton("글로 입력할게요") { onSwitchToText?() }
@@ -35,6 +40,24 @@ struct SymptomVoiceInputView: View {
             .ignoresSafeArea()
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+/// 차례별 영상 3개를 미리 띄워 두고 지금 차례만 보이고 재생한다 (바뀔 때 빈 화면이 생기지 않게)
+private struct SymptomCharacterVideos: View {
+    let state: SymptomVoiceState
+
+    var body: some View {
+        ZStack {
+            video("CareCallSpeaking", for: .aiSpeaking)
+            video("CareCallNodding", for: .patientSpeaking)
+            video("CareCallThinking", for: .thinking)
+        }
+    }
+
+    private func video(_ name: String, for owner: SymptomVoiceState) -> some View {
+        CareCallCharacterVideo(name: name, isPlaying: state == owner)
+            .opacity(state == owner ? 1 : 0)
     }
 }
 
