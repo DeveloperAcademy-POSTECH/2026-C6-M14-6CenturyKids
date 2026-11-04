@@ -156,7 +156,7 @@ struct FollowUpCallTests {
         #expect(kept?.presence == .present && kept?.needsReview == true)
         #expect(kept?.otherName == "좀 안 좋아졌어요 / 그냥 전반적으로요")
         #expect(next.phase == .other)
-        #expect(!next.utterance.hasPrefix(config.followUpCall.noted)) // 물을 증상이 없으니 "조금 더 여쭤볼게요"는 붙이지 않는다
+        #expect(!next.utterance.hasPrefix(config.followUpCall.noted)) // 물을 증상이 없으니 "조금 더 물어볼게요"는 붙이지 않는다
     }
 
     @Test func 전에_있던_증상이_없어졌다고_하면_되묻지_않고_그_밖에를_묻는다() async {

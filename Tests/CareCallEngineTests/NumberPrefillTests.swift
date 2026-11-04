@@ -49,7 +49,7 @@ struct NumberPrefillTests {
         let call = await ask("neuropathy")
         let next = await call.handle(patientText: "네 한 30분씩 저려요")
         #expect(next.phase == .slot(key: "neuropathy", step: .detail))
-        #expect(next.utterance.contains("언제부터 그랬나요?"))
+        #expect(next.utterance.contains("언제부터 그러셨어요?"))
     }
 
     @Test(arguments: [

@@ -465,7 +465,7 @@ final class InterviewEngine {
         if current == .opening, let unasked {
             // 다시 거는 통화: 말한 증상·못 물은 항목을 묻는다고 알리거나, 달라진 게 없으면 그대로 둔다고 말하고 마무리
             let f = config.followUpCall
-            // 기타 증상만 말했으면 곧바로 '그 밖에'로 가므로 "말씀하신 증상에 대해 조금 더 여쭤볼게요"는 붙이지 않는다
+            // 기타 증상만 말했으면 곧바로 '그 밖에'로 가므로 "말씀하신 증상에 대해 조금 더 물어볼게요"는 붙이지 않는다
             let toldListedSymptom = ledger.order.contains { knownIds.contains($0) && ledger[$0]?.presence == .present }
             // 목록 밖 증상만 말하고 바로 '그 밖에'를 물으면 말을 듣지 않은 것 같다 (2026-10-29 팀 테스트: "배가 며칠 전부터 아팠던 거 같아요")
             let toldOther = ledger.order.contains { $0.hasPrefix("other:") && ledger[$0]?.presence == .present && before[$0] == nil }

@@ -74,7 +74,7 @@ struct PendingCareCallTests {
         let viewModel = makeViewModel()
         await viewModel.prepare()?.value
         service.progress = record(.constipation)
-        service.activities = [.speaking("오늘 컨디션은 어떠세요?"), .heard("변비가 있어요"), .speaking("언제부터 그랬나요?")]
+        service.activities = [.speaking("오늘 컨디션은 어떠세요?"), .heard("변비가 있어요"), .speaking("언제부터 그러셨어요?")]
         service.hold = .call
         viewModel.conversation.onAction?(.switchMode(.voice))
         let call = viewModel.start()
@@ -114,7 +114,7 @@ struct PendingCareCallTests {
         let first = makeViewModel()
         await enterText(first)
         service.progress = record(.oralPain)
-        service.replies = [turn("언제부터 그랬나요?")]
+        service.replies = [turn("언제부터 그러셨어요?")]
         await first.answer(.text("입안이 헐었어요"))?.value
         // 여기서 앱이 꺼짐: 끝내는 코드가 불리지 않는다
 

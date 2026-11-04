@@ -181,7 +181,7 @@ struct CareCallConfig: Decodable, Sendable {
     }
 
     struct FollowUpCall: Decodable, Sendable {
-        /// 첫 질문 ("다시 연결됐어요. 아까 통화 뒤로 달라졌거나 새로 불편해진 점이 있으세요?")
+        /// 첫 질문 ("다시 연결됐어요. 아까 통화 뒤로 달라지거나 새로 불편한 점 있으세요?")
         let question: String
         /// 첫 답에서 무엇이 달라졌는지 말하지 않았을 때 한 번 되묻는 말
         let followUp: String

@@ -63,7 +63,7 @@ struct CareCallTextModeTests {
 
     @Test func 횟수_질문이면_횟수_칸을_보이고_답을_문장으로_넘긴다() async {
         await enterText()
-        service.replies = [turn("구토는 하루에 몇 번 정도 하셨나요?", .count), turn("언제부터 그랬나요?"), turn("변비는 있으셨나요?")]
+        service.replies = [turn("구토는 하루에 몇 번 정도 하셨나요?", .count), turn("언제부터 그러셨어요?"), turn("변비는 있으셨나요?")]
         await viewModel.answer(.text("  어제 좀 토했어요 "))?.value
         #expect(conversation.question?.input == .frequency)
         await viewModel.answer(.frequency(.tenPlus))?.value
