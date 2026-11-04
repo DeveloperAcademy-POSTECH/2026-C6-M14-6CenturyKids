@@ -19,8 +19,10 @@ struct SymptomRecordView: View {
             } else if state.isSummarizing {
                 SymptomSummaryLoadingView()
             } else if let question = state.question {
+                // 문자는 질문마다 입력 칸을 새로 만든다. 음성은 화면을 두고 내용만 바꾼다 (캐릭터 영상을 다시 불러오지 않게)
                 SymptomConversationContent(state: state, question: question, onEnd: askEnd,
-                    onSwitch: { state.onAction?(.switchMode($0)) }).id(question.id)
+                    onSwitch: { state.onAction?(.switchMode($0)) })
+                    .id(state.mode == .voice ? nil : question.id)
                     .overlay { popup }
             } else if state.errorMessage != nil, !state.isWorking {
                 SymptomServiceErrorView(onRetry: state.onAction.map { action in { action(.start) } },
