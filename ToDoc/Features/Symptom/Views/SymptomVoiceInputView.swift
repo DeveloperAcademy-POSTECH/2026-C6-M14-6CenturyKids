@@ -1,11 +1,8 @@
 import SwiftUI
 
-/// Figma 증상 대화 음성(1766:28140 듣는 중, 1766:28153 정리 중). 통화는 화면에 들어오고 1초 뒤 자동으로 걸립니다.
-/// 카드 뒤에서 학로 영상이 차례(voiceState)에 맞춰 바뀝니다.
 struct SymptomVoiceInputView: View {
     let question: SymptomConversationQuestion
     var transcript = ""
-    /// 지금 누구 차례인지. 캐릭터 영상도 이 값으로 고른다
     var voiceState = SymptomVoiceState.thinking
     var onEnd: (() -> Void)?
     var onSwitchToText: (() -> Void)?
@@ -24,7 +21,6 @@ struct SymptomVoiceInputView: View {
                         .offset(y: -337)
                 }
                 .padding(.bottom, 79)
-            // Figma Bottom Action의 보조 액션 글자. 누르는 영역 44는 위아래로 겹친다
             AppActions.TextButton("글로 입력할게요") { onSwitchToText?() }
                 .disabled(onSwitchToText == nil)
                 .padding(.vertical, -12.5)
@@ -43,7 +39,6 @@ struct SymptomVoiceInputView: View {
     }
 }
 
-/// 차례별 영상 3개를 미리 띄워 두고 지금 차례만 보이고 재생한다 (바뀔 때 빈 화면이 생기지 않게)
 private struct SymptomCharacterVideos: View {
     let state: SymptomVoiceState
 
@@ -61,14 +56,12 @@ private struct SymptomCharacterVideos: View {
     }
 }
 
-/// 환자 말 카드. 말하기 전 안내 → 듣는 중(곧 넘어가요) → 정리 중(초록 테두리)
 private struct SymptomVoiceCard: View {
     let transcript: String
     let state: SymptomVoiceState
 
     private static let green = Color(red: 149 / 255, green: 217 / 255, blue: 40 / 255)
 
-    /// 환자 말을 다 듣고 정리하는 중. 첫 질문을 준비할 때는 들은 말이 없어 안내 문구를 보여 준다
     private var isWorking: Bool { state == .thinking && !transcript.isEmpty }
 
     var body: some View {
@@ -85,7 +78,6 @@ private struct SymptomVoiceCard: View {
                 }
             }
             .appTypography(.labelLarge)
-            // 보이는 2줄. 길어지면 앞을 줄여 지금 하는 말이 보이게
             .lineLimit(2)
             .truncationMode(.head)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -114,8 +106,6 @@ private struct SymptomVoiceCard: View {
     }
 }
 
-/// 남은 시간 원. 바퀴가 duration 동안 줄어들기를 되풀이한다.
-// ponytail: 실제 침묵 시간과 맞추지 않은 표시용. 말이 멈춘 순간부터 줄이려면 음성 어댑터의 침묵 시작 신호가 필요
 private struct SymptomRemainingCircle: View {
     let color: Color
     let duration: Double
@@ -138,7 +128,6 @@ private struct SymptomRemainingCircle: View {
     }
 }
 
-/// 정리 중인 말 위로 초록 빛이 왼쪽에서 오른쪽으로 지나간다 (Figma 30–45–60% 띠)
 private struct SymptomShimmerText: View {
     let text: String
     let highlight: Color
@@ -146,7 +135,6 @@ private struct SymptomShimmerText: View {
 
     var body: some View {
         TimelineView(.animation(paused: reduceMotion)) { context in
-            // 띠가 1.6초마다 글 왼쪽 밖에서 오른쪽 밖으로 지나간다
             let phase = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
                 .truncatingRemainder(dividingBy: 1.6) / 1.6 * 2 - 1
             Text(text).foregroundStyle(LinearGradient(stops: [

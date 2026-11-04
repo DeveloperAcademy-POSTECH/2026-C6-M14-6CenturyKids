@@ -7,7 +7,6 @@ extension AppNavigation {
         private let progress: Double?
         private let onClose: (() -> Void)?
 
-        /// onClose를 주면 진행 바 왼쪽에 닫기(X)를 둡니다 (Figma Show Close).
         init(_ question: String, sub: String? = nil, progress: Double? = nil, onClose: (() -> Void)? = nil) {
             self.question = question
             self.sub = sub
@@ -20,7 +19,6 @@ extension AppNavigation {
                 if progress != nil || onClose != nil {
                     HStack(spacing: 16) {
                         if let onClose {
-                            // 보이는 칸은 24×8이고 아이콘은 위아래로 넘칩니다. 누르는 영역은 44×44
                             SwiftUI.Button("닫기", systemImage: "xmark", action: onClose)
                                 .labelStyle(.iconOnly)
                                 .font(.system(size: 17, weight: .medium))

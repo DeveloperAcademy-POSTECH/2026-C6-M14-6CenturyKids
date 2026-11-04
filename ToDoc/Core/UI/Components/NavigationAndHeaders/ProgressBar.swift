@@ -21,7 +21,6 @@ extension AppNavigation {
             func makeBody(configuration: Configuration) -> some View {
                 GeometryReader { geometry in
                     RoundedRectangle(cornerRadius: 24)
-                        // Figma indicator/active(#AEE554)와 같은 값입니다.
                         .fill(AppColors.Semantic.Primary.pressed)
                         .frame(width: geometry.size.width * (configuration.fractionCompleted ?? 0))
                         .frame(maxWidth: .infinity, alignment: .leading)

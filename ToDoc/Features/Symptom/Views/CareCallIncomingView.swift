@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Figma 1766:28104의 수신 화면. 준비/권한 정책은 상위 ViewModel에서 결정합니다.
-/// 가운데에서 학로가 손을 흔드는 인사 영상을 통화 준비가 끝나면 반복 재생합니다.
 struct CareCallIncomingView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -37,7 +35,6 @@ struct CareCallIncomingView: View {
         .onAppear { if !reduceMotion { isRinging = true } }
     }
 
-    /// 배경 · 캐릭터 뒤 빛 · 인사 영상 · 아래 흰 덮개. 화면 크기에 영향을 주지 않게 배경으로 그린다
     private var backdrop: some View {
         LinearGradient(stops: [
             .init(color: Color(red: 239 / 255, green: 251 / 255, blue: 212 / 255), location: 0),
@@ -54,7 +51,6 @@ struct CareCallIncomingView: View {
                 .padding(.top, 247)
         }
         .overlay(alignment: .bottom) {
-            // 아래 버튼이 영상 위에서도 읽히게 흐리게 하고 흰색으로 덮는다 (Figma backdrop blur 15)
             let fade = LinearGradient(stops: [
                 .init(color: .white.opacity(0), location: 0),
                 .init(color: .white.opacity(0.95), location: 0.45),
@@ -112,7 +108,6 @@ struct CareCallIncomingView: View {
                         fill: AppColors.Semantic.Primary.default, labelColor: AppColors.Semantic.Text.default,
                         action: canAnswer ? onAnswer : nil)
                     .background(alignment: .top) {
-                        // 받을 수 있을 때만 받기 둘레 빛이 퍼진다
                         Image("CareCallRing")
                             .scaleEffect(isRinging ? 1 : 0.8)
                             .opacity(canAnswer ? 1 : 0)
@@ -149,6 +144,6 @@ struct CareCallIncomingView: View {
     }
 }
 
-#Preview("Figma 수신 화면") {
+#Preview("수신 화면") {
     CareCallIncomingView(canAnswer: true, onAnswer: {}, onEnd: {}, onPostpone: {}, onSwitchToText: {})
 }
