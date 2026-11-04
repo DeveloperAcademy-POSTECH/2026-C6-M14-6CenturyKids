@@ -76,10 +76,10 @@ final class CareCallViewModel {
     private var callAfterTyping = false
     /// 기록 중단 팝업을 띄워 통화를 잠시 끊음 (계속 작성하면 다시 건다)
     private var paused = false
-    /// 음성 화면에 들어온 뒤 잠깐 두었다가 거는 통화 (그사이 떠나거나 바꾸거나 멈추면 취소)
+    /// 음성 화면에 들어오면 첫 문장을 보여 주고 거는 통화 (걸기 전에 떠나거나 바꾸거나 멈추면 취소)
     private var autoStart: Task<Void, Never>?
-    /// 첫 질문을 보여 주고 통화를 걸 때까지 기다리는 시간 (테스트는 줄인다)
-    var autoStartDelay: Duration = .seconds(1)
+    /// 첫 문장을 보여 주고 통화를 걸 때까지 기다리는 시간. 받기를 누르면 바로 건다 (테스트는 늘려 걸기 전 상태를 본다)
+    var autoStartDelay: Duration = .zero
     /// 이 대화에서 응급으로 판단된 적이 있음. 이어 간 뒤에도 그 말을 버리지 않고 그날 기록에 더한다
     private var hadEmergency = false
     private var saving: Task<Void, Never>?
@@ -247,14 +247,18 @@ final class CareCallViewModel {
         return false
     }
 
-    /// 대화 화면에 들어오면 불린다. 음성은 첫 질문을 보여 주고 autoStartDelay(1초) 뒤에 통화를 건다
+    /// 대화 화면에 들어오면 불린다. 음성은 AI가 처음 말할 문장(인사 포함)을 바로 보여 주고 통화를 건다
     @discardableResult
     func open() -> Task<Void, Never>? {
         guard conversation.mode == .voice else { return start() }
         guard !began, call == nil, typing == nil, !isOver else { return nil }
         conversation.errorMessage = nil
         conversation.isWorking = true
-        let opening = typing(beginConversation) { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
+        let opening = typing({ [self] in
+            var turn = try await beginConversation()
+            turn.utterance = service.voiceOpening ?? turn.utterance
+            return turn
+        }) { "대화를 준비하지 못했어요. 다시 시도해 주세요." }
         let task = Task {
             await opening.value
             guard (try? await Task.sleep(for: autoStartDelay)) != nil, autoStart != nil else { return }
@@ -573,7 +577,8 @@ final class CareCallViewModel {
         case .speaking(let text):
             keep(service.progress) // 답을 분석한 뒤 다음 질문을 말한다
             let turn = service.current
-            conversation.question = question(text, of: turn, input: .text)
+            // 들어올 때 이미 보여 준 첫 문장이면 그대로 둔다 (화면과 캐릭터 영상을 다시 만들지 않게)
+            if conversation.question?.text != text { conversation.question = question(text, of: turn, input: .text) }
             // 마무리 인사를 하는 동안 정리 화면을 보여 준다
             if case .completed? = turn?.outcome { conversation.isSummarizing = true }
             conversation.transcript = ""

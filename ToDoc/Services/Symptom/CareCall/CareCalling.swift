@@ -26,6 +26,8 @@ protocol CareCalling: AnyObject {
     func begin(patientId: UUID, previous: SymptomRecord?) throws -> CareCallTurn
     /// 답을 기다리는 지금 질문 (대화 전이면 nil)
     var current: CareCallTurn? { get }
+    /// 음성 통화가 이어서 처음 말할 문장. 이 대화에서 아직 인사하지 않았으면 AI 음성 안내 + 지금 질문 (대화 전이면 nil)
+    var voiceOpening: String? { get }
     /// 지금까지 받은 답으로 만든 기록 (대화 전이거나 받은 답이 없으면 nil). 앱이 꺼져도 남도록 답마다 폰에 남길 때 쓴다
     var progress: SymptomRecord? { get }
     /// 지금 대화를 음성 통화로 이어 간다 (지금 질문부터 말한다). 끝까지 가면 저장할 기록을 돌려준다

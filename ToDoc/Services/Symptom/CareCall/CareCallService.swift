@@ -71,6 +71,10 @@ final class CareCallService: CareCalling {
         return turn(conversation.engine.start(), of: conversation)
     }
 
+    var voiceOpening: String? {
+        conversation.map { noticed ? $0.engine.lastQuestion : config.aiVoiceNotice + " " + $0.engine.lastQuestion }
+    }
+
     var current: CareCallTurn? {
         conversation.map { turn(InterviewEngine.Output(utterance: $0.engine.lastQuestion, phase: $0.engine.phase), of: $0) }
     }
@@ -169,7 +173,7 @@ final class CareCallService: CareCalling {
 
     private func converse(engine: InterviewEngine, onActivity: @escaping (CareCallActivity) -> Void) async throws -> InterviewPhase {
         var out = InterviewEngine.Output(utterance: engine.lastQuestion, phase: engine.phase)
-        let opening = noticed ? out.utterance : config.aiVoiceNotice + " " + out.utterance
+        let opening = voiceOpening ?? out.utterance
         noticed = true
         // 첫 질문을 말하는 동안 마이크를 미리 켠다: 바로 대답해도 말 앞부분을 놓치지 않고,
         // 엔진을 켤 때의 메인 스레드 멈춤(iPhone 17 약 0.3초)이 듣기 시작하는 순간이 아니라 AI가 말하기 전에 생긴다
