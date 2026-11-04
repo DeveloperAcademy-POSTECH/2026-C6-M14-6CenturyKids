@@ -5,10 +5,10 @@
       "id": "nausea_vomiting",
       "name": "오심·구토",
       "spokenName": "구토나 메스꺼움",
-      "ask": "구토를 하시거나 속이 메스꺼우신 적이 있으셨나요?",
+      "ask": "토하시거나 속이 메스꺼운 적 있으셨어요?",
       "details": [
         {"label": "구토 횟수", "question": "구토는 하루에 몇 번 정도 하셨나요?", "number": "count", "keywords": ["토", "게우", "게웠", "올렸"]},
-        {"label": "메스꺼움 시작", "question": "메스꺼움은 언제부터 그랬나요?", "keywords": ["메스", "메슥", "울렁"]}
+        {"label": "메스꺼움 시작", "question": "언제부터 그러셨어요?", "keywords": ["메스", "메슥", "울렁"]}
       ],
       "keywords": [
         "토",
@@ -30,7 +30,7 @@
       "spokenName": "변비",
       "ask": "변을 보기 힘들거나 변비가 있으셨나요?",
       "details": [
-        {"label": "시작", "question": "언제부터 그랬나요?"}
+        {"label": "시작", "question": "언제부터 그러셨어요?"}
       ],
       "keywords": [
         "변비",
@@ -65,7 +65,7 @@
       "spokenName": "입안이 헐거나 아픈 것",
       "ask": "입안이 헐거나 아픈 곳이 있으세요?",
       "details": [
-        {"label": "시작", "question": "언제부터 그랬나요?"}
+        {"label": "시작", "question": "언제부터 그러셨어요?"}
       ],
       "keywords": [
         "입안",
@@ -86,7 +86,7 @@
       "spokenName": "손발 저림",
       "ask": "손이나 발이 저리거나 감각이 둔한 곳이 있으세요?",
       "details": [
-        {"label": "시작", "question": "언제부터 그랬나요?"}
+        {"label": "시작", "question": "언제부터 그러셨어요?"}
       ],
       "keywords": [
         "저려",
@@ -110,7 +110,7 @@
       "spokenName": "피부 발진이나 가려움",
       "ask": "피부에 발진이 생기거나 가려운 곳이 있으세요?",
       "details": [
-        {"label": "시작", "question": "언제부터 그랬나요?"}
+        {"label": "시작", "question": "언제부터 그러셨어요?"}
       ],
       "keywords": [
         "피부",
@@ -153,17 +153,17 @@
       "requiresLocation": false
     }
   ],
-  "aiVoiceNotice": "안녕하세요. 지금부터 AI 음성으로 오늘 몸 상태를 여쭤볼게요.",
+  "aiVoiceNotice": "안녕하세요. 지금부터 AI 음성으로 오늘 몸 상태를 물어볼게요.",
   "openingQuestion": "오늘 컨디션은 어떠세요?",
   "openingFollowUp": "어디가 어떻게 불편하신지 말씀해 주시겠어요?",
   "onsetWords": ["어제", "그제", "그저께", "엊그제", "오늘", "며칠", "이틀", "사흘", "나흘", "일주일", "지난주", "지난달", "저번", "아까", "방금", "부터", "째", "동안"],
   "followUpCall": {
     "followUp": "어떤 점이 달라지셨는지 말씀해 주시겠어요?",
-    "question": "다시 연결됐어요. 아까 통화 뒤로 달라졌거나 새로 불편해진 점이 있으세요?",
+    "question": "다시 연결됐어요. 아까 통화 뒤로 달라지거나 새로 불편한 점 있으세요?",
     "unchangedAnswers": ["똑같", "그대로", "비슷", "마찬가지", "변함없", "변화없", "별다른거", "랑 같", "하고 같", "와 같", "과 같", "여전", "멀쩡", "아무렇지"],
-    "noted": "알겠어요. 말씀하신 증상에 대해 조금 더 여쭤볼게요.",
-    "resume": "알겠어요. 아까 다 여쭤보지 못한 것을 이어서 여쭤볼게요.",
-    "notedAndResume": "알겠어요. 말씀하신 증상과 아까 다 여쭤보지 못한 것을 이어서 여쭤볼게요.",
+    "noted": "알겠어요. 말씀하신 증상에 대해 조금 더 물어볼게요.",
+    "resume": "알겠어요. 아까 못 물어본 것을 이어서 물어볼게요.",
+    "notedAndResume": "알겠어요. 말씀하신 증상과 아까 못 물어본 것을 이어서 물어볼게요.",
     "unchanged": "알겠어요. 오늘 기록은 그대로 둘게요.",
     "notedOther": "알겠어요, 기억해 둘게요.",
     "unclearName": "달라진 점",
@@ -220,10 +220,10 @@
   ],
   "otherQuestion": "그 밖에 더 불편하신 점 있으세요?",
   "otherFollowUp": "어떤 점이 불편하신지 말씀해 주시겠어요?",
-  "repeatPrefix": "죄송해요, 다시 한 번 여쭤볼게요.",
-  "returnPrefix": "{name}에 대해 여쭤볼게요.",
+  "repeatPrefix": "죄송해요, 다시 한 번 물어볼게요.",
+  "returnPrefix": "{name}에 대해 물어볼게요.",
   "notedOtherPrefix": "말씀하신 {name}도 기록해 둘게요.",
-  "mentionedPrefix": "아까 말씀하신 {name}에 대해 조금 더 여쭤볼게요.",
+  "mentionedPrefix": "아까 말씀하신 {name}에 대해 조금 더 물어볼게요.",
   "otherDetail": {"question": "언제부터 그러셨어요?", "label": "시작", "recorded": "알겠어요, 기록해 둘게요."},
   "locationPrompt": "어느 부위에 그런 증상이 있으세요?",
   "noPrefixes": [

@@ -50,11 +50,11 @@ struct EngineGuardTests {
         // 식사 질문 중 구내염이 새로 기록됨 → 구내염 시작 시점으로 돌아간다
         let out = await engine.handle(patientText: "입이 아파서요")
         #expect(engine.phase == .slot(key: "stomatitis", step: .detail))
-        #expect(out.utterance.hasPrefix("입안이 헐거나 아픈 것에 대해 여쭤볼게요. "))
+        #expect(out.utterance.hasPrefix("입안이 헐거나 아픈 것에 대해 물어볼게요. "))
         // 구내염을 마치면 아까 묻던 식사(이유 답으로 있음)의 섭취량으로 돌아가며 다시 이름을 먼저 말한다
         let next = await engine.handle(patientText: "어제부터요")
         #expect(engine.phase == .slot(key: "dehydration_nutrition", step: .detail))
-        #expect(next.utterance.contains("에 대해 여쭤볼게요"))
+        #expect(next.utterance.contains("에 대해 물어볼게요"))
     }
 
     /// 2026-10-08 평가: 구토 질문의 답 "음 좀 어지러웠어요 속이"를 근거로 모델이 식사를 '없음'으로 채워 식사 질문이 빠짐
@@ -84,11 +84,11 @@ struct EngineGuardTests {
         for _ in 0..<10 where engine.phase != .slot(key: "dehydration_nutrition", step: .presence) {
             _ = await engine.handle(patientText: "없어요")
         }
-        // 식사 질문 중 설사를 했다고 정정 → 설사 횟수로 돌아간다. 질문에 "설사"가 있어 "설사에 대해 여쭤볼게요"는 붙이지 않는다
+        // 식사 질문 중 설사를 했다고 정정 → 설사 횟수로 돌아간다. 질문에 "설사"가 있어 "설사에 대해 물어볼게요"는 붙이지 않는다
         let out = await engine.handle(patientText: "아 그러고 보니 설사를 했어요")
         #expect(engine.phase == .slot(key: "diarrhea", step: .detail))
         #expect(out.utterance.hasSuffix("설사는 하루에 몇 번 정도 하셨나요?"))
-        #expect(!out.utterance.contains("에 대해 여쭤볼게요"))
+        #expect(!out.utterance.contains("에 대해 물어볼게요"))
     }
 
     /// 2026-11-02 QA: 변비 질문에 설사만 말하면 "죄송해요, 다시 한 번"으로 되묻고, 변비에 답하자 바로 "설사는 하루에 몇 번…"
@@ -109,7 +109,7 @@ struct EngineGuardTests {
         let count = await engine.handle(patientText: "아니요")
         #expect(engine.ledger["constipation"]?.presence == .absent)
         #expect(engine.phase == .slot(key: "diarrhea", step: .detail))
-        #expect(count.utterance == "아까 말씀하신 설사에 대해 조금 더 여쭤볼게요. 설사는 하루에 몇 번 정도 하셨나요?")
+        #expect(count.utterance == "아까 말씀하신 설사에 대해 조금 더 물어볼게요. 설사는 하루에 몇 번 정도 하셨나요?")
     }
 
     /// 2026-10-08 기기: '그 밖에' 답 "뭐 있더라 잠을 잠 못 잡니다."를 모델이 비우고(따라 하기만) 기록 없이 마무리됨
@@ -185,7 +185,7 @@ struct EngineGuardTests {
         let out = await engine.handle(patientText: "아침에 속이 좀 메슥거렸어요")
         #expect(analyzer.calls == 2)
         #expect((engine.ledger["nausea_vomiting"]?.presence == .present) == answered)
-        #expect(out.utterance.contains("다시 한 번 여쭤볼게요") != answered)
+        #expect(out.utterance.contains("다시 한 번 물어볼게요") != answered)
     }
 }
 

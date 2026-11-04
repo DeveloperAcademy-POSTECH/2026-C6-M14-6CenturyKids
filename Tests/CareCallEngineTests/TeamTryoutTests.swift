@@ -55,7 +55,7 @@ struct TeamTryoutTests {
         let call = await atPresence(of: "nausea_vomiting")
         let next = await call.handle(patientText: answer)
         #expect(next.phase == .slot(key: "nausea_vomiting", step: .detail))
-        #expect(next.utterance.contains("메스꺼움은 언제부터"))
+        #expect(next.utterance.contains("언제부터") && !next.utterance.contains("몇 번")) // 구토 횟수가 아니라 메스꺼움 시작
         #expect(saved(call, .nauseaVomiting)?.presence == .present)
     }
 
