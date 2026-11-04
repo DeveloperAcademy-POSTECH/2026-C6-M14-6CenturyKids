@@ -311,6 +311,7 @@ final class CareCallViewModel {
         conversation.errorMessage = nil
         conversation.needsMicrophone = false
         conversation.isWorking = true // 첫 질문을 말하기 전까지
+        conversation.voiceState = .thinking
         conversation.isCalling = true
         let task = Task {
             if !preparation.canStart { await (prepare() ?? last)?.value }
@@ -335,7 +336,7 @@ final class CareCallViewModel {
                 failure = error
             }
             call = nil
-            conversation.isListening = false
+            conversation.voiceState = .thinking
             conversation.isWorking = false
             conversation.isCalling = false
             let switched = switchingMode
@@ -576,22 +577,22 @@ final class CareCallViewModel {
             // 마무리 인사를 하는 동안 정리 화면을 보여 준다
             if case .completed? = turn?.outcome { conversation.isSummarizing = true }
             conversation.transcript = ""
-            conversation.isListening = false
+            conversation.voiceState = .aiSpeaking
             conversation.isWorking = false
         case .listening:
-            conversation.isListening = true
+            conversation.voiceState = .patientSpeaking
         case .hearing(let text):
             conversation.transcript = text
         case .heard(let text):
             conversation.transcript = text
-            conversation.isListening = false
+            conversation.voiceState = .thinking
             conversation.isWorking = true // 분석 중
         }
     }
 
     private func finish(_ outcome: CareCallOutcome) {
         self.outcome = outcome
-        conversation.isListening = false
+        conversation.voiceState = .thinking
         conversation.isWorking = false
         conversation.isSummarizing = false
         switch outcome {
@@ -627,7 +628,7 @@ final class CareCallViewModel {
 
     private func finish(_ error: Error) {
         conversation.question = nil
-        conversation.isListening = false
+        conversation.voiceState = .thinking
         conversation.isWorking = false
         conversation.errorMessage = "통화 중 문제가 생겼어요. 다시 시도해 주세요."
     }

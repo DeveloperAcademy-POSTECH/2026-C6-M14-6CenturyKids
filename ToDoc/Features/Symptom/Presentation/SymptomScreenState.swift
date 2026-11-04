@@ -65,7 +65,8 @@ enum SymptomAction {
     var answerText = ""
     var transcript = ""
     var isWorking = false
-    var isListening = false
+    /// 음성 통화에서 지금 누구 차례인지 (캐릭터 영상을 고른다)
+    var voiceState: SymptomVoiceState = .thinking
     /// 음성 통화를 거는 중이거나 통화 중
     var isCalling = false
     var isSummarizing = false

@@ -82,7 +82,7 @@ struct ScreenCatalogPreview: View {
     }
     private func voiceState() -> SymptomScreenState {
         let state = conversationState()
-        state.mode = .voice; state.isListening = true; state.transcript = "어제부터 양쪽 손이 저렸어요."
+        state.mode = .voice; state.voiceState = .patientSpeaking; state.transcript = "어제부터 양쪽 손이 저렸어요."
         return state
     }
     private func symptomRecord(includesPresent: Bool = true) -> SymptomRecordDisplay {

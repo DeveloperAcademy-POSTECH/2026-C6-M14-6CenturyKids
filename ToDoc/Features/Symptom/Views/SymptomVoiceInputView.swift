@@ -5,9 +5,8 @@ import SwiftUI
 struct SymptomVoiceInputView: View {
     let question: SymptomConversationQuestion
     var transcript = ""
-    var isListening = false
-    /// 환자 말을 다 듣고 정리하는 중
-    var isWorking = false
+    /// 지금 누구 차례인지. 캐릭터 영상도 이 값으로 고른다
+    var voiceState = SymptomVoiceState.thinking
     var onEnd: (() -> Void)?
     var onSwitchToText: (() -> Void)?
 
@@ -16,8 +15,9 @@ struct SymptomVoiceInputView: View {
             AppNavigation.QuestionHeader(question.text, sub: question.guidance,
                                          progress: question.progress ?? 0, onClose: onEnd ?? {})
                 .padding(.top, 40)
+            // 캐릭터 영상 자리 (voiceState별 영상은 다음 작업)
             Spacer(minLength: 24)
-            SymptomVoiceCard(transcript: transcript, isListening: isListening, isWorking: isWorking)
+            SymptomVoiceCard(transcript: transcript, state: voiceState)
                 .padding(.bottom, 79)
             // Figma Bottom Action의 보조 액션 글자. 누르는 영역 44는 위아래로 겹친다
             AppActions.TextButton("글로 입력할게요") { onSwitchToText?() }
@@ -41,10 +41,12 @@ struct SymptomVoiceInputView: View {
 /// 환자 말 카드. 말하기 전 안내 → 듣는 중(곧 넘어가요) → 정리 중(초록 테두리)
 private struct SymptomVoiceCard: View {
     let transcript: String
-    let isListening: Bool
-    let isWorking: Bool
+    let state: SymptomVoiceState
 
     private static let green = Color(red: 149 / 255, green: 217 / 255, blue: 40 / 255)
+
+    /// 환자 말을 다 듣고 정리하는 중. 첫 질문을 준비할 때는 들은 말이 없어 안내 문구를 보여 준다
+    private var isWorking: Bool { state == .thinking && !transcript.isEmpty }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -65,7 +67,7 @@ private struct SymptomVoiceCard: View {
             .truncationMode(.head)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("symptom.transcript")
-            if !transcript.isEmpty, isWorking || isListening {
+            if isWorking || (state == .patientSpeaking && !transcript.isEmpty) {
                 HStack(spacing: 8) {
                     SymptomRemainingCircle(color: isWorking ? AppColors.Semantic.Text.action
                                                            : AppColors.Semantic.Text.default,
@@ -137,7 +139,7 @@ private struct SymptomShimmerText: View {
     SymptomVoiceInputView(question: .init(id: UUID(), text: "오늘 컨디션은 어떠세요?",
                                           guidance: "지금부터 AI음성으로 오늘 몸 상태를 여쭤볼게요.",
                                           progress: 0.25, input: .text),
-                          transcript: "어제 저녁부터 배가 살살 아프고 밤에 두 번 정도 깼어요", isListening: true,
+                          transcript: "어제 저녁부터 배가 살살 아프고 밤에 두 번 정도 깼어요", voiceState: .patientSpeaking,
                           onEnd: {}, onSwitchToText: {})
 }
 
@@ -145,7 +147,7 @@ private struct SymptomShimmerText: View {
     SymptomVoiceInputView(question: .init(id: UUID(), text: "배가 아픈 건 언제부터였나요?",
                                           guidance: "말씀해주신 내용에 대해 조금 더 여쭤볼게요",
                                           progress: 0.4, input: .text),
-                          transcript: "항암제를 맞고 이틀 정도 후 부터 아프기 시작한 것 같아요.", isWorking: true,
+                          transcript: "항암제를 맞고 이틀 정도 후 부터 아프기 시작한 것 같아요.", voiceState: .thinking,
                           onEnd: {}, onSwitchToText: {})
 }
 

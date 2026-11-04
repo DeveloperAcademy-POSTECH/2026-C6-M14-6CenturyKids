@@ -80,7 +80,7 @@ private struct SymptomConversationContent: View {
         Group {
             if state.mode == .voice {
                 SymptomVoiceInputView(question: question, transcript: state.transcript,
-                                      isListening: state.isListening, isWorking: state.isWorking,
+                                      voiceState: state.voiceState,
                                       onEnd: onEnd, onSwitchToText: { onSwitch(.text) })
             } else {
                 switch question.input {
