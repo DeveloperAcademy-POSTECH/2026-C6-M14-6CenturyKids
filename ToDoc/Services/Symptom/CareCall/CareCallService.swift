@@ -30,6 +30,8 @@ final class CareCallService: CareCalling {
     private var conversation: Conversation?
     /// 지금 대화에서 AI 음성 안내를 했음 (문자로 시작해 음성으로 바꿔도 처음 말할 때 한 번은 알린다)
     private var noticed = false
+    /// 환자 말을 듣고 다음 말을 하기까지 최소 시간. 분석이 빨리 끝나도 고민하는 영상(약 5초)이 턱을 괴다 끊기지 않게 기다린다
+    private let minimumThinking: Duration = .seconds(5)
 
     init(config: CareCallConfig, rules: EmergencyRules, bodyParts: BodyPartDictionary, recorder: AudioRecorder, recognizer: SpeechRecognizer,
          voice: SpeechSynthesizer, loadAnalyzer: @escaping () async throws -> CareCallAI) {
@@ -189,10 +191,16 @@ final class CareCallService: CareCalling {
             let text = try await recognizer.listen { onActivity(.hearing($0)) }
             guard !stopped, !text.isEmpty else { break }
             onActivity(.heard(text))
+            let thinkingEnds = ContinuousClock.now.advanced(by: minimumThinking)
             // 분석을 기다리는 동안 맞장구를 하지 않는다: 모델을 부르는 답(약 22%)도 Foundation Models로 2초 안팎이다
             // (2026-10-21 Mac 평가: 중앙 2.2초, 90% 3.4초. Kanana는 7.5초라 1초가 넘으면 맞장구를 먼저 말했다)
             out = await engine.handle(patientText: text)
             guard !stopped else { break }
+            // 분석이 끝나고, 들은 때부터 minimumThinking이 지나야 다음 말을 한다. 응급 안내는 기다리지 않는다
+            if out.phase != .emergencyEnded {
+                try await Task.sleep(until: thinkingEnds, clock: .continuous)
+                guard !stopped else { break }
+            }
             onActivity(.speaking(out.utterance))
             await voice.speak(out.utterance)
             await voice.waitUntilDone()
