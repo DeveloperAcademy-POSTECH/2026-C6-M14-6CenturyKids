@@ -44,8 +44,6 @@ struct CareCallIncomingView: View {
             Image("CareCallGlow").padding(.top, 200)
         }
         .overlay(alignment: .top) {
-            // Figma 캐릭터 머리 위 250·키 약 440에 맞춘 크기 (영상 910×1080).
-            // 통화 준비(마이크·모델·음성 인식)가 끝나 받을 수 있을 때 처음부터 튼다. 준비 중에는 첫 장면에 멈춰 둔다
             CareCallCharacterVideo(name: "CareCallHello", isPlaying: canAnswer)
                 .frame(width: 382, height: 453)
                 .padding(.top, 247)
