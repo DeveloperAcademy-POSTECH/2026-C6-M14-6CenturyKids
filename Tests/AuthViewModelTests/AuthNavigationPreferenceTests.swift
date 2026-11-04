@@ -56,15 +56,14 @@ import XCTest
         XCTAssertEqual(defaults.persistentDomain(forName: suite)?.count, 1)
     }
 
-    func testIntroAdvancesEveryPageAndLastPageOpensSignup() {
+    func testIntroAdvancesEveryPageAndLastPageOpensLogin() {
         let flow = AuthFlowViewModel(session: AuthSessionState())
         for page in 1...4 {
             flow.advanceOnboarding()
             XCTAssertEqual(flow.onboarding.page, page); XCTAssertFalse(flow.showsAuth)
         }
         flow.advanceOnboarding()
-        XCTAssertTrue(flow.showsAuth); XCTAssertEqual(flow.screen, .signup)
-        flow.backFromSignup(); XCTAssertFalse(flow.showsAuth)
+        XCTAssertTrue(flow.showsAuth); XCTAssertEqual(flow.screen, .login)
     }
 
     func testSignupBackRespectsEntryAndCompletedSignupStartsFresh() {

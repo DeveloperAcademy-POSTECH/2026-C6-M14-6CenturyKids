@@ -59,7 +59,7 @@ enum AuthEntry { case login, signup, passwordReset }
     /// 소개의 4개 페이지를 순서대로 보여 주고 마지막 페이지에서 가입을 엽니다.
     func advanceOnboarding() {
         if onboarding.page < 4 { onboarding.selectPage(onboarding.page + 1) }
-        else { open(.signup) }
+        else { open(.login) }
     }
     func backFromSignup() {
         if signupReturnsToLogin { open(.login) }
