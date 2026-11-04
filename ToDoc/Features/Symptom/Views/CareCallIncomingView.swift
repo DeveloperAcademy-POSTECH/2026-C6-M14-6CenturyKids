@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Figma 1766:28104의 수신 화면. 준비/권한 정책은 상위 ViewModel에서 결정합니다.
-/// 가운데에서 학로가 손을 흔드는 인사 영상을 반복 재생합니다.
+/// 가운데에서 학로가 손을 흔드는 인사 영상을 통화 준비가 끝나면 반복 재생합니다.
 struct CareCallIncomingView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -47,8 +47,9 @@ struct CareCallIncomingView: View {
             Image("CareCallGlow").padding(.top, 200)
         }
         .overlay(alignment: .top) {
-            // Figma 캐릭터 머리 위 250·키 약 440에 맞춘 크기 (영상 910×1080)
-            CareCallCharacterVideo(name: "CareCallHello")
+            // Figma 캐릭터 머리 위 250·키 약 440에 맞춘 크기 (영상 910×1080).
+            // 통화 준비(마이크·모델·음성 인식)가 끝나 받을 수 있을 때 처음부터 튼다. 준비 중에는 첫 장면에 멈춰 둔다
+            CareCallCharacterVideo(name: "CareCallHello", isPlaying: canAnswer)
                 .frame(width: 382, height: 453)
                 .padding(.top, 247)
         }
