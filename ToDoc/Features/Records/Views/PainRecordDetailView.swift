@@ -89,7 +89,7 @@ private struct RecordPainChart: View {
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: date)
     }
-    /// 복용 전·후 점수 사이를 막대로 그립니다. 주간은 점수 위치에 따라 색이 바뀌고, 낮은 점수 아래로 바탕 막대를 깝니다.
+    /// 복용 전·후 점수 사이를 막대로 그립니다. 주간은 내려갔으면 초록·올라갔으면 주황으로 칠하고, 낮은 점수 아래로 바탕 막대를 깝니다.
     @ViewBuilder private func mark(before: Double, after: Double?, size: CGSize) -> some View {
         if let after {
             measuredMark(before: before, after: after, size: size)
@@ -111,21 +111,17 @@ private struct RecordPainChart: View {
             if state.period == .week {
                 Capsule().fill(RecordChartStyle.track).frame(width: width, height: size.height - bottom + width/2).offset(y: bottom - width/2)
                 // 10점·0점의 원이 잘리지 않도록 색 막대를 원 반지름만큼 위아래로 늘립니다.
-                painFill(size) { Capsule().frame(width: width, height: bottom - top + width).offset(y: top) }
+                Capsule().fill(after > before ? RecordChartStyle.increase : RecordChartStyle.decrease)
+                    .frame(width: width, height: bottom - top + width).offset(y: top - width/2)
                 ForEach([top, bottom].indices, id: \.self) { index in
                     let y = [top, bottom][index]
-                    Circle().fill(.white).frame(width: width, height: width).offset(y: y - width/2)
-                    painFill(size) { Circle().strokeBorder(lineWidth: 3).frame(width: width, height: width).offset(y: y) }
+                    Circle().fill(.white.opacity(0.5)).frame(width: width, height: width).offset(y: y - width/2)
+                    Circle().fill(.white).frame(width: width * 0.6, height: width * 0.6).offset(y: y - width * 0.3)
                 }
             } else {
                 Capsule().fill(RecordChartStyle.green).frame(width: width, height: max(bottom-top, width)).offset(y: top)
             }
         }.frame(height: size.height, alignment: .top)
-    }
-    /// mask는 원 반지름만큼 늘린 막대 기준 좌표입니다 (점수 위치 y는 그대로 쓰면 됩니다).
-    private func painFill(_ size: CGSize, @ViewBuilder mask: () -> some View) -> some View {
-        Rectangle().fill(RecordChartStyle.pain).frame(width: width, height: size.height + width)
-            .mask(alignment: .top, mask).offset(y: -width/2)
     }
 }
 
