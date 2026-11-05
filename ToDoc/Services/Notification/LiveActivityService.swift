@@ -77,4 +77,22 @@ class LiveActivityService {
     func testStartLiveActivity() async throws {
         try await tokenRepository.testStartLiveActivity()
     }
+
+    #if DEBUG
+    static func startLocalLiveActivity() throws {
+        let attributes = ToDocWidgetExtensionAttributes(
+            name: "Dr.학로",
+            image: "HangnoWithoutBackground"
+        )
+        let content = ActivityContent(
+            state: ToDocWidgetExtensionAttributes.ContentState(sentence: "오늘 하루는 어떠셨나요?"),
+            staleDate: nil
+        )
+        _ = try Activity<ToDocWidgetExtensionAttributes>.request(
+            attributes: attributes,
+            content: content,
+            pushType: nil
+        )
+    }
+    #endif
 }
