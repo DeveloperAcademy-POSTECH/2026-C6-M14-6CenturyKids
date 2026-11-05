@@ -16,7 +16,7 @@ nonisolated public struct User: Sendable {
 
     init(id: UUID, name: String, birthday: Date, sex: Sex,
          now: Date, calendar: Calendar) throws {
-        let validName = try DomainValidation.name(name, maximum: 10)
+        let validName = try DomainValidation.name(name, maximum: 30)
         try DomainDateRules.validateBirthday(birthday, now: now, calendar: calendar)
         self.id = id
         self.name = validName
@@ -25,7 +25,7 @@ nonisolated public struct User: Sendable {
     }
 
     public mutating func updateName(_ name: String) throws {
-        self.name = try DomainValidation.name(name, maximum: 10)
+        self.name = try DomainValidation.name(name, maximum: 30)
     }
 
     public mutating func updateBirthday(_ birthday: Date) throws {

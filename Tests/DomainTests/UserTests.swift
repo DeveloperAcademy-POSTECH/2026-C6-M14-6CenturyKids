@@ -18,14 +18,14 @@ final class UserTests: XCTestCase {
                  now: date(2026, 10, 11), calendar: calendar)
     }
 
-    func testNameTrimsEdgesAndAcceptsTenUnicodeCharacters() throws {
+    func testNameTrimsEdgesAndAcceptsThirtyUnicodeCharacters() throws {
         XCTAssertEqual(try user(name: "  Jean-Luc  ").name, "Jean-Luc")
-        XCTAssertEqual(try user(name: String(repeating: "가", count: 10)).name.count, 10)
+        XCTAssertEqual(try user(name: String(repeating: "가", count: 30)).name.count, 30)
     }
     func testNameValidationAlsoProtectsUpdates() throws {
         var value = try user()
         for (name, error) in [("  ", NameValidationError.empty),
-                              (String(repeating: "가", count: 11), .tooLong), ("김\n하늘", .invalidCharacter)] {
+                              (String(repeating: "가", count: 31), .tooLong), ("김\n하늘", .invalidCharacter)] {
             XCTAssertThrowsError(try user(name: name)) { XCTAssertEqual($0 as? NameValidationError, error) }
             XCTAssertThrowsError(try value.updateName(name)) { XCTAssertEqual($0 as? NameValidationError, error) }
             XCTAssertEqual(value.name, "김하늘")
