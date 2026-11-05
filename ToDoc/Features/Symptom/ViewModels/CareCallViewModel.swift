@@ -60,12 +60,16 @@ final class CareCallViewModel {
     private var hadEmergency = false
     private var saving: Task<Void, Never>?
     private var isSaved = false
+    @ObservationIgnored private var analytics: SymptomConversationAnalytics
+    private var showsPauseConfirmation = false
 
     init(service: any CareCalling, repository: any SymptomRepository, pending: any PendingCareCallRepository,
-         authRepository: any AuthRepository, patientRepository: any PatientRepository) {
+         authRepository: any AuthRepository, patientRepository: any PatientRepository,
+         trackAnalytics: SymptomConversationAnalytics.Track? = nil) {
         self.service = service
         self.repository = repository
         self.pending = pending
+        analytics = SymptomConversationAnalytics(track: trackAnalytics)
         patientSource = .repositories(auth: authRepository, patient: patientRepository)
         bind()
     }
@@ -75,6 +79,7 @@ final class CareCallViewModel {
         self.service = service
         self.repository = repository
         self.pending = pending
+        analytics = SymptomConversationAnalytics()
         patientSource = .knownPatient(patientId)
         self.patientId = patientId
         connectionState = .ready
@@ -194,12 +199,35 @@ final class CareCallViewModel {
         case .answer(let answer): self.answer(answer)
         case .cancel: endCall()
         case .previous: goBack()
-        case .pause: pause()
-        case .resume: resume()
-        case .discard: discard()
+        case .pause:
+            showsPauseConfirmation = true
+            analytics.updateScreen(.paused)
+            pause()
+        case .resume:
+            showsPauseConfirmation = false
+            resume()
+        case .discard:
+            analytics.finishInterval(reason: "discarded")
+            discard()
         case .stopForEmergency: stopForEmergency()
         case .continueAfterEmergency: continueAfterEmergency()
         }
+    }
+
+    var analyticsScreen: SymptomConversationAnalytics.Screen {
+        guard !leftCall, !conversation.isEmergency else { return .hidden }
+        if showsPauseConfirmation { return .paused }
+        if conversation.summary != nil || conversation.didSave {
+            if case .completed? = outcome { return .completed }
+            return .hidden
+        }
+        if conversation.isSummarizing { return .visible(.summaryLoading, conversation.mode) }
+        if conversation.question != nil { return .visible(.conversation, conversation.mode) }
+        return .hidden
+    }
+
+    func updateAnalyticsScreen(_ screen: SymptomConversationAnalytics.Screen) {
+        analytics.updateScreen(screen)
     }
 
     private var isOver: Bool {
@@ -448,6 +476,7 @@ final class CareCallViewModel {
     }
 
     func endCall() {
+        analytics.updateScreen(.hidden)
         leftCall = true
         cancelAutoStart()
         if conversation.isEmergency {

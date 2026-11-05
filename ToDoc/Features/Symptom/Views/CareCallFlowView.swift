@@ -3,6 +3,7 @@ import SwiftUI
 /// 화면 이동만 수행합니다. 로그인 환자 조회·권한/엔진 준비·대화 상태는 ViewModel이 제공합니다.
 /// ViewModel은 화면에 들어올 때 만들어, 화면을 나가면 AI 모델과 함께 풀립니다.
 struct CareCallFlowView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel: CareCallViewModel?
     @State private var cannotOpen = false
     @State private var hasEntered = false
@@ -63,6 +64,10 @@ struct CareCallFlowView: View {
                     }
                 }
             )
+            .onChange(of: scenePhase == .active ? viewModel.analyticsScreen : .backgrounded, initial: true) { _, screen in
+                viewModel.updateAnalyticsScreen(screen)
+            }
+            .onDisappear { viewModel.updateAnalyticsScreen(.hidden) }
         } else {
             SymptomCallWaitingView(state: viewModel.preparation, onStart: { enter(.voice) },
                 onPostpone: onPostpone, onSwitchToText: { enter(.text) }, onClose: onClose ?? onHome)
