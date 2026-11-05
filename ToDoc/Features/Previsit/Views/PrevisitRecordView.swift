@@ -76,7 +76,8 @@ struct PrevisitRecordView: View {
             }
         }
         .background(AppColors.background.ignoresSafeArea())
-        .onAppear { session.analytics.beginAttemptIfNeeded() }
+        .onAppear { session.analytics.screenAppeared(step: step) }
+        .onDisappear { session.analytics.screenDisappeared() }
         .toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar)
     }
     private var subtitle: String {
@@ -97,7 +98,13 @@ struct PrevisitRecordView: View {
             }
             LazyVStack(spacing: 16) {
             ForEach(days) { day in
-                Button { session.selectDay(day) } label: {
+                Button {
+                    let previousID = draft.day?.id
+                    session.selectDay(day)
+                    if let selectedID = draft.day?.id {
+                        session.analytics.recordSelectionChanged(from: previousID, to: selectedID)
+                    }
+                } label: {
                     PrevisitDayCard(day: day, selected: draft.day?.id == day.id)
                 }.buttonStyle(.plain).disabled(!day.isSelectable)
                     .accessibilityValue(draft.day?.id == day.id ? "선택됨" : "선택 안 됨")
@@ -178,7 +185,7 @@ struct PrevisitRecordView: View {
             }
             HStack(spacing: 20) {
                 if step != .day {
-                    Button("이전") { session.previous() }
+                    Button("이전", action: previous)
                         .buttonStyle(AppButtonStyle(kind: .back)).accessibilityIdentifier("previsit.previous")
                 }
                 Button(action: next) {
@@ -201,9 +208,24 @@ struct PrevisitRecordView: View {
         guard canContinue else { return }
         writing = false
         if step == .mood { showsSubmitConfirmation = true }
-        else { session.next() }
+        else {
+            let from = step
+            session.next()
+            session.analytics.recordStepAdvance(from: from, to: step, message: draft.letter)
+        }
     }
-    private func close() { guard !isSubmitting else { return }; if let onClose { onClose() } else { dismiss() } }
+
+    private func previous() {
+        let from = step
+        session.previous()
+        session.analytics.recordStepBack(from: from, to: step)
+    }
+
+    private func close() {
+        guard !isSubmitting else { return }
+        session.analytics.emit("previsit_flow_closed", step: step)
+        if let onClose { onClose() } else { dismiss() }
+    }
 }
 
 struct PrevisitDayCard: View {

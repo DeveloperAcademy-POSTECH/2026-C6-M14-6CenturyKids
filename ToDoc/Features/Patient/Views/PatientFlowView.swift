@@ -132,7 +132,10 @@ struct PatientFlowView: View {
                                    ? { showsPrevisitDiscard = true } : nil)
                 .alert("작성 내용을 지울까요?", isPresented: $showsPrevisitDiscard) {
                     Button("유지하기", role: .cancel) { }
-                    Button("지우기", role: .destructive) { previsitSession.discard() }
+                    Button("지우기", role: .destructive) {
+                        previsitSession.analytics.emit("previsit_flow_discarded", step: previsitSession.step)
+                        previsitSession.discard()
+                    }
                 } message: {
                     Text("선택한 기록과 편지, 기분을 모두 지워요.")
                 }
