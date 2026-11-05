@@ -679,6 +679,7 @@ final class FakeAuth: AuthRepository {
     func deleteAccount() async throws { throw Failure() }
     func withdrawAppleAccount(authorizationCode: String) async throws { throw Failure() }
     func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws {}
+    func verifyPasswordResetCode(email: String, code: String) async throws {}
     func updatePassword(to newPassword: String, nonce: String?) async throws {}
 }
 

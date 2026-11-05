@@ -24,13 +24,4 @@ import XCTest
         XCTAssertFalse(flow.reset.state.isRecoveryReady)
         XCTAssertNotNil(flow.linkMessage)
     }
-    func testConfiguredResetStillCannotSendEmailWithoutVerifiedRecoverySupport() async {
-        let f = AuthFixture()
-        let vm = PasswordResetViewModel(repositories: f.repositories, session: f.session,
-            configuration: .init(redirectURL: URL(string: "todoc-test://auth/recovery")))
-        vm.state.email = "patient@example.com"
-        await vm.submit()
-        XCTAssertEqual(f.auth.resetCount, 0); XCTAssertFalse(vm.state.didSend)
-        XCTAssertFalse(vm.state.didUpdatePassword); XCTAssertNotNil(vm.state.errorMessage)
-    }
 }

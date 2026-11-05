@@ -14,6 +14,9 @@ final class TestAuthRepository: AuthRepository {
     var signInCount = 0
     var signUpCount = 0
     var resetCount = 0
+    var verifyCount = 0
+    var verifyError: Error?
+    var lastCode: String?
     var updateCount = 0
     var signOutCount = 0
     var confirmEmail = false
@@ -68,6 +71,11 @@ final class TestAuthRepository: AuthRepository {
     func deleteAccount() async throws { XCTFail("인증 테스트에서 탈퇴를 호출하면 안 됩니다.") }
     func withdrawAppleAccount(authorizationCode: String) async throws { XCTFail("인증 테스트에서 Apple 탈퇴를 호출하면 안 됩니다.") }
     func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws { resetCount += 1; lastRedirect = url }
+    func verifyPasswordResetCode(email: String, code: String) async throws {
+        verifyCount += 1; lastEmail = email; lastCode = code
+        if let verifyError { throw verifyError }
+        signedIn = true
+    }
     func updatePassword(to newPassword: String, nonce: String?) async throws {
         updateCount += 1; if failUpdate { throw AuthFlowError("변경 실패") }
     }
