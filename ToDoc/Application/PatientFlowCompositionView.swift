@@ -89,6 +89,7 @@ struct PatientFlowCompositionView: View {
                 }
             },
             previsitLetters: previsitLetterViewModel,
+            trackPrevisitAnalytics: container.analytics.track,
             pain: { navigation in
                 PainRecordView(viewModel: painViewModel, analytics: container.analytics,
                                entrySource: "home", onShowRecord: navigation.showRecord)

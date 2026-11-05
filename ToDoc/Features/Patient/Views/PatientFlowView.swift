@@ -23,7 +23,7 @@ struct PatientFlowView: View {
     @State private var showsPrevisitDiscard = false
     /// 바텀시트·작성 화면이 닫힌 뒤 열 화면 (닫는 중에는 다른 화면을 띄울 수 없다)
     @State private var previsitNext: PrevisitNext?
-    @State private var previsitSession = PrevisitSession()
+    @State private var previsitSession: PrevisitSession
   
     let home: HomeScreenState
     var onHomeContextChange: (Bool, Bool) -> Void
@@ -49,6 +49,7 @@ struct PatientFlowView: View {
         onReloadHome: (() -> Void)? = nil,
         previsit: @escaping (PrevisitSession) -> PrevisitFlowView = { .init(session: $0) },
         previsitLetters: PrevisitLetterViewModel? = nil,
+        trackPrevisitAnalytics: PrevisitAnalytics.Track? = nil,
         pain: @escaping (PainRecordNavigation) -> PainRecordView,
         preparePainDetail: @escaping (Date) -> Void,
         painDetail: @escaping () -> PainRecordDetailView,
@@ -64,6 +65,7 @@ struct PatientFlowView: View {
         self.onReloadHome = onReloadHome
         self.previsit = previsit
         self.previsitLetters = previsitLetters ?? .init()
+        _previsitSession = State(initialValue: PrevisitSession(trackAnalytics: trackPrevisitAnalytics))
         self.pain = pain
         self.preparePainDetail = preparePainDetail
         self.painDetail = painDetail

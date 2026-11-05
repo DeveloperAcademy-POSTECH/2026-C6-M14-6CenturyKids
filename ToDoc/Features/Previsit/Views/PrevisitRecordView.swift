@@ -76,6 +76,7 @@ struct PrevisitRecordView: View {
             }
         }
         .background(AppColors.background.ignoresSafeArea())
+        .onAppear { session.analytics.beginAttemptIfNeeded() }
         .toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar)
     }
     private var subtitle: String {
