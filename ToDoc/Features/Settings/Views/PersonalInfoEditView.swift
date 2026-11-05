@@ -3,8 +3,6 @@ import SwiftUI
 struct PersonalInfoEditView: View {
     @State private var state: PersonalInfoScreenState?
     @State private var showsBirthday = false
-    @State private var nameLimitHits = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var typeSize
     var onWithdrawal: (() -> Void)?
@@ -22,20 +20,7 @@ struct PersonalInfoEditView: View {
                             .settingsText().multilineTextAlignment(typeSize.isAccessibilitySize ? .leading : .trailing).foregroundStyle(SettingsPalette.secondary)
                             .textContentType(.name).submitLabel(.done).autocorrectionDisabled()
                             .disabled(state.isSaving).accessibilityIdentifier("settings.name")
-                            // 30자를 넘게 치면 잘라 내고 입력칸을 흔들어 알려 줍니다.
-                            .onChange(of: state.name) { _, name in
-                                guard name.count > 30 else { return }
-                                state.name = String(name.prefix(30))
-                                nameLimitHits += 1
-                            }
-                            .keyframeAnimator(initialValue: 0.0, trigger: nameLimitHits) { content, x in
-                                content.offset(x: reduceMotion ? 0 : x)
-                            } keyframes: { _ in
-                                KeyframeTrack {
-                                    for x in [8.0, -8, 6, -6, 3, 0] { LinearKeyframe(x, duration: 0.05) }
-                                }
-                            }
-                            .sensoryFeedback(.error, trigger: nameLimitHits)
+                            .appTextLimit(Binding(get: { state.name }, set: { state.name = $0 }), maximum: 30, shakes: true)
                     }
                     SettingsDivider()
                     Button { showsBirthday = true } label: {
