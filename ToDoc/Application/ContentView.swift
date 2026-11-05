@@ -7,6 +7,7 @@ struct ContentView: View {
     
     @State private var authFlow: AuthFlowViewModel
     @State private var router: AppRouter
+    @State private var showsSplash = true
 
     private let container: DependencyContainer
 
@@ -24,6 +25,16 @@ struct ContentView: View {
                     await LocalNotificationAdapter.schedulePainReminders()
                 }
         }
+        // 기존 화면을 유지한 채 가려 세션 복원과 딥 링크 처리를 함께 진행합니다.
+        .allowsHitTesting(!showsSplash)
+        .accessibilityHidden(showsSplash)
+        .overlay {
+            if showsSplash {
+                SplashVideoView { showsSplash = false }
+                    .ignoresSafeArea()
+            }
+        }
+        .statusBarHidden(showsSplash)
         .task {
             container.liveActivityService.startObserving()
             // 앱을 끈 사이에 로그인이 끝났으면 복원 뒤에도 환자가 없으니 남은 예약과 병원 감시를 멈춘다.
