@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 @MainActor
@@ -13,6 +14,12 @@ struct SymptomConversationAnalytics {
     enum SummaryOutcome: String, Equatable {
         case completed
         case interrupted
+    }
+
+    enum SaveSource: String {
+        case userSave = "user_save"
+        case automaticPreservation = "automatic_preservation"
+        case pendingRetry = "pending_retry"
     }
 
     enum Screen: Equatable {
@@ -215,6 +222,30 @@ struct SymptomConversationAnalytics {
         properties["to_mode"] = modeName(change.to)
         properties["current_question_id"] = questionID.uuidString
         return properties
+    }
+
+    func saveContext(recordedDate: Date, mode: SymptomConversationMode, isComplete: Bool) -> PendingCareCall.Analytics? {
+        guard track != nil, let attempt else { return nil }
+        return PendingCareCall.Analytics(
+            attemptID: attempt.id, initialMode: modeName(attempt.initialMode), currentMode: modeName(mode),
+            recordDate: DateOnlyFormatter.string(from: recordedDate), isCompleteRecord: isComplete
+        )
+    }
+
+    func recordSaveSuccess(recordID: UUID, source: SaveSource, context: PendingCareCall.Analytics?) {
+        guard let track, let context else { return }
+        let recordKey = Data("symptom_record:\(recordID.uuidString)".utf8)
+        let analysisID = SHA256.hash(data: recordKey).map { String(format: "%02x", $0) }.joined()
+        track("symptom_save_succeeded", [
+            "attempt_id": context.attemptID.uuidString,
+            "initial_mode": context.initialMode,
+            "current_mode": context.currentMode,
+            "step": "saving",
+            "symptom_record_id": analysisID,
+            "record_date": context.recordDate,
+            "save_source": source.rawValue,
+            "is_complete_record": context.isCompleteRecord
+        ])
     }
 
     mutating func finishInterval(reason: String) {

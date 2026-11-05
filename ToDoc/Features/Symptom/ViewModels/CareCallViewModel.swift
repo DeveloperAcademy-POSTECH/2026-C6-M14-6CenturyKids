@@ -724,13 +724,16 @@ final class CareCallViewModel {
             summary?.editingEntryID = nil
         }
         let complete = Self.isFinal(outcome) || hadEmergency // 마친 통화·응급 종료는 그날 기록에 더한다
+        let context = saveAnalyticsContext(for: record)
+        let source: SymptomConversationAnalytics.SaveSource = showingResult ? .userSave : .automaticPreservation
         let task = Task {
             do {
-                let stored = try await store(record, complete: complete)
+                let storedID = try await store(record, complete: complete)
+                if let storedID { analytics.recordSaveSuccess(recordID: storedID, source: source, context: context) }
                 forget() 
                 isSaved = true
-                if showingResult, stored { conversation.didSave = true }
-                if showingResult, !stored { summary?.errorMessage = "오늘 기록이 이미 있어서, 중간에 끊긴 이번 답은 저장하지 않았어요." }
+                if showingResult, storedID != nil { conversation.didSave = true }
+                if showingResult, storedID == nil { summary?.errorMessage = "오늘 기록이 이미 있어서, 중간에 끊긴 이번 답은 저장하지 않았어요." }
             } catch {
                 if showingResult { summary?.errorMessage = "저장하지 못했어요. 다시 저장해 주세요." }
             }
@@ -756,7 +759,18 @@ final class CareCallViewModel {
     private func keep(_ record: SymptomRecord?) {
         guard let record, !isSaved else { return }
         let complete = Self.isFinal(outcome) || hadEmergency
-        try? pending.save(PendingCareCall(id: pendingId, record: record, complete: complete))
+        try? pending.save(PendingCareCall(id: pendingId, record: record, complete: complete,
+                                          analytics: saveAnalyticsContext(for: record)))
+    }
+
+    private func saveAnalyticsContext(for record: SymptomRecord) -> PendingCareCall.Analytics? {
+        switch outcome {
+        case .emergencyEnded?: return nil
+        case .completed?:
+            return analytics.saveContext(recordedDate: record.recordedDate, mode: conversation.mode, isComplete: true)
+        case .interrupted?, nil:
+            return analytics.saveContext(recordedDate: record.recordedDate, mode: conversation.mode, isComplete: false)
+        }
     }
 
     @discardableResult
@@ -773,19 +787,27 @@ final class CareCallViewModel {
     private func sendPending() async {
         guard let patientId else { return }
         for left in (try? pending.findAll(patientId: patientId)) ?? [] where left.id != pendingId {
-            guard (try? await store(left.record, complete: left.complete)) != nil else { continue }
+            do {
+                if let storedID = try await store(left.record, complete: left.complete) {
+                    analytics.recordSaveSuccess(recordID: storedID, source: .pendingRetry, context: left.analytics)
+                }
+            } catch {
+                continue
+            }
             try? pending.delete(id: left.id, patientId: patientId)
         }
     }
 
-    private func store(_ record: SymptomRecord, complete: Bool) async throws -> Bool {
-        guard let existing = try await savedRecord(of: record.patientId, on: record.recordedDate) else {
-            try await repository.save(entity: record)
-            return true
+    private func store(_ record: SymptomRecord, complete: Bool) async throws -> UUID? {
+        let stored: SymptomRecord
+        if let existing = try await savedRecord(of: record.patientId, on: record.recordedDate) {
+            guard complete else { return nil }
+            stored = Self.merge(existing, with: record)
+        } else {
+            stored = record
         }
-        guard complete else { return false }
-        try await repository.save(entity: Self.merge(existing, with: record))
-        return true
+        try await repository.save(entity: stored)
+        return stored.id
     }
 
     static func merge(_ old: SymptomRecord, with new: SymptomRecord) -> SymptomRecord {

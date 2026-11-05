@@ -25,7 +25,7 @@ final class FilePendingCareCallRepository: PendingCareCallRepository {
         try root.setResourceValues(noBackup) // 폴더째 백업에서 뺀다
         let stored = Stored(id: pending.id, record: SymptomRecordDTO(symptomRecord: pending.record),
                             symptoms: pending.record.symptoms.map { SymptomEntryDTO(symptomEntry: $0, symptomRecordId: pending.record.id) },
-                            complete: pending.complete)
+                            complete: pending.complete, analytics: pending.analytics)
         try JSONEncoder().encode(stored).write(to: url(id: pending.id, patientId: pending.record.patientId),
                                                options: [.atomic, .completeFileProtection])
     }
@@ -39,7 +39,8 @@ final class FilePendingCareCallRepository: PendingCareCallRepository {
                 guard let data = try? Data(contentsOf: url), let stored = try? JSONDecoder().decode(Stored.self, from: data),
                       stored.record.patientId == patientId, // 다른 환자의 기록이 섞여 있으면 올리지 않는다
                       let symptoms = try? stored.symptoms.map({ try $0.toDomain() }) else { return nil }
-                return PendingCareCall(id: stored.id, record: stored.record.toDomain(symptoms: symptoms), complete: stored.complete)
+                return PendingCareCall(id: stored.id, record: stored.record.toDomain(symptoms: symptoms),
+                                       complete: stored.complete, analytics: stored.analytics)
             }
             .sorted { $0.record.recordedDate < $1.record.recordedDate }
     }
@@ -64,5 +65,6 @@ final class FilePendingCareCallRepository: PendingCareCallRepository {
         let record: SymptomRecordDTO
         let symptoms: [SymptomEntryDTO]
         let complete: Bool
+        let analytics: PendingCareCall.Analytics?
     }
 }
