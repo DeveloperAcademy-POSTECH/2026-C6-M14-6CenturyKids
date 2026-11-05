@@ -62,6 +62,7 @@ final class CareCallViewModel {
     private var isSaved = false
     @ObservationIgnored private var analytics: SymptomConversationAnalytics
     private var analyticsQuestion: SymptomConversationAnalytics.QuestionPresentation?
+    private var readyModeChangeID: UUID?
     @ObservationIgnored private var pendingVoiceAdvance = false
     private var showsPauseConfirmation = false
 
@@ -224,12 +225,21 @@ final class CareCallViewModel {
             return .hidden
         }
         if conversation.isSummarizing { return .visible(.summaryLoading, conversation.mode) }
-        if conversation.question != nil { return .visible(.conversation, conversation.mode, analyticsQuestion) }
+        if conversation.question != nil {
+            let readyID = conversation.errorMessage == nil ? readyModeChangeID : nil
+            return .visible(.conversation, conversation.mode, analyticsQuestion, readyModeChangeID: readyID)
+        }
         return .hidden
     }
 
     func updateAnalyticsScreen(_ screen: SymptomConversationAnalytics.Screen) {
         analytics.updateScreen(screen)
+        if case let .visible(.conversation, mode, question?, id?) = screen {
+            analytics.completeModeChange(
+                id: id, mode: mode, questionID: question.id, answerRevisions: service.appliedAnswerRevisions
+            )
+            readyModeChangeID = nil
+        }
     }
 
     private var isOver: Bool {
@@ -274,6 +284,13 @@ final class CareCallViewModel {
 
     private func switchMode(to mode: SymptomConversationMode) {
         guard mode != conversation.mode else { return }
+        readyModeChangeID = nil
+        analytics.cancelModeChange()
+        if !isOver, let question = analyticsQuestion {
+            analytics.requestModeChange(
+                from: conversation.mode, to: mode, questionID: question.id, answerRevisions: service.appliedAnswerRevisions
+            )
+        }
         cancelAutoStart()
         conversation.mode = mode
         guard !isOver else { return }
@@ -339,11 +356,13 @@ final class CareCallViewModel {
                 finish(outcome)
             } else if case CareCallServiceError.notPrepared? = failure, began {
                 // 문자로 하다 음성으로 바꿨는데 준비가 안 됨 (마이크 권한 등): 문자로 돌아온다
+                analytics.cancelModeChange()
                 conversation.mode = .text
                 continueInText()
                 conversation.errorMessage = "음성 통화를 준비하지 못했어요. 문자로 이어서 답해 주세요."
                 conversation.needsMicrophone = preparation.preparation == .microphoneDenied
             } else if case CareCallServiceError.notPrepared? = failure {
+                analytics.cancelModeChange()
                 conversation.errorMessage = "통화 준비가 끝나지 않았어요. 다시 시도해 주세요."
             } else if let failure {
                 finish(failure)
@@ -421,6 +440,7 @@ final class CareCallViewModel {
         guard let turn = service.current else { return }
         conversation.errorMessage = nil
         show(turn, navigation: takeVoiceAdvance())
+        readyModeChangeID = analytics.pendingModeChangeID(for: .text)
     }
 
     private func takeVoiceAdvance() -> SymptomConversationAnalytics.QuestionPresentation.Navigation? {
@@ -488,6 +508,7 @@ final class CareCallViewModel {
     }
 
     func endCall() {
+        analytics.cancelModeChange()
         analytics.updateScreen(.hidden)
         leftCall = true
         cancelAutoStart()
@@ -569,6 +590,10 @@ final class CareCallViewModel {
             conversation.isWorking = false
         case .listening:
             conversation.voiceState = .patientSpeaking
+            // 화면 모드는 먼저 바뀌므로 실제 음성 입력이 시작된 시점을 기다린다.
+            if !switchingMode, conversation.mode == .voice {
+                readyModeChangeID = analytics.pendingModeChangeID(for: .voice)
+            }
         case .hearing(let text):
             conversation.transcript = text
         case .heard(let text):
@@ -582,6 +607,7 @@ final class CareCallViewModel {
     }
 
     private func finish(_ outcome: CareCallOutcome) {
+        analytics.cancelModeChange()
         self.outcome = outcome
         conversation.voiceState = .thinking
         conversation.isWorking = false
@@ -614,6 +640,7 @@ final class CareCallViewModel {
     }
 
     private func finish(_ error: Error) {
+        analytics.cancelModeChange()
         conversation.question = nil
         conversation.voiceState = .thinking
         conversation.isWorking = false

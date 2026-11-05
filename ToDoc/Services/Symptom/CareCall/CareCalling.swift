@@ -17,6 +17,7 @@ protocol CareCalling: AnyObject {
     func prepareSpeech() async throws
     func begin(patientId: UUID, previous: SymptomRecord?) throws -> CareCallTurn
     var current: CareCallTurn? { get }
+    var appliedAnswerRevisions: Set<UUID>? { get }
     var voiceOpening: String? { get }
     var progress: SymptomRecord? { get }
     func run(onActivity: @escaping (CareCallActivity) -> Void) async throws -> CareCallOutcome
@@ -26,4 +27,8 @@ protocol CareCalling: AnyObject {
     var canGoBack: Bool { get }
     func back() -> (turn: CareCallTurn, answer: String)?
     func continueAfterEmergency() -> CareCallTurn?
+}
+
+extension CareCalling {
+    var appliedAnswerRevisions: Set<UUID>? { nil }
 }

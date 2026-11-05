@@ -57,6 +57,11 @@ final class InterviewEngine {
     /// 답 한 턴마다 그 답을 받기 전 상태 (이전 질문으로 돌아갈 때). 분석기는 턴마다 새로 묻기 때문에 엔진 상태만 되돌리면 된다
     private var history: [Snapshot] = []
 
+    var appliedAnswerRevisions: Set<UUID> {
+        // 이전 질문으로 되돌리면 해당 답변의 스냅샷도 활성 기록에서 빠진다.
+        Set(history.compactMap(\.answerRevision))
+    }
+
     private enum QuestionKey: Hashable {
         case opening(followUp: Bool)
         case slot(key: String, step: CareCallStep)
@@ -118,6 +123,7 @@ final class InterviewEngine {
         guard phase != .saved, phase != .emergencyEnded else {
             return Output(utterance: "", phase: phase)
         }
+        let turnIndex = history.count
         history.append(snapshot(answer: patientText))
         // 위기 표현(자살 생각·자해·약 과다 복용)은 모델 판단 없이 안내하고 끝낸다. 말은 원문으로 남긴다
         // (2026-10-21 Foundation Models: "죽고 싶다는 생각이 들어요"를 되묻기만 해 기록 없이 사라졌다)
@@ -159,6 +165,7 @@ final class InterviewEngine {
                     action = .initial
                 }
                 output.answerCompletion = CareCallAnswerCompletion(questionID: questionID, action: action)
+                history[turnIndex].answerRevision = UUID()
             }
             return output
         }
@@ -1147,6 +1154,7 @@ final class InterviewEngine {
     // MARK: - 이전 질문
 
     private struct Snapshot {
+        var answerRevision: UUID? = nil
         let answer: String
         let phase: InterviewPhase
         let ledger: Ledger

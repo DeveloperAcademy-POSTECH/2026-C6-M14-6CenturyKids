@@ -10,7 +10,7 @@ struct SymptomConversationAnalytics {
     }
 
     enum Screen: Equatable {
-        case visible(Step, SymptomConversationMode, QuestionPresentation? = nil)
+        case visible(Step, SymptomConversationMode, QuestionPresentation? = nil, readyModeChangeID: UUID? = nil)
         case hidden
         case paused
         case backgrounded
@@ -38,6 +38,14 @@ struct SymptomConversationAnalytics {
         let startedAt: ContinuousClock.Instant
     }
 
+    private struct ModeChange {
+        let id = UUID()
+        let from: SymptomConversationMode
+        let to: SymptomConversationMode
+        let questionID: UUID
+        let answerRevisions: Set<UUID>?
+    }
+
     private let track: Track?
     private let clock = ContinuousClock()
     private var attempt: Attempt?
@@ -45,6 +53,7 @@ struct SymptomConversationAnalytics {
     private var lastQuestion: QuestionPresentation?
     private var presentedQuestions: Set<UUID> = []
     private var answeredQuestions: Set<UUID> = []
+    private var pendingModeChange: ModeChange?
 
     init(track: Track? = nil) {
         self.track = track
@@ -53,7 +62,7 @@ struct SymptomConversationAnalytics {
     mutating func updateScreen(_ screen: Screen) {
         guard let track else { return }
 
-        guard case let .visible(step, mode, question) = screen else {
+        guard case let .visible(step, mode, question, _) = screen else {
             let reason: String = switch screen {
             case .paused: "paused"
             case .backgrounded: "backgrounded"
@@ -111,6 +120,46 @@ struct SymptomConversationAnalytics {
         track("symptom_answer_completed", properties)
     }
 
+    mutating func requestModeChange(
+        from: SymptomConversationMode, to: SymptomConversationMode, questionID: UUID, answerRevisions: Set<UUID>?
+    ) {
+        guard let track, let attempt else { return }
+        let change = ModeChange(from: from, to: to, questionID: questionID, answerRevisions: answerRevisions)
+        pendingModeChange = change
+        track("symptom_mode_change_requested", modeChangeProperties(for: attempt, change: change, mode: from, questionID: questionID))
+    }
+
+    func pendingModeChangeID(for mode: SymptomConversationMode) -> UUID? {
+        guard let pendingModeChange, pendingModeChange.to == mode else { return nil }
+        return pendingModeChange.id
+    }
+
+    mutating func cancelModeChange() {
+        pendingModeChange = nil
+    }
+
+    mutating func completeModeChange(id: UUID, mode: SymptomConversationMode, questionID: UUID, answerRevisions: Set<UUID>?) {
+        guard let track, let attempt, let change = pendingModeChange, change.id == id, change.to == mode else { return }
+        pendingModeChange = nil
+        var properties = modeChangeProperties(for: attempt, change: change, mode: mode, questionID: questionID)
+        properties["question_preserved"] = change.questionID == questionID
+        if let before = change.answerRevisions, let answerRevisions {
+            properties["answers_preserved"] = before.isSubset(of: answerRevisions)
+        }
+        track("symptom_mode_changed", properties)
+    }
+
+    private func modeChangeProperties(
+        for attempt: Attempt, change: ModeChange, mode: SymptomConversationMode, questionID: UUID
+    ) -> [String: Any] {
+        var properties = properties(for: attempt, step: .conversation, mode: mode)
+        properties["mode_change_id"] = change.id.uuidString
+        properties["from_mode"] = modeName(change.from)
+        properties["to_mode"] = modeName(change.to)
+        properties["current_question_id"] = questionID.uuidString
+        return properties
+    }
+
     mutating func finishInterval(reason: String) {
         guard let attempt, let interval, let track else { return }
         self.interval = nil
@@ -126,9 +175,13 @@ struct SymptomConversationAnalytics {
     private func properties(for attempt: Attempt, step: Step, mode: SymptomConversationMode) -> [String: Any] {
         [
             "attempt_id": attempt.id.uuidString,
-            "initial_mode": attempt.initialMode == .voice ? "voice" : "text",
-            "current_mode": mode == .voice ? "voice" : "text",
+            "initial_mode": modeName(attempt.initialMode),
+            "current_mode": modeName(mode),
             "step": step.rawValue
         ]
+    }
+
+    private func modeName(_ mode: SymptomConversationMode) -> String {
+        mode == .voice ? "voice" : "text"
     }
 }

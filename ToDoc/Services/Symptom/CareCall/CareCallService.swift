@@ -67,6 +67,10 @@ final class CareCallService: CareCalling {
         conversation.map { turn(InterviewEngine.Output(utterance: $0.engine.lastQuestion, phase: $0.engine.phase), of: $0) }
     }
 
+    var appliedAnswerRevisions: Set<UUID>? {
+        conversation?.engine.appliedAnswerRevisions
+    }
+
     var progress: SymptomRecord? {
         conversation.flatMap(partialRecord(of:))
     }
