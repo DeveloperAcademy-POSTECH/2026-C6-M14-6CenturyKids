@@ -16,6 +16,31 @@ struct PrevisitAnalytics {
         var activeTimeBeforeFirstMoodSelection: Duration = .zero
         var moodChangeCount = 0
         var activeDuration: Duration = .zero
+        var hasRequestedSubmission = false
+    }
+
+    struct Submission {
+        let track: Track
+        let properties: [String: Any]
+        let startedAt: ContinuousClock.Instant
+
+        @MainActor
+        func finish(error: (any Error)? = nil, now: ContinuousClock.Instant = .now) {
+            var properties = properties
+            properties["request_duration_ms"] = PrevisitAnalytics.milliseconds(startedAt.duration(to: now))
+            if let error {
+                if error is CancellationError || (error as? URLError)?.code == .cancelled {
+                    properties["error_code"] = "cancelled"
+                } else if error is URLError {
+                    properties["error_code"] = "network_error"
+                } else {
+                    properties["error_code"] = "save_failed"
+                }
+                track("previsit_submit_failed", properties)
+            } else {
+                track("previsit_submit_succeeded", properties)
+            }
+        }
     }
 
     let track: Track?
@@ -77,7 +102,7 @@ struct PrevisitAnalytics {
             self.attempt?.didSelectMood = true
             emit("previsit_mood_selected", step: .mood, properties: [
                 "step_visit_id": visitID.uuidString,
-                "active_ms_to_first_mood_selection": milliseconds(duration)
+                "active_ms_to_first_mood_selection": Self.milliseconds(duration)
             ])
         } else if replacingSelection {
             self.attempt?.didSelectMood = true
@@ -100,7 +125,7 @@ struct PrevisitAnalytics {
             self.attempt?.activeTimeBeforeFirstMoodSelection += duration
         }
         var properties: [String: Any] = [
-            "active_duration_ms": milliseconds(duration),
+            "active_duration_ms": Self.milliseconds(duration),
             "engagement_end_reason": reason
         ]
         if step == .mood { properties["step_visit_id"] = attempt.moodVisitID?.uuidString }
@@ -156,9 +181,23 @@ struct PrevisitAnalytics {
     mutating func recordClose(step: PrevisitStep, hasMoodSelection: Bool) {
         endActiveInterval(reason: "closed")
         guard let attempt else { return }
-        var properties: [String: Any] = ["cumulative_active_ms": milliseconds(attempt.activeDuration)]
+        var properties: [String: Any] = ["cumulative_active_ms": Self.milliseconds(attempt.activeDuration)]
         if step == .mood { properties["has_mood_selection"] = hasMoodSelection }
         emit("previsit_flow_closed", step: step, properties: properties)
+    }
+
+    @MainActor
+    mutating func startSubmission() -> Submission? {
+        guard let attempt, let track else { return nil }
+        let properties: [String: Any] = [
+            "attempt_id": attempt.id.uuidString,
+            "step": stepName(.mood),
+            "request_id": UUID().uuidString,
+            "is_retry": attempt.hasRequestedSubmission
+        ]
+        self.attempt?.hasRequestedSubmission = true
+        track("previsit_submit_attempted", properties)
+        return Submission(track: track, properties: properties, startedAt: .now)
     }
 
     @MainActor
@@ -178,7 +217,7 @@ struct PrevisitAnalytics {
         }
     }
 
-    private func milliseconds(_ duration: Duration) -> Int {
+    private static func milliseconds(_ duration: Duration) -> Int {
         let components = duration.components
         return Int(components.seconds * 1_000 + components.attoseconds / 1_000_000_000_000_000)
     }

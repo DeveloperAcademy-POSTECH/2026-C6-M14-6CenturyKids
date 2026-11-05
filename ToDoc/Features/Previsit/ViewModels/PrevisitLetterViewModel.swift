@@ -95,7 +95,8 @@ final class PrevisitLetterViewModel {
     /// 오늘 이미 보냈으면 새로 작성할 수 없습니다 (보낸 기록 보기만 가능)
     var hasSentToday: Bool { letters.contains { calendar.isDate($0.sentAt, inSameDayAs: now()) } }
 
-    func send(_ draft: PrevisitDraft, to doctorName: String) async -> UUID? {
+    func send(_ draft: PrevisitDraft, to doctorName: String,
+              startTracking: () -> PrevisitAnalytics.Submission? = { nil }) async -> UUID? {
         guard !isSubmitting, let patientID, let saveRecord,
               let date = draft.day?.recordedDate, let mood = draft.mood else { return nil }
         guard !hasSentToday else {
@@ -105,14 +106,18 @@ final class PrevisitLetterViewModel {
         isSubmitting = true
         errorMessage = nil
         defer { isSubmitting = false }
+        var submission: PrevisitAnalytics.Submission?
         do {
             let record = try PrevisitRecord(patientId: patientID, selectedDate: date,
                                            memo: draft.letter.isEmpty ? nil : draft.letter, stateOfMind: mood)
+            submission = startTracking()
             try await saveRecord(record)
+            submission?.finish()
             letters.insert(PrevisitLetter(id: record.id, sentAt: record.submittedAt,
                                          doctorName: doctorName, draft: draft), at: 0)
             return record.id
         } catch {
+            submission?.finish(error: error)
             errorMessage = "전송하지 못했어요. 작성한 내용은 유지돼요. 다시 시도해 주세요."
             return nil
         }
