@@ -67,6 +67,10 @@ final class CareCallService: CareCalling {
         conversation.map { turn(InterviewEngine.Output(utterance: $0.engine.lastQuestion, phase: $0.engine.phase), of: $0) }
     }
 
+    var appliedAnswerRevisions: Set<UUID>? {
+        conversation?.engine.appliedAnswerRevisions
+    }
+
     var progress: SymptomRecord? {
         conversation.flatMap(partialRecord(of:))
     }
@@ -101,7 +105,8 @@ final class CareCallService: CareCalling {
         CareCallTurn(utterance: out.utterance, number: conversation.engine.expectedNumber,
                      outcome: out.isFinished ? outcome(of: conversation, phase: out.phase) : nil,
                      progress: conversation.engine.progress, asksMore: conversation.engine.asksMore,
-                     isLast: conversation.engine.phase == .other)
+                     isLast: conversation.engine.phase == .other,
+                     questionID: conversation.engine.currentQuestionID, answerCompletion: out.answerCompletion)
     }
 
     private func outcome(of conversation: Conversation, phase: InterviewPhase) -> CareCallOutcome {
@@ -167,6 +172,7 @@ final class CareCallService: CareCalling {
             onActivity(.heard(text))
             let thinkingEnds = ContinuousClock.now.advanced(by: minimumThinking)
             out = await engine.handle(patientText: text)
+            if let completion = out.answerCompletion { onActivity(.answerCompleted(completion)) }
             guard !stopped else { break }
             if out.phase != .emergencyEnded {
                 try await Task.sleep(until: thinkingEnds, clock: .continuous)

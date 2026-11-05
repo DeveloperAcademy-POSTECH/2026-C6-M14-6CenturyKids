@@ -22,7 +22,9 @@ let package = Package(
                 // 앱의 다른 파일은 빌드하지 않는다 (새 폴더가 생겨도 테스트가 깨지지 않게 sources로 고정, exclude는 경고 방지)
                 exclude: [
                     "Application", "Domain", "Resources", "ToDoc.entitlements",
-                    "Data/DTOs", "Data/Supabase", "Data/Repositories/Supabase", "Data/Repositories/Local",
+                    "Data/DTOs/DeviceToken", "Data/DTOs/Errors", "Data/DTOs/Hospital", "Data/DTOs/Notification",
+                    "Data/DTOs/Pain", "Data/DTOs/Previsit", "Data/DTOs/Symptom", "Data/DTOs/User",
+                    "Data/Supabase", "Data/Repositories/Supabase", "Data/Repositories/Local",
                     "Data/Repositories/Protocols/DeviceTokenRepository.swift",
                     "Data/Repositories/Protocols/DoctorRepository.swift", "Data/Repositories/Protocols/ExerciseRepository.swift",
                     "Data/Repositories/Protocols/HospitalRepository.swift", "Data/Repositories/Protocols/IntakeRepository.swift",
@@ -56,6 +58,7 @@ let package = Package(
                     "Services/Symptom/CareCall/CareCallServiceError.swift", "Core/Audio/AudioRecorderError.swift",
                     "Core/AI/LanguageModelError.swift", "Core/Speech/SpeechRecognizerError.swift",
                     "Data/Repositories/Protocols/Repository.swift",
+                    "Data/DTOs/Helpers/DateOnlyFormatter.swift",
                     "Data/Repositories/Protocols/RecordRepository.swift", "Data/Repositories/Protocols/SymptomRepository.swift",
                     "Data/Repositories/Protocols/PendingCareCallRepository.swift",
                     // 기록 상세 ViewModel (기간·집계)

@@ -60,12 +60,20 @@ final class CareCallViewModel {
     private var hadEmergency = false
     private var saving: Task<Void, Never>?
     private var isSaved = false
+    @ObservationIgnored private var analytics: SymptomConversationAnalytics
+    private var analyticsQuestion: SymptomConversationAnalytics.QuestionPresentation?
+    private var readyModeChangeID: UUID?
+    @ObservationIgnored private var pendingVoiceAdvance = false
+    private var showsPauseConfirmation = false
+    private var awaitsAnalyticsResume = false
 
     init(service: any CareCalling, repository: any SymptomRepository, pending: any PendingCareCallRepository,
-         authRepository: any AuthRepository, patientRepository: any PatientRepository) {
+         authRepository: any AuthRepository, patientRepository: any PatientRepository,
+         trackAnalytics: SymptomConversationAnalytics.Track? = nil) {
         self.service = service
         self.repository = repository
         self.pending = pending
+        analytics = SymptomConversationAnalytics(track: trackAnalytics)
         patientSource = .repositories(auth: authRepository, patient: patientRepository)
         bind()
     }
@@ -75,6 +83,7 @@ final class CareCallViewModel {
         self.service = service
         self.repository = repository
         self.pending = pending
+        analytics = SymptomConversationAnalytics()
         patientSource = .knownPatient(patientId)
         self.patientId = patientId
         connectionState = .ready
@@ -194,11 +203,61 @@ final class CareCallViewModel {
         case .answer(let answer): self.answer(answer)
         case .cancel: endCall()
         case .previous: goBack()
-        case .pause: pause()
-        case .resume: resume()
-        case .discard: discard()
+        case .pause:
+            showsPauseConfirmation = true
+            awaitsAnalyticsResume = false
+            analytics.pauseConversation(mode: conversation.mode)
+            pause()
+        case .resume:
+            awaitsAnalyticsResume = showsPauseConfirmation
+            showsPauseConfirmation = false
+            resume()
+        case .discard:
+            discard()
         case .stopForEmergency: stopForEmergency()
         case .continueAfterEmergency: continueAfterEmergency()
+        }
+    }
+
+    var analyticsScreen: SymptomConversationAnalytics.Screen {
+        guard !leftCall, !conversation.isEmergency else { return .hidden }
+        if conversation.didSave {
+            if case .completed? = outcome { return .completed }
+            return .hidden
+        }
+        if conversation.summary != nil {
+            switch outcome {
+            case .completed?: return .summary(conversation.mode, .completed)
+            case .interrupted?: return .summary(conversation.mode, .interrupted)
+            default: return .hidden
+            }
+        }
+        if showsPauseConfirmation { return .paused }
+        if conversation.isSummarizing { return .visible(.summaryLoading, conversation.mode) }
+        if conversation.question != nil {
+            let readyID = conversation.errorMessage == nil ? readyModeChangeID : nil
+            return .visible(.conversation, conversation.mode, analyticsQuestion, readyModeChangeID: readyID, canResume: canResumeAnalytics)
+        }
+        return .hidden
+    }
+
+    func updateAnalyticsScreen(_ screen: SymptomConversationAnalytics.Screen) {
+        analytics.updateScreen(screen)
+        guard case let .visible(.conversation, mode, question, readyID, canResume) = screen else { return }
+        if canResume { awaitsAnalyticsResume = false }
+        if let question, let readyID {
+            analytics.completeModeChange(
+                id: readyID, mode: mode, questionID: question.id, answerRevisions: service.appliedAnswerRevisions
+            )
+            readyModeChangeID = nil
+        }
+    }
+
+    private var canResumeAnalytics: Bool {
+        guard awaitsAnalyticsResume, !switchingMode, conversation.errorMessage == nil else { return false }
+        switch conversation.mode {
+        case .text: return !conversation.isWorking && !conversation.isCalling
+        case .voice: return conversation.voiceState == .patientSpeaking
         }
     }
 
@@ -244,6 +303,13 @@ final class CareCallViewModel {
 
     private func switchMode(to mode: SymptomConversationMode) {
         guard mode != conversation.mode else { return }
+        readyModeChangeID = nil
+        analytics.cancelModeChange()
+        if !isOver, let question = analyticsQuestion {
+            analytics.requestModeChange(
+                from: conversation.mode, to: mode, questionID: question.id, answerRevisions: service.appliedAnswerRevisions
+            )
+        }
         cancelAutoStart()
         conversation.mode = mode
         guard !isOver else { return }
@@ -309,11 +375,13 @@ final class CareCallViewModel {
                 finish(outcome)
             } else if case CareCallServiceError.notPrepared? = failure, began {
                 // 문자로 하다 음성으로 바꿨는데 준비가 안 됨 (마이크 권한 등): 문자로 돌아온다
+                analytics.cancelModeChange()
                 conversation.mode = .text
                 continueInText()
                 conversation.errorMessage = "음성 통화를 준비하지 못했어요. 문자로 이어서 답해 주세요."
                 conversation.needsMicrophone = preparation.preparation == .microphoneDenied
             } else if case CareCallServiceError.notPrepared? = failure {
+                analytics.cancelModeChange()
                 conversation.errorMessage = "통화 준비가 끝나지 않았어요. 다시 시도해 주세요."
             } else if let failure {
                 finish(failure)
@@ -362,7 +430,11 @@ final class CareCallViewModel {
     private func typing(_ step: @escaping () async throws -> CareCallTurn, failed message: @escaping () -> String) -> Task<Void, Never> {
         let task = Task {
             do {
-                show(try await step())
+                let turn = try await step()
+                if let completion = turn.answerCompletion {
+                    analytics.answerCompleted(completion, mode: .text)
+                }
+                show(turn, navigation: turn.answerCompletion == nil ? nil : .nextButton)
             } catch is CancellationError {
             } catch {
                 conversation.errorMessage = message()
@@ -386,16 +458,23 @@ final class CareCallViewModel {
     private func continueInText() {
         guard let turn = service.current else { return }
         conversation.errorMessage = nil
-        show(turn)
+        show(turn, navigation: takeVoiceAdvance())
+        readyModeChangeID = analytics.pendingModeChangeID(for: .text)
     }
 
-    private func show(_ turn: CareCallTurn) {
+    private func takeVoiceAdvance() -> SymptomConversationAnalytics.QuestionPresentation.Navigation? {
+        defer { pendingVoiceAdvance = false }
+        return pendingVoiceAdvance ? .nextAutomatic : nil
+    }
+
+    private func show(_ turn: CareCallTurn, navigation: SymptomConversationAnalytics.QuestionPresentation.Navigation? = nil) {
         keep(service.progress)
         let input: SymptomConversationQuestion.Input = switch turn.number {
         case .count?: .frequency
         case nil: .text
         }
         conversation.question = question(turn.utterance, of: turn, input: input)
+        analyticsQuestion = turn.questionID.map { .init(id: $0, navigation: navigation) }
         conversation.answerText = ""
         conversation.transcript = ""
         conversation.restoredAnswer = nil
@@ -415,7 +494,7 @@ final class CareCallViewModel {
     private func goBack() {
         guard conversation.mode == .text, began, call == nil, typing == nil, !isOver, let back = service.back() else { return }
         conversation.errorMessage = nil
-        show(back.turn)
+        show(back.turn, navigation: .previousButton)
         let restored = Self.answer(back.answer, for: conversation.question?.input ?? .text)
         conversation.restoredAnswer = restored
         if case .text(let text) = restored { conversation.answerText = text }
@@ -448,6 +527,9 @@ final class CareCallViewModel {
     }
 
     func endCall() {
+        awaitsAnalyticsResume = false
+        analytics.cancelModeChange()
+        analytics.updateScreen(.hidden)
         leftCall = true
         cancelAutoStart()
         if conversation.isEmergency {
@@ -490,8 +572,10 @@ final class CareCallViewModel {
     private func discard() {
         paused = false
         if !hadEmergency {
-            forget()
+            let canDiscard = !isOver && !isSaved
+            let removed = forget()
             isSaved = true // 끝낸 대화의 기록을 저장하지도 폰에 남기지도 않는다
+            if canDiscard, removed { analytics.discardConversation(mode: conversation.mode) }
         }
         endCall()
     }
@@ -514,8 +598,13 @@ final class CareCallViewModel {
         case .speaking(let text):
             keep(service.progress) // 답을 분석한 뒤 다음 질문을 말한다
             let turn = service.current
+            let navigation = takeVoiceAdvance()
             // 들어올 때 이미 보여 준 첫 문장이면 그대로 둔다 (화면과 캐릭터 영상을 다시 만들지 않게)
-            if conversation.question?.text != text { conversation.question = question(text, of: turn, input: .text) }
+            let textChanged = conversation.question?.text != text
+            if textChanged { conversation.question = question(text, of: turn, input: .text) }
+            if textChanged || analyticsQuestion?.id != turn?.questionID {
+                analyticsQuestion = turn?.questionID.map { .init(id: $0, navigation: navigation) }
+            }
             // 마무리 인사를 하는 동안 정리 화면을 보여 준다
             if case .completed? = turn?.outcome { conversation.isSummarizing = true }
             conversation.transcript = ""
@@ -523,16 +612,24 @@ final class CareCallViewModel {
             conversation.isWorking = false
         case .listening:
             conversation.voiceState = .patientSpeaking
+            // 화면 모드는 먼저 바뀌므로 실제 음성 입력이 시작된 시점을 기다린다.
+            if !switchingMode, conversation.mode == .voice {
+                readyModeChangeID = analytics.pendingModeChangeID(for: .voice)
+            }
         case .hearing(let text):
             conversation.transcript = text
         case .heard(let text):
             conversation.transcript = text
             conversation.voiceState = .thinking
             conversation.isWorking = true
+        case .answerCompleted(let completion):
+            analytics.answerCompleted(completion, mode: .voice)
+            pendingVoiceAdvance = true
         }
     }
 
     private func finish(_ outcome: CareCallOutcome) {
+        analytics.cancelModeChange()
         self.outcome = outcome
         conversation.voiceState = .thinking
         conversation.isWorking = false
@@ -565,6 +662,7 @@ final class CareCallViewModel {
     }
 
     private func finish(_ error: Error) {
+        analytics.cancelModeChange()
         conversation.question = nil
         conversation.voiceState = .thinking
         conversation.isWorking = false
@@ -626,13 +724,16 @@ final class CareCallViewModel {
             summary?.editingEntryID = nil
         }
         let complete = Self.isFinal(outcome) || hadEmergency // 마친 통화·응급 종료는 그날 기록에 더한다
+        let context = saveAnalyticsContext(for: record)
+        let source: SymptomConversationAnalytics.SaveSource = showingResult ? .userSave : .automaticPreservation
         let task = Task {
             do {
-                let stored = try await store(record, complete: complete)
+                let storedID = try await store(record, complete: complete)
+                if let storedID { analytics.recordSaveSuccess(recordID: storedID, source: source, context: context) }
                 forget() 
                 isSaved = true
-                if showingResult, stored { conversation.didSave = true }
-                if showingResult, !stored { summary?.errorMessage = "오늘 기록이 이미 있어서, 중간에 끊긴 이번 답은 저장하지 않았어요." }
+                if showingResult, storedID != nil { conversation.didSave = true }
+                if showingResult, storedID == nil { summary?.errorMessage = "오늘 기록이 이미 있어서, 중간에 끊긴 이번 답은 저장하지 않았어요." }
             } catch {
                 if showingResult { summary?.errorMessage = "저장하지 못했어요. 다시 저장해 주세요." }
             }
@@ -658,30 +759,55 @@ final class CareCallViewModel {
     private func keep(_ record: SymptomRecord?) {
         guard let record, !isSaved else { return }
         let complete = Self.isFinal(outcome) || hadEmergency
-        try? pending.save(PendingCareCall(id: pendingId, record: record, complete: complete))
+        try? pending.save(PendingCareCall(id: pendingId, record: record, complete: complete,
+                                          analytics: saveAnalyticsContext(for: record)))
     }
 
-    private func forget() {
-        guard let patientId else { return }
-        try? pending.delete(id: pendingId, patientId: patientId)
+    private func saveAnalyticsContext(for record: SymptomRecord) -> PendingCareCall.Analytics? {
+        switch outcome {
+        case .emergencyEnded?: return nil
+        case .completed?:
+            return analytics.saveContext(recordedDate: record.recordedDate, mode: conversation.mode, isComplete: true)
+        case .interrupted?, nil:
+            return analytics.saveContext(recordedDate: record.recordedDate, mode: conversation.mode, isComplete: false)
+        }
+    }
+
+    @discardableResult
+    private func forget() -> Bool {
+        guard let patientId else { return false }
+        do {
+            try pending.delete(id: pendingId, patientId: patientId)
+            return true
+        } catch {
+            return false
+        }
     }
 
     private func sendPending() async {
         guard let patientId else { return }
         for left in (try? pending.findAll(patientId: patientId)) ?? [] where left.id != pendingId {
-            guard (try? await store(left.record, complete: left.complete)) != nil else { continue }
+            do {
+                if let storedID = try await store(left.record, complete: left.complete) {
+                    analytics.recordSaveSuccess(recordID: storedID, source: .pendingRetry, context: left.analytics)
+                }
+            } catch {
+                continue
+            }
             try? pending.delete(id: left.id, patientId: patientId)
         }
     }
 
-    private func store(_ record: SymptomRecord, complete: Bool) async throws -> Bool {
-        guard let existing = try await savedRecord(of: record.patientId, on: record.recordedDate) else {
-            try await repository.save(entity: record)
-            return true
+    private func store(_ record: SymptomRecord, complete: Bool) async throws -> UUID? {
+        let stored: SymptomRecord
+        if let existing = try await savedRecord(of: record.patientId, on: record.recordedDate) {
+            guard complete else { return nil }
+            stored = Self.merge(existing, with: record)
+        } else {
+            stored = record
         }
-        guard complete else { return false }
-        try await repository.save(entity: Self.merge(existing, with: record))
-        return true
+        try await repository.save(entity: stored)
+        return stored.id
     }
 
     static func merge(_ old: SymptomRecord, with new: SymptomRecord) -> SymptomRecord {

@@ -25,7 +25,16 @@ protocol PendingCareCallRepository {
 /// 아직 서버에 올리지 못한 케어콜 기록.
 /// id: 케어콜 하나 (답마다 새로 남겨도 같은 파일). complete: 마무리 인사까지 마친 통화 (그날 기록이 있을 때 더할지 정한다)
 struct PendingCareCall {
+    struct Analytics: Codable {
+        let attemptID: UUID
+        let initialMode: String
+        let currentMode: String
+        let recordDate: String
+        let isCompleteRecord: Bool
+    }
+
     let id: UUID
     let record: SymptomRecord
     let complete: Bool
+    var analytics: Analytics? = nil
 }

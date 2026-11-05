@@ -152,7 +152,8 @@ final class DependencyContainer {
             repository: symptomRepository,
             pending: FilePendingCareCallRepository(),
             authRepository: authRepository,
-            patientRepository: patientRepository
+            patientRepository: patientRepository,
+            trackAnalytics: analytics.track
         )
     }
 
