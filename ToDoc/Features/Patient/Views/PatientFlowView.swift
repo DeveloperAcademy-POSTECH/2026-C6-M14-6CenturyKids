@@ -20,10 +20,12 @@ struct PatientFlowView: View {
     @State private var path: [HomeDestination] = []
     @State private var showsPrevisit = false
     @State private var showsPrevisitPrompt = false
+    @State private var previsitPromptOpenedFromHome = false
+    @State private var restrictedPromptVisitID: UUID?
     @State private var showsPrevisitDiscard = false
     /// 바텀시트·작성 화면이 닫힌 뒤 열 화면 (닫는 중에는 다른 화면을 띄울 수 없다)
     @State private var previsitNext: PrevisitNext?
-    @State private var previsitSession = PrevisitSession()
+    @State private var previsitSession: PrevisitSession
   
     let home: HomeScreenState
     var onHomeContextChange: (Bool, Bool) -> Void
@@ -49,6 +51,7 @@ struct PatientFlowView: View {
         onReloadHome: (() -> Void)? = nil,
         previsit: @escaping (PrevisitSession) -> PrevisitFlowView = { .init(session: $0) },
         previsitLetters: PrevisitLetterViewModel? = nil,
+        trackPrevisitAnalytics: PrevisitAnalytics.Track? = nil,
         pain: @escaping (PainRecordNavigation) -> PainRecordView,
         preparePainDetail: @escaping (Date) -> Void,
         painDetail: @escaping () -> PainRecordDetailView,
@@ -64,6 +67,7 @@ struct PatientFlowView: View {
         self.onReloadHome = onReloadHome
         self.previsit = previsit
         self.previsitLetters = previsitLetters ?? .init()
+        _previsitSession = State(initialValue: PrevisitSession(trackAnalytics: trackPrevisitAnalytics))
         self.pain = pain
         self.preparePainDetail = preparePainDetail
         self.painDetail = painDetail
@@ -79,7 +83,7 @@ struct PatientFlowView: View {
         TabView(selection: $tab) {
             NavigationStack(path: $path) {
                 HomeView(state: home, onSelect: { path.append($0) },
-                         onPrevisit: { showsPrevisitPrompt = true }, onReload: onReloadHome,
+                         onPrevisit: { openPrevisitPrompt(fromHome: true) }, onReload: onReloadHome),
                          isVisible: isHomeVisible)
                     .navigationDestination(for: HomeDestination.self) { destination in
                         Group {
@@ -121,17 +125,35 @@ struct PatientFlowView: View {
             }
             open(deepLink)
         }
-        .sheet(isPresented: $showsPrevisitPrompt, onDismiss: openPrevisitNext) {
+        .sheet(isPresented: $showsPrevisitPrompt, onDismiss: {
+            restrictedPromptVisitID = nil
+            previsitPromptOpenedFromHome = false
+            openPrevisitNext()
+        }) {
             PrevisitPromptView(startTitle: previsitSession.hasDraft ? "이어서 작성하기" : nil,
                                canStart: !previsitLetters.hasSentToday,
                                onStart: { closePrevisitPrompt(then: .write) },
-                               onRecords: { closePrevisitPrompt(then: .letters) },
-                               onClose: { showsPrevisitPrompt = false },
+                               onRecords: {
+                                   recordRestrictedPromptAction(.viewPastRecords)
+                                   closePrevisitPrompt(then: .letters)
+                               },
+                               onClose: {
+                                   recordRestrictedPromptAction(.close)
+                                   showsPrevisitPrompt = false
+                               },
                                onDiscard: previsitSession.hasDraft && !previsitLetters.hasSentToday
                                    ? { showsPrevisitDiscard = true } : nil)
+                .onAppear {
+                    guard previsitPromptOpenedFromHome, previsitLetters.hasSentToday,
+                          restrictedPromptVisitID == nil else { return }
+                    restrictedPromptVisitID = previsitSession.analytics.recordRestrictedPromptView()
+                }
                 .alert("작성 내용을 지울까요?", isPresented: $showsPrevisitDiscard) {
                     Button("유지하기", role: .cancel) { }
-                    Button("지우기", role: .destructive) { previsitSession.discard() }
+                    Button("지우기", role: .destructive) {
+                        previsitSession.analytics.emit("previsit_flow_discarded", step: previsitSession.step)
+                        previsitSession.discard()
+                    }
                 } message: {
                     Text("선택한 기록과 편지, 기분을 모두 지워요.")
                 }
@@ -148,6 +170,17 @@ struct PatientFlowView: View {
     private var isHomeVisible: Bool { tab == .home && path.isEmpty && !showsPrevisit && !showsPrevisitPrompt }
 
     private enum PrevisitNext { case write, letters, prompt }
+
+    private func openPrevisitPrompt(fromHome: Bool = false) {
+        guard !showsPrevisitPrompt else { return }
+        previsitPromptOpenedFromHome = fromHome
+        showsPrevisitPrompt = true
+    }
+
+    private func recordRestrictedPromptAction(_ action: PrevisitAnalytics.RestrictedPromptAction) {
+        guard showsPrevisitPrompt, let restrictedPromptVisitID else { return }
+        previsitSession.analytics.recordRestrictedPromptAction(action, visitID: restrictedPromptVisitID)
+    }
 
     private func closePrevisitPrompt(then next: PrevisitNext) {
         previsitNext = next
@@ -170,7 +203,7 @@ struct PatientFlowView: View {
             tab = .home
             // 오늘 이미 보냈으면 작성 대신 바텀시트(지난 기록 보기)를 엽니다
             if previsitLetters.hasSentToday {
-                showsPrevisitPrompt = true
+                openPrevisitPrompt()
             } else {
                 previsitSession.start()
                 showsPrevisit = true
@@ -191,7 +224,7 @@ struct PatientFlowView: View {
             previsitSession.start()
             showsPrevisit = true
         case .letters: path.append(.previsitLetters)
-        case .prompt: showsPrevisitPrompt = true
+        case .prompt: openPrevisitPrompt()
         case nil: break
         }
         previsitNext = nil

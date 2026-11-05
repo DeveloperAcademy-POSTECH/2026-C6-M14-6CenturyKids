@@ -35,7 +35,10 @@ struct PrevisitFlowView: View {
             } else {
                 PrevisitRecordView(doctorName: doctorName, patientName: patientName, onClose: close, onSubmit: letter.map { letter in { draft in
                                        Task {
-                                           guard let id = await letter.send(draft, to: doctorName) else { return }
+                                           let id = await letter.send(draft, to: doctorName) {
+                                               session.analytics.startSubmission()
+                                           }
+                                           guard let id else { return }
                                            session.discard()
                                            sentID = id
                                        }

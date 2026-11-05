@@ -43,19 +43,44 @@ final class PrevisitLetterViewModelTests: XCTestCase {
     }
 
     func testFailedSendDoesNotCreateLetterAndCanRetry() async {
-        enum Failure: Error { case offline }
         var fails = true
-        let model = PrevisitLetterViewModel(patientID: patientID, save: { _ in if fails { throw Failure.offline } })
+        var events: [(name: String, properties: [String: Any])] = []
+        let model = PrevisitLetterViewModel(patientID: patientID, save: { _ in
+            XCTAssertEqual(events.last?.name, "previsit_submit_attempted")
+            if fails { throw URLError(.notConnectedToInternet) }
+        })
         let draft = PrevisitDraft(day: day, letter: "원문", mood: .unsure)
-        let failed = await model.send(draft, to: "선생님")
+        let session = PrevisitSession(step: .mood, draft: draft) { events.append(($0, $1)) }
+        session.analytics.screenAppeared(step: .mood)
+        let failed = await model.send(draft, to: "선생님") { session.analytics.startSubmission() }
         XCTAssertNil(failed)
         XCTAssertTrue(model.letters.isEmpty)
         XCTAssertNotNil(model.errorMessage)
         XCTAssertFalse(model.isSubmitting)
         fails = false
-        let retried = await model.send(draft, to: "선생님")
+        let retried = await model.send(draft, to: "선생님") { session.analytics.startSubmission() }
         XCTAssertNotNil(retried)
         XCTAssertNil(model.errorMessage)
+        let blocked = await model.send(draft, to: "선생님") { session.analytics.startSubmission() }
+        XCTAssertNil(blocked)
+
+        let submits = events.filter { $0.name.hasPrefix("previsit_submit_") }
+        XCTAssertEqual(submits.map(\.name), [
+            "previsit_submit_attempted", "previsit_submit_failed",
+            "previsit_submit_attempted", "previsit_submit_succeeded"
+        ])
+        guard submits.count == 4 else { return }
+        let attemptIDs = submits.compactMap { $0.properties["attempt_id"] as? String }
+        XCTAssertEqual(attemptIDs.count, 4)
+        XCTAssertEqual(Set(attemptIDs).count, 1)
+        let requestIDs = submits.compactMap { $0.properties["request_id"] as? String }
+        XCTAssertEqual(requestIDs.count, 4)
+        XCTAssertEqual(Set(requestIDs.prefix(2)).count, 1)
+        XCTAssertEqual(Set(requestIDs.suffix(2)).count, 1)
+        XCTAssertNotEqual(requestIDs.first, requestIDs.last)
+        XCTAssertEqual(submits.compactMap { $0.properties["is_retry"] as? Bool }, [false, false, true, true])
+        XCTAssertEqual(submits[1].properties["error_code"] as? String, "network_error")
+        XCTAssertNotNil(submits[3].properties["request_duration_ms"] as? Int)
     }
 
     func testLoadRestoresMemoMoodAndSelectedDay() async throws {

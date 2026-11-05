@@ -6,10 +6,13 @@ import Observation
     var draft: PrevisitDraft
     private(set) var step: PrevisitStep
     private(set) var isWriting = false
+    @ObservationIgnored var analytics: PrevisitAnalytics
 
-    init(step: PrevisitStep = .day, draft: PrevisitDraft = .init()) {
+    init(step: PrevisitStep = .day, draft: PrevisitDraft = .init(),
+         trackAnalytics: PrevisitAnalytics.Track? = nil) {
         self.step = step
         self.draft = draft
+        analytics = PrevisitAnalytics(track: trackAnalytics)
     }
 
     var hasDraft: Bool {
@@ -25,7 +28,10 @@ import Observation
     }
 
     func start() { isWriting = true }
-    func pause() { isWriting = false }
+    func pause() {
+        isWriting = false
+        if !hasDraft { analytics.resetAttempt() }
+    }
 
     func selectDay(_ day: PrevisitDay) {
         guard day.isSelectable else { return }
