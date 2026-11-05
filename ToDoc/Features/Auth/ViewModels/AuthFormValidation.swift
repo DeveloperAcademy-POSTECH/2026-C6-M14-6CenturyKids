@@ -39,7 +39,6 @@ enum AuthFormValidation {
     static func nameError(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty || trimmed.count > 30 { return "이름은 1~30자로 입력해 주세요." }
-        // 특수문자·이모지·제어 문자가 든 이름은 받지 않습니다.
         let disallowed = CharacterSet.controlCharacters.union(.punctuationCharacters).union(.symbols)
         return trimmed.rangeOfCharacter(from: disallowed) != nil ? "이름을 다시 확인해 주세요." : nil
     }
