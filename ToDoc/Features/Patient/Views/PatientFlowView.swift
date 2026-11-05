@@ -79,7 +79,8 @@ struct PatientFlowView: View {
         TabView(selection: $tab) {
             NavigationStack(path: $path) {
                 HomeView(state: home, onSelect: { path.append($0) },
-                         onPrevisit: { showsPrevisitPrompt = true }, onReload: onReloadHome)
+                         onPrevisit: { showsPrevisitPrompt = true }, onReload: onReloadHome,
+                         isVisible: isHomeVisible)
                     .navigationDestination(for: HomeDestination.self) { destination in
                         Group {
                             switch destination {
