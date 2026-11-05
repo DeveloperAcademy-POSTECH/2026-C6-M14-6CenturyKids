@@ -42,11 +42,6 @@ import ToDocDomain
         vm.handle(.skipDoctorCode)
         XCTAssertEqual(vm.state.step, .review); XCTAssertNil(vm.state.connection)
     }
-    func testResetMissingAddressDoesNotPretendToSendEmail() async {
-        let f = AuthFixture(); let vm = PasswordResetViewModel(repositories: f.repositories, session: f.session, configuration: .init())
-        vm.state.email = "patient@example.com"; await vm.submit()
-        XCTAssertEqual(f.auth.resetCount, 0); XCTAssertFalse(vm.state.didSend); XCTAssertNotNil(vm.state.errorMessage)
-    }
     func testOrdinaryLoggedInSessionCannotUpdatePasswordWithoutRecovery() async {
         let f = AuthFixture(); f.auth.signedIn = true
         let vm = PasswordResetViewModel(repositories: f.repositories, session: f.session, configuration: configuration)

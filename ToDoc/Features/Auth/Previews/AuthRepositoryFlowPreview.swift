@@ -27,6 +27,6 @@ import SwiftUI
 
 #Preview("로그인 · 저장소 미연결") { AuthFlowView(viewModel: AuthRepositoryPreview.model(.login)) }
 #Preview("가입 · 약관 본문 대기") { AuthFlowView(viewModel: AuthRepositoryPreview.terms()) }
-#Preview("재설정 · 복귀 주소 대기") { AuthFlowView(viewModel: AuthRepositoryPreview.model(.passwordReset)) }
+#Preview("재설정 · 저장소 미연결") { AuthFlowView(viewModel: AuthRepositoryPreview.model(.passwordReset)) }
 #Preview("새 비밀번호 · 화면 시안 대기") { PasswordResetView(state: AuthRepositoryPreview.recoveryForm()) }
 #endif

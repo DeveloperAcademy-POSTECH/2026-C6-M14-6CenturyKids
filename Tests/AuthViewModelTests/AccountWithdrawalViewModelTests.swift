@@ -145,6 +145,7 @@ private final class WithdrawalAuthDouble: AuthRepository {
     func isSignedIn() -> Bool { true }
     func requestPasswordChangeVerification() async throws {}
     func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws {}
+    func verifyPasswordResetCode(email: String, code: String) async throws {}
     func updatePassword(to newPassword: String, nonce: String?) async throws {}
     func getSignUpProvider() async throws -> String? { nil }
 }

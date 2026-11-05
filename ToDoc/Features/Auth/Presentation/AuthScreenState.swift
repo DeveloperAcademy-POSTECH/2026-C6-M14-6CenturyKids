@@ -22,9 +22,12 @@ import Observation
     var errorMessage: String?
     var isSubmitting = false
     var didSend = false
+    var code = ""
+    var codeError: String?
     var newPassword = ""
     var passwordConfirmation = ""
     var passwordError: String?
+    var confirmationError: String?
     var isRecoveryReady = false
     var didUpdatePassword = false
     var needsSessionCleanup = false

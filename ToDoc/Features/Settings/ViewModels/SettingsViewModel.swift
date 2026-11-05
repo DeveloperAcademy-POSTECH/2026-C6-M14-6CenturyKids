@@ -26,6 +26,7 @@ final class SettingsViewModel {
     @ObservationIgnored private let patientRepository: any PatientRepository
     @ObservationIgnored private let doctorRepository: any DoctorRepository
     @ObservationIgnored private let hospitalRepository: any HospitalRepository
+    @ObservationIgnored private var passwordChangeEmail: String?
 
     init(
         patientId: UUID,
@@ -77,7 +78,7 @@ final class SettingsViewModel {
         }
 
         passwordChangeState.onContinue = { [weak self] in
-            self?.continuePasswordChange() ?? false
+            await self?.continuePasswordChange() ?? false
         }
 
         passwordChangeState.onInputChanged = { [weak self] in
@@ -475,9 +476,11 @@ final class SettingsViewModel {
         }
     }
 
+    // 재인증 코드(reauthenticate)는 서버가 최근 세션에서 확인하지 않고 따로 확인할 방법도 없어,
+    // 확인할 수 있는 재설정 인증코드를 로그인한 이메일로 보냅니다.
     func sendPasswordChangeCode() async {
         let state = passwordChangeState
-        guard !state.isSendingCode, !state.isSaving else { return }
+        guard !state.isSendingCode, !state.isVerifyingCode, !state.isSaving else { return }
 
         state.isSendingCode = true
         state.errorMessage = nil
@@ -485,33 +488,57 @@ final class SettingsViewModel {
         defer { state.isSendingCode = false }
 
         do {
-            try await authRepository.requestPasswordChangeVerification()
+            guard let email = try await authRepository.getCurrentUserEmail(), !email.isEmpty else {
+                state.errorMessage = "가입한 이메일을 확인하지 못했어요. 다시 로그인해 주세요."
+                return
+            }
+            try await authRepository.sendPasswordResetEmail(to: email, redirectTo: nil)
+            passwordChangeEmail = email
             state.verificationCode = ""
+            state.isCodeVerified = false
             state.hasSentCode = true
         } catch {
-            state.errorMessage = "인증코드를 보내지 못했어요. 다시 시도해 주세요."
+            state.errorMessage = (error as? AuthError)?.errorCode == .overEmailSendRateLimit
+                ? "인증코드를 너무 자주 요청했어요. 잠시 후 다시 시도해 주세요."
+                : "인증코드를 보내지 못했어요. 다시 시도해 주세요."
         }
     }
 
-    func continuePasswordChange() -> Bool {
+    /// 서버에서 인증코드를 확인한 뒤에만 새 비밀번호 화면으로 넘어갑니다.
+    func continuePasswordChange() async -> Bool {
         let state = passwordChangeState
-        guard !state.isSendingCode, !state.isSaving else { return false }
+        guard !state.isSendingCode, !state.isVerifyingCode, !state.isSaving else { return false }
+        if state.isCodeVerified { return true }
 
         state.codeError = nil
+        state.errorMessage = nil
 
-        guard state.hasSentCode else {
+        guard state.hasSentCode, let email = passwordChangeEmail else {
             state.codeError = "인증코드를 먼저 요청해 주세요."
             return false
         }
 
-        guard !state.verificationCode
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .isEmpty else {
+        let code = state.verificationCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty else {
             state.codeError = "인증코드를 입력해 주세요."
             return false
         }
 
-        return true
+        state.isVerifyingCode = true
+        defer { state.isVerifyingCode = false }
+
+        do {
+            try await authRepository.verifyPasswordResetCode(email: email, code: code)
+            state.isCodeVerified = true
+            return true
+        } catch {
+            if (error as? AuthError)?.errorCode == .otpExpired {
+                state.codeError = "인증코드가 올바르지 않거나 만료되었어요. 다시 확인해 주세요."
+            } else {
+                state.errorMessage = "인증코드를 확인하지 못했어요. 다시 시도해 주세요."
+            }
+            return false
+        }
     }
 
     func validatePasswordInputs() {
@@ -537,21 +564,15 @@ final class SettingsViewModel {
 
     func changePassword() async {
         let state = passwordChangeState
-        guard !state.isSaving, !state.isSendingCode else { return }
+        guard !state.isSaving, !state.isSendingCode, !state.isVerifyingCode else { return }
 
         state.didSave = false
         state.errorMessage = nil
         state.codeError = nil
         state.confirmationError = nil
 
-        guard state.hasSentCode else {
-            state.codeError = "인증코드를 먼저 요청해 주세요."
-            return
-        }
-
-        let code = state.verificationCode.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !code.isEmpty else {
-            state.codeError = "인증코드를 입력해 주세요."
+        guard state.isCodeVerified else {
+            state.codeError = "인증코드를 먼저 확인해 주세요."
             return
         }
 
@@ -568,18 +589,17 @@ final class SettingsViewModel {
         defer { state.isSaving = false }
 
         do {
-            try await authRepository.updatePassword(to: newPassword, nonce: code)
+            try await authRepository.updatePassword(to: newPassword, nonce: nil)
             state.verificationCode = ""
             state.newPassword = ""
             state.passwordConfirmation = ""
             state.canSubmitPassword = false
+            state.isCodeVerified = false
+            state.hasSentCode = false
+            passwordChangeEmail = nil
             state.didSave = true
         } catch {
             switch (error as? AuthError)?.errorCode {
-            case .some(.reauthenticationNotValid):
-                state.codeError = "인증코드가 올바르지 않아요. 다시 확인해 주세요."
-            case .some(.reauthenticationNeeded):
-                state.codeError = "인증코드를 다시 요청해 주세요."
             case .some(.samePassword):
                 state.newPasswordError = "기존 비밀번호와 다른 비밀번호를 입력해 주세요."
             case .some(.weakPassword):
@@ -591,10 +611,13 @@ final class SettingsViewModel {
     }
 
     func discardPasswordChange() {
-        guard !passwordChangeState.isSaving, !passwordChangeState.isSendingCode else { return }
+        guard !passwordChangeState.isSaving, !passwordChangeState.isSendingCode,
+              !passwordChangeState.isVerifyingCode else { return }
 
+        passwordChangeEmail = nil
         passwordChangeState.verificationCode = ""
         passwordChangeState.hasSentCode = false
+        passwordChangeState.isCodeVerified = false
         passwordChangeState.codeError = nil
 
         passwordChangeState.newPassword = ""
