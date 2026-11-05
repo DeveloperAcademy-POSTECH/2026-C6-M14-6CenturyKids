@@ -4,6 +4,11 @@ import Foundation
 struct PrevisitAnalytics {
     typealias Track = @MainActor (String, [String: Any]) -> Void
 
+    enum RestrictedPromptAction: String {
+        case close
+        case viewPastRecords = "view_past_records"
+    }
+
     struct Attempt {
         let id = UUID()
         var isPresented = false
@@ -198,6 +203,22 @@ struct PrevisitAnalytics {
         self.attempt?.hasRequestedSubmission = true
         track("previsit_submit_attempted", properties)
         return Submission(track: track, properties: properties, startedAt: .now)
+    }
+
+    @MainActor
+    func recordRestrictedPromptView() -> UUID? {
+        guard let track else { return nil }
+        let visitID = UUID()
+        track("previsit_restricted_prompt_viewed", ["prompt_visit_id": visitID.uuidString])
+        return visitID
+    }
+
+    @MainActor
+    func recordRestrictedPromptAction(_ action: RestrictedPromptAction, visitID: UUID) {
+        track?("previsit_restricted_prompt_action", [
+            "prompt_visit_id": visitID.uuidString,
+            "action": action.rawValue
+        ])
     }
 
     @MainActor
