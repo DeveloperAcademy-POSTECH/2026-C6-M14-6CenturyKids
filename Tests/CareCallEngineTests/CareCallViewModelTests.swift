@@ -471,6 +471,24 @@ struct CareCallViewModelTests {
         #expect(service.beginCount == 1)
     }
 
+    @Test func 통화를_끊는_중에_다시_이어_가도_끊은_뒤_다시_건다() async {
+        // 백그라운드에 갔다가 금방 돌아오면 끊기가 끝나기 전에 resume이 온다
+        await enterVoiceCall()
+        viewModel.autoStartDelay = .zero
+        service.hold = .call
+        service.outcome = .interrupted(record([entry(.diarrhea, .present)]))
+        viewModel.open()
+        await waitUntilHolding()
+        conversation.onAction?(.pause)
+        service.hold = .call
+        conversation.onAction?(.resume)
+        for _ in 0..<1_000 where service.calls.filter({ $0 == .call }).count < 2 { await Task.yield() }
+        #expect(service.calls.filter { $0 == .call }.count == 2)
+        #expect(service.beginCount == 1)
+        #expect(conversation.summary == nil)
+        service.release()
+    }
+
     @Test func 통화_중에_그만하면_받은_답을_저장하지_않는다() async {
         await enterVoiceCall()
         viewModel.autoStartDelay = .zero
