@@ -103,7 +103,7 @@ struct RecordPlot<Marks: View>: View {
             ZStack(alignment: .topLeading) {
                 ForEach(0...10, id: \.self) { value in
                     let y = proxy.size.height * CGFloat(10 - value) / 10
-                    // 1pt 눈금선의 가운데가 점수 위치에 오도록 반만큼 올립니다 (막대 끝 원의 중심과 맞춤)
+                    // 1pt 눈금선 가운데를 점수 위치에 맞춤
                     if value.isMultiple(of: 5) {
                         Rectangle().fill(Color(white: 230/255)).frame(height: 1).offset(y: y - 0.5)
                         if scoreAxis {
@@ -123,7 +123,6 @@ struct RecordPlot<Marks: View>: View {
 @MainActor enum RecordChartStyle {
     static let green = Color(red: 205/255, green: 238/255, blue: 136/255)
     static let track = Color(red: 233/255, green: 232/255, blue: 233/255)
-    /// 주간 막대: 복용 후 점수가 내려갔으면(같으면) 초록, 올라갔으면 주황
     static let decrease = Color(red: 197/255, green: 242/255, blue: 118/255)
     static let increase = Color(red: 233/255, green: 128/255, blue: 78/255)
     static let meals = [Color(red: 156/255, green: 228/255, blue: 46/255), AppColors.primary, Color(red: 229/255, green: 247/255, blue: 196/255)]
