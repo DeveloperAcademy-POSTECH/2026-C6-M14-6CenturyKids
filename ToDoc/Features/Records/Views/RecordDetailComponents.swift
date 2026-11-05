@@ -103,14 +103,15 @@ struct RecordPlot<Marks: View>: View {
             ZStack(alignment: .topLeading) {
                 ForEach(0...10, id: \.self) { value in
                     let y = proxy.size.height * CGFloat(10 - value) / 10
+                    // 1pt 눈금선의 가운데가 점수 위치에 오도록 반만큼 올립니다 (막대 끝 원의 중심과 맞춤)
                     if value.isMultiple(of: 5) {
-                        Rectangle().fill(Color(white: 230/255)).frame(height: 1).offset(y: y)
+                        Rectangle().fill(Color(white: 230/255)).frame(height: 1).offset(y: y - 0.5)
                         if scoreAxis {
                             Text(String(value)).modifier(RecordTextStyle(size: 12)).foregroundStyle(Color(white: 141/255))
                                 .offset(x: -21, y: y - 8)
                         }
                     } else if scoreAxis {
-                        Rectangle().fill(Color(white: 230/255)).frame(width: 8, height: 1).offset(x: -20, y: y)
+                        Rectangle().fill(Color(white: 230/255)).frame(width: 8, height: 1).offset(x: -20, y: y - 0.5)
                     }
                 }
                 marks(proxy.size)
