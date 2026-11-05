@@ -61,6 +61,8 @@ final class CareCallViewModel {
     private var saving: Task<Void, Never>?
     private var isSaved = false
     @ObservationIgnored private var analytics: SymptomConversationAnalytics
+    private var analyticsQuestion: SymptomConversationAnalytics.QuestionPresentation?
+    @ObservationIgnored private var pendingVoiceAdvance = false
     private var showsPauseConfirmation = false
 
     init(service: any CareCalling, repository: any SymptomRepository, pending: any PendingCareCallRepository,
@@ -222,7 +224,7 @@ final class CareCallViewModel {
             return .hidden
         }
         if conversation.isSummarizing { return .visible(.summaryLoading, conversation.mode) }
-        if conversation.question != nil { return .visible(.conversation, conversation.mode) }
+        if conversation.question != nil { return .visible(.conversation, conversation.mode, analyticsQuestion) }
         return .hidden
     }
 
@@ -390,7 +392,11 @@ final class CareCallViewModel {
     private func typing(_ step: @escaping () async throws -> CareCallTurn, failed message: @escaping () -> String) -> Task<Void, Never> {
         let task = Task {
             do {
-                show(try await step())
+                let turn = try await step()
+                if let completion = turn.answerCompletion {
+                    analytics.answerCompleted(completion, mode: .text)
+                }
+                show(turn, navigation: turn.answerCompletion == nil ? nil : .nextButton)
             } catch is CancellationError {
             } catch {
                 conversation.errorMessage = message()
@@ -414,16 +420,22 @@ final class CareCallViewModel {
     private func continueInText() {
         guard let turn = service.current else { return }
         conversation.errorMessage = nil
-        show(turn)
+        show(turn, navigation: takeVoiceAdvance())
     }
 
-    private func show(_ turn: CareCallTurn) {
+    private func takeVoiceAdvance() -> SymptomConversationAnalytics.QuestionPresentation.Navigation? {
+        defer { pendingVoiceAdvance = false }
+        return pendingVoiceAdvance ? .nextAutomatic : nil
+    }
+
+    private func show(_ turn: CareCallTurn, navigation: SymptomConversationAnalytics.QuestionPresentation.Navigation? = nil) {
         keep(service.progress)
         let input: SymptomConversationQuestion.Input = switch turn.number {
         case .count?: .frequency
         case nil: .text
         }
         conversation.question = question(turn.utterance, of: turn, input: input)
+        analyticsQuestion = turn.questionID.map { .init(id: $0, navigation: navigation) }
         conversation.answerText = ""
         conversation.transcript = ""
         conversation.restoredAnswer = nil
@@ -443,7 +455,7 @@ final class CareCallViewModel {
     private func goBack() {
         guard conversation.mode == .text, began, call == nil, typing == nil, !isOver, let back = service.back() else { return }
         conversation.errorMessage = nil
-        show(back.turn)
+        show(back.turn, navigation: .previousButton)
         let restored = Self.answer(back.answer, for: conversation.question?.input ?? .text)
         conversation.restoredAnswer = restored
         if case .text(let text) = restored { conversation.answerText = text }
@@ -543,8 +555,13 @@ final class CareCallViewModel {
         case .speaking(let text):
             keep(service.progress) // 답을 분석한 뒤 다음 질문을 말한다
             let turn = service.current
+            let navigation = takeVoiceAdvance()
             // 들어올 때 이미 보여 준 첫 문장이면 그대로 둔다 (화면과 캐릭터 영상을 다시 만들지 않게)
-            if conversation.question?.text != text { conversation.question = question(text, of: turn, input: .text) }
+            let textChanged = conversation.question?.text != text
+            if textChanged { conversation.question = question(text, of: turn, input: .text) }
+            if textChanged || analyticsQuestion?.id != turn?.questionID {
+                analyticsQuestion = turn?.questionID.map { .init(id: $0, navigation: navigation) }
+            }
             // 마무리 인사를 하는 동안 정리 화면을 보여 준다
             if case .completed? = turn?.outcome { conversation.isSummarizing = true }
             conversation.transcript = ""
@@ -558,6 +575,9 @@ final class CareCallViewModel {
             conversation.transcript = text
             conversation.voiceState = .thinking
             conversation.isWorking = true
+        case .answerCompleted(let completion):
+            analytics.answerCompleted(completion, mode: .voice)
+            pendingVoiceAdvance = true
         }
     }
 

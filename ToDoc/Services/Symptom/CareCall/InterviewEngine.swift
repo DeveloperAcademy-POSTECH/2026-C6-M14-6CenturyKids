@@ -13,6 +13,7 @@ final class InterviewEngine {
     struct Output: Equatable, Sendable {
         var utterance: String
         var phase: InterviewPhase
+        var answerCompletion: CareCallAnswerCompletion? = nil
         var isFinished: Bool { phase == .saved || phase == .emergencyEnded }
     }
 
@@ -55,6 +56,35 @@ final class InterviewEngine {
     private var resumePoint: (phase: InterviewPhase, question: String)?
     /// 답 한 턴마다 그 답을 받기 전 상태 (이전 질문으로 돌아갈 때). 분석기는 턴마다 새로 묻기 때문에 엔진 상태만 되돌리면 된다
     private var history: [Snapshot] = []
+
+    private enum QuestionKey: Hashable {
+        case opening(followUp: Bool)
+        case slot(key: String, step: CareCallStep)
+        case other(detailKey: String?, followUp: Bool)
+    }
+
+    // 질문의 문구가 바뀌거나 이전 단계로 돌아가도 동일한 질문에는 같은 분석 ID를 쓴다.
+    private var questionIDs: [QuestionKey: UUID] = [:]
+    private var confirmedAnswers: [UUID: String] = [:]
+
+    var currentQuestionID: UUID? {
+        guard pendingEmergencyCheck == nil else { return nil }
+        let key: QuestionKey
+        switch phase {
+        case .opening:
+            key = .opening(followUp: openingFirstAnswer != nil)
+        case .slot(let slot, let step):
+            key = .slot(key: slot, step: step)
+        case .other:
+            key = .other(detailKey: otherDetailKey, followUp: otherYesFollowedUp)
+        case .saved, .emergencyEnded:
+            return nil
+        }
+        if let id = questionIDs[key] { return id }
+        let id = UUID()
+        questionIDs[key] = id
+        return id
+    }
     /// 부위 낱말 (body_parts.json). 절 판단으로 '있음'이 된 답에서 그 절의 부위를 찾을 때만 쓴다
 
     init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI, followUp unasked: Set<String>? = nil,
@@ -111,14 +141,29 @@ final class InterviewEngine {
             return pending.output
         }
         let current = phase
+        let questionID = currentQuestionID
         let before = ledger
-        let (out, modelEmergency) = await respond(to: patientText)
+        let (response, modelEmergency) = await respond(to: patientText)
         // 모델만 응급이라고 함 (응급 키워드·체온에는 안 걸림): 그 답의 기록을 검토 필요로 남기고 한 번 확인한다.
         // 모델의 응급 판단은 흔들려(증상 여럿 "토하고 입안도 아프고 손도 저려요"를 응급으로 봄) 바로 끝내지 않는다
         // (2026-10-21 Mac 평가, Foundation Models: 모델만 응급이라고 한 3번 중 1번이 거짓 응급, 2번은 혈변·실신)
-        guard modelEmergency else { return out }
+        guard modelEmergency else {
+            var output = response
+            // 되묻는 동안에는 현재 질문이 아직 확정되지 않은 상태다.
+            if let questionID, questionID != currentQuestionID {
+                let answer = patientText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let action: CareCallAnswerCompletion.Action
+                if let previous = confirmedAnswers.updateValue(answer, forKey: questionID) {
+                    action = previous == answer ? .unchanged : .modified
+                } else {
+                    action = .initial
+                }
+                output.answerCompletion = CareCallAnswerCompletion(questionID: questionID, action: action)
+            }
+            return output
+        }
         markForReview(patientText, since: before)
-        pendingEmergencyCheck = (out, phase, patientText)
+        pendingEmergencyCheck = (response, phase, patientText)
         phase = current
         return Output(utterance: say(rules.confirmQuestion), phase: phase)
     }

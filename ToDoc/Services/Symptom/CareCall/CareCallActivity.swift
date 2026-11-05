@@ -15,4 +15,6 @@ enum CareCallActivity: Equatable, Sendable {
     case hearing(String)
     /// 환자가 한 말. 이어서 분석한다
     case heard(String)
+    /// 대화 엔진이 질문의 답을 확정했다.
+    case answerCompleted(CareCallAnswerCompletion)
 }
