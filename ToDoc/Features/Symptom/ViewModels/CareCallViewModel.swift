@@ -65,6 +65,7 @@ final class CareCallViewModel {
     private var readyModeChangeID: UUID?
     @ObservationIgnored private var pendingVoiceAdvance = false
     private var showsPauseConfirmation = false
+    private var awaitsAnalyticsResume = false
 
     init(service: any CareCalling, repository: any SymptomRepository, pending: any PendingCareCallRepository,
          authRepository: any AuthRepository, patientRepository: any PatientRepository,
@@ -204,13 +205,14 @@ final class CareCallViewModel {
         case .previous: goBack()
         case .pause:
             showsPauseConfirmation = true
-            analytics.updateScreen(.paused)
+            awaitsAnalyticsResume = false
+            analytics.pauseConversation(mode: conversation.mode)
             pause()
         case .resume:
+            awaitsAnalyticsResume = showsPauseConfirmation
             showsPauseConfirmation = false
             resume()
         case .discard:
-            analytics.finishInterval(reason: "discarded")
             discard()
         case .stopForEmergency: stopForEmergency()
         case .continueAfterEmergency: continueAfterEmergency()
@@ -227,18 +229,28 @@ final class CareCallViewModel {
         if conversation.isSummarizing { return .visible(.summaryLoading, conversation.mode) }
         if conversation.question != nil {
             let readyID = conversation.errorMessage == nil ? readyModeChangeID : nil
-            return .visible(.conversation, conversation.mode, analyticsQuestion, readyModeChangeID: readyID)
+            return .visible(.conversation, conversation.mode, analyticsQuestion, readyModeChangeID: readyID, canResume: canResumeAnalytics)
         }
         return .hidden
     }
 
     func updateAnalyticsScreen(_ screen: SymptomConversationAnalytics.Screen) {
         analytics.updateScreen(screen)
-        if case let .visible(.conversation, mode, question?, id?) = screen {
+        guard case let .visible(.conversation, mode, question, readyID, canResume) = screen else { return }
+        if canResume { awaitsAnalyticsResume = false }
+        if let question, let readyID {
             analytics.completeModeChange(
-                id: id, mode: mode, questionID: question.id, answerRevisions: service.appliedAnswerRevisions
+                id: readyID, mode: mode, questionID: question.id, answerRevisions: service.appliedAnswerRevisions
             )
             readyModeChangeID = nil
+        }
+    }
+
+    private var canResumeAnalytics: Bool {
+        guard awaitsAnalyticsResume, !switchingMode, conversation.errorMessage == nil else { return false }
+        switch conversation.mode {
+        case .text: return !conversation.isWorking && !conversation.isCalling
+        case .voice: return conversation.voiceState == .patientSpeaking
         }
     }
 
@@ -508,6 +520,7 @@ final class CareCallViewModel {
     }
 
     func endCall() {
+        awaitsAnalyticsResume = false
         analytics.cancelModeChange()
         analytics.updateScreen(.hidden)
         leftCall = true
@@ -552,8 +565,10 @@ final class CareCallViewModel {
     private func discard() {
         paused = false
         if !hadEmergency {
-            forget()
+            let canDiscard = !isOver && !isSaved
+            let removed = forget()
             isSaved = true // 끝낸 대화의 기록을 저장하지도 폰에 남기지도 않는다
+            if canDiscard, removed { analytics.discardConversation(mode: conversation.mode) }
         }
         endCall()
     }
@@ -737,9 +752,15 @@ final class CareCallViewModel {
         try? pending.save(PendingCareCall(id: pendingId, record: record, complete: complete))
     }
 
-    private func forget() {
-        guard let patientId else { return }
-        try? pending.delete(id: pendingId, patientId: patientId)
+    @discardableResult
+    private func forget() -> Bool {
+        guard let patientId else { return false }
+        do {
+            try pending.delete(id: pendingId, patientId: patientId)
+            return true
+        } catch {
+            return false
+        }
     }
 
     private func sendPending() async {

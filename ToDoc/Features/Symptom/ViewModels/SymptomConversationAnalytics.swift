@@ -10,7 +10,7 @@ struct SymptomConversationAnalytics {
     }
 
     enum Screen: Equatable {
-        case visible(Step, SymptomConversationMode, QuestionPresentation? = nil, readyModeChangeID: UUID? = nil)
+        case visible(Step, SymptomConversationMode, QuestionPresentation? = nil, readyModeChangeID: UUID? = nil, canResume: Bool = false)
         case hidden
         case paused
         case backgrounded
@@ -54,6 +54,8 @@ struct SymptomConversationAnalytics {
     private var presentedQuestions: Set<UUID> = []
     private var answeredQuestions: Set<UUID> = []
     private var pendingModeChange: ModeChange?
+    private var isConversationPaused = false
+    private var cumulativeActiveMilliseconds: Int64 = 0
 
     init(track: Track? = nil) {
         self.track = track
@@ -62,7 +64,7 @@ struct SymptomConversationAnalytics {
     mutating func updateScreen(_ screen: Screen) {
         guard let track else { return }
 
-        guard case let .visible(step, mode, question, _) = screen else {
+        guard case let .visible(step, mode, question, _, canResume) = screen else {
             let reason: String = switch screen {
             case .paused: "paused"
             case .backgrounded: "backgrounded"
@@ -84,6 +86,10 @@ struct SymptomConversationAnalytics {
             interval = ActiveInterval(step: step, mode: mode, startedAt: clock.now)
         }
         if let question { present(question, for: attempt, mode: mode, track: track) }
+        if canResume, isConversationPaused {
+            isConversationPaused = false
+            track("symptom_conversation_resumed", progressProperties(for: attempt, mode: mode))
+        }
     }
 
     private mutating func present(_ question: QuestionPresentation, for attempt: Attempt, mode: SymptomConversationMode, track: Track) {
@@ -138,6 +144,33 @@ struct SymptomConversationAnalytics {
         pendingModeChange = nil
     }
 
+    mutating func pauseConversation(mode: SymptomConversationMode) {
+        guard let track, let attempt, !isConversationPaused else { return }
+        finishInterval(reason: "paused")
+        isConversationPaused = true
+        var properties = progressProperties(for: attempt, mode: mode)
+        properties["pause_reason"] = "pause_action"
+        properties["cumulative_active_ms"] = cumulativeActiveMilliseconds
+        track("symptom_conversation_paused", properties)
+    }
+
+    mutating func discardConversation(mode: SymptomConversationMode) {
+        guard let track, let attempt, isConversationPaused else { return }
+        finishInterval(reason: "discarded")
+        isConversationPaused = false
+        var properties = progressProperties(for: attempt, mode: mode)
+        properties["cumulative_active_ms"] = cumulativeActiveMilliseconds
+        track("symptom_conversation_discarded", properties)
+    }
+
+    private func progressProperties(for attempt: Attempt, mode: SymptomConversationMode) -> [String: Any] {
+        var properties = properties(for: attempt, step: .conversation, mode: mode)
+        properties["question_count"] = presentedQuestions.count
+        properties["answered_question_count"] = answeredQuestions.count
+        properties["current_question_id"] = lastQuestion?.id.uuidString
+        return properties
+    }
+
     mutating func completeModeChange(id: UUID, mode: SymptomConversationMode, questionID: UUID, answerRevisions: Set<UUID>?) {
         guard let track, let attempt, let change = pendingModeChange, change.id == id, change.to == mode else { return }
         pendingModeChange = nil
@@ -166,6 +199,7 @@ struct SymptomConversationAnalytics {
 
         let elapsed = interval.startedAt.duration(to: clock.now).components
         let milliseconds = elapsed.seconds * 1_000 + elapsed.attoseconds / 1_000_000_000_000_000
+        cumulativeActiveMilliseconds += milliseconds
         var properties = properties(for: attempt, step: interval.step, mode: interval.mode)
         properties["active_duration_ms"] = milliseconds
         properties["engagement_end_reason"] = reason
