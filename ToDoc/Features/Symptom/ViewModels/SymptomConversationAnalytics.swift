@@ -7,10 +7,17 @@ struct SymptomConversationAnalytics {
     enum Step: String, Equatable {
         case conversation
         case summaryLoading = "summary_loading"
+        case summary
+    }
+
+    enum SummaryOutcome: String, Equatable {
+        case completed
+        case interrupted
     }
 
     enum Screen: Equatable {
         case visible(Step, SymptomConversationMode, QuestionPresentation? = nil, readyModeChangeID: UUID? = nil, canResume: Bool = false)
+        case summary(SymptomConversationMode, SummaryOutcome)
         case hidden
         case paused
         case backgrounded
@@ -56,6 +63,7 @@ struct SymptomConversationAnalytics {
     private var pendingModeChange: ModeChange?
     private var isConversationPaused = false
     private var cumulativeActiveMilliseconds: Int64 = 0
+    private var hasViewedSummary = false
 
     init(track: Track? = nil) {
         self.track = track
@@ -64,12 +72,17 @@ struct SymptomConversationAnalytics {
     mutating func updateScreen(_ screen: Screen) {
         guard let track else { return }
 
+        if case let .summary(mode, outcome) = screen {
+            viewSummary(mode: mode, outcome: outcome)
+            return
+        }
+
         guard case let .visible(step, mode, question, _, canResume) = screen else {
             let reason: String = switch screen {
             case .paused: "paused"
             case .backgrounded: "backgrounded"
             case .completed: "completed"
-            case .hidden, .visible: "step_changed"
+            case .hidden, .visible, .summary: "step_changed"
             }
             finishInterval(reason: reason)
             return
@@ -163,11 +176,22 @@ struct SymptomConversationAnalytics {
         track("symptom_conversation_discarded", properties)
     }
 
-    private func progressProperties(for attempt: Attempt, mode: SymptomConversationMode) -> [String: Any] {
-        var properties = properties(for: attempt, step: .conversation, mode: mode)
+    private mutating func viewSummary(mode: SymptomConversationMode, outcome: SummaryOutcome) {
+        guard let track, let attempt, !hasViewedSummary else { return }
+        finishInterval(reason: outcome == .completed ? "completed" : "step_changed")
+        hasViewedSummary = true
+        isConversationPaused = false
+        var properties = progressProperties(for: attempt, mode: mode, step: .summary)
+        properties["conversation_outcome"] = outcome.rawValue
+        properties["cumulative_active_ms"] = cumulativeActiveMilliseconds
+        track("symptom_summary_viewed", properties)
+    }
+
+    private func progressProperties(for attempt: Attempt, mode: SymptomConversationMode, step: Step = .conversation) -> [String: Any] {
+        var properties = properties(for: attempt, step: step, mode: mode)
         properties["question_count"] = presentedQuestions.count
         properties["answered_question_count"] = answeredQuestions.count
-        properties["current_question_id"] = lastQuestion?.id.uuidString
+        if step == .conversation { properties["current_question_id"] = lastQuestion?.id.uuidString }
         return properties
     }
 

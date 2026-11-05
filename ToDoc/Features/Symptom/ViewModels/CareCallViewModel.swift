@@ -221,11 +221,18 @@ final class CareCallViewModel {
 
     var analyticsScreen: SymptomConversationAnalytics.Screen {
         guard !leftCall, !conversation.isEmergency else { return .hidden }
-        if showsPauseConfirmation { return .paused }
-        if conversation.summary != nil || conversation.didSave {
+        if conversation.didSave {
             if case .completed? = outcome { return .completed }
             return .hidden
         }
+        if conversation.summary != nil {
+            switch outcome {
+            case .completed?: return .summary(conversation.mode, .completed)
+            case .interrupted?: return .summary(conversation.mode, .interrupted)
+            default: return .hidden
+            }
+        }
+        if showsPauseConfirmation { return .paused }
         if conversation.isSummarizing { return .visible(.summaryLoading, conversation.mode) }
         if conversation.question != nil {
             let readyID = conversation.errorMessage == nil ? readyModeChangeID : nil
