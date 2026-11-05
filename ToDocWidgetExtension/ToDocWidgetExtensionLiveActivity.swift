@@ -55,6 +55,7 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
                 .padding(.trailing, 20)
             }
             .frame(height: 96)
+            .foregroundStyle(.white)
             .activityBackgroundTint(Color.black)
             .activitySystemActionForegroundColor(Color.white)
             .widgetURL(symptomURL)

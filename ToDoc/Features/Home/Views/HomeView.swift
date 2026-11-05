@@ -7,10 +7,12 @@ struct HomeView: View {
     private let onSelect: ((HomeDestination) -> Void)?
     private let onPrevisit: (() -> Void)?
     private let onReload: (() -> Void)?
-    init(state: HomeScreenState? = nil, onSelect: ((HomeDestination) -> Void)? = nil, onPrevisit: (() -> Void)? = nil, onReload: (() -> Void)? = nil) {
+    private let isVisible: Bool
+    init(state: HomeScreenState? = nil, onSelect: ((HomeDestination) -> Void)? = nil, onPrevisit: (() -> Void)? = nil, onReload: (() -> Void)? = nil, isVisible: Bool = true) {
         self.state = state ?? .init(); self.onSelect = onSelect
         self.onPrevisit = onPrevisit
         self.onReload = onReload
+        self.isVisible = isVisible
     }
     var body: some View {
         GeometryReader { geometry in
@@ -73,14 +75,18 @@ struct HomeView: View {
         let scale = height / 408
         let horizontalScale = width / 402
         return ZStack(alignment: .topLeading) {
-            Image("HakroDoctor").resizable().scaledToFill()
-                .frame(width: 290 * scale, height: 316 * scale).clipped()
-                .offset(x: width - 276 * scale, y: 82 * scale).accessibilityHidden(true)
-            messageBubble(scale: scale).offset(x: 17 * horizontalScale)
-            Image("HomeThoughtDotLarge").scaleEffect(x: -1, y: 1).scaleEffect(scale, anchor: .topLeading)
-                .offset(x: width / 2 + 26 * horizontalScale, y: 38 * scale).accessibilityHidden(true)
-            Image("HomeThoughtDotSmall").rotationEffect(.degrees(180)).scaleEffect(scale, anchor: .topLeading)
-                .offset(x: width / 2 + 61 * horizontalScale, y: 63 * scale).accessibilityHidden(true)
+            // Figma 홈 목업의 학로 위치에 맞추고, 영상 원본 비율로 상하 여백을 없앱니다.
+            HomeHakroVideo(isVisible: isVisible)
+                .frame(width: 348 * scale, height: 348 * 708 / 720 * scale)
+                .offset(x: 60 * horizontalScale, y: 113 * scale).accessibilityHidden(true)
+            ZStack(alignment: .topLeading) {
+                messageBubble(scale: scale).offset(x: 17 * horizontalScale)
+                Image("HomeThoughtDotLarge").scaleEffect(x: -1, y: 1).scaleEffect(scale, anchor: .topLeading)
+                    .offset(x: width / 2 + 26 * horizontalScale, y: 38 * scale).accessibilityHidden(true)
+                Image("HomeThoughtDotSmall").rotationEffect(.degrees(180)).scaleEffect(scale, anchor: .topLeading)
+                    .offset(x: width / 2 + 61 * horizontalScale, y: 63 * scale).accessibilityHidden(true)
+            }
+            .modifier(HomeThoughtFloat(isVisible: isVisible, scale: scale))
         }
         .frame(width: width, height: height, alignment: .topLeading)
         .overlay(alignment: .bottomLeading) {
@@ -91,6 +97,7 @@ struct HomeView: View {
     private func messageBubble(scale: CGFloat) -> some View {
         Image("HomeThoughtBubble").resizable()
             .frame(width: 211.152 * scale, height: 141.597 * scale)
+            .shadow(color: .black.opacity(0.025), radius: 7 * scale, x: 0, y: 3 * scale)
             .overlay {
                 Text(state.greeting?.text ?? HomeGreeting.all[0].text).appFont(.homeMessage).foregroundStyle(AppColors.gray)
                     .multilineTextAlignment(.center).lineLimit(3).minimumScaleFactor(0.75)
@@ -142,6 +149,42 @@ struct HomeView: View {
     private var canOpen: Bool { onSelect != nil }
     private func select(_ destination: HomeDestination) { onSelect?(destination) }
 }
+
+/// 왕복 6.4초 동안 7pt를 천천히 오르내립니다.
+private struct HomeThoughtFloat: ViewModifier {
+    let isVisible: Bool
+    let scale: CGFloat
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var floats = false
+
+    private var canFloat: Bool { isVisible && scenePhase == .active && !reduceMotion }
+
+    func body(content: Content) -> some View {
+        content
+            .offset(y: floats ? 7 * scale : 0)
+            .scaleEffect(floats ? 1.002 : 1, anchor: .topLeading)
+            // 앱 활성화 시에도 같은 말풍선을 유지하고, 등장 전환은 적용하지 않습니다.
+            .transition(.identity)
+            .task(id: canFloat) {
+                resetFloat()
+                guard canFloat else { return }
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
+                    floats = true
+                }
+            }
+            .onDisappear { resetFloat() }
+    }
+
+    private func resetFloat() {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { floats = false }
+    }
+}
+
 /// 홈 진입 카드의 동일한 제목/설명/화살표 구조. 기능 콜백은 부모가 결정합니다.
 private struct HomeEntryCard: View {
     let title: String
