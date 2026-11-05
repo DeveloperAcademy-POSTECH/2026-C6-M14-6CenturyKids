@@ -9,9 +9,11 @@ struct PainAfterMedicationView: View {
     var onPrevious: (() -> Void)?
     var onNext: (() -> Void)?
     var onClose: (() -> Void)?
+    var onScoreInteractionEnded: ((Int) -> Void)?
     var body: some View {
         PainScoreInputView(locations: locations, score: $score, before: before, isSaving: isSaving,
-                           errorMessage: errorMessage, onPrevious: onPrevious, onNext: onNext, onClose: onClose)
+                           errorMessage: errorMessage, onPrevious: onPrevious, onNext: onNext, onClose: onClose,
+                           onScoreInteractionEnded: onScoreInteractionEnded)
     }
 }
 

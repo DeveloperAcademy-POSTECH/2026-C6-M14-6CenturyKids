@@ -14,6 +14,7 @@ struct PainAfterTimerView: View {
     var onNewRecord: (() -> Void)?
     /// 피그마에는 없지만, 시간이 다 되면 기록 말고 나갈 길이 없어 다른 통증 화면처럼 둡니다.
     var onClose: (() -> Void)?
+    var onStateViewed: ((String) -> Void)?
 
     @State private var showsLocations = false
     @State private var showsNewRecordConfirmation = false
@@ -33,6 +34,9 @@ struct PainAfterTimerView: View {
                 .scrollBounceBehavior(.basedOnSize)
                 infoBox(phase).padding(.horizontal, 24).padding(.vertical, 24)
                 bottomAction(phase)
+            }
+            .onChange(of: phase.analyticsState, initial: true) { _, state in
+                onStateViewed?(state)
             }
         }
         .background(AppColors.Semantic.Background.surface)
@@ -71,6 +75,14 @@ struct PainAfterTimerView: View {
         case ready
         /// 먹기 전 기록에서 이만큼 시간이 지나서야 돌아왔습니다 (Figma 8-C)
         case late(hours: Int)
+
+        var analyticsState: String {
+            switch self {
+            case .waiting: "waiting"
+            case .ready: "ready"
+            case .late: "late"
+            }
+        }
 
         // ponytail: 늦었다고 보는 기준(먹기 전 기록에서 2시간)은 시안의 '3시간 뒤' 예시로 정한 값입니다. 기준이 정해지면 바꿉니다.
         static let lateAfter: TimeInterval = 2 * 60 * 60

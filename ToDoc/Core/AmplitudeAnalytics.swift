@@ -16,7 +16,7 @@ final class AmplitudeAnalytics {
             return
         }
 
-        guard let value = bundle.object(forInfoDictionaryKey: "AmplitudeAPIKey") as? String else {
+        guard let value = bundle.object(forInfoDictionaryKey: "AMPLITUDE_API_KEY") as? String else {
             client = nil
             logger.notice("Analytics disabled: configuration is missing.")
             return

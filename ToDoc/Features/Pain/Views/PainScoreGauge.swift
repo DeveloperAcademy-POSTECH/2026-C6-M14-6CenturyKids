@@ -8,6 +8,7 @@ struct PainScoreGauge: View {
     var before: Int?
     let label: String
     var descriptor: (Int) -> String? = { _ in nil }
+    var onInteractionEnded: ((Int) -> Void)?
     private let height: CGFloat = 347.622
 
     private var shown: Int? { value ?? initialValue }
@@ -43,6 +44,8 @@ struct PainScoreGauge: View {
         .highPriorityGesture(DragGesture(minimumDistance: 0).onChanged { gesture in
             let fraction = min(1, max(0, (gesture.location.y - 54) / height))
             value = Int((10 - fraction * 10).rounded())
+        }.onEnded { _ in
+            if let value { onInteractionEnded?(value) }
         })
     }
 

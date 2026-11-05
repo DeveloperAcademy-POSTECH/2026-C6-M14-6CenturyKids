@@ -11,6 +11,7 @@ struct PainScoreInputView: View {
     var onReselectLocations: (() -> Void)?
     var onNext: (() -> Void)?
     var onClose: (() -> Void)?
+    var onScoreInteractionEnded: ((Int) -> Void)?
 
     @State private var showsLocations = false
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -82,7 +83,7 @@ struct PainScoreInputView: View {
     private var gauge: some View {
         PainScoreGauge(value: $score, initialValue: before == nil ? 10 : 0, before: before,
                        label: before == nil ? "약 복용 전 통증 점수" : "약 복용 후 통증 점수",
-                       descriptor: painScoreWord)
+                       descriptor: painScoreWord, onInteractionEnded: onScoreInteractionEnded)
             .padding(.horizontal, 24).disabled(isSaving)
     }
 

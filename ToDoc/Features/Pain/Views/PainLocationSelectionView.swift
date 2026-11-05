@@ -6,6 +6,7 @@ struct PainLocationSelectionView: View {
     var errorMessage: String?
     let onToggle: (BodyLocation) -> Void
     let onRemove: (BodyLocation) -> Void
+    var onRemoveFromSheet: ((BodyLocation) -> Void)? = nil
     let onRemoveAll: () -> Void
     var onNext: (() -> Void)?
     var onClose: (() -> Void)?
@@ -43,7 +44,7 @@ struct PainLocationSelectionView: View {
             if isEmpty { showsAllLocations = false }
         }
         .painSheet(isPresented: $showsAllLocations) {
-            PainLocationSheet(locations: locations, onRemove: onRemove, onRemoveAll: onRemoveAll,
+            PainLocationSheet(locations: locations, onRemove: onRemoveFromSheet ?? onRemove, onRemoveAll: onRemoveAll,
                               onClose: { showsAllLocations = false })
         }
     }

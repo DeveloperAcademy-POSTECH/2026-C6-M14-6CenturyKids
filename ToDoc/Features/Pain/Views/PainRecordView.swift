@@ -5,7 +5,12 @@ import SwiftUI
 struct PainRecordView: View {
     let viewModel: PainRecordViewModel
     private let analytics: AmplitudeAnalytics?
+    private let entrySource: String?
+    @State private var flowID = UUID()
+    @State private var didTrackFlowEntry = false
+    @State private var trackedTimerStates: Set<String> = []
     @State private var attempt: InputAttempt?
+    @State private var activeInterval: ActiveInterval?
     @State private var state: PainScreenState
     @State private var stage = Stage.start
     @State private var savedRecord: PainRecord?
@@ -19,7 +24,20 @@ struct PainRecordView: View {
 
     private struct InputAttempt {
         let id = UUID()
+        var didSelectLocation = false
         var didConfirmScore = false
+        var lastInteractedScore: Int?
+    }
+
+    private struct InputStep: Equatable {
+        let attemptID: UUID
+        let phase: String
+        let name: String
+    }
+
+    private struct ActiveInterval {
+        let step: InputStep
+        let startedAt: ContinuousClock.Instant
     }
 
     private enum Stage {
@@ -32,11 +50,12 @@ struct PainRecordView: View {
     }
 
     init(viewModel: PainRecordViewModel, state: PainScreenState = PainScreenState(),
-         analytics: AmplitudeAnalytics? = nil,
+         analytics: AmplitudeAnalytics? = nil, entrySource: String? = nil,
          onClose: (() -> Void)? = nil, onShowRecord: ((PainRecord) -> Void)? = nil,
          onHome: (() -> Void)? = nil, onCancel: (() -> Void)? = nil) {
         self.viewModel = viewModel
         self.analytics = analytics
+        self.entrySource = entrySource
         _state = State(initialValue: state)
         self.onClose = onClose; self.onShowRecord = onShowRecord
         self.onHome = onHome; self.onCancel = onCancel
@@ -65,8 +84,20 @@ struct PainRecordView: View {
                 }
             }
         }
-        .task { await load() }
-        .onDisappear { onCancel?() }
+        .task {
+            trackFlowEntryIfNeeded()
+            await load()
+        }
+        .onChange(of: activeInputStep, initial: true) { _, step in
+            finishActiveInterval()
+            if let step {
+                activeInterval = ActiveInterval(step: step, startedAt: ContinuousClock().now)
+            }
+        }
+        .onDisappear {
+            finishActiveInterval()
+            onCancel?()
+        }
         .alert("기록을 저장하지 못했어요", isPresented: $showsSaveFailed) {
             Button("확인", role: .cancel) {}
         } message: {
@@ -76,8 +107,25 @@ struct PainRecordView: View {
 
     private func load() async {
         await viewModel.load()
-        guard !Task.isCancelled, case .ready = viewModel.connectionState else { return }
-        stage = viewModel.pendingRecord == nil ? .location : .start
+        guard !Task.isCancelled else { return }
+
+        switch viewModel.connectionState {
+        case .ready:
+            stage = viewModel.pendingRecord == nil ? .location : .start
+        case .patientUnavailable:
+            trackPreparationFailure("patient_unavailable")
+        case .failed:
+            trackPreparationFailure("load_failed")
+        case .loading, .signedOut:
+            break
+        }
+    }
+
+    private func trackPreparationFailure(_ errorCode: String) {
+        trackPainEvent("pain_preparation_failed", properties: [
+            "failure_step": "preparation",
+            "error_code": errorCode
+        ])
     }
 
     @ViewBuilder private var recordContent: some View {
@@ -96,12 +144,13 @@ struct PainRecordView: View {
                     PainAfterTimerView(locations: pending.location, before: pending.painBefore,
                                        recordedDate: pending.recordedDate, availableDate: availableDate,
                                        remindersAllowed: viewModel.remindersAllowed,
-                                       onLater: home, onRecord: { stage = .after },
+                                       onLater: deferFollowup, onRecord: { stage = .after },
                                        onNewRecord: {
                                            viewModel.startNewRecord()
+                                           attempt = nil
                                            stage = .location
                                        },
-                                       onClose: close)
+                                       onClose: close, onStateViewed: trackTimerState)
                         // 설정에서 알림을 켜고 돌아오면 안내를 지우고 알림을 다시 예약합니다
                         .task(id: scenePhase) {
                             if scenePhase == .active { await viewModel.refreshReminderPermission() }
@@ -114,15 +163,26 @@ struct PainRecordView: View {
             case .before:
                 PainBeforeMedicationView(locations: viewModel.selectedLocations, score: beforeScoreBinding,
                     isSaving: viewModel.isSaving, errorMessage: state.errorMessage,
-                    onPrevious: { stage = .location }, onReselectLocations: { stage = .location },
-                    onNext: saveBefore, onClose: close)
+                    onPrevious: returnToLocationSelection, onReselectLocations: returnToLocationSelection,
+                    onNext: saveBefore, onClose: close,
+                    onScoreInteractionEnded: { trackScoreInteractionEnded($0, phase: "before") })
+                    .onAppear {
+                        trackInputEvent("pain_step_moved", phase: "before", step: "score_input", properties: [
+                            "from_step": "location_selection",
+                            "to_step": "score_input",
+                            "direction": "next"
+                        ])
+                    }
             case .after:
                 if let pending = viewModel.pendingRecord {
                     PainAfterMedicationView(locations: pending.location, before: pending.painBefore,
                         score: afterScoreBinding, isSaving: viewModel.isSaving,
                         errorMessage: state.errorMessage,
-                        onPrevious: { stage = .start }, onNext: saveAfter, onClose: close)
-                        .onAppear(perform: startAttemptIfNeeded)
+                        onPrevious: returnToTimer, onNext: saveAfter, onClose: close,
+                        onScoreInteractionEnded: { trackScoreInteractionEnded($0, phase: "after") })
+                        .onAppear {
+                            startAttemptIfNeeded(phase: "after", step: "score_input")
+                        }
                 }
             }
         }
@@ -130,10 +190,20 @@ struct PainRecordView: View {
 
     private var locationSelection: some View {
         PainLocationSelectionView(locations: viewModel.selectedLocations, errorMessage: state.errorMessage,
-            onToggle: viewModel.toggleLocation, onRemove: viewModel.removeLocation,
-            onRemoveAll: viewModel.removeAllLocations,
+            onToggle: toggleLocation,
+            onRemove: { removeLocation($0, source: "selected_chip") },
+            onRemoveFromSheet: { removeLocation($0, source: "location_sheet") },
+            onRemoveAll: clearLocations,
             onNext: { stage = .before }, onClose: close)
-            .onAppear(perform: startAttemptIfNeeded)
+            .onAppear {
+                if trackedTimerStates.isEmpty, attempt == nil {
+                    trackFlowEntryIfNeeded()
+                    trackPainEvent("pain_entry_screen_viewed", properties: [
+                        "screen": "location_selection"
+                    ])
+                }
+                startAttemptIfNeeded(phase: "before", step: "location_selection")
+            }
     }
 
     private var beforeScoreBinding: Binding<Int?> {
@@ -162,11 +232,13 @@ struct PainRecordView: View {
             do {
                 _ = try await viewModel.saveBeforeRecord()
                 state.errorMessage = nil
+                attempt = nil
                 stage = .start
             } catch PainRecordViewModel.SaveError.alreadySaving {
                 return
             } catch {
                 showsSaveFailed = true
+                trackInputEvent("pain_save_failed", phase: "before", step: "score_input")
             }
         }
     }
@@ -190,27 +262,201 @@ struct PainRecordView: View {
                 return
             } catch {
                 showsSaveFailed = true
+                trackInputEvent("pain_save_failed", phase: "after", step: "score_input")
             }
         }
     }
 
-    private func startAttemptIfNeeded() {
-        if attempt == nil { attempt = InputAttempt() }
+    private func startAttemptIfNeeded(phase: String, step: String) {
+        guard attempt == nil else { return }
+        attempt = InputAttempt()
+        trackInputEvent("pain_input_started", phase: phase, step: step)
     }
 
-    private func trackScoreConfirmed(phase: String) {
-        guard let analytics, let currentAttempt = attempt, !currentAttempt.didConfirmScore else { return }
+    private func toggleLocation(_ location: BodyLocation) {
+        let previousCount = viewModel.selectedLocations.count
+        viewModel.toggleLocation(location)
+        let selectedCount = viewModel.selectedLocations.count
+        guard selectedCount != previousCount else { return }
 
-        attempt?.didConfirmScore = true
-        analytics.track("pain_score_confirmed", properties: [
-            "attempt_id": currentAttempt.id.uuidString,
-            "phase": phase,
-            "step": "score_input"
+        trackLocationChange(action: selectedCount > previousCount ? "select" : "deselect",
+                            source: "body_map")
+        guard selectedCount > 0, attempt?.didSelectLocation == false else { return }
+
+        attempt?.didSelectLocation = true
+        trackInputEvent("pain_location_selected", phase: "before", step: "location_selection",
+                        properties: ["selected_count": selectedCount])
+    }
+
+    private func removeLocation(_ location: BodyLocation, source: String) {
+        let previousCount = viewModel.selectedLocations.count
+        viewModel.removeLocation(location)
+        guard viewModel.selectedLocations.count < previousCount else { return }
+
+        trackLocationChange(action: "deselect", source: source)
+    }
+
+    private func clearLocations() {
+        let removedCount = viewModel.selectedLocations.count
+        guard removedCount > 0 else { return }
+
+        viewModel.removeAllLocations()
+        trackLocationChange(action: "clear_all", source: "location_sheet", removedCount: removedCount)
+    }
+
+    private func trackLocationChange(action: String, source: String, removedCount: Int? = nil) {
+        var properties: [String: Any] = [
+            "action": action,
+            "source": source,
+            "selected_count": viewModel.selectedLocations.count
+        ]
+        properties["removed_count"] = removedCount
+        trackInputEvent("pain_location_changed", phase: "before", step: "location_selection",
+                        properties: properties)
+    }
+
+    private func returnToLocationSelection() {
+        stage = .location
+        trackPreviousStep(phase: "before", destination: "location_selection")
+    }
+
+    private func returnToTimer() {
+        stage = .start
+        trackPreviousStep(phase: "after", destination: "timer")
+    }
+
+    private func trackPreviousStep(phase: String, destination: String) {
+        trackInputEvent("pain_step_moved", phase: phase, step: destination, properties: [
+            "from_step": "score_input",
+            "to_step": destination,
+            "direction": "previous"
         ])
     }
 
+    private func trackScoreInteractionEnded(_ score: Int, phase: String) {
+        guard let attempt else { return }
+
+        let previousScore = attempt.lastInteractedScore
+        self.attempt?.lastInteractedScore = score
+        trackInputEvent("pain_score_interaction_ended", phase: phase, step: "score_input", properties: [
+            "is_first_selection": previousScore == nil,
+            "did_change": previousScore.map { $0 != score } ?? false
+        ])
+    }
+
+    private func trackScoreConfirmed(phase: String) {
+        guard attempt?.didConfirmScore == false else { return }
+
+        attempt?.didConfirmScore = true
+        trackInputEvent("pain_score_confirmed", phase: phase, step: "score_input")
+    }
+
+    private func trackInputEvent(_ name: String, phase: String, step: String,
+                                 properties: [String: Any] = [:]) {
+        guard let attempt else { return }
+
+        var eventProperties = properties
+        eventProperties["attempt_id"] = attempt.id.uuidString
+        eventProperties["phase"] = phase
+        eventProperties["step"] = step
+        trackPainEvent(name, properties: eventProperties)
+    }
+
+    private func trackFlowEntryIfNeeded() {
+        guard !didTrackFlowEntry else { return }
+
+        didTrackFlowEntry = true
+        var properties: [String: Any] = [:]
+        properties["entry_source"] = entrySource
+        trackPainEvent("pain_flow_entered", properties: properties)
+    }
+
+    private func trackTimerState(_ state: String) {
+        trackFlowEntryIfNeeded()
+        guard trackedTimerStates.insert(state).inserted else { return }
+
+        trackPainEvent("pain_entry_screen_viewed", properties: [
+            "screen": state == "waiting" ? "waiting" : "followup_choice",
+            "timer_state": state
+        ])
+    }
+
+    private var activeInputStep: InputStep? {
+        guard scenePhase == .active, case .ready = viewModel.connectionState,
+              state.completion == nil, let attempt else { return nil }
+
+        switch stage {
+        case .start:
+            guard viewModel.pendingRecord == nil || viewModel.afterAvailableDate == nil else { return nil }
+            return InputStep(attemptID: attempt.id, phase: "before", name: "location_selection")
+        case .location:
+            return InputStep(attemptID: attempt.id, phase: "before", name: "location_selection")
+        case .before:
+            return InputStep(attemptID: attempt.id, phase: "before", name: "score_input")
+        case .after:
+            guard viewModel.pendingRecord != nil else { return nil }
+            return InputStep(attemptID: attempt.id, phase: "after", name: "score_input")
+        }
+    }
+
+    private func finishActiveInterval() {
+        guard let interval = activeInterval else { return }
+        activeInterval = nil
+
+        let elapsed = interval.startedAt.duration(to: ContinuousClock().now).components
+        let milliseconds = elapsed.seconds * 1_000 + elapsed.attoseconds / 1_000_000_000_000_000
+        trackPainEvent("pain_step_engagement", properties: [
+            "attempt_id": interval.step.attemptID.uuidString,
+            "phase": interval.step.phase,
+            "step": interval.step.name,
+            "active_duration_ms": milliseconds
+        ])
+    }
+
+    private func trackPainEvent(_ name: String, properties: [String: Any]) {
+        var eventProperties = properties
+        eventProperties["flow_id"] = flowID.uuidString
+        analytics?.track(name, properties: eventProperties)
+    }
+
     private func home() { if let onHome { onHome() } else { dismiss() } }
-    private func close() { if let onClose { onClose() } else { dismiss() } }
+    private func close() {
+        trackFlowClosed(reason: "back")
+        if let onClose { onClose() } else { dismiss() }
+    }
+
+    private func deferFollowup() {
+        trackFlowClosed(reason: "defer_followup")
+        home()
+    }
+
+    private func trackFlowClosed(reason: String) {
+        var properties: [String: Any] = ["exit_reason": reason]
+        let step: String
+        let phase: String?
+
+        switch stage {
+        case .start where viewModel.pendingRecord != nil && viewModel.afterAvailableDate != nil:
+            step = "timer"
+            phase = nil
+        case .start, .location:
+            step = "location_selection"
+            phase = "before"
+        case .before:
+            step = "score_input"
+            phase = "before"
+        case .after:
+            step = "score_input"
+            phase = "after"
+        }
+
+        properties["step"] = step
+        if let phase {
+            properties["phase"] = phase
+            properties["attempt_id"] = attempt?.id.uuidString
+        }
+        trackPainEvent("pain_flow_closed", properties: properties)
+    }
 }
 #if DEBUG
 private struct PreviewPainRepository: PainRepository {
