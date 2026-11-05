@@ -14,6 +14,7 @@ struct PrevisitRecordView: View {
     @State private var showsSubmitConfirmation = false
     @FocusState private var writing: Bool
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     init(days: [PrevisitDay] = [], doctorName: String = "선생님", patientName: String = "",
          initialStep: PrevisitStep = .day, initialDraft: PrevisitDraft = .init(),
@@ -76,7 +77,12 @@ struct PrevisitRecordView: View {
             }
         }
         .background(AppColors.background.ignoresSafeArea())
-        .onAppear { session.analytics.screenAppeared(step: step) }
+        .onAppear {
+            session.analytics.screenAppeared(step: step)
+            updateAnalytics()
+        }
+        .onChange(of: step) { _, _ in updateAnalytics() }
+        .onChange(of: analyticsPauseReason) { _, _ in updateAnalytics() }
         .onDisappear { session.analytics.screenDisappeared() }
         .toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar)
     }
@@ -156,7 +162,7 @@ struct PrevisitRecordView: View {
     private var moodList: some View {
         VStack(spacing: AppSpacing.item) {
             ForEach(StateOfMind.allCases, id: \.self) { mood in
-                Button { session.draft.mood = mood } label: {
+                Button { selectMood(mood) } label: {
                     HStack(spacing: 20) {
                         PrevisitDoctorAvatar(mood: mood, size: 40)
                         VStack(alignment: .leading, spacing: AppSpacing.tight) {
@@ -204,11 +210,35 @@ struct PrevisitRecordView: View {
         }
         return step != .mood || onSubmit != nil
     }
+
+    private var analyticsPauseReason: String? {
+        if scenePhase != .active { return "app_inactive" }
+        if isSubmitting { return "send_started" }
+        if showsSubmitConfirmation { return "confirmation_opened" }
+        return nil
+    }
+
+    private func updateAnalytics() {
+        session.analytics.updateVisibleStep(
+            step, hasMoodSelection: draft.mood != nil, pausedBy: analyticsPauseReason
+        )
+    }
+
+    private func selectMood(_ mood: StateOfMind) {
+        let previousMood = draft.mood
+        guard previousMood != mood else { return }
+        updateAnalytics()
+        session.draft.mood = mood
+        session.analytics.recordMoodSelection(replacingSelection: previousMood != nil)
+    }
+
     private func next() {
         guard canContinue else { return }
         writing = false
-        if step == .mood { showsSubmitConfirmation = true }
-        else {
+        if step == .mood {
+            session.analytics.endActiveInterval(reason: "confirmation_opened")
+            showsSubmitConfirmation = true
+        } else {
             let from = step
             session.next()
             session.analytics.recordStepAdvance(from: from, to: step, message: draft.letter)
@@ -218,12 +248,12 @@ struct PrevisitRecordView: View {
     private func previous() {
         let from = step
         session.previous()
-        session.analytics.recordStepBack(from: from, to: step)
+        session.analytics.recordStepBack(from: from, to: step, hasMoodSelection: draft.mood != nil)
     }
 
     private func close() {
         guard !isSubmitting else { return }
-        session.analytics.emit("previsit_flow_closed", step: step)
+        session.analytics.recordClose(step: step, hasMoodSelection: draft.mood != nil)
         if let onClose { onClose() } else { dismiss() }
     }
 }
