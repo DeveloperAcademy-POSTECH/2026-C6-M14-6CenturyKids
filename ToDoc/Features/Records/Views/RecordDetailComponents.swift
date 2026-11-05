@@ -121,8 +121,10 @@ struct RecordPlot<Marks: View>: View {
 
 @MainActor enum RecordChartStyle {
     static let green = Color(red: 205/255, green: 238/255, blue: 136/255)
-    static let track = Color(red: 240/255, green: 242/255, blue: 234/255)
-    static let pain = LinearGradient(colors: [Color(red: 1, green: 70/255, blue: 70/255), Color(red: 1, green: 150/255, blue: 70/255), Color(red: 1, green: 224/255, blue: 70/255), Color(red: 184/255, green: 234/255, blue: 95/255)], startPoint: .top, endPoint: .bottom)
+    static let track = Color(red: 233/255, green: 232/255, blue: 233/255)
+    /// 주간 막대: 복용 후 점수가 내려갔으면(같으면) 초록, 올라갔으면 주황
+    static let decrease = Color(red: 197/255, green: 242/255, blue: 118/255)
+    static let increase = Color(red: 233/255, green: 128/255, blue: 78/255)
     static let meals = [Color(red: 156/255, green: 228/255, blue: 46/255), AppColors.primary, Color(red: 229/255, green: 247/255, blue: 196/255)]
     /// 하루 기록 순위별 색 (임시, 디자인 확정 전): 1~4위는 상위색, 5위부터 하위색. 동률이어도 정렬 순서대로 씁니다.
     static func rankColor(_ rank: Int) -> Color {
