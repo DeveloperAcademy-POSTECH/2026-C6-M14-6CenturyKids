@@ -11,6 +11,7 @@ struct SignupDoctorCodeView: View {
             AuthTextField(title: "의사 코드", placeholder: "의사코드 입력", text: $state.doctorCode,
                           error: state.hasAttemptedStep ? state.currentValidationError : nil)
                 .disabled(state.isWorking)
+                .appTextLimit($state.doctorCode, maximum: 8)
             Button { showsHelp = true } label: {
                 Label("코드를 받지 못했나요?", systemImage: "exclamationmark.circle.fill")
                     .underline().appTypography(.label)

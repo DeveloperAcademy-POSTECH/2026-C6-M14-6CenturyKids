@@ -23,6 +23,7 @@ struct SignupCancerTypeView: View {
             }
             if state.usesCustomCancer {
                 AuthTextField(title: "암종 이름", placeholder: "진단받은 암 이름을 입력해 주세요", text: $state.customCancerName)
+                    .appTextLimit($state.customCancerName, maximum: 15)
             }
             AuthChoice(title: CarcinomaType.unknown.displayName, isSelected: !state.usesCustomCancer && state.cancerType == .unknown) {
                 state.cancerType = .unknown

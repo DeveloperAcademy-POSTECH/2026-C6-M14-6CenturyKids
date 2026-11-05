@@ -15,6 +15,7 @@ struct SignupPatientInfoView: View {
             }
             AuthTextField(title: "이름", placeholder: "이름을 입력해 주세요", text: $state.name, contentType: .name)
                 .disabled(state.hasStoredUserProfile)
+                .appTextLimit($state.name, maximum: 30, shakes: true)
             VStack(alignment: .leading, spacing: 10) {
                 Text("생년월일").tracking(labelSize * 0.015).appTypography(.labelLarge)
                 Button {

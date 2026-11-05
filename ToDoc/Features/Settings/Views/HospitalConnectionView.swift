@@ -24,7 +24,7 @@ struct HospitalConnectionView: View {
                     SettingsSection(title: "담당의 등록", footer: "병원에서 받은 코드로 연결 정보를 변경할 수 있어요.") {
                         SettingsInputRow(title: "의사 코드") {
                             TextField("의사 코드", text: Binding(get: { state.code }, set: { state.code = $0 }))
-                                .onChange(of: state.code) { _, code in if code.count > 8 { state.code = String(code.prefix(8)) } }
+                                .appTextLimit(Binding(get: { state.code }, set: { state.code = $0 }), maximum: 8)
                                 .settingsText().foregroundStyle(SettingsPalette.secondary).multilineTextAlignment(typeSize.isAccessibilitySize ? .leading : .trailing)
                                 .textInputAutocapitalization(.never).autocorrectionDisabled().submitLabel(.search)
                                 .disabled(state.isBusy).accessibilityIdentifier("settings.doctorCode")

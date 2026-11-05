@@ -38,7 +38,8 @@ enum AuthFormValidation {
     }
     static func nameError(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty || trimmed.count > 10 || trimmed.rangeOfCharacter(from: .controlCharacters) != nil
-            ? "이름은 1~10자로 입력해 주세요." : nil
+        if trimmed.isEmpty || trimmed.count > 30 { return "이름은 1~30자로 입력해 주세요." }
+        let disallowed = CharacterSet.controlCharacters.union(.punctuationCharacters).union(.symbols)
+        return trimmed.rangeOfCharacter(from: disallowed) != nil ? "이름을 다시 확인해 주세요." : nil
     }
 }
