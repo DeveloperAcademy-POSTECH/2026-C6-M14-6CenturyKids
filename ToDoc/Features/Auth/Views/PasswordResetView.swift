@@ -16,7 +16,7 @@ struct PasswordResetView: View {
                 if state.needsSessionCleanup {
                     Text("비밀번호는 변경되었어요. 인증 상태를 정리하면 다시 로그인할 수 있어요.").appTextStyle(.label)
                 } else {
-                    AuthTextField(title: "새 비밀번호", placeholder: "영문과 숫자 8자 이상", text: $state.newPassword,
+                    AuthTextField(title: "새 비밀번호", placeholder: "영문·숫자를 포함해 8~20자", text: $state.newPassword,
                                   isSecure: true, contentType: .newPassword, error: state.passwordError)
                         .disabled(state.isSubmitting)
                     AuthTextField(title: "새 비밀번호 확인", placeholder: "한 번 더 입력해 주세요", text: $state.passwordConfirmation,

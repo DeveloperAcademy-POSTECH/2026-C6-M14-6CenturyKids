@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @State private var state: SettingsScreenState
-    @State private var showsPasswordChangeNotice = false
     @State private var showsLogoutConfirmation = false
     @State private var selectedDocument: LegalDocument?
     @State private var showsSupportError = false
@@ -75,7 +74,7 @@ struct SettingsView: View {
                             SettingsRow(title: "알림 설정", chevron: true)
                         }
                         SettingsDivider()
-                        Button { showsPasswordChangeNotice = true } label: {
+                        Button { onPasswordChange?() } label: {
                             SettingsRow(title: "비밀번호 재설정", chevron: true)
                         }
                         .disabled(onPasswordChange == nil)
@@ -138,10 +137,6 @@ struct SettingsView: View {
             }
         }.background(SettingsPalette.background.ignoresSafeArea()).foregroundStyle(SettingsPalette.primary)
             .buttonStyle(.plain).toolbar(.hidden, for: .navigationBar)
-            .alert("비밀번호 변경을 위한 인증코드를 가입한 이메일로 보내드릴게요.", isPresented: $showsPasswordChangeNotice) {
-                Button("취소", role: .cancel) {}
-                Button("확인") { onPasswordChange?() }
-            }
             .alert("고객지원 페이지를 열 수 없어요", isPresented: $showsSupportError) {
                 Button("확인", role: .cancel) {}
             } message: {

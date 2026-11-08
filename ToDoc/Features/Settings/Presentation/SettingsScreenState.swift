@@ -38,6 +38,7 @@ struct DoctorDisplayData {
     @ObservationIgnored var onCancel: (() -> Void)?
 }
 @Observable final class PasswordChangeScreenState {
+    var requiresReauthentication = false
     var verificationCode = ""
     var codeError: String?
     var isSendingCode = false
@@ -51,7 +52,6 @@ struct DoctorDisplayData {
     var didSave = false
     var errorMessage: String?
     @ObservationIgnored var onSendCode: (() -> Void)?
-    @ObservationIgnored var onContinue: (() -> Bool)?
     @ObservationIgnored var onInputChanged: (() -> Void)?
     @ObservationIgnored var onSave: (() -> Void)?
     @ObservationIgnored var onCancel: (() -> Void)?

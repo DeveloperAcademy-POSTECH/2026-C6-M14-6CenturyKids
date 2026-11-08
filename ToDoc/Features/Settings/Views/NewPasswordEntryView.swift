@@ -16,7 +16,7 @@ struct NewPasswordEntryView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("새 비밀번호 입력")
                         .settingsText(17, bold: true)
-                    Text("영문, 숫자, 특수문자 조합 8~32자")
+                    Text("영문·숫자를 포함해 8~20자")
                         .settingsText(14)
                         .foregroundStyle(SettingsPalette.secondary)
 
@@ -28,7 +28,7 @@ struct NewPasswordEntryView: View {
                             .settingsText()
                             .padding(.horizontal, 16)
                             .frame(minHeight: 56)
-                            .disabled(state.isSaving)
+                            .disabled(state.isSaving || state.isSendingCode)
                             .accessibilityIdentifier("settings.password.new")
 
                         SettingsDivider()
@@ -40,7 +40,7 @@ struct NewPasswordEntryView: View {
                             .settingsText()
                             .padding(.horizontal, 16)
                             .frame(minHeight: 56)
-                            .disabled(state.isSaving)
+                            .disabled(state.isSaving || state.isSendingCode)
                             .accessibilityIdentifier("settings.password.confirmation")
                     }
                     .background(.white, in: RoundedRectangle(cornerRadius: 24))
@@ -62,7 +62,7 @@ struct NewPasswordEntryView: View {
                     .foregroundStyle(.white)
                     .background(.blue, in: Capsule())
             }
-            .disabled(state.isSaving || !state.canSubmitPassword || state.onSave == nil)
+            .disabled(state.isSaving || state.isSendingCode || !state.canSubmitPassword || state.onSave == nil)
             .accessibilityIdentifier("settings.password.changeConfirm")
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
@@ -94,7 +94,7 @@ struct NewPasswordEntryView: View {
                     .frame(width: 10, height: 19)
                     .frame(width: 44, height: 44)
             }
-            .disabled(state.isSaving)
+            .disabled(state.isSaving || state.isSendingCode)
             .accessibilityLabel("뒤로 가기")
             .accessibilityIdentifier("settings.password.back")
 
@@ -120,7 +120,7 @@ struct NewPasswordEntryView: View {
 
 #Preview("비밀번호 형식 오류") {
     let state = PasswordChangeScreenState()
-    state.newPasswordError = "영문, 숫자, 특수문자를 조합해 8~32자로 입력해 주세요."
+    state.newPasswordError = "영문과 숫자를 포함해 8~20자로 입력해 주세요."
     state.onSave = {}
     return NavigationStack {
         NewPasswordEntryView(state: state)

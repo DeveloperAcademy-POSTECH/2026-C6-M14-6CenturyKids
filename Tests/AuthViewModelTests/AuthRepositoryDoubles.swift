@@ -25,6 +25,10 @@ final class TestAuthRepository: AuthRepository {
     var beforeUpdate: (() async -> Void)?
     var lastUpdatedPassword: String?
     var updateNonces: [String?] = []
+    var updateError: Error?
+    var verificationCount = 0
+    var verificationError: Error?
+    var beforeVerification: (() async -> Void)?
     var signUpError: Error?
     var signInError: Error?
     var lastEmail: String?
@@ -78,7 +82,11 @@ final class TestAuthRepository: AuthRepository {
         guard signedIn else { throw AuthFlowError("세션 없음") }; return currentUserResponseID ?? id
     }
     func isSignedIn() -> Bool { signedIn }
-    func requestPasswordChangeVerification() async throws {}
+    func requestPasswordChangeVerification() async throws {
+        verificationCount += 1
+        await beforeVerification?()
+        if let verificationError { throw verificationError }
+    }
     func deleteAccount() async throws { XCTFail("인증 테스트에서 탈퇴를 호출하면 안 됩니다.") }
     func withdrawAppleAccount(authorizationCode: String) async throws { XCTFail("인증 테스트에서 Apple 탈퇴를 호출하면 안 됩니다.") }
     func withdrawKakaoAccount() async throws { XCTFail("인증 테스트에서 카카오 탈퇴를 호출하면 안 됩니다.") }
@@ -92,6 +100,7 @@ final class TestAuthRepository: AuthRepository {
         lastUpdatedPassword = newPassword
         updateNonces.append(nonce)
         await beforeUpdate?()
+        if let updateError { throw updateError }
         if failUpdate { throw AuthFlowError("변경 실패") }
     }
 }
