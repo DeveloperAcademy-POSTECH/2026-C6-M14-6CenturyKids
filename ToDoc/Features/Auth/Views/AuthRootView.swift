@@ -26,7 +26,7 @@ import SwiftUI
         }
         .environment(authFlow.session)
         .onChange(of: authFlow.session.patient?.user.id) { oldID, newID in
-            guard oldID != nil, newID == nil else { return }
+            guard oldID != nil, newID == nil, !authFlow.reset.state.isRecoveryReady else { return }
             authFlow.open(.login)
         }
         // 자동 로그인 여부와 저장된 환자 정보의 유효성은 인증 ViewModel이 확인합니다.

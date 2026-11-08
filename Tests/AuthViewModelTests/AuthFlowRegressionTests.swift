@@ -13,7 +13,7 @@ import XCTest
         XCTAssertTrue(f.auth.signedIn)
         XCTAssertEqual(f.auth.signOutCount, 0)
         XCTAssertFalse(flow.reset.state.isRecoveryReady)
-        XCTAssertNotNil(flow.linkMessage)
+        XCTAssertNil(flow.linkMessage)
     }
     func testUnrecognizedSignupLinkCannotCreateAccountOrEnterHome() async {
         let f = AuthFixture(); let flow = AuthFlowViewModel(repositories: f.repositories, session: AuthSessionState())
@@ -22,15 +22,17 @@ import XCTest
         XCTAssertNil(flow.session.patient)
         XCTAssertEqual(f.auth.signInCount, 0); XCTAssertEqual(f.auth.signUpCount, 0)
         XCTAssertFalse(flow.reset.state.isRecoveryReady)
-        XCTAssertNotNil(flow.linkMessage)
+        XCTAssertNil(flow.linkMessage)
     }
-    func testConfiguredResetStillCannotSendEmailWithoutVerifiedRecoverySupport() async {
+    func testEmailRequestDoesNotAuthorizePasswordChanges() async {
         let f = AuthFixture()
         let vm = PasswordResetViewModel(repositories: f.repositories, session: f.session,
             configuration: .init(redirectURL: URL(string: "todoc-test://auth/recovery")))
         vm.state.email = "patient@example.com"
         await vm.submit()
-        XCTAssertEqual(f.auth.resetCount, 0); XCTAssertFalse(vm.state.didSend)
-        XCTAssertFalse(vm.state.didUpdatePassword); XCTAssertNotNil(vm.state.errorMessage)
+        XCTAssertEqual(f.auth.resetCount, 1); XCTAssertTrue(vm.state.didSend)
+        XCTAssertEqual(f.auth.lastRedirect?.absoluteString, "todoc-test://auth/recovery")
+        XCTAssertFalse(vm.state.isRecoveryReady)
+        XCTAssertFalse(vm.state.didUpdatePassword); XCTAssertNil(vm.state.errorMessage)
     }
 }

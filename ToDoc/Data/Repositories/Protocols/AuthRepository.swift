@@ -29,6 +29,8 @@ protocol AuthRepository {
     func requestPasswordChangeVerification() async throws
     
     func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws
+
+    func acceptPasswordRecoveryURL(_ url: URL) async throws
     
     func updatePassword(to newPassword: String, nonce: String?) async throws
     
@@ -39,4 +41,10 @@ protocol AuthRepository {
     func withdrawKakaoAccount() async throws
     
     func getSignUpProvider() async throws -> String?
+}
+
+extension AuthRepository {
+    func acceptPasswordRecoveryURL(_ url: URL) async throws {
+        throw URLError(.unsupportedURL)
+    }
 }

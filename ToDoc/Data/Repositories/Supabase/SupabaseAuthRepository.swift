@@ -125,6 +125,10 @@ final class SupabaseAuthRepository: AuthRepository {
     func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws {
         try await client.auth.resetPasswordForEmail(email, redirectTo: url)
     }
+
+    func acceptPasswordRecoveryURL(_ url: URL) async throws {
+        try await client.auth.session(from: url)
+    }
     
     // 비밀번호 업데이트
     func updatePassword(to newPassword: String, nonce: String?) async throws {

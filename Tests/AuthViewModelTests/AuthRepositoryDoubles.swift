@@ -26,6 +26,15 @@ final class TestAuthRepository: AuthRepository {
     var signInError: Error?
     var lastEmail: String?
     var lastRedirect: URL?
+    var recoveryCount = 0
+    var recoveryError: Error?
+    var beforeRecovery: (() async -> Void)?
+    func acceptPasswordRecoveryURL(_ url: URL) async throws {
+        recoveryCount += 1
+        await beforeRecovery?()
+        if let recoveryError { throw recoveryError }
+        signedIn = true
+    }
     func signIn(email: String, password: String) async throws -> UUID {
         signInCount += 1; lastEmail = email
         await beforeSignIn?()
@@ -67,6 +76,7 @@ final class TestAuthRepository: AuthRepository {
     func requestPasswordChangeVerification() async throws {}
     func deleteAccount() async throws { XCTFail("인증 테스트에서 탈퇴를 호출하면 안 됩니다.") }
     func withdrawAppleAccount(authorizationCode: String) async throws { XCTFail("인증 테스트에서 Apple 탈퇴를 호출하면 안 됩니다.") }
+    func withdrawKakaoAccount() async throws { XCTFail("인증 테스트에서 카카오 탈퇴를 호출하면 안 됩니다.") }
     func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws { resetCount += 1; lastRedirect = url }
     func updatePassword(to newPassword: String, nonce: String?) async throws {
         updateCount += 1; if failUpdate { throw AuthFlowError("변경 실패") }
