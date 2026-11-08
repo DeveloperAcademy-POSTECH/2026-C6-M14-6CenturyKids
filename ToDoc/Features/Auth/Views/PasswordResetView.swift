@@ -50,7 +50,7 @@ struct PasswordResetView: View {
     }
     private var buttonTitle: String {
         if canReturnToLogin { return "로그인으로 돌아가기" }
-        if state.needsSessionCleanup { return "인증 상태 정리 다시 시도" }
+        if state.needsSessionCleanup { return "로그인으로 돌아가기" }
         return state.isRecoveryReady ? "비밀번호 변경하기" : "재설정 안내 받기"
     }
     private func finish() { if let onBack { onBack() } else { dismiss() } }

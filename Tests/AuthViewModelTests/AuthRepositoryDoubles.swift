@@ -22,6 +22,9 @@ final class TestAuthRepository: AuthRepository {
     var failUpdate = false
     var beforeSignIn: (() async -> Void)?
     var beforeSignUp: (() async -> Void)?
+    var beforeUpdate: (() async -> Void)?
+    var lastUpdatedPassword: String?
+    var updateNonces: [String?] = []
     var signUpError: Error?
     var signInError: Error?
     var lastEmail: String?
@@ -79,7 +82,11 @@ final class TestAuthRepository: AuthRepository {
     func withdrawKakaoAccount() async throws { XCTFail("인증 테스트에서 카카오 탈퇴를 호출하면 안 됩니다.") }
     func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws { resetCount += 1; lastRedirect = url }
     func updatePassword(to newPassword: String, nonce: String?) async throws {
-        updateCount += 1; if failUpdate { throw AuthFlowError("변경 실패") }
+        updateCount += 1
+        lastUpdatedPassword = newPassword
+        updateNonces.append(nonce)
+        await beforeUpdate?()
+        if failUpdate { throw AuthFlowError("변경 실패") }
     }
 }
 final class TestUsers: UserRepository {
