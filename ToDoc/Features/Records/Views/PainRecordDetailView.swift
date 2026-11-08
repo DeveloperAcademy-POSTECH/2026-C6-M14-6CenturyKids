@@ -31,7 +31,8 @@ private struct RecordPainChart: View {
     private static let visibleRecords = 6
     private static let timeGap: CGFloat = 12
     @ScaledMetric private var timeHeight: CGFloat = 18
-    private var width: CGFloat { switch state.period { case .month: 4; case .week: 18; case .day: 12 } }
+    private var width: CGFloat { state.period == .month ? 4 : 20 }
+    private var usesRings: Bool { state.period != .month }
     var body: some View {
         VStack(spacing: 12) {
             RecordPlot { size in
@@ -89,10 +90,16 @@ private struct RecordPainChart: View {
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: date)
     }
-    /// 복용 전·후 점수 사이를 막대로 그립니다. 주간은 내려갔으면 초록·올라갔으면 주황으로 칠하고, 낮은 점수 아래로 바탕 막대를 깝니다.
+    /// 복용 전·후 점수 사이를 막대로 그립니다. 주·일은 내려갔으면 초록·올라갔으면 주황으로 칠합니다.
     @ViewBuilder private func mark(before: Double, after: Double?, size: CGSize) -> some View {
         if let after {
             measuredMark(before: before, after: after, size: size)
+        } else if usesRings {
+            let y = size.height * (1 - RecordDisplay.fraction(before, maximum: 10))
+            ZStack(alignment: .top) {
+                Circle().fill(RecordChartStyle.decrease).frame(width: width, height: width).offset(y: y - width/2)
+                Circle().fill(.white).frame(width: width * 0.6, height: width * 0.6).offset(y: y - width * 0.3)
+            }.frame(height: size.height, alignment: .top)
         } else {
             // 사후 측정이 없으면 복용 전 점수만 표시하고 변화 막대는 그리지 않습니다.
             Circle().fill(RecordChartStyle.green).frame(width: width, height: width)
@@ -108,8 +115,7 @@ private struct RecordPainChart: View {
         let top = size.height * (1 - RecordDisplay.fraction(max(before, after), maximum: 10))
         let bottom = size.height * (1 - RecordDisplay.fraction(min(before, after), maximum: 10))
         return ZStack(alignment: .top) {
-            if state.period == .week {
-                Capsule().fill(RecordChartStyle.track).frame(width: width, height: size.height - bottom + width/2).offset(y: bottom - width/2)
+            if usesRings {
                 // 10점·0점의 원이 잘리지 않도록 색 막대를 원 반지름만큼 위아래로 늘립니다.
                 Capsule().fill(after > before ? RecordChartStyle.increase : RecordChartStyle.decrease)
                     .frame(width: width, height: bottom - top + width).offset(y: top - width/2)
