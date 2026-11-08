@@ -6,14 +6,110 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		643EF1C43098EF32001D9222 /* AmplitudeSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 643EF1C33098EF32001D9222 /* AmplitudeSwift */; };
+		A15E989D309791B60067C458 /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A15E989C309791B60067C458 /* KakaoSDKAuth */; };
+		A15E989F309791B60067C458 /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = A15E989E309791B60067C458 /* KakaoSDKCommon */; };
+		A15E98A1309791B60067C458 /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = A15E98A0309791B60067C458 /* KakaoSDKUser */; };
+		A1B02669307B83AE00547CD2 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = A1B02668307B83AE00547CD2 /* Supabase */; };
+		A1E7CDA03088AA9D007C0049 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E7CD9F3088AA9D007C0049 /* WidgetKit.framework */; };
+		A1E7CDA23088AA9D007C0049 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E7CDA13088AA9D007C0049 /* SwiftUI.framework */; };
+		A1E7CDB33088AA9E007C0049 /* ToDocWidgetExtensionExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1E7CD9D3088AA9D007C0049 /* ToDocWidgetExtensionExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A1E7CDB13088AA9E007C0049 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A13BCAF23077425800901BFD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1E7CD9C3088AA9D007C0049;
+			remoteInfo = ToDocWidgetExtensionExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A1E7CDB43088AA9E007C0049 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				A1E7CDB33088AA9E007C0049 /* ToDocWidgetExtensionExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		A13BCAFA3077425800901BFD /* ToDoc.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ToDoc.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A15E98A8309796880067C458 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		A1E7CD9D3088AA9D007C0049 /* ToDocWidgetExtensionExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ToDocWidgetExtensionExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1E7CD9F3088AA9D007C0049 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		A1E7CDA13088AA9D007C0049 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A13BCD29307A10DE00901BFD /* Exceptions for "ToDoc" folder in "ToDoc" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Core/Extensions/.gitkeep,
+				Data/DTOs/Exercise/.gitkeep,
+				Data/DTOs/Intake/.gitkeep,
+				Data/Supabase/EdgeFunction/.gitkeep,
+				Domain/Exercise/Enums/.gitkeep,
+				Domain/Hospital/Enums/.gitkeep,
+				Info.plist,
+			);
+			target = A13BCAF93077425800901BFD /* ToDoc */;
+		};
+		A15EBA2B3099E1190067C458 /* Exceptions for "Configuration" folder in "ToDoc" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Secrets.xcconfig,
+			);
+			target = A13BCAF93077425800901BFD /* ToDoc */;
+		};
+		A1E7CDB83088AA9E007C0049 /* Exceptions for "ToDocWidgetExtension" folder in "ToDocWidgetExtensionExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				ToDocWidgetExtension.swift,
+				ToDocWidgetExtensionControl.swift,
+			);
+			target = A1E7CD9C3088AA9D007C0049 /* ToDocWidgetExtensionExtension */;
+		};
+		A1E7E8123089270A007C0049 /* Exceptions for "ToDocWidgetExtension" folder in "ToDoc" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ToDocWidgetExtensionLiveActivity.swift,
+			);
+			target = A13BCAF93077425800901BFD /* ToDoc */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A13BCAFC3077425800901BFD /* ToDoc */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A13BCD29307A10DE00901BFD /* Exceptions for "ToDoc" folder in "ToDoc" target */,
+			);
 			path = ToDoc;
+			sourceTree = "<group>";
+		};
+		A15EBA293099E10A0067C458 /* Configuration */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A15EBA2B3099E1190067C458 /* Exceptions for "Configuration" folder in "ToDoc" target */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
+		A1E7CDA33088AA9D007C0049 /* ToDocWidgetExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A1E7E8123089270A007C0049 /* Exceptions for "ToDocWidgetExtension" folder in "ToDoc" target */,
+				A1E7CDB83088AA9E007C0049 /* Exceptions for "ToDocWidgetExtension" folder in "ToDocWidgetExtensionExtension" target */,
+			);
+			path = ToDocWidgetExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -22,6 +118,18 @@
 		A13BCAF73077425800901BFD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				643EF1C43098EF32001D9222 /* AmplitudeSwift in Frameworks */,
+				A15E98A1309791B60067C458 /* KakaoSDKUser in Frameworks */,
+				A1B02669307B83AE00547CD2 /* Supabase in Frameworks */,
+				A15E989F309791B60067C458 /* KakaoSDKCommon in Frameworks */,
+				A15E989D309791B60067C458 /* KakaoSDKAuth in Frameworks */,
+			);
+		};
+		A1E7CD9A3088AA9D007C0049 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				A1E7CDA23088AA9D007C0049 /* SwiftUI.framework in Frameworks */,
+				A1E7CDA03088AA9D007C0049 /* WidgetKit.framework in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -30,7 +138,11 @@
 		A13BCAF13077425800901BFD = {
 			isa = PBXGroup;
 			children = (
+				A15EBA293099E10A0067C458 /* Configuration */,
 				A13BCAFC3077425800901BFD /* ToDoc */,
+				A1E7CDA33088AA9D007C0049 /* ToDocWidgetExtension */,
+				A1E7CD9E3088AA9D007C0049 /* Frameworks */,
+				A15E98A8309796880067C458 /* .gitignore */,
 				A13BCAFB3077425800901BFD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -39,8 +151,18 @@
 			isa = PBXGroup;
 			children = (
 				A13BCAFA3077425800901BFD /* ToDoc.app */,
+				A1E7CD9D3088AA9D007C0049 /* ToDocWidgetExtensionExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A1E7CD9E3088AA9D007C0049 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A1E7CD9F3088AA9D007C0049 /* WidgetKit.framework */,
+				A1E7CDA13088AA9D007C0049 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -53,16 +175,46 @@
 				A13BCAF63077425800901BFD /* Sources */,
 				A13BCAF73077425800901BFD /* Frameworks */,
 				A13BCAF83077425800901BFD /* Resources */,
+				A1E7CDB43088AA9E007C0049 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A1E7CDB23088AA9E007C0049 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A13BCAFC3077425800901BFD /* ToDoc */,
+				A15EBA293099E10A0067C458 /* Configuration */,
+			);
+			name = ToDoc;
+			packageProductDependencies = (
+				A1B02668307B83AE00547CD2 /* Supabase */,
+				643EF1C33098EF32001D9222 /* AmplitudeSwift */,
+				A15E989C309791B60067C458 /* KakaoSDKAuth */,
+				A15E989E309791B60067C458 /* KakaoSDKCommon */,
+				A15E98A0309791B60067C458 /* KakaoSDKUser */,
+			);
+			productName = ToDoc;
+			productReference = A13BCAFA3077425800901BFD /* ToDoc.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A1E7CD9C3088AA9D007C0049 /* ToDocWidgetExtensionExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1E7CDB73088AA9E007C0049 /* Build configuration list for PBXNativeTarget "ToDocWidgetExtensionExtension" */;
+			buildPhases = (
+				A1E7CD993088AA9D007C0049 /* Sources */,
+				A1E7CD9A3088AA9D007C0049 /* Frameworks */,
+				A1E7CD9B3088AA9D007C0049 /* Resources */,
 			);
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
-				A13BCAFC3077425800901BFD /* ToDoc */,
+				A1E7CDA33088AA9D007C0049 /* ToDocWidgetExtension */,
 			);
-			name = ToDoc;
-			productName = ToDoc;
-			productReference = A13BCAFA3077425800901BFD /* ToDoc.app */;
-			productType = "com.apple.product-type.application";
+			name = ToDocWidgetExtensionExtension;
+			productName = ToDocWidgetExtensionExtension;
+			productReference = A1E7CD9D3088AA9D007C0049 /* ToDocWidgetExtensionExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -71,35 +223,49 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2700;
+				LastSwiftUpdateCheck = 2710;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					A13BCAF93077425800901BFD = {
 						CreatedOnToolsVersion = 27.0;
 					};
+					A1E7CD9C3088AA9D007C0049 = {
+						CreatedOnToolsVersion = 27.1;
+					};
 				};
 			};
 			buildConfigurationList = A13BCAF53077425800901BFD /* Build configuration list for PBXProject "ToDoc" */;
-			developmentRegion = en;
+			developmentRegion = ko;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
 				Base,
+				ko,
 			);
 			mainGroup = A13BCAF13077425800901BFD;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				643EF1C23098EF32001D9222 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */,
+				A15E989B309791B60067C458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A13BCAFB3077425800901BFD /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				A13BCAF93077425800901BFD /* ToDoc */,
+				A1E7CD9C3088AA9D007C0049 /* ToDocWidgetExtensionExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		A13BCAF83077425800901BFD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		A1E7CD9B3088AA9D007C0049 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -112,7 +278,20 @@
 			files = (
 			);
 		};
+		A1E7CD993088AA9D007C0049 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A1E7CDB23088AA9E007C0049 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1E7CD9C3088AA9D007C0049 /* ToDocWidgetExtensionExtension */;
+			targetProxy = A1E7CDB13088AA9E007C0049 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A13BCB033077425900901BFD /* Debug configuration for PBXProject "ToDoc" */ = {
@@ -238,26 +417,44 @@
 		};
 		A13BCB063077425900901BFD /* Debug configuration for PBXNativeTarget "ToDoc" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = A15EBA293099E10A0067C458 /* Configuration */;
+			baseConfigurationReferenceRelativePath = Secrets.xcconfig;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Sokdoc;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 53H2JY443C;
+				CODE_SIGN_ENTITLEMENTS = ToDoc/ToDoc.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 53H2JY443C;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ToDoc/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "속닥";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "앱을 쓰지 않을 때도 연결된 병원 근처에 오면 진료 전 기록 알림을 보내드려요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않아요.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "연결된 병원 근처에 오면 진료 전 기록을 알려드리기 위해 위치를 사용해요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않아요.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "증상 확인 대화를 위해 마이크를 사용해요. 음성은 서버로 전송되지 않아요.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "말씀하신 내용을 글로 바꾸기 위해 음성 인식을 사용해요.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.6CenturyKids.ToDoc;
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDocWithAPNs;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -270,29 +467,118 @@
 		};
 		A13BCB073077425900901BFD /* Release configuration for PBXNativeTarget "ToDoc" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = A15EBA293099E10A0067C458 /* Configuration */;
+			baseConfigurationReferenceRelativePath = Secrets.xcconfig;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Sokdoc;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 53H2JY443C;
+				CODE_SIGN_ENTITLEMENTS = ToDoc/ToDoc.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 53H2JY443C;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ToDoc/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "속닥";
+				"INFOPLIST_KEY_CFBundleDisplayName[sdk=iphoneos*]" = "속닥";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "앱을 쓰지 않을 때도 연결된 병원 근처에 오면 진료 전 기록 알림을 보내드려요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않아요.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "연결된 병원 근처에 오면 진료 전 기록을 알려드리기 위해 위치를 사용해요. 위치는 병원 근처인지 확인하는 데만 쓰고 저장하지 않아요.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "증상 확인 대화를 위해 마이크를 사용해요. 음성은 서버로 전송되지 않아요.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "말씀하신 내용을 글로 바꾸기 위해 음성 인식을 사용해요.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.6CenturyKids.ToDoc;
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDocWithAPNs;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1E7CDB53088AA9E007C0049 /* Debug configuration for PBXNativeTarget "ToDocWidgetExtensionExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 53H2JY443C;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ToDocWidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ToDocWidgetExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDocWidget;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1E7CDB63088AA9E007C0049 /* Release configuration for PBXNativeTarget "ToDocWidgetExtensionExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 53H2JY443C;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ToDocWidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ToDocWidgetExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.centurykids.todoc.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = C6ToDocWidget;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
@@ -319,7 +605,72 @@
 			);
 			defaultConfigurationName = Release;
 		};
+		A1E7CDB73088AA9E007C0049 /* Build configuration list for PBXNativeTarget "ToDocWidgetExtensionExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1E7CDB53088AA9E007C0049 /* Debug configuration for PBXNativeTarget "ToDocWidgetExtensionExtension" */,
+				A1E7CDB63088AA9E007C0049 /* Release configuration for PBXNativeTarget "ToDocWidgetExtensionExtension" */,
+			);
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		643EF1C23098EF32001D9222 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/amplitude/Amplitude-Swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		A15E989B309791B60067C458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+		A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+			traits = (
+			);
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		643EF1C33098EF32001D9222 /* AmplitudeSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 643EF1C23098EF32001D9222 /* XCRemoteSwiftPackageReference "Amplitude-Swift" */;
+			productName = AmplitudeSwift;
+		};
+		A15E989C309791B60067C458 /* KakaoSDKAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A15E989B309791B60067C458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
+			productName = KakaoSDKAuth;
+		};
+		A15E989E309791B60067C458 /* KakaoSDKCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A15E989B309791B60067C458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
+			productName = KakaoSDKCommon;
+		};
+		A15E98A0309791B60067C458 /* KakaoSDKUser */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A15E989B309791B60067C458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
+			productName = KakaoSDKUser;
+		};
+		A1B02668307B83AE00547CD2 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B02667307B83AE00547CD2 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A13BCAF23077425800901BFD /* Project object */;
 	validationLevel = 1;
