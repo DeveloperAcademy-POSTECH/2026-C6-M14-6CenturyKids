@@ -115,9 +115,9 @@ private struct SymptomRemainingCircle: View {
             let elapsed = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: duration)
             let remaining = reduceMotion ? 0.75 : 1 - elapsed / duration
             ZStack {
-                Circle().stroke(AppColors.Semantic.Text.default.opacity(0.18), lineWidth: 2)
+                Circle().stroke(AppColors.Semantic.Text.default.opacity(0.15), lineWidth: 1.6)
                 Circle().trim(from: 0, to: remaining)
-                    .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .stroke(color, style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
                     .rotationEffect(.degrees(-90))
             }
             .padding(1)
