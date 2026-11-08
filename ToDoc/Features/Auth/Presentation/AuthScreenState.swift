@@ -22,6 +22,7 @@ import Observation
     var errorMessage: String?
     var isSubmitting = false
     var didSend = false
+    var resendCooldownSeconds = 0
     var newPassword = ""
     var passwordConfirmation = ""
     var passwordError: String?

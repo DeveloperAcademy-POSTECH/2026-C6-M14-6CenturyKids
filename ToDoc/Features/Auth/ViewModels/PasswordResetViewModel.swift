@@ -11,11 +11,18 @@ import enum Auth.AuthError
     private var requestID: UUID?
     private var ownsRecoverySession = false
     private var passwordWasUpdated = false
-    init(repositories: AuthRepositories, session: AuthSessionState, configuration: AuthConfiguration) {
+    private let now: () -> Date
+    private var resendAvailableAt: Date?
+    private var resendTask: Task<Void, Never>?
+    init(repositories: AuthRepositories, session: AuthSessionState, configuration: AuthConfiguration,
+         now: @escaping () -> Date = Date.init) {
+        self.now = now
         self.repositories = repositories; self.session = session; self.configuration = configuration
         state.onSubmit = { [weak self] in Task { await self?.submit() } }
         state.onCancel = { [weak self] in self?.cancel() }
     }
+
+    deinit { resendTask?.cancel() }
 
     func submit() async {
         guard !state.isSubmitting else { return }
@@ -146,6 +153,7 @@ import enum Auth.AuthError
             state.needsSessionCleanup = false
             passwordWasUpdated = false
             state.isRecoveryReady = true
+            resendTask?.cancel()
             return true
         } catch {
             guard requestID == token, !Task.isCancelled else { return false }
@@ -156,9 +164,10 @@ import enum Auth.AuthError
 
     func requestEmail() async {
         guard !state.isSubmitting, !state.isRecoveryReady else { return }
+        refreshResendCooldown()
+        guard state.resendCooldownSeconds == 0 else { return }
 
         state.errorMessage = nil
-        state.didSend = false
         let email = AuthFormValidation.email(state.email)
         state.emailError = AuthFormValidation.emailError(email)
         guard state.emailError == nil else { return }
@@ -181,11 +190,33 @@ import enum Auth.AuthError
 
         do {
             try await auth.sendPasswordResetEmail(to: email, redirectTo: redirectURL)
+            resendAvailableAt = now().addingTimeInterval(60)
+            refreshResendCooldown()
             guard requestID == token, !Task.isCancelled else { return }
             state.didSend = true
+            startResendCooldown()
         } catch {
             guard requestID == token, !Task.isCancelled else { return }
             state.errorMessage = "재설정 안내 메일을 요청하지 못했어요. 잠시 후 다시 시도해 주세요."
+        }
+    }
+
+    func refreshResendCooldown() {
+        state.resendCooldownSeconds = max(0, Int(ceil(resendAvailableAt?.timeIntervalSince(now()) ?? 0)))
+    }
+
+    private func startResendCooldown() {
+        resendTask?.cancel()
+        refreshResendCooldown()
+        guard state.resendCooldownSeconds > 0 else { return }
+        resendTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(1)) }
+                catch { return }
+                guard let self else { return }
+                self.refreshResendCooldown()
+                if self.state.resendCooldownSeconds == 0 { return }
+            }
         }
     }
 
@@ -194,8 +225,10 @@ import enum Auth.AuthError
         state.isRecoveryReady = false; state.needsSessionCleanup = false
         state.didSend = false; state.didUpdatePassword = false; state.errorMessage = nil
         state.passwordError = nil; state.emailError = nil
+        startResendCooldown()
     }
     func cancel() {
+        resendTask?.cancel()
         requestID = nil
         state.newPassword = ""; state.passwordConfirmation = ""
         state.isRecoveryReady = false; state.needsSessionCleanup = false

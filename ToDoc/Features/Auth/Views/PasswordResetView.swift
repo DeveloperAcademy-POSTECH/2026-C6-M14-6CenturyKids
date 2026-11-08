@@ -35,11 +35,15 @@ struct PasswordResetView: View {
             Button {
                 if canReturnToLogin { finish() } else { state.onSubmit?() }
             } label: { AuthSubmitLabel(title: buttonTitle, isLoading: state.isSubmitting) }
-                .buttonStyle(AppButtonStyle()).disabled(state.isSubmitting || (!canReturnToLogin && state.onSubmit == nil))
+                .buttonStyle(AppButtonStyle())
+                .disabled(state.isSubmitting || isWaitingToResend || (!canReturnToLogin && state.onSubmit == nil))
         }
         .onDisappear { state.onCancel?() }
     }
-    private var canReturnToLogin: Bool { state.didUpdatePassword || (state.didSend && !state.isRecoveryReady) }
+    private var canReturnToLogin: Bool { state.didUpdatePassword }
+    private var isWaitingToResend: Bool {
+        !state.isRecoveryReady && !state.didUpdatePassword && state.resendCooldownSeconds > 0
+    }
     private var keyboardFooterBehavior: AuthKeyboardFooterBehavior {
         state.isRecoveryReady && !state.didUpdatePassword && !state.needsSessionCleanup ? .compact : .keepActions
     }
@@ -51,6 +55,8 @@ struct PasswordResetView: View {
     private var buttonTitle: String {
         if canReturnToLogin { return "로그인으로 돌아가기" }
         if state.needsSessionCleanup { return "로그인으로 돌아가기" }
+        if isWaitingToResend { return "\(state.resendCooldownSeconds)초 후 재전송 가능" }
+        if state.didSend && !state.isRecoveryReady { return "재설정 안내 재전송" }
         return state.isRecoveryReady ? "비밀번호 변경하기" : "재설정 안내 받기"
     }
     private func finish() { if let onBack { onBack() } else { dismiss() } }

@@ -31,6 +31,8 @@ final class TestAuthRepository: AuthRepository {
     var lastRedirect: URL?
     var recoveryCount = 0
     var recoveryError: Error?
+    var resetError: Error?
+    var beforeReset: (() async -> Void)?
     var beforeRecovery: (() async -> Void)?
     func acceptPasswordRecoveryURL(_ url: URL) async throws {
         recoveryCount += 1
@@ -80,7 +82,11 @@ final class TestAuthRepository: AuthRepository {
     func deleteAccount() async throws { XCTFail("인증 테스트에서 탈퇴를 호출하면 안 됩니다.") }
     func withdrawAppleAccount(authorizationCode: String) async throws { XCTFail("인증 테스트에서 Apple 탈퇴를 호출하면 안 됩니다.") }
     func withdrawKakaoAccount() async throws { XCTFail("인증 테스트에서 카카오 탈퇴를 호출하면 안 됩니다.") }
-    func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws { resetCount += 1; lastRedirect = url }
+    func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws {
+        resetCount += 1; lastRedirect = url
+        await beforeReset?()
+        if let resetError { throw resetError }
+    }
     func updatePassword(to newPassword: String, nonce: String?) async throws {
         updateCount += 1
         lastUpdatedPassword = newPassword
