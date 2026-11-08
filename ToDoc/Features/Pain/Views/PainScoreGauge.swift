@@ -9,7 +9,7 @@ struct PainScoreGauge: View {
     let label: String
     var descriptor: (Int) -> String? = { _ in nil }
     var onInteractionEnded: ((Int) -> Void)?
-    private let height: CGFloat = 347.622
+    private let height: CGFloat = 350
 
     private var shown: Int? { value ?? initialValue }
 
@@ -19,7 +19,7 @@ struct PainScoreGauge: View {
             ZStack(alignment: .topLeading) {
                 gauge.position(x: x, y: 54 + height / 2)
                 badge(10, size: 30).position(x: x, y: 15).accessibilityHidden(true)
-                badge(0, size: 30).position(x: x, y: 437).accessibilityHidden(true)
+                badge(0, size: 30).position(x: x, y: 439).accessibilityHidden(true)
                 if let shown {
                     // Figma Pain Scale: 통증 말은 게이지 왼쪽(13 떨어짐)에서 손잡이와 같은 높이로 움직입니다
                     if let text = descriptor(shown) {
@@ -38,7 +38,7 @@ struct PainScoreGauge: View {
                 }
             }
         }
-        .frame(height: 452)
+        .frame(height: 454)
         // Figma Pain Scale의 Hit 영역: 게이지 막대만이 아니라 줄 전체(가로 전부, 1점 = 35)를 눌러도 그 점수를 고릅니다
         .contentShape(Rectangle())
         .highPriorityGesture(DragGesture(minimumDistance: 0).onChanged { gesture in
@@ -65,10 +65,10 @@ struct PainScoreGauge: View {
             Image("PainGaugeTicks").frame(width: 52, height: 290).offset(y: 29)
             Capsule().fill(.white).frame(width: 48, height: 28)
                 .overlay { Capsule().fill(Color(white: 176 / 255)).frame(width: 20, height: 2) }
-                .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
+                .shadow(color: .black.opacity(0.2), radius: 3, y: 3)
                 .offset(y: position - 14)
         }
-        .frame(width: 94.135, height: height)
+        .frame(width: 94, height: height)
         .accessibilityRepresentation {
             Slider(value: Binding(get: { Double(shown ?? 0) }, set: { value = Int($0.rounded()) }), in: 0...10, step: 1) {
                 Text(label)
@@ -99,7 +99,7 @@ struct PainScoreGauge: View {
     private func color(_ score: Int) -> Color {
         // 원본 게이지 색상에 따른 표시이며 의료 분류 기준이 아닙니다. 0점은 1점과 같은 연두입니다 (Figma 9 · 지금 0점).
         let stops: [(Int, (Double, Double, Double))] = [
-            (1, (197, 242, 118)), (3, (253, 208, 72)), (7, (254, 150, 70)), (10, (255, 73, 70))
+            (1, (197, 242, 118)), (3, (253, 208, 72)), (5, (255, 182, 70)), (7, (254, 150, 70)), (10, (255, 73, 70))
         ]
         let score = min(10, max(1, score))
         let upper = stops.firstIndex { $0.0 >= score } ?? 3
@@ -111,12 +111,12 @@ struct PainScoreGauge: View {
                      blue: component(start.1.2, end.1.2))
     }
 
-    /// Figma 점수 원 글자: 0점 brand/800, 5점 red/800, 10점 red/950.
+    /// Figma 점수 원 글자: 0점 brand/800, 5점 red/800, 8·10점 red/950.
     // ponytail: 시안에 있는 0·5·10점 사이는 가까운 색으로 나눴습니다. 점수별 글자색이 정해지면 바꿉니다.
     private func textColor(_ score: Int) -> Color {
         switch score {
         case ...2: Color(red: 60 / 255, green: 88 / 255, blue: 26 / 255)
-        case 3...8: Color(red: 139 / 255, green: 35 / 255, blue: 31 / 255)
+        case 3...6: Color(red: 139 / 255, green: 35 / 255, blue: 31 / 255)
         default: Color(red: 73 / 255, green: 21 / 255, blue: 18 / 255)
         }
     }
