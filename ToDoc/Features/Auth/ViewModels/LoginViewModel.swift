@@ -112,10 +112,23 @@ import ToDocDomain
                 let idToken: String = try await withCheckedThrowingContinuation { continuation in
                     UserApi.shared.loginWithKakao(
                         BridgeConfiguration(orientation: .auto, uiMode: .auto),
-                        loginProperties: LoginConfiguration()
+                        loginProperties: LoginConfiguration(talk: .init(launchMethod: .UniversalLinkOnly))
                     ) { token, error in
                         if let error {
-                            continuation.resume(throwing: error)
+                            let message: String
+                            if let sdkError = error as? SdkError, sdkError.isClientFailed {
+                                switch sdkError.getClientError().reason {
+                                case .NotSupported:
+                                    message = "카카오톡을 실행할 수 없어요. 카카오톡 설치 상태를 확인한 뒤 다시 시도해 주세요."
+                                case .Cancelled:
+                                    message = "카카오 로그인이 취소되었어요. 다시 시도해 주세요."
+                                default:
+                                    message = "카카오 로그인에 실패했어요. 다시 시도해 주세요."
+                                }
+                            } else {
+                                message = "카카오 로그인에 실패했어요. 다시 시도해 주세요."
+                            }
+                            continuation.resume(throwing: AuthFlowError(message))
                         } else if let idToken = token?.idToken, !idToken.isEmpty {
                             continuation.resume(returning: idToken)
                         } else {
