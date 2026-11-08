@@ -90,7 +90,7 @@ struct PainScoreCapsule: View {
     }
 }
 
-/// Figma 아래·위 화살표: 16 × 길이, 선 4, 끝 둥글게, 라임 그라데이션(옅음 → 진함). 올라감·내려감 모두 같은 색입니다.
+/// Figma 아래·위 화살표: 16 × 길이, 선 4, 머리 반폭 8·높이 7.27, 끝 평평하게, 라임 그라데이션(옅음 → 진함). 올라감·내려감 모두 같은 색입니다.
 private struct PainChangeArrow: View {
     let length: CGFloat
     let isDown: Bool
@@ -99,14 +99,14 @@ private struct PainChangeArrow: View {
         Path { path in
             path.move(to: CGPoint(x: 8, y: 0))
             path.addLine(to: CGPoint(x: 8, y: length))
-            path.move(to: CGPoint(x: 1, y: length - 7))
+            path.move(to: CGPoint(x: 0, y: length - 7.27))
             path.addLine(to: CGPoint(x: 8, y: length))
-            path.addLine(to: CGPoint(x: 15, y: length - 7))
+            path.addLine(to: CGPoint(x: 16, y: length - 7.27))
         }
         .stroke(LinearGradient(colors: [Color(red: 201 / 255, green: 243 / 255, blue: 128 / 255),
                                         Color(red: 113 / 255, green: 179 / 255, blue: 30 / 255)],
                                startPoint: .top, endPoint: .bottom),
-                style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                style: StrokeStyle(lineWidth: 4))
         .frame(width: 16, height: length)
         .rotationEffect(.degrees(isDown ? 0 : 180))
         .accessibilityHidden(true)
@@ -240,7 +240,7 @@ struct PainHeader: View {
     }
 }
 
-/// Figma 바텀시트 패턴: 폭 전체, 위 모서리 40, 뒤는 검정 40% 막.
+/// Figma 바텀시트 패턴: 폭 전체, 위 모서리 40, 뒤는 background/inverse 40% 막.
 /// 시스템 시트는 iOS 26부터 좌우·아래가 떠 있는 모양이라 화면 위에 직접 그립니다.
 private struct PainBottomSheet<Sheet: View>: ViewModifier {
     @Binding var isPresented: Bool
@@ -250,7 +250,7 @@ private struct PainBottomSheet<Sheet: View>: ViewModifier {
         content.overlay {
             ZStack(alignment: .bottom) {
                 if isPresented {
-                    Color.black.opacity(0.4)
+                    AppColors.Semantic.Background.inverse.opacity(0.4)
                         .ignoresSafeArea()
                         .onTapGesture { isPresented = false }
                         .accessibilityHidden(true)
@@ -301,6 +301,6 @@ struct PainInputFooter: View {
                 .disabled(!isEnabled || onNext == nil)
                 .accessibilityIdentifier("pain.next")
         }
-        .padding(.horizontal, 24).padding(.bottom, 2)
+        .padding(.horizontal, 24)
     }
 }

@@ -54,8 +54,8 @@ struct PainAfterTimerView: View {
         .overlay {
             if showsNewRecordConfirmation {
                 ZStack {
-                    // Figma 8-A 자리: 뒤 화면은 검정 40% 막, 제목은 title 크기
-                    Color.black.opacity(0.4).ignoresSafeArea().accessibilityHidden(true)
+                    // Figma 8-A 자리: 뒤 화면은 background/inverse 40% 막, 제목은 title 크기
+                    AppColors.Semantic.Background.inverse.opacity(0.4).ignoresSafeArea().accessibilityHidden(true)
                     AppFeedback.Dialog("새로운 통증을 기록할까요?", titleStyle: .title,
                                        message: "새로운 통증을 기록하면 이전 통증 기록은\n약물 복용 후 점수를 기록하지 못 합니다.",
                                        primary: .init("새로운 통증 기록하기") {
