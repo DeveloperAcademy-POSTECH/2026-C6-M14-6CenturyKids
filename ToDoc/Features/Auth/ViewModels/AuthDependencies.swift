@@ -4,9 +4,8 @@ import ToDocDomain
 #endif
 
 nonisolated struct AuthConfiguration {
-    var redirectURL: URL?
+    var redirectURL: URL? = URL(string: "todoc://auth/change-password")
     var allowsSignupRequests = true
-
 }
 
 nonisolated struct AuthRepositories {

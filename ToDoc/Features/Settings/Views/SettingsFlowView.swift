@@ -45,7 +45,10 @@ struct SettingsFlowView: View {
                 }
         }
         .onChange(of: viewModel?.passwordChangeState.didSave, handlePasswordSaved)
-        .onChange(of: viewModel?.passwordChangeState.codeError, handlePasswordCodeError)
+        .onChange(of: viewModel?.passwordChangeState.requiresReauthentication, handleReauthenticationRequired)
+        .onChange(of: viewModel?.passwordChangeState.newPasswordError) { _, error in
+            if error != nil && path.last == .passwordCode { path.removeLast() }
+        }
         .onChange(of: path, handlePathChange)
     }
 
@@ -83,9 +86,7 @@ struct SettingsFlowView: View {
         case .withdrawal: withdrawal()
         case .passwordCode:
             if let viewModel {
-                PasswordCodeEntryView(state: viewModel.passwordChangeState) {
-                    path.append(.newPassword)
-                }
+                PasswordCodeEntryView(state: viewModel.passwordChangeState)
                 .toolbar(.hidden, for: .tabBar)
             }
         case .newPassword:
@@ -100,24 +101,27 @@ struct SettingsFlowView: View {
         if didSave == true { path = [] }
     }
 
-    private func handlePasswordCodeError(_ oldValue: String?, _ codeError: String?) {
-        if codeError != nil && path.last == .newPassword { path.removeLast() }
+    private func handleReauthenticationRequired(_ oldValue: Bool?, _ required: Bool?) {
+        if required == true && path.last == .newPassword { path.append(.passwordCode) }
     }
 
     private func handlePathChange(_ oldPath: [Destination], _ newPath: [Destination]) {
         let wasInPasswordChange = oldPath.contains(.passwordCode) || oldPath.contains(.newPassword)
         let isInPasswordChange = newPath.contains(.passwordCode) || newPath.contains(.newPassword)
+        if oldPath.last == .passwordCode && newPath.last == .newPassword {
+            viewModel?.returnToPasswordEntry()
+        }
         if wasInPasswordChange && !isInPasswordChange && viewModel?.passwordChangeState.didSave != true {
             viewModel?.passwordChangeState.onCancel?()
         }
     }
 
     private func startPasswordChange() {
-        guard let viewModel else { return }
+        guard let viewModel, !viewModel.passwordChangeState.isSaving,
+              !viewModel.passwordChangeState.isSendingCode else { return }
 
         viewModel.discardPasswordChange()
-        path.append(.passwordCode)
-        viewModel.passwordChangeState.onSendCode?()
+        path.append(.newPassword)
     }
 }
 #if DEBUG

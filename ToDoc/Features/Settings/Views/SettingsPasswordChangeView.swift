@@ -23,7 +23,7 @@ struct SettingsPasswordChangeView: View {
                     SettingsPasswordField(title: "현재 비밀번호", text: $currentPassword, contentType: .password)
                     SettingsFeedback(error: currentPasswordError)
                 }
-                passwordGroup(title: "새 비밀번호 입력", subtitle: "영문, 숫자, 특수문자 조합 8~32자") {
+                passwordGroup(title: "새 비밀번호 입력", subtitle: "영문·숫자를 포함해 8~20자") {
                     VStack(spacing: 0) {
                         SettingsPasswordField(title: "새 비밀번호를 입력해주세요", text: $newPassword)
                         SettingsDivider()

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct PasswordCodeEntryView: View {
     @Bindable var state: PasswordChangeScreenState
-    var onConfirm: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
 
@@ -33,9 +32,14 @@ struct PasswordCodeEntryView: View {
                         .accessibilityIdentifier("settings.password.code")
 
                     SettingsFeedback(
-                        busy: state.isSendingCode,
+                        busy: state.isSendingCode || state.isSaving,
                         error: state.codeError ?? state.errorMessage
                     )
+                    Button(state.hasSentCode ? "인증코드 재전송" : "인증코드 보내기") {
+                        state.onSendCode?()
+                    }
+                    .disabled(state.isSendingCode || state.isSaving || state.onSendCode == nil)
+                    .accessibilityIdentifier("settings.password.resendCode")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
@@ -44,16 +48,17 @@ struct PasswordCodeEntryView: View {
             .scrollDismissesKeyboard(.interactively)
 
             Button {
-                guard state.onContinue?() == true else { return }
-                onConfirm()
+                state.onSave?()
             } label: {
-                Text("확인")
+                Text("비밀번호 변경")
                     .settingsText(17, bold: true)
                     .frame(maxWidth: .infinity, minHeight: 54)
                     .foregroundStyle(.white)
                     .background(.blue, in: Capsule())
             }
-            .disabled(state.isSendingCode || state.isSaving)
+            .disabled(state.isSendingCode || state.isSaving || !state.hasSentCode
+                      || state.verificationCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                      || state.onSave == nil)
             .accessibilityIdentifier("settings.password.codeConfirm")
             .padding(.horizontal, 20)
             .padding(.bottom, 24)

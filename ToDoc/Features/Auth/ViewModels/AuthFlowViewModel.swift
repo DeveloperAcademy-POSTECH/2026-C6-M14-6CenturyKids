@@ -95,9 +95,11 @@ enum AuthEntry { case login, signup, passwordReset }
         await task.value
     }
     func handleURL(_ url: URL) async {
-        guard !isHandlingLink else { return }
+        guard !isHandlingLink, reset.matchesRecoveryURL(url) else { return }
         isHandlingLink = true
         defer { isHandlingLink = false }
+        await restoreSessionOnce()
+        linkMessage = nil
         if await reset.acceptRecoveryURL(url) {
             screen = .passwordReset; showsAuth = true
         } else {
