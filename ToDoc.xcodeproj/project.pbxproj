@@ -87,6 +87,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		A1359D5230A08E9E00F38BE0 /* ci_scripts */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ci_scripts;
+			sourceTree = "<group>";
+		};
 		A13BCAFC3077425800901BFD /* ToDoc */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -138,6 +143,7 @@
 		A13BCAF13077425800901BFD = {
 			isa = PBXGroup;
 			children = (
+				A1359D5230A08E9E00F38BE0 /* ci_scripts */,
 				A15EBA293099E10A0067C458 /* Configuration */,
 				A13BCAFC3077425800901BFD /* ToDoc */,
 				A1E7CDA33088AA9D007C0049 /* ToDocWidgetExtension */,
@@ -183,6 +189,7 @@
 				A1E7CDB23088AA9E007C0049 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
+				A1359D5230A08E9E00F38BE0 /* ci_scripts */,
 				A13BCAFC3077425800901BFD /* ToDoc */,
 				A15EBA293099E10A0067C458 /* Configuration */,
 			);
