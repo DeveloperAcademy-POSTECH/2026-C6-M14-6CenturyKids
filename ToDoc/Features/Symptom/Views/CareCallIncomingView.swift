@@ -89,11 +89,11 @@ struct CareCallIncomingView: View {
     private var controls: some View {
         VStack(spacing: 16) {
             HStack(alignment: .top) {
-                control("10분 뒤에", asset: "CareCallAlarm", iconSize: 20, diameter: 56,
+                control("10분 뒤에", asset: "CareCallAlarm", iconSize: 20, diameter: 56, labelSize: 13,
                         fill: AppColors.Semantic.Background.secondary, labelColor: AppColors.Semantic.Text.sub,
                         action: onPostpone)
                 Spacer(minLength: 16)
-                control("글로 답할게요", asset: "CareCallChat", iconSize: 24, diameter: 56,
+                control("글로 답할게요", asset: "CareCallChat", iconSize: 24, diameter: 56, labelSize: 13,
                         fill: AppColors.Semantic.Background.secondary, labelColor: AppColors.Semantic.Text.sub,
                         action: onSwitchToText)
             }
@@ -120,7 +120,7 @@ struct CareCallIncomingView: View {
         .buttonStyle(AppActions.PressStyle())
     }
 
-    private func control(_ title: String, asset: String, iconSize: CGFloat, diameter: CGFloat,
+    private func control(_ title: String, asset: String, iconSize: CGFloat, diameter: CGFloat, labelSize: CGFloat = 14,
                          fill: Color, labelColor: Color, action: (() -> Void)?) -> some View {
         Button { action?() } label: {
             VStack(spacing: 8) {
@@ -130,7 +130,8 @@ struct CareCallIncomingView: View {
                     .background(fill, in: Circle())
                     .accessibilityHidden(true)
                 Text(title)
-                    .appTypography(.label)
+                    .modifier(SymptomTextStyle(size: labelSize, weight: .medium))
+                    .frame(minHeight: 20)
                     .foregroundStyle(labelColor)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
