@@ -6,6 +6,7 @@ struct SymptomRecordView: View {
     @State private var confirmsEnd = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     var onClose: (() -> Void)?
     var onShowRecord: (() -> Void)?
     var onHome: (() -> Void)?
@@ -32,6 +33,15 @@ struct SymptomRecordView: View {
         }.background(.white).toolbar(.hidden, for: .navigationBar)
             .onAppear { state.onAction?(.open) }
             .onDisappear { state.onAction?(.cancel) }
+            // 백그라운드에서는 음성 합성이 끝 알림 없이 멈춰 통화가 말하는 중에 걸린다.
+            // 나갈 때 통화를 잠시 끊고, 돌아오면 같은 질문부터 다시 건다 (기록 중단 팝업이 떠 있으면 환자의 선택을 기다린다)
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background {
+                    state.onAction?(.pause)
+                } else if phase == .active, !confirmsEnd {
+                    state.onAction?(.resume)
+                }
+            }
     }
 
     @ViewBuilder
