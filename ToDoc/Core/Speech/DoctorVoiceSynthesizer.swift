@@ -30,7 +30,7 @@ final class DoctorVoiceSynthesizer: SpeechSynthesizer {
     func speak(_ text: String) async {
         let names = clips.clipNames(for: text) ?? []
         let urls = names.compactMap { bundle.url(forResource: $0, withExtension: "m4a") }
-        guard !urls.isEmpty, urls.count == names.count else {
+        guard !urls.isEmpty, urls.count == names.count, await Self.playable(urls) else {
             await fallback.speak(text)
             return
         }
@@ -38,13 +38,37 @@ final class DoctorVoiceSynthesizer: SpeechSynthesizer {
         items.forEach { player.insert($0, after: nil) }
         let last = items[items.count - 1]
         lastItem = last
-        // 끝까지 틀었거나 중간에 실패해도 문장을 끝낸다 (기다리는 쪽이 멈추지 않게)
-        endObservers = [AVPlayerItem.didPlayToEndTimeNotification, AVPlayerItem.failedToPlayToEndTimeNotification].map {
-            NotificationCenter.default.addObserver(forName: $0, object: last, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.finish() }
+        endObservers = [NotificationCenter.default.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification, object: last, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.finish() }
+        }]
+        // 틀다가 조각 하나라도 실패하면 그 문장을 기기 음성으로 처음부터 다시 읽는다 (응급 안내가 들리지 않은 채 끝나지 않게)
+        endObservers += items.map {
+            NotificationCenter.default.addObserver(forName: AVPlayerItem.failedToPlayToEndTimeNotification, object: $0, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.readWithFallback(text) }
             }
         }
         player.play()
+    }
+
+    /// 파일이 깨져 재생을 시작하지 못하면 끝 알림이 오지 않아 통화가 멈추므로, 틀기 전에 확인한다
+    private static func playable(_ urls: [URL]) async -> Bool {
+        for url in urls {
+            guard (try? await AVURLAsset(url: url).load(.isPlayable)) == true else { return false }
+        }
+        return true
+    }
+
+    private func readWithFallback(_ text: String) {
+        guard let sentence = lastItem else { return }
+        endObservers.forEach(NotificationCenter.default.removeObserver)
+        endObservers = []
+        player.removeAllItems()
+        Task {
+            await fallback.speak(text)
+            await fallback.waitUntilDone()
+            // 그사이 멈추고 다음 문장을 시작했으면 그 문장은 끝내지 않는다
+            if lastItem === sentence { finish() }
+        }
     }
 
     func waitUntilDone() async {
