@@ -31,6 +31,8 @@ final class InterviewEngine {
     private let keywords: [String: [String]]
 
     private(set) var phase: InterviewPhase = .opening
+    /// 지난 차례에 모델을 불렀는지. 짧고 분명한 답처럼 모델 없이 넘어간 차례는 고민 시간을 채우지 않는다
+    private(set) var analyzedLastTurn = false
     private(set) var ledger = Ledger()
     private var otherAsked = false
     private var otherAttempts = 0
@@ -123,6 +125,7 @@ final class InterviewEngine {
         guard phase != .saved, phase != .emergencyEnded else {
             return Output(utterance: "", phase: phase)
         }
+        analyzedLastTurn = false
         let turnIndex = history.count
         history.append(snapshot(answer: patientText))
         // 위기 표현(자살 생각·자해·약 과다 복용)은 모델 판단 없이 안내하고 끝낸다. 말은 원문으로 남긴다
@@ -768,12 +771,17 @@ final class InterviewEngine {
     private func analyze(_ phase: InterviewPhase, patientText: String) async -> TurnResult? {
         for _ in 0..<2 {
             do {
-                return try await analyzer.analyze(request(for: phase, patientText: patientText))
+                return try await analyzed(request(for: phase, patientText: patientText))
             } catch {
                 if error is CancellationError || Task.isCancelled { return nil }
             }
         }
         return nil
+    }
+
+    private func analyzed(_ request: AnalysisRequest) async throws -> TurnResult {
+        analyzedLastTurn = true
+        return try await analyzer.analyze(request)
     }
 
     /// 환자 말을 그대로 따라 쓴 것("딱히 어디가 불편한 건 아니에요")은 맞장구로 보지 않는다: 다시 분석해도 47번 중 44번이 빈 결과였다
@@ -869,7 +877,7 @@ final class InterviewEngine {
         request.slotKey = effect.id
         request.step = .presence
         request.slotName = effect.name
-        guard let recheck = try? await analyzer.analyze(request) else { return nil }
+        guard let recheck = try? await analyzed(request) else { return nil }
         return recheck.mentions.filter { $0.effectId == effect.id }
     }
 
@@ -898,7 +906,7 @@ final class InterviewEngine {
             request.slotKey = effect.id
             request.step = .presence
             request.slotName = effect.name
-            guard let recheck = try? await analyzer.analyze(request) else { continue }
+            guard let recheck = try? await analyzed(request) else { continue }
             // 다시 물어도 근거 낱말 없는 다른 증상을 고르면("온몸이 근질근질해요" → 저림) 다시 묻는 그 증상의 답으로 본다
             added += toCurrentSlot(recheck.mentions, key: effect.id, patientText: part).filter { $0.effectId == effect.id && $0.presence == .present }
         }

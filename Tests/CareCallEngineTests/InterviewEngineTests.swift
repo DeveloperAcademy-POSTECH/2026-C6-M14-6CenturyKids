@@ -75,6 +75,19 @@ struct InterviewEngineTests {
         #expect(!engine.ledger["nausea_vomiting"]!.askedSteps.contains(.presence))
     }
 
+    @Test func 모델_없이_넘어간_차례를_알린다() async {
+        mock.script["어제 좀 토했어요, 그거 말고는 괜찮아요"] = .mentions(Mention(effectId: "nausea_vomiting", presence: .present))
+        _ = engine.start()
+        _ = await engine.handle(patientText: "어제 좀 토했어요, 그거 말고는 괜찮아요")
+        #expect(engine.analyzedLastTurn)
+        _ = await engine.handle(patientText: "한 번이요") // 꼬리질문 답
+        #expect(!engine.analyzedLastTurn)
+        _ = await engine.handle(patientText: "아니요") // 변비 유무
+        #expect(!engine.analyzedLastTurn)
+        _ = await engine.handle(patientText: "물처럼 나왔어요") // 설사 유무
+        #expect(engine.analyzedLastTurn)
+    }
+
     @Test(arguments: [
         ("네 토했어요", ["구토 횟수"]),
         ("네 속이 메스꺼워요", ["메스꺼움 시작"]),

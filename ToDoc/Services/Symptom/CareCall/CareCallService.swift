@@ -174,7 +174,7 @@ final class CareCallService: CareCalling {
             out = await engine.handle(patientText: text)
             if let completion = out.answerCompletion { onActivity(.answerCompleted(completion)) }
             guard !stopped else { break }
-            if out.phase != .emergencyEnded {
+            if out.phase != .emergencyEnded, engine.analyzedLastTurn {
                 try await Task.sleep(until: thinkingEnds, clock: .continuous)
                 guard !stopped else { break }
             }
