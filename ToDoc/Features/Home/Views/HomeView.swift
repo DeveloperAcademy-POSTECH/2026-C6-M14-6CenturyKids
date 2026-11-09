@@ -150,7 +150,7 @@ struct HomeView: View {
     private func select(_ destination: HomeDestination) { onSelect?(destination) }
 }
 
-/// 왕복 6.4초 동안 7pt를 천천히 오르내립니다.
+/// 왕복 6.4초 동안 기준 화면에서 3pt를 천천히 오르내립니다.
 private struct HomeThoughtFloat: ViewModifier {
     let isVisible: Bool
     let scale: CGFloat
@@ -162,7 +162,7 @@ private struct HomeThoughtFloat: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .offset(y: floats ? 7 * scale : 0)
+            .offset(y: floats ? 3 * scale : 0)
             .scaleEffect(floats ? 1.002 : 1, anchor: .topLeading)
             // 앱 활성화 시에도 같은 말풍선을 유지하고, 등장 전환은 적용하지 않습니다.
             .transition(.identity)
