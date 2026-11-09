@@ -6,8 +6,8 @@ import SwiftUI
 struct PrevisitPromptView: View {
     var completedDraft: PrevisitDraft?
     var startTitle: String?
-    /// 오늘 이미 보냈으면 false: 작성 버튼을 막고 지난 기록 보기만 남깁니다
-    var canStart = true
+    /// 오늘 보낸 기록이 있으면 작성 대신 해당 기록을 엽니다.
+    var onViewToday: (() -> Void)?
     var onStart: () -> Void = {}
     var onRecords: () -> Void = {}
     var onClose: () -> Void = {}
@@ -41,14 +41,20 @@ struct PrevisitPromptView: View {
             Capsule().fill(AppColors.Semantic.Border.default).frame(width: 36, height: 5).accessibilityHidden(true)
             HStack(alignment: .top, spacing: 8) {
                 Color.clear.frame(width: 44, height: 44)
-                AppNavigation.PageTitle("진료 받기 전 대기중인가요?", alignment: .center, overline: "진료 전 기록하기")
+                AppNavigation.PageTitle(onViewToday == nil ? "진료 받기 전 대기중인가요?" : "오늘 기록을 보냈어요",
+                                        alignment: .center, overline: "진료 전 기록하기")
                 // Figma 아이콘이 아직 자리만 있어 뒤로가기(Prev)와 같은 굵기·크기로 그린 닫기 아이콘을 씁니다
                 AppActions.IconButton("닫기", icon: Image("PrevisitClose"), action: onClose)
             }
             // 홈의 통증 기록하기·증상 대화하기 카드 간격(14)과 맞춤
             VStack(spacing: 14) {
-                AppActions.Button(canStart ? startTitle ?? "진료 전 기록하기" : "오늘 기록은 이미 보냈어요", action: onStart)
-                    .disabled(!canStart).accessibilityIdentifier("previsit.start")
+                if let onViewToday {
+                    AppActions.Button("오늘 보낸 기록 보기", action: onViewToday)
+                        .accessibilityIdentifier("previsit.viewToday")
+                } else {
+                    AppActions.Button(startTitle ?? "진료 전 기록하기", action: onStart)
+                        .accessibilityIdentifier("previsit.start")
+                }
                 AppActions.Button("지난 기록 전체보기", kind: .secondary, action: onRecords)
                     .accessibilityIdentifier("previsit.records")
             }

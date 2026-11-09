@@ -130,8 +130,11 @@ struct PatientFlowView: View {
             previsitPromptOpenedFromHome = false
             openPrevisitNext()
         }) {
+            let sentToday = previsitLetters.todaySentLetter
             PrevisitPromptView(startTitle: previsitSession.hasDraft ? "이어서 작성하기" : nil,
-                               canStart: !previsitLetters.hasSentToday,
+                               onViewToday: sentToday.map { letter in
+                                   { closePrevisitPrompt(then: .letter(letter.id)) }
+                               },
                                onStart: { closePrevisitPrompt(then: .write) },
                                onRecords: {
                                    recordRestrictedPromptAction(.viewPastRecords)
@@ -141,10 +144,10 @@ struct PatientFlowView: View {
                                    recordRestrictedPromptAction(.close)
                                    showsPrevisitPrompt = false
                                },
-                               onDiscard: previsitSession.hasDraft && !previsitLetters.hasSentToday
+                               onDiscard: previsitSession.hasDraft && sentToday == nil
                                    ? { showsPrevisitDiscard = true } : nil)
-                .onAppear {
-                    guard previsitPromptOpenedFromHome, previsitLetters.hasSentToday,
+                .onChange(of: sentToday != nil, initial: true) { _, hasSentToday in
+                    guard previsitPromptOpenedFromHome, hasSentToday,
                           restrictedPromptVisitID == nil else { return }
                     restrictedPromptVisitID = previsitSession.analytics.recordRestrictedPromptView()
                 }
@@ -169,7 +172,7 @@ struct PatientFlowView: View {
 
     private var isHomeVisible: Bool { tab == .home && path.isEmpty && !showsPrevisit && !showsPrevisitPrompt }
 
-    private enum PrevisitNext { case write, letters, prompt }
+    private enum PrevisitNext { case write, letters, letter(UUID), prompt }
 
     private func openPrevisitPrompt(fromHome: Bool = false) {
         guard !showsPrevisitPrompt else { return }
@@ -201,7 +204,7 @@ struct PatientFlowView: View {
             path = [.pain]
         case .previsit:
             tab = .home
-            // 오늘 이미 보냈으면 작성 대신 바텀시트(지난 기록 보기)를 엽니다
+            // 오늘 이미 보냈으면 작성 대신 보낸 기록을 볼 수 있는 바텀시트를 엽니다
             if previsitLetters.hasSentToday {
                 openPrevisitPrompt()
             } else {
@@ -221,9 +224,14 @@ struct PatientFlowView: View {
         }
         switch previsitNext {
         case .write:
-            previsitSession.start()
-            showsPrevisit = true
+            if previsitLetters.hasSentToday {
+                openPrevisitPrompt()
+            } else {
+                previsitSession.start()
+                showsPrevisit = true
+            }
         case .letters: path.append(.previsitLetters)
+        case .letter(let id): path.append(.previsitLetter(id))
         case .prompt: openPrevisitPrompt()
         case nil: break
         }
