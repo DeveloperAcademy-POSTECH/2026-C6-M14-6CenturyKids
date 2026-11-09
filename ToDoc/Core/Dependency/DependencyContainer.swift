@@ -139,7 +139,9 @@ final class DependencyContainer {
             bodyParts: try Bundle.main.decodeJSON(BodyPartDictionary.self, named: "body_parts"),
             recorder: recorder,
             recognizer: SpeechAnalyzerAdapter(recorder: recorder),
-            voice: AVSpeechSynthesizerAdapter(),
+            // 의사 선생님 녹음으로 읽고, 녹음이 없는 문장은 기기 음성으로 읽는다
+            voice: DoctorVoiceSynthesizer(clips: try Bundle.main.decodeJSON(DoctorVoiceClips.self, named: "doctor_voice"),
+                                          fallback: AVSpeechSynthesizerAdapter()),
             loadAnalyzer: { try FoundationModelsCareCallAdapter(model: try LanguageModelProvider.systemModel()) }
         )
     }
