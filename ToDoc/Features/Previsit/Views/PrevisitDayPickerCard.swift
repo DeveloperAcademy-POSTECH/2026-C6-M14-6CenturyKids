@@ -149,21 +149,35 @@ struct PrevisitDayDetails: View {
     }
 
     private func painRow(_ pain: PrevisitDay.PainRow) -> some View {
-        let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout(spacing: 12))
+        let location = pain.location.isEmpty ? "통증" : pain.location
+
         return VStack(alignment: .leading, spacing: 4) {
-            layout {
-                tag(pain.location.isEmpty ? "통증" : pain.location)
-                Text(pain.after.map { "\(pain.before) → \($0)" } ?? "\(pain.before)점")
-                    .appTypography(.labelLarge)
-                    .foregroundStyle(AppColors.Semantic.Text.default)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .accessibilityLabel(pain.after.map { "복용 전 \(pain.before)점, 복용 후 \($0)점" }
-                                        ?? "복용 전 \(pain.before)점")
+            ViewThatFits(in: .horizontal) {
+                if !dynamicTypeSize.isAccessibilitySize {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        tag(location).fixedSize(horizontal: true, vertical: false)
+                        painScore(pain)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    tagLabel(location)
+                        .background(AppColors.Semantic.Chart.Category.Lime.light,
+                                    in: RoundedRectangle(cornerRadius: 12))
+                    painScore(pain)
+                }
             }
             if pain.after == nil { rowText("사후 통증 미기록") }
         }
+    }
+
+    private func painScore(_ pain: PrevisitDay.PainRow) -> some View {
+        Text(pain.after.map { "\(pain.before) → \($0)" } ?? "\(pain.before)점")
+            .appTypography(.labelLarge)
+            .foregroundStyle(AppColors.Semantic.Text.default)
+            .fixedSize(horizontal: true, vertical: false)
+            .accessibilityLabel(pain.after.map { "복용 전 \(pain.before)점, 복용 후 \($0)점" }
+                                ?? "복용 전 \(pain.before)점")
     }
 
     private func symptomRow(_ symptom: PrevisitDay.SymptomRow) -> some View {
@@ -195,6 +209,11 @@ struct PrevisitDayDetails: View {
     }
 
     private func tag(_ title: String) -> some View {
+        tagLabel(title)
+            .background(AppColors.Semantic.Chart.Category.Lime.light, in: Capsule())
+    }
+
+    private func tagLabel(_ title: String) -> some View {
         Text(title)
             .appTypography(.label)
             .foregroundStyle(AppColors.Semantic.Text.default)
@@ -202,7 +221,6 @@ struct PrevisitDayDetails: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(AppColors.Semantic.Chart.Category.Lime.light, in: Capsule())
     }
 }
 

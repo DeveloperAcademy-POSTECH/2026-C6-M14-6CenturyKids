@@ -140,14 +140,11 @@ struct PrevisitRecordView: View {
                     .foregroundStyle(AppColors.Semantic.Text.sub)
                     .accessibilityIdentifier("previsit.empty")
             }
+            let selectedID = currentDaySelection?.id
             LazyVStack(spacing: 36) {
                 ForEach(days) { day in
-                    PrevisitDayPickerCard(day: day, selected: draft.day?.id == day.id) {
-                        let previousID = draft.day?.id
-                        session.selectDay(day)
-                        if let selectedID = draft.day?.id {
-                            session.analytics.recordSelectionChanged(from: previousID, to: selectedID)
-                        }
+                    PrevisitDayPickerCard(day: day, selected: selectedID == day.id) {
+                        selectDay(day)
                     }
                 }
             }
@@ -312,13 +309,24 @@ struct PrevisitRecordView: View {
         .padding(.bottom, 2)
             .background(AppColors.Semantic.Background.default)
     }
+    private var currentDaySelection: PrevisitDay? {
+        guard case .loaded(let days) = records else { return nil }
+        return days.first { $0.id == draft.day?.id && $0.isSelectable }
+            ?? days.first(where: \.isSelectable)
+    }
+
     private var canContinue: Bool {
-        guard !isSubmitting, draft.letter.count <= 200, session.canContinue else { return false }
-        guard case .loaded(let days) = records else { return false }
-        if step == .day {
-            return days.contains { $0.id == draft.day?.id && $0.isSelectable }
+        guard !isSubmitting, draft.letter.count <= 200, case .loaded = records else { return false }
+        if step == .day { return currentDaySelection != nil }
+        return session.canContinue && (step != .mood || onSubmit != nil)
+    }
+
+    private func selectDay(_ day: PrevisitDay) {
+        let previousID = draft.day?.id
+        session.selectDay(day)
+        if let selectedID = draft.day?.id {
+            session.analytics.recordSelectionChanged(from: previousID, to: selectedID)
         }
-        return step != .mood || onSubmit != nil
     }
 
     private var analyticsPauseReason: String? {
@@ -350,6 +358,7 @@ struct PrevisitRecordView: View {
             showsSubmitConfirmation = true
         } else {
             let from = step
+            if from == .day, let day = currentDaySelection { selectDay(day) }
             session.next()
             session.analytics.recordStepAdvance(from: from, to: step, message: draft.letter)
         }
