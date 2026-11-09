@@ -19,6 +19,8 @@ final class DoctorVoiceSynthesizer: SpeechSynthesizer {
     private var lastItem: AVPlayerItem?
     private var endObservers: [NSObjectProtocol] = []
     private var finished: CheckedContinuation<Void, Never>?
+    /// stop()을 부른 횟수. 파일을 확인하는 사이 멈췄는지 본다
+    private var stops = 0
 
     init(clips: DoctorVoiceClips, fallback: SpeechSynthesizer, bundle: Bundle = .main) {
         self.clips = clips
@@ -28,9 +30,14 @@ final class DoctorVoiceSynthesizer: SpeechSynthesizer {
 
     /// 녹음을 틀기 시작하면 바로 돌아온다 (파일이라 기기 음성처럼 소리가 늦게 나지 않는다)
     func speak(_ text: String) async {
+        let stopsBefore = stops
         let names = clips.clipNames(for: text) ?? []
         let urls = names.compactMap { bundle.url(forResource: $0, withExtension: "m4a") }
-        guard !urls.isEmpty, urls.count == names.count, await Self.playable(urls) else {
+        var usable = !urls.isEmpty && urls.count == names.count
+        if usable { usable = await Self.playable(urls) }
+        // 확인하는 사이 통화를 끝냈으면 말하지 않는다
+        guard stops == stopsBefore else { return }
+        guard usable else {
             await fallback.speak(text)
             return
         }
@@ -39,12 +46,11 @@ final class DoctorVoiceSynthesizer: SpeechSynthesizer {
         let last = items[items.count - 1]
         lastItem = last
         endObservers = [NotificationCenter.default.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification, object: last, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.finish() }
+            MainActor.assumeIsolated { self?.played(text, failed: false) }
         }]
-        // 틀다가 조각 하나라도 실패하면 그 문장을 기기 음성으로 처음부터 다시 읽는다 (응급 안내가 들리지 않은 채 끝나지 않게)
         endObservers += items.map {
             NotificationCenter.default.addObserver(forName: AVPlayerItem.failedToPlayToEndTimeNotification, object: $0, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.readWithFallback(text) }
+                MainActor.assumeIsolated { self?.played(text, failed: true) }
             }
         }
         player.play()
@@ -58,15 +64,20 @@ final class DoctorVoiceSynthesizer: SpeechSynthesizer {
         return true
     }
 
-    private func readWithFallback(_ text: String) {
-        guard let sentence = lastItem else { return }
+    /// 끝까지 틀었거나(failed: false) 조각 하나가 실패함. 이 문장의 알림 등록이 남아 있을 때 한 번만 받는다
+    /// (실패 뒤 늦게 온 알림이 두 번 다시 읽거나 다시 읽는 중인 문장을 일찍 끝내지 않게)
+    private func played(_ text: String, failed: Bool) {
+        guard let sentence = lastItem, !endObservers.isEmpty else { return }
         endObservers.forEach(NotificationCenter.default.removeObserver)
         endObservers = []
+        guard failed else { return finish() }
+        // 틀다가 실패하면 그 문장을 기기 음성으로 처음부터 다시 읽는다 (응급 안내가 들리지 않은 채 끝나지 않게)
         player.removeAllItems()
         Task {
+            // 그사이 멈추거나 다음 문장으로 넘어갔으면 읽지도, 그 문장을 끝내지도 않는다
+            guard lastItem === sentence else { return }
             await fallback.speak(text)
             await fallback.waitUntilDone()
-            // 그사이 멈추고 다음 문장을 시작했으면 그 문장은 끝내지 않는다
             if lastItem === sentence { finish() }
         }
     }
@@ -81,6 +92,7 @@ final class DoctorVoiceSynthesizer: SpeechSynthesizer {
 
     /// 바로 멈추고 기다리던 waitUntilDone을 끝낸다
     func stop() {
+        stops += 1
         fallback.stop()
         finish()
     }
