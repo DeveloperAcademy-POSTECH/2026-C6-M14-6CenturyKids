@@ -2,15 +2,18 @@ import SwiftUI
 
 /// Figma 316:7259 포괄 오류화면. 케어콜을 시작하지 못했거나 대화가 끊겨 보여 줄 질문이 없을 때 씁니다.
 struct SymptomServiceErrorView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var onRetry: (() -> Void)?
     var onHome: () -> Void
+
+    private var usesLargeLayout: Bool { dynamicTypeSize >= .xxxLarge }
 
     var body: some View {
         VStack(spacing: 0) {
             GeometryReader { geometry in
                 ScrollView {
-                    VStack(spacing: 40) {
-                        AppFeedback.StatusIcon(kind: .error, size: 160)
+                    VStack(spacing: usesLargeLayout ? 24 : 40) {
+                        AppFeedback.StatusIcon(kind: .error, size: usesLargeLayout ? 72 : 160)
                         VStack(spacing: 16) {
                             Text("서비스 이용이 원활하지 않아요")
                                 .modifier(SymptomTextStyle(size: 16, weight: .semibold)).foregroundStyle(.black)
@@ -28,8 +31,11 @@ struct SymptomServiceErrorView: View {
                 }
                 .scrollBounceBehavior(.basedOnSize)
             }
-            HStack(alignment: .top, spacing: AppLayout.Phone.columnSpacing) {
-                AppActions.BackButton("홈", action: onHome)
+            let actions = usesLargeLayout
+                ? AnyLayout(VStackLayout(spacing: 12))
+                : AnyLayout(HStackLayout(alignment: .top, spacing: AppLayout.Phone.columnSpacing))
+            actions {
+                homeButton
                     .accessibilityLabel("홈으로 가기")
                     .accessibilityIdentifier("symptom.home")
                 Button { onRetry?() } label: {
@@ -43,6 +49,16 @@ struct SymptomServiceErrorView: View {
         }
         .background(.white)
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    @ViewBuilder
+    private var homeButton: some View {
+        if usesLargeLayout {
+            Button("홈으로 가기", action: onHome)
+                .buttonStyle(AppButtonStyle(kind: .secondary))
+        } else {
+            AppActions.BackButton("홈", action: onHome)
+        }
     }
 }
 
