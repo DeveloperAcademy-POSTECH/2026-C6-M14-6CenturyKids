@@ -11,12 +11,25 @@ struct PrevisitSectionPreview: View {
     init(initialScreen: Screen = .prompt) {
         _screen = State(initialValue: initialScreen)
     }
-    static let days: [PrevisitDay] = [
-        .init(id: "17", dateLabel: "10/17", weekday: "토요일", entries: ["설사 3회, 거의 화장실에서 살았다"]),
-        .init(id: "18", dateLabel: "10/18", weekday: "일요일", entries: ["설사 3회, 거의 화장실에서 살았다", "어지러움, 머리가 지끈지끈", "복부통증 7 → 3"]),
-        .init(id: "19", dateLabel: "10/19", weekday: "월요일", entries: []),
-        .init(id: "20", dateLabel: "10/20", weekday: "화요일", entries: [])
-    ]
+    static let days: [PrevisitDay] = {
+        let pain = PrevisitDay.PainRow(location: "복부 및 등", before: 7, after: 3)
+        let symptoms = [
+            PrevisitDay.SymptomRow(label: "설사",
+                detail: "아침에는 나아지는 것 같았는데 저녁에 배가 다시 불편했어요.\n저녁을 먹고 나서는 한동안 화장실을 자주 갔어요.",
+                entry: "설사 · 아침에는 나아지는 것 같았는데 저녁에 배가 다시 불편했어요.\n저녁을 먹고 나서는 한동안 화장실을 자주 갔어요."),
+            PrevisitDay.SymptomRow(label: "두통", detail: "어지럽고 머리가 지끈거렸어요.",
+                                  entry: "두통 · 어지럽고 머리가 지끈거렸어요.")
+        ]
+        return [
+            .init(id: "18", dateLabel: "10월 18일", weekday: "일요일",
+                  entries: symptoms.map(\.entry) + [pain.entry], recordedDate: .now,
+                  painBefore: 7, painAfter: 3, symptomCount: 2,
+                  painRows: [pain], symptomRows: symptoms, representativePain: pain),
+            .init(id: "17", dateLabel: "10월 17일", weekday: "토요일",
+                  entries: ["설사 3회"], symptomCount: 1),
+            .init(id: "16", dateLabel: "10월 16일", weekday: "금요일", entries: [])
+        ]
+    }()
     static let sampleLetter = "최근 속이 불편했던 날이 있어요. 진료 때 함께 이야기 나누고 싶어요."
     var body: some View {
         Group {
@@ -27,11 +40,11 @@ struct PrevisitSectionPreview: View {
                         PrevisitPromptView(onStart: { screen = .days }, onClose: { screen = .entry })
                     }.overlay {
                     if screen == .completed {
-                        PrevisitPromptView(completedDraft: completed ?? draft, doctorName: "학로쌤", patientName: "최연우", onClose: { screen = .entry })
+                        PrevisitPromptView(completedDraft: completed ?? draft, onClose: { screen = .entry })
                     }
                 }
             default:
-                PrevisitRecordView(days: Self.days, doctorName: "학로쌤", patientName: "최연우",
+                PrevisitRecordView(days: Self.days,
                     initialStep: step, initialDraft: draft, onClose: { screen = .entry },
                     onSubmit: { completed = $0; screen = .completed }).id(screen)
             }

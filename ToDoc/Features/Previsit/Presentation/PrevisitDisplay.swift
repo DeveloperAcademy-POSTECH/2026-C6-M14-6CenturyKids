@@ -5,6 +5,20 @@ import ToDocDomain
 
 /// 저장된 하루 기록의 표시 값과 원본 식별자입니다. 전송 계약은 별도입니다.
 struct PrevisitDay: Identifiable, Hashable {
+    struct PainRow: Hashable {
+        let location: String
+        let before: Int
+        let after: Int?
+
+        var entry: String { "\(location) 통증 \(before) → \(after.map { String($0) } ?? "사후 통증 미기록")" }
+    }
+
+    struct SymptomRow: Hashable {
+        let label: String
+        let detail: String?
+        let entry: String
+    }
+
     let id: String
     let dateLabel: String
     let weekday: String
@@ -17,8 +31,23 @@ struct PrevisitDay: Identifiable, Hashable {
     var painAfter: Int? = nil
     /// 그날 '있음'으로 답한 증상 수 (목록 배지)
     var symptomCount = 0
+    var painRows: [PainRow] = []
+    var symptomRows: [SymptomRow] = []
+    var representativePain: PainRow? = nil
 
     var isSelectable: Bool { !entries.isEmpty }
+
+    var displayDate: String {
+        guard let recordedDate else { return dateLabel }
+        let components = Calendar.current.dateComponents([.month, .day], from: recordedDate)
+        guard let month = components.month, let day = components.day else { return dateLabel }
+        return "\(month)월 \(day)일"
+    }
+
+    var displayWeekday: String {
+        guard let recordedDate else { return weekday }
+        return recordedDate.formatted(.dateTime.weekday(.wide).locale(Locale(identifier: "ko_KR")))
+    }
 }
 
 enum PrevisitRecordState: Equatable {

@@ -1,10 +1,8 @@
 import SwiftUI
 
-/// Figma 417:19245·417:19189. 저장된 하루 기록을 선택한 뒤 이야기를 작성합니다.
+/// 기록할 날을 고르고, 하고 싶은 말과 진료 전 상태를 전송합니다.
 struct PrevisitRecordView: View {
     let records: PrevisitRecordState
-    var doctorName = "선생님"
-    var patientName = ""
     var onClose: (() -> Void)?
     var onSubmit: ((PrevisitDraft) -> Void)?
     var onReload: (() -> Void)?
@@ -12,17 +10,17 @@ struct PrevisitRecordView: View {
     var isSubmitting = false
     var submissionError: String?
     @State private var showsSubmitConfirmation = false
+    @State private var showsSelectedDay = false
     @FocusState private var writing: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
-    init(days: [PrevisitDay] = [], doctorName: String = "선생님", patientName: String = "",
+    init(days: [PrevisitDay] = [],
          initialStep: PrevisitStep = .day, initialDraft: PrevisitDraft = .init(),
          onClose: (() -> Void)? = nil, onSubmit: ((PrevisitDraft) -> Void)? = nil,
          session: PrevisitSession? = nil, records: PrevisitRecordState? = nil,
          onReload: (() -> Void)? = nil, isSubmitting: Bool = false, submissionError: String? = nil) {
         self.records = records ?? .loaded(days)
-        self.doctorName = doctorName; self.patientName = patientName
         self.onClose = onClose; self.onSubmit = onSubmit
         self.onReload = onReload
         self.isSubmitting = isSubmitting
@@ -36,18 +34,26 @@ struct PrevisitRecordView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AppHeader(title: "진료 전 기록", description: subtitle)
-                .overlay(alignment: .topLeading) { PrevisitBackButton(label: "닫기", action: close) }
+            header
             ScrollView {
                 VStack(spacing: 20) {
                     if step != .day { recordNotice }
                     switch step {
-                    case .day: dayList
-                    case .letter: letter
-                    case .mood: moodList
+                    case .day:
+                        dayList
+                    case .letter:
+                        letter
+                    case .mood:
+                        PrevisitMoodSlider(selection: draft.mood, onSelect: selectMood)
                     }
-                }.padding(.horizontal, AppSpacing.screenHorizontal).padding(.top, 40).padding(.bottom, 30)
-            }.scrollDismissesKeyboard(.interactively)
+                }
+                .padding(.horizontal, AppLayout.Phone.horizontalMargin)
+                .padding(.top, step == .mood ? 40 : 24)
+                .padding(.bottom, 24)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .scrollIndicators(.hidden)
+            .id(step)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if writing {
@@ -58,7 +64,7 @@ struct PrevisitRecordView: View {
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("previsit.finishWriting")
                 .padding(.horizontal, AppSpacing.screenHorizontal).padding(.vertical, 8)
-                .background(AppColors.background)
+                .background(AppColors.Semantic.Background.default)
             } else { footer }
         }
         .disabled(isSubmitting)
@@ -76,49 +82,78 @@ struct PrevisitRecordView: View {
                 }
             }
         }
-        .background(AppColors.background.ignoresSafeArea())
+        .background(AppColors.Semantic.Background.default.ignoresSafeArea())
         .onAppear {
             session.analytics.screenAppeared(step: step)
             updateAnalytics()
         }
-        .onChange(of: step) { _, _ in updateAnalytics() }
+        .onChange(of: step) { _, _ in
+            showsSelectedDay = false
+            updateAnalytics()
+        }
         .onChange(of: analyticsPauseReason) { _, _ in updateAnalytics() }
         .onDisappear { session.analytics.screenDisappeared() }
         .toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar)
     }
+    private var header: some View {
+        VStack(spacing: 8) {
+            AppNavigation.PageTitle(title, alignment: .center)
+            Text(subtitle)
+                .appTypography(.label)
+                .foregroundStyle(AppColors.Semantic.Text.sub)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, AppLayout.Phone.horizontalMargin)
+        .padding(.top, 34)
+        .padding(.bottom, 14)
+        .overlay(alignment: .topLeading) {
+            AppActions.IconButton("닫기", icon: Image("DesignSystem/Components/Navigation/Prev"), action: close)
+                .padding(.leading, AppLayout.Phone.horizontalMargin)
+                .padding(.top, 4)
+        }
+    }
+
+    private var title: String {
+        switch step {
+        case .day: "가장 이야기 하고 싶은 날"
+        case .letter: "진료 전 기록"
+        case .mood: "진료 전 상태 선택"
+        }
+    }
+
     private var subtitle: String {
         switch step {
-        case .day: "선생님과 얘기 해보고 싶은 날이 있나요?"
+        case .day: "기록한 날 중 하나를 골라주세요"
         case .letter: "선생님과 어떤 이야기를 나눠보고 싶나요?"
         case .mood: "진료를 앞두고, 지금 어떤 기분인가요?"
         }
     }
+
     @ViewBuilder private var dayList: some View {
         switch records {
-        case .loading, .failed: recordNotice
+        case .loading, .failed:
+            recordNotice
         case .loaded(let days):
             if days.isEmpty {
                 Text("최근 30일 이내에 저장한 기록이 없어요. 통증이나 증상을 기록한 뒤 다시 열어 주세요.")
-                    .appTextStyle(.caption).foregroundStyle(.secondary)
+                    .appTypography(.bodySmall)
+                    .foregroundStyle(AppColors.Semantic.Text.sub)
                     .accessibilityIdentifier("previsit.empty")
             }
-            LazyVStack(spacing: 16) {
-            ForEach(days) { day in
-                Button {
-                    let previousID = draft.day?.id
-                    session.selectDay(day)
-                    if let selectedID = draft.day?.id {
-                        session.analytics.recordSelectionChanged(from: previousID, to: selectedID)
+            LazyVStack(spacing: 36) {
+                ForEach(days) { day in
+                    PrevisitDayPickerCard(day: day, selected: draft.day?.id == day.id) {
+                        let previousID = draft.day?.id
+                        session.selectDay(day)
+                        if let selectedID = draft.day?.id {
+                            session.analytics.recordSelectionChanged(from: previousID, to: selectedID)
+                        }
                     }
-                } label: {
-                    PrevisitDayCard(day: day, selected: draft.day?.id == day.id)
-                }.buttonStyle(.plain).disabled(!day.isSelectable)
-                    .accessibilityValue(draft.day?.id == day.id ? "선택됨" : "선택 안 됨")
-                    .accessibilityIdentifier("previsit.day.\(day.id)")
-            }
+                }
             }
         }
     }
+
     @ViewBuilder private var recordNotice: some View {
         switch records {
         case .loading:
@@ -132,52 +167,125 @@ struct PrevisitRecordView: View {
         }
     }
     private var letter: some View {
-        return VStack(spacing: 20) {
-            if let day = draft.day { PrevisitDayCard(day: day) }
-            VStack(alignment: .leading, spacing: 28) {
-                Text("To \(doctorName)").appTextStyle(.label).foregroundStyle(AppColors.Previsit.letterSignature)
+        VStack(spacing: 20) {
+            if let day = draft.day {
+                selectedDaySummary(day)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("진료 전 기록")
+                    .appTypography(.labelLarge)
+                    .foregroundStyle(AppColors.Semantic.Text.default)
+                Text("선생님께 묻고 싶은 것을 편하게 적어주세요.")
+                    .appTypography(.caption)
+                    .foregroundStyle(AppColors.Semantic.Text.sub)
+
                 ZStack(alignment: .topLeading) {
-                    // 안내 문구는 입력칸을 누르면 바로 숨긴다 (플레이스홀더처럼)
                     if draft.letter.isEmpty && !writing {
-                        Text("하고싶은말을 자유롭게 작성해주세요.")
-                            .appTextStyle(.caption).foregroundStyle(AppColors.Previsit.placeholder)
-                            .frame(maxWidth: .infinity).padding(.top, 38).allowsHitTesting(false).accessibilityHidden(true)
+                        Text("예) 오늘 너무 힘들었어요…")
+                            .appTypography(.bodySmall)
+                            .foregroundStyle(AppColors.Semantic.Text.placeholder)
+                            .padding(.top, 8)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                     }
                     TextEditor(text: Binding(
                         get: { session.draft.letter },
                         set: { session.draft.letter = String($0.prefix(200)) }
-                    )).appFont(.body)
-                        .multilineTextAlignment(.center).scrollContentBackground(.hidden).focused($writing)
-                        .frame(minHeight: 156).accessibilityLabel("선생님께 전할 이야기")
-                        .accessibilityIdentifier("previsit.letter")
+                    ))
+                    .appTypography(.bodySmall)
+                    .foregroundStyle(AppColors.Semantic.Text.default)
+                    .scrollContentBackground(.hidden)
+                    .focused($writing)
+                    .padding(.horizontal, -5)
+                    .frame(minHeight: 178)
+                    .accessibilityLabel("선생님께 전할 이야기")
+                    .accessibilityIdentifier("previsit.letter")
                 }
-                Text("\(draft.letter.count)/200자").appTextStyle(.caption)
-                    .foregroundStyle(draft.letter.count >= 200 ? AppColors.Feedback.error : AppColors.Semantic.Text.sub)
-                Text("From. \(patientName)").appTextStyle(.label).foregroundStyle(AppColors.Previsit.letterSignature)
+                Text("\(draft.letter.count)/200자")
+                    .appTypography(.caption)
+                    .foregroundStyle(draft.letter.count >= 200 ? AppColors.Semantic.Text.error : AppColors.Semantic.Text.sub)
                     .frame(maxWidth: .infinity, alignment: .trailing)
-            }.padding(.horizontal, AppSpacing.screenHorizontal).padding(.vertical, 40).frame(minHeight: 340)
-                .appSurface(.previsitCard())
+            }
+            .padding(24)
+            .background(AppColors.Semantic.Background.surface, in: RoundedRectangle(cornerRadius: 30))
         }
     }
-    private var moodList: some View {
-        VStack(spacing: AppSpacing.item) {
-            ForEach(StateOfMind.allCases, id: \.self) { mood in
-                Button { selectMood(mood) } label: {
-                    HStack(spacing: 20) {
-                        PrevisitDoctorAvatar(mood: mood, size: 40)
-                        VStack(alignment: .leading, spacing: AppSpacing.tight) {
-                            if let caption = mood.caption {
-                                Text(caption).appTextStyle(.caption).foregroundStyle(AppColors.Previsit.moodCaption)
-                            }
-                            Text(mood.title).appFont(.body).foregroundStyle(AppColors.Previsit.title)
-                        }.frame(maxWidth: .infinity, alignment: .leading)
-                    }.padding(24).frame(minHeight: 96)
-                        .appSurface(.previsitCard(selected: draft.mood == mood))
-                }.buttonStyle(.plain).accessibilityValue(draft.mood == mood ? "선택됨" : "선택 안 됨")
-                    .accessibilityIdentifier("previsit.mood.\(mood.rawValue)")
+
+    private func selectedDaySummary(_ day: PrevisitDay) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(day.displayDate)
+                    .appTypography(.labelLarge)
+                    .foregroundStyle(AppColors.Semantic.Text.default)
+                Text(day.displayWeekday)
+                    .appTypography(.label)
+                    .foregroundStyle(AppColors.Semantic.Text.sub)
+            }
+
+            if showsSelectedDay {
+                PrevisitDayDetails(day: day, showsDate: false, allowsDisclosure: false)
+            } else {
+                Text(summary(for: day))
+                    .appTypography(.body)
+                    .foregroundStyle(AppColors.Semantic.Text.default)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Divider()
+            Button {
+                showsSelectedDay.toggle()
+            } label: {
+                Label(showsSelectedDay ? "기록 접기" : "기록 자세히 보기",
+                      systemImage: showsSelectedDay ? "chevron.up" : "chevron.down")
+                    .appTypography(.label)
+                    .foregroundStyle(AppColors.Semantic.Text.sub)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(AppActions.PressStyle())
+            .accessibilityIdentifier("previsit.selectedDay.details")
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppColors.Semantic.Background.surface, in: RoundedRectangle(cornerRadius: 30))
+    }
+
+    private func summary(for day: PrevisitDay) -> AttributedString {
+        var result = AttributedString()
+        if day.symptomCount > 0 {
+            result += highlighted("증상 \(day.symptomCount)개")
+            result += AttributedString("를 기록했어요.")
+        } else if !day.symptomRows.isEmpty {
+            result += AttributedString("증상 기록이 있어요.")
+        }
+        if let pain = day.representativePain {
+            if !result.characters.isEmpty { result += AttributedString(" ") }
+            if !pain.location.isEmpty {
+                result += highlighted(pain.location)
+                result += AttributedString(" ")
+            }
+
+            if let after = pain.after, after != pain.before {
+                result += AttributedString("통증이 ")
+                result += highlighted("\(pain.before)점에서 \(after)점")
+                result += AttributedString(after < pain.before ? "으로 줄었어요." : "으로 늘었어요.")
+            } else {
+                result += AttributedString("통증은 ")
+                result += highlighted("\(pain.before)점")
+                result += AttributedString(pain.after == nil ? "으로 기록했어요." : "으로 같았어요.")
             }
         }
+        return result.characters.isEmpty ? AttributedString("이날 남긴 기록을 확인할 수 있어요.") : result
     }
+
+    private func highlighted(_ text: String) -> AttributedString {
+        var value = AttributedString(text)
+        value.backgroundColor = AppColors.Semantic.Chart.Category.Lime.light
+        return value
+    }
+
     private var footer: some View {
         VStack(spacing: AppSpacing.compact) {
             if isSubmitting { ProgressView("전송 중이에요") }
@@ -189,18 +297,20 @@ struct PrevisitRecordView: View {
                     .appTextStyle(.caption).foregroundStyle(.secondary)
                     .accessibilityIdentifier("previsit.unsent")
             }
-            HStack(spacing: 20) {
+            HStack(spacing: AppLayout.Phone.columnSpacing) {
                 if step != .day {
-                    Button("이전", action: previous)
-                        .buttonStyle(AppButtonStyle(kind: .back)).accessibilityIdentifier("previsit.previous")
+                    AppActions.BackButton(action: previous)
+                        .accessibilityIdentifier("previsit.previous")
                 }
-                Button(action: next) {
-                    Text(step == .mood ? "전송하기" : "다음").frame(maxWidth: .infinity)
-                        .overlay(alignment: .trailing) { Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(AppColors.Previsit.nextIcon) }
-                }.buttonStyle(AppButtonStyle()).disabled(!canContinue).accessibilityIdentifier("previsit.next")
+                AppActions.Button(step == .mood ? "전송하기" : "다음", action: next)
+                    .disabled(!canContinue)
+                    .accessibilityIdentifier("previsit.next")
             }
-        }.padding(.horizontal, AppSpacing.screenHorizontal).padding(.top, 12).padding(.bottom, 2)
-            .background(AppColors.background)
+        }
+        .padding(.horizontal, AppLayout.Phone.horizontalMargin)
+        .padding(.top, 12)
+        .padding(.bottom, 2)
+            .background(AppColors.Semantic.Background.default)
     }
     private var canContinue: Bool {
         guard !isSubmitting, draft.letter.count <= 200, session.canContinue else { return false }
@@ -255,62 +365,5 @@ struct PrevisitRecordView: View {
         guard !isSubmitting else { return }
         session.analytics.recordClose(step: step, hasMoodSelection: draft.mood != nil)
         if let onClose { onClose() } else { dismiss() }
-    }
-}
-
-struct PrevisitDayCard: View {
-    let day: PrevisitDay
-    var selected = false
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(day.dateLabel).appTextStyle(.label).foregroundStyle(AppColors.Previsit.title)
-                Text(day.weekday).appTextStyle(.caption).foregroundStyle(AppColors.Previsit.weekday)
-            }
-            VStack(alignment: .leading, spacing: AppSpacing.tight) {
-                ForEach(Array((day.entries.isEmpty ? ["기록 없음"] : day.entries).enumerated()), id: \.offset) { _, entry in
-                    HStack(alignment: .top, spacing: 4) {
-                        Circle().fill(day.entries.isEmpty ? AppColors.Previsit.emptyDot : AppColors.Previsit.entryDot)
-                            .frame(width: 7, height: 7).frame(width: 24, height: 24)
-                        Text(entry).appTextStyle(.caption).foregroundStyle(AppColors.Previsit.entry)
-                    }
-                }
-            }
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(24)
-            .frame(minHeight: day.entries.count > 1 ? 176 : 120, alignment: .topLeading)
-            .appSurface(.previsitCard(selected: selected))
-    }
-}
-
-struct PrevisitBackButton: View {
-    var label = "뒤로"
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "chevron.left").font(.system(size: 16, weight: .medium))
-                .foregroundStyle(AppColors.Previsit.backIcon).frame(width: 40, height: 40)
-                .background(AppColors.Previsit.backSurface, in: Circle())
-        }.accessibilityLabel(label).padding(.leading, 24).padding(.top, 5)
-    }
-}
-
-struct PrevisitDoctorAvatar: View {
-    var mood: StateOfMind = .candid
-    var size: CGFloat = 40
-    var body: some View {
-        Circle().fill(color)
-            .overlay(alignment: .top) {
-                Image("PrevisitDoctorFace").resizable().scaledToFit()
-                    .frame(width: size * 1.525, height: size * 1.525).offset(y: size * 0.075)
-            }.frame(width: size, height: size).clipShape(Circle()).accessibilityHidden(true)
-    }
-    var color: Color {
-        switch mood {
-        case .candid: AppColors.Previsit.Mood.candid
-        case .comfortable: AppColors.Previsit.Mood.comfortable
-        case .slowly: AppColors.Previsit.Mood.slowly
-        case .carefully: AppColors.Previsit.Mood.carefully
-        case .unsure: AppColors.Previsit.Mood.unsure
-        }
     }
 }
