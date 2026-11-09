@@ -9,6 +9,9 @@ struct PainCompletionView: View {
 
     @State private var showsLocations = false
     @State private var showsUsage = false
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var usesExpandedLayout: Bool { typeSize > .large }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -16,20 +19,28 @@ struct PainCompletionView: View {
                 VStack(spacing: 24) {
                     summary
                     capsules
+                    if usesExpandedLayout { usage }
                 }
                 .padding(.horizontal, 24).padding(.top, 32)
+                if usesExpandedLayout { actions.padding(.vertical, 24) }
             }
             .scrollBounceBehavior(.basedOnSize)
-            // Figma Content는 위아래로 벌려 아코디언을 버튼 바로 위에 둡니다
-            usage.padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 24)
-            AppActions.BottomAction(primary: .init("홈으로 돌아가기", isEnabled: onHome != nil) { onHome?() },
-                                    subAction: .init("기록 보기", isEnabled: onShowRecord != nil) { onShowRecord?() })
+            if !usesExpandedLayout {
+                // Figma Content는 위아래로 벌려 아코디언을 버튼 바로 위에 둡니다
+                usage.padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 24)
+                actions
+            }
         }
         .background(AppColors.Semantic.Background.surface)
         .toolbar(.hidden, for: .navigationBar)
         .painSheet(isPresented: $showsLocations) {
             PainLocationSheet(locations: record.location, onClose: { showsLocations = false })
         }
+    }
+
+    private var actions: some View {
+        AppActions.BottomAction(primary: .init("홈으로 돌아가기", isEnabled: onHome != nil) { onHome?() },
+                                subAction: .init("기록 보기", isEnabled: onShowRecord != nil) { onShowRecord?() })
     }
 
     private var summary: some View {
@@ -41,7 +52,7 @@ struct PainCompletionView: View {
             }
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
-            PainMoreLocationsChip(title: painLocationSummary(record.location)) { showsLocations = true }
+            PainMoreLocationsChip(locations: record.location) { showsLocations = true }
                 .accessibilityIdentifier("pain.result.locations")
         }
     }
@@ -54,9 +65,12 @@ struct PainCompletionView: View {
         return "통증이 그대로예요"
     }
 
-    /// Figma 캡슐 영역: 높이 274로 고정해 점수가 바뀌어도 바닥·라벨 위치가 같습니다.
+    /// 기본 크기에서는 두 점수를 바닥에 맞추고, 큰 글자에서는 한 열로 배치합니다.
     private var capsules: some View {
-        HStack(alignment: .bottom, spacing: 28) {
+        let layout = usesExpandedLayout
+            ? AnyLayout(VStackLayout(spacing: 24))
+            : AnyLayout(HStackLayout(alignment: .bottom, spacing: 28))
+        return layout {
             VStack(spacing: 10) {
                 PainScoreCapsule(score: record.painBefore)
                 Text("먹기 전").appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
@@ -68,8 +82,8 @@ struct PainCompletionView: View {
                 }
             }
         }
-        .lineLimit(1)
-        .frame(maxWidth: .infinity, minHeight: 274, alignment: .bottom)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, minHeight: usesExpandedLayout ? nil : 274, alignment: .bottom)
     }
 
     /// Figma How this record is used: 처음에는 접혀 있습니다.

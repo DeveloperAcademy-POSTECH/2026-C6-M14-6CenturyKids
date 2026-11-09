@@ -2,6 +2,10 @@ import SwiftUI
 
 /// 원본 게이지 에셋 위에서 정수 점수만 선택합니다. 분류 구간을 추정하지 않습니다.
 struct PainScoreGauge: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .body) private var endpointFontSize: CGFloat = 16
+    @ScaledMetric(relativeTo: .body) private var endpointDiameter: CGFloat = 30
+    @ScaledMetric(relativeTo: .body) private var scoreCircleDiameter: CGFloat = 42
     @Binding var value: Int?
     /// 고르기 전(value가 nil)에 보여 줄 자리. 선택한 값으로 치지 않습니다
     var initialValue: Int?
@@ -14,12 +18,20 @@ struct PainScoreGauge: View {
     private var shown: Int? { value ?? initialValue }
 
     var body: some View {
+        if typeSize > .large {
+            expandedGauge
+        } else {
+            compactGauge
+        }
+    }
+
+    private var compactGauge: some View {
         GeometryReader { geometry in
             let x = geometry.size.width / 2
             ZStack(alignment: .topLeading) {
                 gauge.position(x: x, y: 54 + height / 2)
-                badge(10, size: 30).position(x: x, y: 15).accessibilityHidden(true)
-                badge(0, size: 30).position(x: x, y: 439).accessibilityHidden(true)
+                badge(10).position(x: x, y: 15)
+                badge(0).position(x: x, y: 439)
                 if let shown {
                     // Figma Pain Scale: 통증 말은 게이지 왼쪽(13 떨어짐)에서 손잡이와 같은 높이로 움직입니다
                     if let text = descriptor(shown) {
@@ -41,12 +53,48 @@ struct PainScoreGauge: View {
         .frame(height: 454)
         // Figma Pain Scale의 Hit 영역: 게이지 막대만이 아니라 줄 전체(가로 전부, 1점 = 35)를 눌러도 그 점수를 고릅니다
         .contentShape(Rectangle())
-        .highPriorityGesture(DragGesture(minimumDistance: 0).onChanged { gesture in
-            let fraction = min(1, max(0, (gesture.location.y - 54) / height))
-            value = Int((10 - fraction * 10).rounded())
-        }.onEnded { _ in
-            if let value { onInteractionEnded?(value) }
-        })
+        .highPriorityGesture(scoreDrag(trackTop: 54))
+    }
+
+    private var expandedGauge: some View {
+        VStack(spacing: 16) {
+            if let before {
+                Text("먹기 전 \(before)점")
+                    .appTypography(.bodySmall)
+                    .foregroundStyle(AppColors.Semantic.Text.sub)
+            }
+            if let shown {
+                VStack(spacing: 4) {
+                    scoreCircle(shown)
+                    if let text = descriptor(shown) {
+                        Text(text)
+                            .appTypography(.bodySmall)
+                            .foregroundStyle(AppColors.Semantic.Text.sub)
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
+            VStack(spacing: 12) {
+                badge(10)
+                gauge
+                badge(0)
+            }
+            .contentShape(Rectangle())
+            .highPriorityGesture(scoreDrag(trackTop: endpointDiameter + 12))
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func scoreDrag(trackTop: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { gesture in
+                let fraction = min(1, max(0, (gesture.location.y - trackTop) / height))
+                value = Int((10 - fraction * 10).rounded())
+            }
+            .onEnded { _ in
+                if let value { onInteractionEnded?(value) }
+            }
     }
 
     private func handleOffset(_ score: Int) -> CGFloat {
@@ -79,21 +127,23 @@ struct PainScoreGauge: View {
 
     /// Figma 점수 원(42): 지금 점수는 점수 색, 먹기 전 점수는 회색
     private func scoreCircle(_ score: Int, previous: Bool = false) -> some View {
-        Text(String(score))
+        let diameter = typeSize > .large ? scoreCircleDiameter : 42
+        return Text(String(score))
             .appTypography(.title)
             .foregroundStyle(previous ? AppColors.Semantic.Text.sub : textColor(score))
-            .frame(width: 42, height: 42)
+            .frame(width: diameter, height: diameter)
             .background(previous ? AppColors.Semantic.Background.secondary : color(score), in: Circle())
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(previous ? "먹기 전 \(score)점" : "\(score)점, \(descriptor(score) ?? "")")
     }
 
-    private func badge(_ score: Int, size: CGFloat) -> some View {
+    private func badge(_ score: Int) -> some View {
         Text(String(score))
-            .font(Font(AppTypography.Style.label.font(at: size == 30 ? 16 : 22.4)))
+            .font(Font(AppTypography.Style.label.font(at: endpointFontSize)))
             .foregroundStyle(score == 0 ? Color(white: 176 / 255) : .white)
-            .frame(width: size, height: size)
+            .frame(width: endpointDiameter, height: endpointDiameter)
             .background(score == 0 ? Color(white: 217 / 255) : color(score), in: Circle())
+            .accessibilityHidden(true)
     }
 
     private func color(_ score: Int) -> Color {
