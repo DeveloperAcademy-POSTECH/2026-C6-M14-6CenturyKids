@@ -2,14 +2,12 @@ import SwiftUI
 
 /// 완료 표시는 전송 결과를 받은 부모가 선택합니다. 이 View는 저장/전송하지 않습니다.
 /// 시작 안내는 홈의 바텀시트(Figma 02)로, 전송 완료는 가운데 팝업으로 그립니다.
-/// 완료 상태의 '기록 보러가기'는 onStart로 부모가 이동을 정합니다.
+/// 완료 상태의 '보낸 기록 보기'는 onStart로 부모가 이동을 정합니다.
 struct PrevisitPromptView: View {
     var completedDraft: PrevisitDraft?
-    var doctorName = "선생님"
-    var patientName = ""
     var startTitle: String?
-    /// 오늘 이미 보냈으면 false: 작성 버튼을 막고 지난 기록 보기만 남깁니다
-    var canStart = true
+    /// 오늘 보낸 기록이 있으면 작성 대신 해당 기록을 엽니다.
+    var onViewToday: (() -> Void)?
     var onStart: () -> Void = {}
     var onRecords: () -> Void = {}
     var onClose: () -> Void = {}
@@ -26,10 +24,12 @@ struct PrevisitPromptView: View {
                 .presentationBackground(AppColors.Semantic.Background.surface) // 기본 시트는 반투명이라 뒤 화면이 비친다
         } else {
             ZStack {
-                AppColors.Previsit.dim.ignoresSafeArea()
+                AppColors.Previsit.dim.ignoresSafeArea().accessibilityHidden(true)
                 ScrollView {
-                    card.padding(24).appSurface(.previsitPrompt)
-                        .padding(.horizontal, AppSpacing.screenHorizontal).padding(.vertical, 24)
+                    completionDialog
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, AppSpacing.screenHorizontal)
+                        .padding(.vertical, 24)
                 }.scrollBounceBehavior(.basedOnSize).defaultScrollAnchor(.center)
             }
         }
@@ -41,14 +41,20 @@ struct PrevisitPromptView: View {
             Capsule().fill(AppColors.Semantic.Border.default).frame(width: 36, height: 5).accessibilityHidden(true)
             HStack(alignment: .top, spacing: 8) {
                 Color.clear.frame(width: 44, height: 44)
-                AppNavigation.PageTitle("진료 받기 전 대기중인가요?", alignment: .center, overline: "진료 전 기록하기")
+                AppNavigation.PageTitle(onViewToday == nil ? "진료 받기 전 대기중인가요?" : "오늘 기록을 보냈어요",
+                                        alignment: .center, overline: "진료 전 기록하기")
                 // Figma 아이콘이 아직 자리만 있어 뒤로가기(Prev)와 같은 굵기·크기로 그린 닫기 아이콘을 씁니다
                 AppActions.IconButton("닫기", icon: Image("PrevisitClose"), action: onClose)
             }
             // 홈의 통증 기록하기·증상 대화하기 카드 간격(14)과 맞춤
             VStack(spacing: 14) {
-                AppActions.Button(canStart ? startTitle ?? "진료 전 기록하기" : "오늘 기록은 이미 보냈어요", action: onStart)
-                    .disabled(!canStart).accessibilityIdentifier("previsit.start")
+                if let onViewToday {
+                    AppActions.Button("오늘 보낸 기록 보기", action: onViewToday)
+                        .accessibilityIdentifier("previsit.viewToday")
+                } else {
+                    AppActions.Button(startTitle ?? "진료 전 기록하기", action: onStart)
+                        .accessibilityIdentifier("previsit.start")
+                }
                 AppActions.Button("지난 기록 전체보기", kind: .secondary, action: onRecords)
                     .accessibilityIdentifier("previsit.records")
             }
@@ -59,38 +65,13 @@ struct PrevisitPromptView: View {
         }.padding(.horizontal, 24).padding(.top, 10).padding(.bottom, 40)
     }
 
-    /// 전송 완료 팝업 카드
-    private var card: some View {
-        VStack(spacing: AppSpacing.section) {
-            Button(action: onClose) {
-                Image(systemName: "xmark").font(.system(size: 17, weight: .semibold)).foregroundStyle(AppColors.Previsit.close)
-                    .frame(width: 44, height: 28)
-            }.accessibilityLabel("닫기").frame(maxWidth: .infinity, alignment: .trailing).padding(.top, -12).padding(.trailing, -10)
-            VStack(spacing: AppSpacing.tight) {
-                Text("진료 전 기록하기").appTextStyle(.caption).foregroundStyle(AppColors.Previsit.promptCaption)
-                Text(completedDraft == nil ? "진료 받기 전 대기중인가요?" : "전송이 완료 되었습니다")
-                    .appTextStyle(.heading).foregroundStyle(AppColors.Previsit.promptTitle)
-            }.multilineTextAlignment(.center)
-            PrevisitDoctorAvatar(mood: completedDraft?.mood ?? .candid, size: completedDraft == nil ? 120 : 80)
-            if let draft = completedDraft {
-                VStack(alignment: .leading, spacing: 28) {
-                    Text("To \(doctorName)").appTextStyle(.label).foregroundStyle(AppColors.Previsit.letterSignature)
-                    Text(draft.letter).appFont(.body).multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                    if let mood = draft.mood {
-                        HStack(spacing: AppSpacing.compact) {
-                            Circle().fill(PrevisitDoctorAvatar(mood: mood).color).frame(width: 7, height: 7)
-                            Text(mood.title).appTextStyle(.caption)
-                        }.frame(maxWidth: .infinity)
-                    }
-                    Text("From. \(patientName)").appTextStyle(.label).foregroundStyle(AppColors.Previsit.letterSignature)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }.padding(.horizontal, 10)
-            }
-            VStack(spacing: AppSpacing.compact) {
-                Button(completedDraft == nil ? (startTitle ?? "진료 전 기록하기") : "기록 보러가기", action: onStart)
-                    .buttonStyle(AppButtonStyle())
-            }
-        }
+    private var completionDialog: some View {
+        AppFeedback.Dialog(
+            "기록이 완료되었습니다",
+            message: "의사 선생님께 전달 되었어요",
+            primary: .init("보낸 기록 보기", action: onStart),
+            secondary: .init("닫기", action: onClose)
+        )
+        .accessibilityAddTraits(.isModal)
     }
 }

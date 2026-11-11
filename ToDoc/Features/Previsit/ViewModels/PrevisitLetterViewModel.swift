@@ -92,8 +92,13 @@ final class PrevisitLetterViewModel {
 
     func reload() async { await load(days: days, doctorName: doctorName) }
 
-    /// 오늘 이미 보냈으면 새로 작성할 수 없습니다 (보낸 기록 보기만 가능)
-    var hasSentToday: Bool { letters.contains { calendar.isDate($0.sentAt, inSameDayAs: now()) } }
+    /// 선택한 기록 날짜와 관계없이 전송 시각을 기준으로 찾습니다.
+    var todaySentLetter: PrevisitLetter? {
+        let today = now()
+        return letters.first { calendar.isDate($0.sentAt, inSameDayAs: today) }
+    }
+
+    var hasSentToday: Bool { todaySentLetter != nil }
 
     func send(_ draft: PrevisitDraft, to doctorName: String,
               startTracking: () -> PrevisitAnalytics.Submission? = { nil }) async -> UUID? {
