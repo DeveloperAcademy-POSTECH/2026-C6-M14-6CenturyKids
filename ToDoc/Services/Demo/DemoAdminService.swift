@@ -126,6 +126,8 @@ final class DemoAdminService {
         }
         for record in try await oldSymptoms() { try await symptoms.deleteById(record.id) }
         for record in try await oldPain() { try await pain.deleteById(record.id) }
+        // 지운 기록을 기다리던 1시간 알림이 남지 않게 (목데이터 통증은 모두 복용 후까지 기록돼 있다)
+        cancelPainAfterReminder()
         for record in try await oldPrevisits() { try await previsits.deleteById(record.id) }
         guard try await oldSymptoms().isEmpty, try await oldPain().isEmpty, try await oldPrevisits().isEmpty else {
             throw Failure.notApplied("기존 기록 삭제")
