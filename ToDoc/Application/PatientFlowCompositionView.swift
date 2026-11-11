@@ -40,7 +40,8 @@ struct PatientFlowCompositionView: View {
         _demoAdmin = State(initialValue: DemoAdminService(
             patientId: patientId, pain: container.painRepository, symptoms: container.symptomRepository,
             previsits: container.previsitRepository, pendingCalls: FilePendingCareCallRepository(),
-            schedulePainAfterReminder: LocalNotificationAdapter.schedulePainAfterReminder(at:)
+            schedulePainAfterReminder: LocalNotificationAdapter.schedulePainAfterReminder(at:),
+            cancelPainAfterReminder: LocalNotificationAdapter.cancelPainAfterReminder
         ))
         _homeViewModel = State(initialValue: HomeViewModel(
             patientID: patientId,

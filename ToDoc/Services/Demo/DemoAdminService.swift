@@ -29,18 +29,20 @@ final class DemoAdminService {
     @ObservationIgnored private let previsits: any PrevisitRepository
     @ObservationIgnored private let pendingCalls: any PendingCareCallRepository
     @ObservationIgnored private let schedulePainAfterReminder: (Date) async -> Void
+    @ObservationIgnored private let cancelPainAfterReminder: () -> Void
     /// 바꾼 뒤 화면들이 다시 불러오게 한다
     @ObservationIgnored var onChanged: () async -> Void = {}
 
     init(patientId: UUID, pain: any PainRepository, symptoms: any SymptomRepository,
          previsits: any PrevisitRepository, pendingCalls: any PendingCareCallRepository,
-         schedulePainAfterReminder: @escaping (Date) async -> Void) {
+         schedulePainAfterReminder: @escaping (Date) async -> Void, cancelPainAfterReminder: @escaping () -> Void) {
         self.patientId = patientId
         self.pain = pain
         self.symptoms = symptoms
         self.previsits = previsits
         self.pendingCalls = pendingCalls
         self.schedulePainAfterReminder = schedulePainAfterReminder
+        self.cancelPainAfterReminder = cancelPainAfterReminder
     }
 
     /// 기다리는 통증 기록의 시각을 앞당겨, 20초 뒤에 복용 후 통증을 기록할 수 있게 한다.
@@ -107,7 +109,7 @@ final class DemoAdminService {
         return "오늘 진료 전 기록을 지웠어요."
     }
 
-    /// 10/16~11/19 증상·통증 기록을 지우고 목데이터로 다시 채운다. 진료 전 기록 2건은 고정 id로 덮어쓴다
+    /// 10/16~11/19 증상·통증·진료 전 기록을 지우고 목데이터로 다시 채운다
     func seedMockData() async throws -> String {
         let data = try DemoMockData(patientId: patientId)
         let (start, end) = DemoMockData.range
@@ -119,14 +121,35 @@ final class DemoAdminService {
         func oldPain() async throws -> [PainRecord] {
             try await pain.findByPatientIdAndDate(patientId: patientId, from: start, to: lastDay)
         }
+        func oldPrevisits() async throws -> [PrevisitRecord] {
+            try await previsits.findByPatientId(patientId).filter { $0.submittedAt >= start && $0.submittedAt < end }
+        }
         for record in try await oldSymptoms() { try await symptoms.deleteById(record.id) }
         for record in try await oldPain() { try await pain.deleteById(record.id) }
-        guard try await oldSymptoms().isEmpty, try await oldPain().isEmpty else { throw Failure.notApplied("기존 기록 삭제") }
+        for record in try await oldPrevisits() { try await previsits.deleteById(record.id) }
+        guard try await oldSymptoms().isEmpty, try await oldPain().isEmpty, try await oldPrevisits().isEmpty else {
+            throw Failure.notApplied("기존 기록 삭제")
+        }
 
         for record in data.symptoms { try await symptoms.save(entity: record) }
         for record in data.pain { try await pain.save(entity: record) }
         for record in data.previsits { try await previsits.save(entity: record) }
         await onChanged()
         return "목데이터를 채웠어요. 증상 \(data.symptoms.count)일, 통증 \(data.pain.count)건, 진료 전 기록 \(data.previsits.count)건이에요."
+    }
+
+    /// 이 환자의 모든 증상·통증·진료 전 기록과 폰에 남은 저장 대기 통화를 지운다 (날짜 상관없이)
+    func clearAllRecords() async throws -> String {
+        for call in try pendingCalls.findAll(patientId: patientId) { try pendingCalls.delete(id: call.id, patientId: patientId) }
+        for record in try await symptoms.findByPatientId(patientId) { try await symptoms.deleteById(record.id) }
+        for record in try await pain.findByPatientId(patientId) { try await pain.deleteById(record.id) }
+        cancelPainAfterReminder()
+        for record in try await previsits.findByPatientId(patientId) { try await previsits.deleteById(record.id) }
+        guard try await symptoms.findByPatientId(patientId).isEmpty, try await pain.findByPatientId(patientId).isEmpty,
+              try await previsits.findByPatientId(patientId).isEmpty else {
+            throw Failure.notApplied("기록")
+        }
+        await onChanged()
+        return "모든 기록을 지웠어요."
     }
 }
