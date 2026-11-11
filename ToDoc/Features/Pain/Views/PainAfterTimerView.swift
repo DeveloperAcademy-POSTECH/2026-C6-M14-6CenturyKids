@@ -19,6 +19,9 @@ struct PainAfterTimerView: View {
     @State private var showsLocations = false
     @State private var showsNewRecordConfirmation = false
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var usesExpandedLayout: Bool { typeSize > .large }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -27,26 +30,26 @@ struct PainAfterTimerView: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         summary(phase)
-                        capsules(phase, now: context.date)
+                        capsules(phase)
+                        if usesExpandedLayout { infoBox(phase) }
                     }
-                    .padding(.horizontal, 24).padding(.top, 32)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 32)
+                    if usesExpandedLayout { bottomAction(phase).padding(.vertical, 24) }
                 }
                 .scrollBounceBehavior(.basedOnSize)
-                infoBox(phase).padding(.horizontal, 24).padding(.vertical, 24)
-                bottomAction(phase)
+                if !usesExpandedLayout {
+                    infoBox(phase).padding(.horizontal, 24).padding(.vertical, 24)
+                    bottomAction(phase)
+                }
             }
             .onChange(of: phase.analyticsState, initial: true) { _, state in
                 onStateViewed?(state)
             }
         }
         .background(AppColors.Semantic.Background.surface)
-        .overlay(alignment: .topLeading) {
-            if let onClose {
-                Button(action: onClose) { Image("PainBack").frame(width: 40, height: 40) }
-                    .buttonStyle(.plain).padding(.leading, 24).padding(.top, 5)
-                    .accessibilityLabel("통증 기록에서 돌아가기")
-            }
-        }
+        .painBackButton(action: onClose, reservesSpace: usesExpandedLayout,
+                        background: AppColors.Semantic.Background.surface)
         .toolbar(.hidden, for: .navigationBar)
         .painSheet(isPresented: $showsLocations) {
             PainLocationSheet(locations: locations, onClose: { showsLocations = false })
@@ -56,18 +59,27 @@ struct PainAfterTimerView: View {
                 ZStack {
                     // Figma 8-A 자리: 뒤 화면은 background/inverse 40% 막, 제목은 title 크기
                     AppColors.Semantic.Background.inverse.opacity(0.4).ignoresSafeArea().accessibilityHidden(true)
-                    AppFeedback.Dialog("새로운 통증을 기록할까요?", titleStyle: .title,
-                                       message: "새로운 통증을 기록하면 이전 통증 기록은\n약물 복용 후 점수를 기록하지 못 합니다.",
-                                       primary: .init("새로운 통증 기록하기") {
-                                           showsNewRecordConfirmation = false
-                                           onNewRecord?()
-                                       },
-                                       secondary: .init("닫기") { showsNewRecordConfirmation = false })
-                        .padding(.horizontal, AppLayout.Phone.horizontalMargin)
-                        .accessibilityAddTraits(.isModal)
+                    ViewThatFits(in: .vertical) {
+                        newRecordConfirmation
+                        ScrollView { newRecordConfirmation.frame(maxWidth: .infinity) }
+                            .padding(.vertical, 12)
+                    }
+                    .padding(.horizontal, AppLayout.Phone.horizontalMargin)
+                    .accessibilityAddTraits(.isModal)
                 }
             }
         }
+    }
+
+    private var newRecordConfirmation: some View {
+        AppFeedback.Dialog("새로운 통증을 기록할까요?", titleStyle: .title,
+                           message: "새로운 통증을 기록하면 이전 통증 기록은\n약물 복용 후 점수를 기록하지 못 합니다.",
+                           primary: .init("새로운 통증 기록하기") {
+                               showsNewRecordConfirmation = false
+                               onNewRecord?()
+                           },
+                           secondary: .init("닫기") { showsNewRecordConfirmation = false })
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     enum Phase: Equatable {
@@ -108,15 +120,22 @@ struct PainAfterTimerView: View {
     private func summary(_ phase: Phase) -> some View {
         VStack(spacing: 16) {
             VStack(spacing: 8) {
-                Text("약 먹기 전 \(before)점을 기록했어요")
-                    .appTypography(.body).foregroundStyle(AppColors.Semantic.Text.sub)
+                ViewThatFits(in: .horizontal) {
+                    Text("약 먹기 전 \(before)점을 기록했어요").fixedSize()
+                    // 숫자와 단위 사이에서 줄이 나뉘지 않도록 Word Joiner를 넣습니다.
+                    Text("약 먹기 전\n\(before)\u{2060}점을 기록했어요")
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .appTypography(.body)
+                .foregroundStyle(AppColors.Semantic.Text.sub)
+                .accessibilityLabel("약 먹기 전 \(before)점을 기록했어요")
                 Text(title(phase))
                     .appTypography(.title).foregroundStyle(AppColors.Semantic.Text.default)
                     .accessibilityAddTraits(.isHeader)
             }
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
-            PainMoreLocationsChip(title: painLocationSummary(locations)) { showsLocations = true }
+            PainMoreLocationsChip(locations: locations) { showsLocations = true }
                 .accessibilityIdentifier("pain.timer.locations")
         }
     }
@@ -130,23 +149,32 @@ struct PainAfterTimerView: View {
     }
 
     /// Figma Capsules: 먹기 전 캡슐(높이 144 + 점수 × 10)과 1시간 뒤 원(144)을 바닥에 맞춰 놓습니다.
-    private func capsules(_ phase: Phase, now: Date) -> some View {
-        HStack(alignment: .bottom, spacing: 28) {
+    private func capsules(_ phase: Phase) -> some View {
+        let layout = usesExpandedLayout
+            ? AnyLayout(VStackLayout(spacing: 24))
+            : AnyLayout(HStackLayout(alignment: .bottom, spacing: 28))
+        return layout {
             VStack(spacing: 10) {
                 PainScoreCapsule(score: before)
                 Text("먹기 전").appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
             }
             VStack(spacing: 10) {
-                afterCircle(phase)
+                afterIndicator(phase)
                 Text("1시간 뒤 · \(availableTime)").appTypography(.bodySmall)
                     .foregroundStyle(AppColors.Semantic.Text.default)
             }
         }
-        .lineLimit(1)
-        .frame(maxWidth: .infinity, minHeight: 274, alignment: .bottom)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, minHeight: usesExpandedLayout ? nil : 274, alignment: .bottom)
     }
 
-    private func afterCircle(_ phase: Phase) -> some View {
+    private func afterIndicator(_ phase: Phase) -> some View {
+        let shape = usesExpandedLayout ? AnyShape(RoundedRectangle(cornerRadius: 32)) : AnyShape(Circle())
+        return afterIndicatorContent(phase)
+            .clipShape(shape)
+    }
+
+    @ViewBuilder private func afterIndicatorContent(_ phase: Phase) -> some View {
         Group {
             switch phase {
             case let .waiting(remaining, progress):
@@ -155,16 +183,17 @@ struct PainAfterTimerView: View {
                         .foregroundStyle(AppColors.Semantic.Text.default)
                     Text("남았어요").appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
                 }
-                .frame(width: 144, height: 144)
-                .background(alignment: .bottom) {
+                .modifier(TimerIndicatorSize(isExpanded: usesExpandedLayout))
+                .background {
                     // Figma 차오름(지난 시간): 아래에서부터 지난 만큼 채웁니다
-                    ZStack(alignment: .bottom) {
-                        AppColors.Semantic.Background.default
+                    GeometryReader { geometry in
                         LinearGradient(colors: [AppColors.Semantic.Primary.default.opacity(0.9),
                                                 AppColors.Semantic.Primary.default.opacity(0.5)],
                                        startPoint: .top, endPoint: .bottom)
-                            .frame(height: 144 * progress)
+                            .frame(height: geometry.size.height * progress)
+                            .frame(maxHeight: .infinity, alignment: .bottom)
                     }
+                    .background(AppColors.Semantic.Background.default)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("1시간 뒤 기록까지 \(Int(remaining / 60) + 1)분 남았어요")
@@ -174,12 +203,11 @@ struct PainAfterTimerView: View {
                     Text("시간이에요")
                 }
                 .appTypography(.title).foregroundStyle(AppColors.Semantic.Text.default)
-                .frame(width: 144, height: 144)
+                .modifier(TimerIndicatorSize(isExpanded: usesExpandedLayout))
                 .background(AppColors.Semantic.Primary.default)
                 .accessibilityElement(children: .combine)
             }
         }
-        .clipShape(Circle())
     }
 
     private func infoBox(_ phase: Phase) -> some View {
@@ -229,6 +257,21 @@ struct PainAfterTimerView: View {
     static func remainingText(_ remaining: TimeInterval) -> String {
         let seconds = max(0, Int(remaining.rounded(.up)))
         return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+}
+
+private struct TimerIndicatorSize: ViewModifier {
+    let isExpanded: Bool
+
+    func body(content: Content) -> some View {
+        if isExpanded {
+            content
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(20)
+                .frame(maxWidth: .infinity, minHeight: 144)
+        } else {
+            content.frame(width: 144, height: 144)
+        }
     }
 }
 
