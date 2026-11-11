@@ -42,5 +42,9 @@ struct DemoAskOnlyTests {
         #expect(filled.symptoms.filter { $0.symptomType == .diarrhea }.count == 1)
         let mockedDiarrhea = plan.mocked.contains("diarrhea")
         #expect(filled.symptoms.count == 1 + 4 - (mockedDiarrhea ? 1 : 0))
+        // 대화에서 다룬 항목은 기록에 없어도 목데이터로 채우지 않는다
+        let touched = plan.filling(SymptomRecord(id: UUID(), patientId: patient, recordedDate: .now, conditionText: nil, symptoms: []),
+                                   touched: Set(plan.mocked))
+        #expect(touched.symptoms.isEmpty)
     }
 }

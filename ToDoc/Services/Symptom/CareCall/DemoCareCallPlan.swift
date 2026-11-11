@@ -19,11 +19,11 @@ struct DemoCareCallPlan {
         mockPresent = Set(mocked.shuffled().prefix(2))
     }
 
-    /// 목데이터를 기록에 더한다. 환자가 직접 답한 증상은 덮지 않는다
-    func filling(_ record: SymptomRecord) -> SymptomRecord {
+    /// 목데이터를 기록에 더한다. 환자가 답했거나 대화 중 다룬 증상(touched: 통화 기록의 항목 키)은 덮지 않는다
+    func filling(_ record: SymptomRecord, touched: Set<String> = []) -> SymptomRecord {
         let answered = Set(record.symptoms.map(\.symptomType))
         let mocks = mocked.compactMap { id -> SymptomEntry? in
-            guard let mock = Self.mocks[id], !answered.contains(mock.type) else { return nil }
+            guard let mock = Self.mocks[id], !answered.contains(mock.type), !touched.contains(id) else { return nil }
             let present = mockPresent.contains(id)
             return try? SymptomEntry(id: UUID(), symptomType: mock.type, presence: present ? .present : .absent,
                                      bodyPart: present ? mock.part : nil, bodySide: present ? mock.side : nil,

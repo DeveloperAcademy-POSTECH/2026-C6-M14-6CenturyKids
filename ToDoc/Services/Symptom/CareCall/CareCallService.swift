@@ -116,7 +116,7 @@ final class CareCallService: CareCalling {
     private func outcome(of conversation: Conversation, phase: InterviewPhase) -> CareCallOutcome {
         switch phase {
         // 시연: 끝까지 마친 통화에만 묻지 않은 항목의 목데이터를 더한다
-        case .saved: .completed(conversation.demo.map { $0.filling(record(of: conversation)) } ?? record(of: conversation))
+        case .saved: .completed(conversation.demo.map { $0.filling(record(of: conversation), touched: Set(conversation.engine.ledger.order)) } ?? record(of: conversation))
         case .emergencyEnded: .emergencyEnded(record(of: conversation))
         default: .interrupted(partialRecord(of: conversation))
         }
