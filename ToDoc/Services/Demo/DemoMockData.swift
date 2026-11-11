@@ -74,11 +74,11 @@ struct DemoMockData {
             calendar.date(from: DateComponents(year: 2026, month: month, day: dayOfMonth, hour: hour, minute: minute))!
         }
         previsits = [
-            try PrevisitRecord(id: UUID(uuidString: "D3E0A000-0000-4000-8000-000000001016")!, patientId: patientId,
+            try PrevisitRecord(id: UUID(), patientId: patientId,
                                selectedDate: at(10, 16, 0, 0),
                                memo: "오늘 첫 항암이라 많이 긴장돼요. 집에서 구토나 설사가 심해지면 어떻게 해야 하는지, 언제 병원에 연락해야 하는지 알고 싶어요.",
                                stateOfMind: .slowly, submittedAt: at(10, 16, 9, 30)),
-            try PrevisitRecord(id: UUID(uuidString: "D3E0A000-0000-4000-8000-000000001106")!, patientId: patientId,
+            try PrevisitRecord(id: UUID(), patientId: patientId,
                                selectedDate: at(11, 5, 0, 0),
                                memo: "지난 항암 뒤 사흘 정도 구토와 설사가 심했고, 일주일쯤 입안이 헐어서 먹기 힘들었어요. 손끝 저림이 계속돼서 걱정돼요. 이번에는 미리 할 수 있는 게 있을까요?",
                                stateOfMind: .comfortable, submittedAt: at(11, 6, 9, 0)),

@@ -30,9 +30,9 @@ struct DemoMockDataTests {
         #expect(weeks.count == 5 && weeks.values.allSatisfy { (2...3).contains($0.count) })
     }
 
-    @Test func 진료_전_기록은_고정_id_두_건이고_매번_같은_기록이_나온다() throws {
+    @Test func 진료_전_기록은_두_건이고_매번_같은_기록이_나온다() throws {
         let a = try DemoMockData(patientId: patient), b = try DemoMockData(patientId: patient)
-        #expect(a.previsits.map(\.id) == b.previsits.map(\.id) && a.previsits.count == 2)
+        #expect(a.previsits.map(\.submittedAt) == b.previsits.map(\.submittedAt) && a.previsits.count == 2)
         #expect(a.pain.map(\.recordedDate) == b.pain.map(\.recordedDate) && a.pain.map(\.painBefore) == b.pain.map(\.painBefore))
         #expect(a.symptoms.map(\.recordedDate) == b.symptoms.map(\.recordedDate))
     }
