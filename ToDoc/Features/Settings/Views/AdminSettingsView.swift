@@ -59,9 +59,18 @@ struct AdminSettingsView: View {
     @State private var confirming: Action?
     @State private var running: Action?
     @State private var result: String?
+    @AppStorage(DemoCareCallPlan.enabledKey) private var demoCareCall = true
 
     var body: some View {
         SettingsScreen(title: "관리자 설정", cancel: { dismiss() }) {
+            SettingsSection(title: "", footer: "켜면 그날 처음 증상 기록할 때 7개 중 3개만 랜덤으로 묻고, 나머지 4개는 목데이터로 채워요. 다음 증상 기록부터 적용돼요.") {
+                Toggle(isOn: $demoCareCall) {
+                    Text("증상 데모 흐름").settingsText()
+                }
+                .tint(AppColors.primary)
+                .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
+                .accessibilityIdentifier("settings.admin.demoCareCall")
+            }
             SettingsSection(title: "") {
                 row(.painSkip, subtitle: nil)
                 SettingsDivider()

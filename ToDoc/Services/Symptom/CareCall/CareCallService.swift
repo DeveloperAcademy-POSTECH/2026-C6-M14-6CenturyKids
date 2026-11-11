@@ -53,8 +53,8 @@ final class CareCallService: CareCalling {
 
     func begin(patientId: UUID, previous: SymptomRecord?) throws -> CareCallTurn {
         guard let analyzer else { throw CareCallServiceError.notPrepared }
-        // 시연: 그날 처음 통화면 3개만 랜덤으로 묻는다 (다시 거는 통화는 그대로)
-        let demo = previous == nil ? DemoCareCallPlan(effectIds: config.effects.map(\.id)) : nil
+        // 시연: 관리자 설정에서 켜 두면 그날 처음 통화는 3개만 랜덤으로 묻는다 (다시 거는 통화는 그대로)
+        let demo = previous == nil && DemoCareCallPlan.isEnabled ? DemoCareCallPlan(effectIds: config.effects.map(\.id)) : nil
         let engine = InterviewEngine(config: config, rules: rules, analyzer: analyzer, followUp: previous.map(converter.unasked(in:)),
                                      askOnly: demo?.asked, locationWords: converter.bodyParts.parts.values.flatMap { $0 })
         let conversation = Conversation(engine: engine, patientId: patientId, followUp: previous != nil, demo: demo)

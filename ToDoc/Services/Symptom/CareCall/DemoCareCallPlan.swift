@@ -6,6 +6,10 @@ import ToDocDomain
 
 /// 시연: 처음 통화에서 7개 중 3개만 랜덤으로 묻고, 나머지 4개는 2개 있음·2개 없음 목데이터로 채운다.
 struct DemoCareCallPlan {
+    /// 관리자 설정 토글이 저장하는 키. 값이 없으면 켜짐 (시연 빌드 기본값)
+    static let enabledKey = "demo.careCallFlow"
+    static var isEnabled: Bool { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
+
     /// 물을 항목 (side_effects.json id)
     let asked: Set<String>
     /// 목데이터로 '있음'을 넣을 항목 (나머지 목데이터는 '없음')
