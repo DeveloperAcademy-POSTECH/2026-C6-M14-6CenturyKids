@@ -132,6 +132,7 @@ struct SettingsView: View {
                                 .padding(.horizontal, 16)
                         }
                     }
+                    SettingsAdminEntry()
                 }.padding(.horizontal, 24).padding(.bottom, 32)
                     .frame(minHeight: geometry.size.height, alignment: .top)
             }
