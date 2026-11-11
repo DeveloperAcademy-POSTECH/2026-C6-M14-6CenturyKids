@@ -20,7 +20,7 @@ struct SymptomFrequencyInputView: View {
                           caption: isSubmitting ? nil : "증상을 입력해주세요.", isEditing: isFocused, canSend: canSubmit,
                           onClose: onEnd, onSwitchToVoice: onSwitchToVoice,
                           onSend: { if let frequency { keepsKeyboard = isFocused; onSubmit?(frequency) } }) {
-            HStack(spacing: 4) {
+            HStack(spacing: 0) {
                 TextField("횟수", text: $digits,
                           prompt: Text("00").foregroundStyle(AppColors.Semantic.Text.disabled))
                     .keyboardType(.numberPad)
@@ -28,7 +28,7 @@ struct SymptomFrequencyInputView: View {
                     .focused($isFocused)
                     .disabled(isSubmitting)
                     .accessibilityIdentifier("symptom.answer")
-                Text("번 지속되었어요.")
+                Text("번 했어요")
             }
             .padding(.vertical, 5)
             .contentShape(Rectangle())
