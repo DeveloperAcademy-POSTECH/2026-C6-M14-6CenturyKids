@@ -54,6 +54,10 @@ final class InterviewEngine {
     /// 같은 날 다시 거는 통화면 오늘 기록에 아직 없는 항목(지난 통화가 끊겨 못 물음), 처음 통화면 nil.
     /// 다시 거는 통화는 "달라졌거나 새로 불편한 점"을 묻고, 그 답에서 나온 증상과 이 항목만 묻는다
     private let unasked: Set<String>?
+    /// 시연: 처음 통화에서 이 항목만 묻는다 (환자가 먼저 말한 증상은 함께 묻는다). nil이면 모든 항목
+    private let askOnly: Set<String>?
+    /// 이번 통화에서 물을 항목 (다시 거는 통화·시연은 정한 항목 + 이번에 말한 항목). nil이면 모든 항목
+    private var onlyItems: Set<String>? { (unasked ?? askOnly).map { $0.union(ledger.order) } }
     /// 응급으로 끝냈을 때 이어 갈 단계와 질문 (환자가 기록을 이어 가기로 하면 이 질문부터 다시 묻는다)
     private var resumePoint: (phase: InterviewPhase, question: String)?
     /// 답 한 턴마다 그 답을 받기 전 상태 (이전 질문으로 돌아갈 때). 분석기는 턴마다 새로 묻기 때문에 엔진 상태만 되돌리면 된다
@@ -95,7 +99,7 @@ final class InterviewEngine {
     /// 부위 낱말 (body_parts.json). 절 판단으로 '있음'이 된 답에서 그 절의 부위를 찾을 때만 쓴다
 
     init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI, followUp unasked: Set<String>? = nil,
-         locationWords: [String] = []) {
+         askOnly: Set<String>? = nil, locationWords: [String] = []) {
         self.config = config
         self.rules = rules
         self.detector = KeywordMatcher(keywords: rules.keywords, maxGapWords: 2)
@@ -108,6 +112,7 @@ final class InterviewEngine {
         self.names = Dictionary(uniqueKeysWithValues: config.effects.map { ($0.id, $0.name) })
         self.keywords = Dictionary(uniqueKeysWithValues: config.effects.map { ($0.id, $0.keywords) })
         self.unasked = unasked
+        self.askOnly = askOnly
         self.lastQuestion = unasked == nil ? config.openingQuestion : config.followUpCall.question
     }
 
@@ -674,7 +679,7 @@ final class InterviewEngine {
     private func advance(from current: InterviewPhase, followUp: String?, notedOther: CareCallConfig.Effect? = nil) async -> String {
         while true {
             // 다시 거는 통화는 이번에 말한 항목과 지난 통화에서 못 물은 항목만 묻는다
-            switch SlotPlanner.next(ledger: ledger, config: config, otherAsked: otherAsked, only: unasked.map { $0.union(ledger.order) }) {
+            switch SlotPlanner.next(ledger: ledger, config: config, otherAsked: otherAsked, only: onlyItems) {
             case .slot(let key, let step):
                 guard ledger.markAsked(key, step: step) else {
                     // 한 번 다시 물어도 분명하지 않아 닫음 → 그동안 받은 답을 원문으로 남기고 다음 항목
@@ -1211,7 +1216,7 @@ final class InterviewEngine {
     /// 대화 진행 정도 (0~1): 첫 질문, 물을 항목마다 하나, '그 밖에' 중 끝난 것. 다시 거는 통화는 묻는 항목만 센다
     var progress: Double {
         if phase == .saved { return 1 }
-        let only = unasked.map { $0.union(ledger.order) }
+        let only = onlyItems
         let effects = config.effects.filter { only?.contains($0.id) ?? true }
         let settled = effects.filter { ledger[$0.id] != nil && SlotPlanner.pendingStep(ledger[$0.id], effect: $0) == nil }.count
         let done = settled + (phase == .opening ? 0 : 1) + (otherAsked ? 1 : 0)

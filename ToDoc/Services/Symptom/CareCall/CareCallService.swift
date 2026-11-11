@@ -21,6 +21,8 @@ final class CareCallService: CareCalling {
         let engine: InterviewEngine
         let patientId: UUID
         let followUp: Bool
+        /// 시연: 처음 통화에서 물을 3개와 목데이터
+        let demo: DemoCareCallPlan?
     }
     private var conversation: Conversation?
     private var noticed = false
@@ -51,9 +53,11 @@ final class CareCallService: CareCalling {
 
     func begin(patientId: UUID, previous: SymptomRecord?) throws -> CareCallTurn {
         guard let analyzer else { throw CareCallServiceError.notPrepared }
+        // 시연: 그날 처음 통화면 3개만 랜덤으로 묻는다 (다시 거는 통화는 그대로)
+        let demo = previous == nil ? DemoCareCallPlan(effectIds: config.effects.map(\.id)) : nil
         let engine = InterviewEngine(config: config, rules: rules, analyzer: analyzer, followUp: previous.map(converter.unasked(in:)),
-                                     locationWords: converter.bodyParts.parts.values.flatMap { $0 })
-        let conversation = Conversation(engine: engine, patientId: patientId, followUp: previous != nil)
+                                     askOnly: demo?.asked, locationWords: converter.bodyParts.parts.values.flatMap { $0 })
+        let conversation = Conversation(engine: engine, patientId: patientId, followUp: previous != nil, demo: demo)
         self.conversation = conversation
         noticed = false
         return turn(conversation.engine.start(), of: conversation)
@@ -111,7 +115,8 @@ final class CareCallService: CareCalling {
 
     private func outcome(of conversation: Conversation, phase: InterviewPhase) -> CareCallOutcome {
         switch phase {
-        case .saved: .completed(record(of: conversation))
+        // 시연: 끝까지 마친 통화에만 묻지 않은 항목의 목데이터를 더한다
+        case .saved: .completed(conversation.demo.map { $0.filling(record(of: conversation)) } ?? record(of: conversation))
         case .emergencyEnded: .emergencyEnded(record(of: conversation))
         default: .interrupted(partialRecord(of: conversation))
         }
