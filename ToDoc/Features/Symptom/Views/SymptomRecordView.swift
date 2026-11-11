@@ -4,6 +4,7 @@ import UIKit
 struct SymptomRecordView: View {
     @State var state = SymptomScreenState()
     @State private var confirmsEnd = false
+    @State private var keepsKeyboard = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
@@ -17,9 +18,9 @@ struct SymptomRecordView: View {
             } else if let summary = state.summary {
                 SymptomSummaryView(state: summary, onBack: close)
             } else if state.isSummarizing {
-                SymptomSummaryLoadingView()
+                SymptomSummaryLoadingView(showsInputBar: state.mode == .text, onClose: close)
             } else if let question = state.question {
-                SymptomConversationContent(state: state, question: question, onEnd: askEnd,
+                SymptomConversationContent(state: state, question: question, keepsKeyboard: $keepsKeyboard, onEnd: askEnd,
                     onSwitch: { state.onAction?(.switchMode($0)) })
                     .id(state.mode == .voice ? nil : question.id)
                     .overlay { popup }
@@ -81,6 +82,7 @@ struct SymptomRecordView: View {
 private struct SymptomConversationContent: View {
     @Bindable var state: SymptomScreenState
     let question: SymptomConversationQuestion
+    @Binding var keepsKeyboard: Bool
     let onEnd: () -> Void
     let onSwitch: (SymptomConversationMode) -> Void
     @State private var frequency: SymptomConversationAnswer.Frequency?
@@ -95,14 +97,13 @@ private struct SymptomConversationContent: View {
                 switch question.input {
                 case .text:
                     SymptomTextInputView(question: question, text: $state.answerText,
-                                         isSubmitting: state.isWorking || state.onAction == nil, isLastQuestion: question.isLastQuestion,
-                                         showsPrevious: question.allowsPrevious,
-                                         onPrevious: previous,
+                                         isSubmitting: state.isWorking || state.onAction == nil,
+                                         keepsKeyboard: $keepsKeyboard,
                                          onNext: { state.onAction?(.answer(.text(state.answerText))) }, onEnd: onEnd,
                                          onSwitchToVoice: { onSwitch(.voice) })
                 case .frequency:
                     SymptomFrequencyInputView(question: question, frequency: $frequency, isSubmitting: state.isWorking || state.onAction == nil,
-                                              showsPrevious: question.allowsPrevious, onPrevious: previous,
+                                              keepsKeyboard: $keepsKeyboard,
                                               onSubmit: { value in state.onAction?(.answer(.frequency(value))) },
                                               onEnd: onEnd, onSwitchToVoice: { onSwitch(.voice) })
                 }
@@ -111,10 +112,6 @@ private struct SymptomConversationContent: View {
         .onAppear {
             if case .frequency(let value) = state.restoredAnswer { frequency = value }
         }
-    }
-
-    private var previous: (() -> Void)? {
-        state.canGoPrevious && !state.isWorking ? { state.onAction?(.previous) } : nil
     }
 }
 

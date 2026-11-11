@@ -1,46 +1,46 @@
 import SwiftUI
 
-/// Figma 1:1823. 저장 성공 이후 부모 흐름에서 표시합니다.
+/// Figma 2113:6758 학로_체크. 저장 성공 이후 부모 흐름에서 표시합니다.
 struct SymptomCompletionView: View {
     var onShowRecord: (() -> Void)?
     var onHome: (() -> Void)?
 
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(spacing: 40) {
-                        AppFeedback.StatusIcon(kind: .success, size: 100)
-                        VStack(spacing: 24) {
-                            Text("말씀해 주신 내용을 바탕으로\n문진 기록을 정리했어요.")
-                                .modifier(SymptomTextStyle(size: 20, weight: .medium))
-                            Text("잠시만 기다려 주세요")
-                                .modifier(SymptomTextStyle(size: 16))
-                                .foregroundStyle(Color(white: 114 / 255))
-                        }
-                        .multilineTextAlignment(.center)
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: 30) {
+                    ZStack(alignment: .topLeading) {
+                        Image("SymptomCompleteCheck").resizable().frame(width: 136, height: 136)
+                            .offset(x: 87, y: 42)
+                        Image("SymptomCompleteHakro").resizable().frame(width: 202.5, height: 202.5)
+                            .offset(x: 97.4, y: 12)
                     }
+                    .frame(width: 354, height: 226, alignment: .topLeading)
+                    .accessibilityHidden(true)
+                    VStack(spacing: 16) {
+                        Text("증상이 기록되었습니다.")
+                            .appTypography(.title)
+                            .foregroundStyle(.black)
+                            .accessibilityAddTraits(.isHeader)
+                        Text("말씀해 주신 내용을 바탕으로\n문진 기록을 정리했어요.")
+                            .appTypography(.body)
+                            .foregroundStyle(Color(white: 114 / 255))
+                    }
+                    .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 24)
-                    .padding(.top, max(24, (geometry.size.height - 180) * 0.35))
-                    .padding(.bottom, 24)
                 }
-                VStack(spacing: 20) {
-                    Button { onShowRecord?() } label: {
-                        HStack {
-                            Color.clear.frame(width: 12, height: 12)
-                            Spacer(minLength: 8)
-                            Text("기록 확인하기")
-                            Spacer(minLength: 8)
-                            Image("CareConversationNext").frame(width: 12, height: 12)
-                        }
-                    }
-                    .buttonStyle(AppButtonStyle()).disabled(onShowRecord == nil)
-                    Button("홈으로 가기") { onHome?() }
-                        .buttonStyle(AppButtonStyle(kind: .secondary)).disabled(onHome == nil)
-                }
-                .padding(.horizontal, 24).padding(.bottom, 2)
+                .padding(.horizontal, AppLayout.Phone.horizontalMargin)
+                .padding(.top, 175)
+                .padding(.bottom, 24)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            HStack(alignment: .top, spacing: AppLayout.Phone.columnSpacing) {
+                AppActions.BackButton("홈") { onHome?() }
+                    .disabled(onHome == nil)
+                AppActions.Button("기록 확인하기") { onShowRecord?() }
+                    .disabled(onShowRecord == nil)
+            }
+            .padding(.horizontal, AppLayout.Phone.horizontalMargin)
         }
         .background(.white)
         .toolbar(.hidden, for: .navigationBar)
