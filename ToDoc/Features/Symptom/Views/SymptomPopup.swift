@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Figma 증상 대화하기 팝업 (기록 중단·응급·마이크 비활성화·서비스 오류). 화면을 60% 검게 덮고 가운데 300pt 카드를 띄웁니다.
+/// Figma 증상 대화하기 팝업 (기록 중단·응급·마이크 비활성화·서비스 오류).
 struct SymptomPopup: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let content: AnyView
 
     init<Content: View>(@ViewBuilder content: () -> Content) {
@@ -12,14 +13,24 @@ struct SymptomPopup: View {
         ZStack {
             Color.black.opacity(0.6).ignoresSafeArea()
                 .accessibilityHidden(true)
-            content
-                .frame(width: 300)
-                .background(SymptomPopupStyle.background, in: RoundedRectangle(cornerRadius: 40))
-                .clipShape(RoundedRectangle(cornerRadius: 40))
+            GeometryReader { geometry in
+                let wideCard = dynamicTypeSize >= .xxxLarge
+                // 기본 크기에서는 카드 중심을 화면 중심보다 40pt 위에 둡니다.
+                let bottomPadding: CGFloat = wideCard ? 16 : 96
+                ScrollView {
+                    content
+                        .frame(maxWidth: wideCard ? 440 : 300)
+                        .background(SymptomPopupStyle.background, in: RoundedRectangle(cornerRadius: 40))
+                        .clipShape(RoundedRectangle(cornerRadius: 40))
+                        .frame(maxWidth: .infinity, minHeight: max(0, geometry.size.height - 16 - bottomPadding))
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .padding(.bottom, bottomPadding)
+                }
+                .scrollBounceBehavior(.basedOnSize)
                 .accessibilityElement(children: .contain)
                 .accessibilityAddTraits(.isModal)
-                // Figma: 카드 가운데가 화면 가운데보다 조금 위
-                .offset(y: -40)
+            }
         }
     }
 }
@@ -48,6 +59,10 @@ extension SymptomPopup {
                     Button(action: onContinue) {
                         Text("계속 작성하기").modifier(SymptomTextStyle(size: 16, weight: .semibold))
                             .foregroundStyle(Color(red: 41 / 255, green: 64 / 255, blue: 0))
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
                             .frame(maxWidth: .infinity, minHeight: 56)
                             .background(AppColors.primary, in: RoundedRectangle(cornerRadius: 24))
                             .contentShape(RoundedRectangle(cornerRadius: 24))
@@ -86,6 +101,8 @@ extension SymptomPopup {
                     Button(action: onContinue) {
                         Text("기록 이어가기").modifier(SymptomTextStyle(size: 16, weight: .semibold))
                             .foregroundStyle(Color(red: 71 / 255, green: 109 / 255, blue: 23 / 255))
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, 16).frame(minHeight: 44).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -130,10 +147,14 @@ extension SymptomPopup {
                 Divider()
                 HStack(spacing: 0) {
                     pairButton("확인", action: onConfirm)
-                    Divider()
                     pairButton("설정", action: onSettings)
                 }
-                .frame(height: 60)
+                .overlay {
+                    Rectangle().fill(Color(uiColor: .separator))
+                        .frame(width: 1)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
             }
         }
     }
@@ -141,7 +162,11 @@ extension SymptomPopup {
     private static func pairButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title).modifier(SymptomTextStyle(size: 16, weight: .semibold)).foregroundStyle(.black)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, minHeight: 60)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
