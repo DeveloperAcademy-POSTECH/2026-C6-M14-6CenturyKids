@@ -61,8 +61,12 @@ final class DemoAdminService {
         do {
             try await pain.save(entity: shifted)
         } catch {
-            // 지운 기록을 잃지 않게 원래 시각으로 되돌려 둔다
-            try? await pain.save(entity: pending)
+            // 지운 기록을 잃지 않게 원래 시각으로 되돌려 둔다. 되돌리기도 실패하면 기록이 없어졌다고 알린다
+            do {
+                try await pain.save(entity: pending)
+            } catch {
+                throw Failure.nothing("통증 기록을 다시 저장하지 못해 기다리던 기록이 지워졌어요. 먹기 전 통증을 다시 기록해 주세요.")
+            }
             throw error
         }
         await schedulePainAfterReminder(available)
