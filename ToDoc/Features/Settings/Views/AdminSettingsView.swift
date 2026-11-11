@@ -49,7 +49,7 @@ struct AdminSettingsView: View {
         }
         var question: String {
             switch self {
-            case .painSkip: "기다리는 통증 기록을 20초 뒤에 기록할 수 있게 바꿀까요?"
+            case .painSkip: "기다리는 통증 기록을 10초 뒤에 기록할 수 있게 바꿀까요?"
             case .resetSymptom: "오늘 증상 기록을 지울까요? 되돌릴 수 없어요."
             case .resetPrevisit: "오늘 보낸 진료 전 기록을 지울까요? 되돌릴 수 없어요."
             case .seedMockData: "10월 16일~11월 19일의 증상·통증·진료 전 기록을 지우고 목데이터로 다시 채울까요? 되돌릴 수 없어요."
