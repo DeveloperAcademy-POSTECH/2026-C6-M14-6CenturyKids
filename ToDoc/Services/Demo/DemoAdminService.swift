@@ -106,4 +106,27 @@ final class DemoAdminService {
         await onChanged()
         return "오늘 진료 전 기록을 지웠어요."
     }
+
+    /// 10/16~11/19 증상·통증 기록을 지우고 목데이터로 다시 채운다. 진료 전 기록 2건은 고정 id로 덮어쓴다
+    func seedMockData() async throws -> String {
+        let data = try DemoMockData(patientId: patientId)
+        let (start, end) = DemoMockData.range
+        let lastDay = DemoMockData.calendar.date(byAdding: .day, value: -1, to: end)!
+        // 증상 저장소는 끝 날 미포함, 통증 저장소는 끝 날 포함
+        func oldSymptoms() async throws -> [SymptomRecord] {
+            try await symptoms.findByPatientIdAndDate(patientId: patientId, from: start, to: end)
+        }
+        func oldPain() async throws -> [PainRecord] {
+            try await pain.findByPatientIdAndDate(patientId: patientId, from: start, to: lastDay)
+        }
+        for record in try await oldSymptoms() { try await symptoms.deleteById(record.id) }
+        for record in try await oldPain() { try await pain.deleteById(record.id) }
+        guard try await oldSymptoms().isEmpty, try await oldPain().isEmpty else { throw Failure.notApplied("기존 기록 삭제") }
+
+        for record in data.symptoms { try await symptoms.save(entity: record) }
+        for record in data.pain { try await pain.save(entity: record) }
+        for record in data.previsits { try await previsits.save(entity: record) }
+        await onChanged()
+        return "목데이터를 채웠어요. 증상 \(data.symptoms.count)일, 통증 \(data.pain.count)건, 진료 전 기록 \(data.previsits.count)건이에요."
+    }
 }

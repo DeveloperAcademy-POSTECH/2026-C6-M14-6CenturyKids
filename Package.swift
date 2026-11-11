@@ -51,7 +51,7 @@ let package = Package(
                     "Services/Symptom/CareCall/KeywordMatcher.swift", "Services/Symptom/CareCall/Ledger.swift",
                     "Services/Symptom/CareCall/NumberParser.swift", "Services/Symptom/CareCall/PlannedQuestion.swift",
                     "Services/Symptom/CareCall/SlotPlanner.swift", "Services/Symptom/CareCall/SymptomRecordConverter.swift",
-                    "Services/Symptom/CareCall/DemoCareCallPlan.swift",
+                    "Services/Symptom/CareCall/DemoCareCallPlan.swift", "Services/Demo/DemoMockData.swift",
                     // 케어콜 화면 ViewModel (CareCalling으로 가짜 서비스를 넣어 검증)
                     "Features/Symptom/Presentation", "Features/Symptom/ViewModels",
                     "Services/Symptom/CareCall/CareCalling.swift", "Services/Symptom/CareCall/CareCallActivity.swift",

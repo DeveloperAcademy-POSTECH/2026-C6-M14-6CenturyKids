@@ -35,7 +35,7 @@ struct SettingsAdminEntry: View {
 /// 시연용 관리자 기능 목록. 누르면 한 번 확인한 뒤 실행하고 결과를 알려 준다.
 struct AdminSettingsView: View {
     enum Action: String, Identifiable {
-        case painSkip, resetSymptom, resetPrevisit
+        case painSkip, resetSymptom, resetPrevisit, seedMockData
 
         var id: String { rawValue }
         var title: String {
@@ -43,6 +43,7 @@ struct AdminSettingsView: View {
             case .painSkip: "통증 1시간 스킵"
             case .resetSymptom: "증상 초기화"
             case .resetPrevisit: "진료 전 기록 초기화"
+            case .seedMockData: "목데이터 채우기"
             }
         }
         var question: String {
@@ -50,6 +51,7 @@ struct AdminSettingsView: View {
             case .painSkip: "기다리는 통증 기록을 20초 뒤에 기록할 수 있게 바꿀까요?"
             case .resetSymptom: "오늘 증상 기록을 지울까요? 되돌릴 수 없어요."
             case .resetPrevisit: "오늘 보낸 진료 전 기록을 지울까요? 되돌릴 수 없어요."
+            case .seedMockData: "10월 16일~11월 19일의 증상·통증 기록을 지우고 목데이터로 다시 채울까요? 되돌릴 수 없어요."
             }
         }
     }
@@ -77,6 +79,9 @@ struct AdminSettingsView: View {
                 row(.resetSymptom, subtitle: "오늘 기록만 지워요")
                 SettingsDivider()
                 row(.resetPrevisit, subtitle: "오늘 기록만 지워요")
+            }
+            SettingsSection(title: "") {
+                row(.seedMockData, subtitle: "10/16~11/19 증상·통증, 10/16·11/6 진료 전 기록")
             }
             if service == nil {
                 SettingsFeedback(error: "로그인한 환자 화면에서만 쓸 수 있어요.")
@@ -116,6 +121,7 @@ struct AdminSettingsView: View {
                 case .painSkip: try await service.skipPainWait()
                 case .resetSymptom: try await service.resetTodaySymptoms()
                 case .resetPrevisit: try await service.resetTodayPrevisit()
+                case .seedMockData: try await service.seedMockData()
                 }
             } catch {
                 result = error.localizedDescription
