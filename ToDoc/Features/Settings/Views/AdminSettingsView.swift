@@ -32,24 +32,86 @@ struct SettingsAdminEntry: View {
     }
 }
 
-/// 시연용 관리자 기능 목록. 지금은 화면만 있고 누르면 아무 일도 하지 않는다.
+/// 시연용 관리자 기능 목록. 누르면 한 번 확인한 뒤 실행하고 결과를 알려 준다.
 struct AdminSettingsView: View {
+    enum Action: String, Identifiable {
+        case painSkip, resetSymptom, resetPrevisit
+
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .painSkip: "통증 1시간 스킵"
+            case .resetSymptom: "증상 초기화"
+            case .resetPrevisit: "진료 전 기록 초기화"
+            }
+        }
+        var question: String {
+            switch self {
+            case .painSkip: "기다리는 통증 기록을 20초 뒤에 기록할 수 있게 바꿀까요?"
+            case .resetSymptom: "오늘 증상 기록을 지울까요? 되돌릴 수 없어요."
+            case .resetPrevisit: "오늘 보낸 진료 전 기록을 지울까요? 되돌릴 수 없어요."
+            }
+        }
+    }
+
     @Environment(\.dismiss) private var dismiss
+    @Environment(DemoAdminService.self) private var service: DemoAdminService?
+    @State private var confirming: Action?
+    @State private var running: Action?
+    @State private var result: String?
 
     var body: some View {
         SettingsScreen(title: "관리자 설정", cancel: { dismiss() }) {
             SettingsSection(title: "") {
-                Button {} label: { SettingsRow(title: "통증 1시간 스킵", chevron: true) }
-                    .accessibilityIdentifier("settings.admin.painSkip")
+                row(.painSkip, subtitle: nil)
                 SettingsDivider()
-                Button {} label: { SettingsRow(title: "증상 초기화", subtitle: "오늘 기록만 지워요", chevron: true) }
-                    .accessibilityIdentifier("settings.admin.resetSymptom")
+                row(.resetSymptom, subtitle: "오늘 기록만 지워요")
                 SettingsDivider()
-                Button {} label: { SettingsRow(title: "진료 전 기록 초기화", subtitle: "오늘 기록만 지워요", chevron: true) }
-                    .accessibilityIdentifier("settings.admin.resetPrevisit")
+                row(.resetPrevisit, subtitle: "오늘 기록만 지워요")
+            }
+            if service == nil {
+                SettingsFeedback(error: "로그인한 환자 화면에서만 쓸 수 있어요.")
             }
         }
         .toolbar(.hidden, for: .tabBar)
+        .alert(confirming?.title ?? "", isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
+               presenting: confirming) { action in
+            Button("취소", role: .cancel) {}
+            Button("실행", role: action == .painSkip ? nil : .destructive) { run(action) }
+        } message: { action in
+            Text(action.question)
+        }
+        .alert(result ?? "", isPresented: Binding(get: { result != nil }, set: { if !$0 { result = nil } })) {
+            Button("확인", role: .cancel) {}
+        }
+    }
+
+    private func row(_ action: Action, subtitle: String?) -> some View {
+        Button { confirming = action } label: {
+            HStack {
+                SettingsRow(title: action.title, subtitle: subtitle, chevron: running != action)
+                if running == action { ProgressView().padding(.trailing, 16) }
+            }
+        }
+        .disabled(service == nil || running != nil)
+        .accessibilityIdentifier("settings.admin.\(action.rawValue)")
+    }
+
+    private func run(_ action: Action) {
+        guard let service else { return }
+        running = action
+        Task {
+            defer { running = nil }
+            do {
+                result = switch action {
+                case .painSkip: try await service.skipPainWait()
+                case .resetSymptom: try await service.resetTodaySymptoms()
+                case .resetPrevisit: try await service.resetTodayPrevisit()
+                }
+            } catch {
+                result = error.localizedDescription
+            }
+        }
     }
 }
 

@@ -13,6 +13,7 @@ struct PatientFlowCompositionView: View {
     @State private var notificationViewModel: NotificationViewModel
     @Environment(AppRouter.self) private var router
     @State private var previsitLetterViewModel: PrevisitLetterViewModel
+    @State private var demoAdmin: DemoAdminService
     private let container: DependencyContainer
     private let patientId: UUID
 
@@ -35,6 +36,11 @@ struct PatientFlowCompositionView: View {
                 return try await PrevisitRecordedDays.make(pain: pain, symptoms: symptoms,
                                                            patientID: patientId, calendar: calendar).first
             }
+        ))
+        _demoAdmin = State(initialValue: DemoAdminService(
+            patientId: patientId, pain: container.painRepository, symptoms: container.symptomRepository,
+            previsits: container.previsitRepository, pendingCalls: FilePendingCareCallRepository(),
+            schedulePainAfterReminder: LocalNotificationAdapter.schedulePainAfterReminder(at:)
         ))
         _homeViewModel = State(initialValue: HomeViewModel(
             patientID: patientId,
@@ -134,7 +140,16 @@ struct PatientFlowCompositionView: View {
                 )
             }
         )
+        .environment(demoAdmin)
         .task(id: patientId) { await startArrivalNotifications() }
+        .task {
+            // 관리자 기능으로 기록을 바꾸면 통증·진료 전·홈이 다시 불러온다
+            demoAdmin.onChanged = {
+                await painViewModel.load()
+                await loadPrevisitLetters()
+                homeViewModel.reload()
+            }
+        }
         .task(id: homeViewModel.state.doctorName) { await loadPrevisitLetters() }
     }
 
