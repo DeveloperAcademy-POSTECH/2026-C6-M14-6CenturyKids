@@ -378,7 +378,8 @@ struct InterviewEngineTests {
 
     @Test(arguments: [("식사는 평소대로 해요", true), ("입맛은 예전하고 똑같아요", true), ("입맛은 그대로예요", true),
                       ("식사는 잘 하고 있어요", true), ("입맛 없는 건 그대로예요", false), ("물이 안 넘어가는 건 여전해요", false),
-                      ("조금밖에 못 먹는 건 똑같아요", false), ("어제랑 똑같아요", false)])
+                      ("조금밖에 못 먹는 건 똑같아요", false), ("어제랑 똑같아요", false), ("지난주랑 똑같아요", false),
+                      ("저번이랑 비슷해요", false), ("며칠 전이랑 똑같아요", false), ("어저께랑 비슷해요", false)])
     func 식사_질문에_평소와_같다는_답은_없음(answer: String, usual: Bool) async {
         mock.script[answer] = .empty
         await reach("dehydration_nutrition")

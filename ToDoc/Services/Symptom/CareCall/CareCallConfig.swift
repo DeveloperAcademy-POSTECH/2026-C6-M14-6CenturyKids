@@ -41,7 +41,7 @@ struct CareCallConfig: Decodable, Sendable {
             let endings: [String]
             /// 평소와 같다는 끝말 ("그대로예요", "똑같아요"). 무엇이 그대로인지 풀어 말한 답("못 넘기는 건 여전해요")에는 쓰지 않는다
             let sameEndings: [String]?
-            /// 평소가 아닌 날에 견준 말 ("어제"). 이 말이 있으면 sameEndings를 쓰지 않는다 (그날도 줄어 있었을 수 있다)
+            /// 평소가 아닌 날에 견준 말 ("어제", "지난주", "저번"). 이 말이 있으면 sameEndings를 쓰지 않는다 (그날도 줄어 있었을 수 있다)
             let sameUnless: [String]?
             /// 이 말이 있으면 평소대로가 아니다 ("못", "조금", "겨우"). 낱말 뒤 "만"("죽만", "물만")도 아니다
             let unless: [String]
