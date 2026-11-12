@@ -63,20 +63,6 @@ struct SymptomLiveActivity: Widget {
                             .background(Color("LiveActivityGreen"), in: .capsule)
                             .contentShape(.capsule)
                     }
-
-                    Button(action: {
-                        Task {
-                            
-                        }
-                    }) {
-                        Image(systemName: "phone.down.fill")
-                            .font(.body.weight(.bold))
-                            .foregroundStyle(Color("DeclineRed"))
-                            .frame(width: 56, height: 56)
-                            .background(Color("LiveActivityRed"), in: .circle)
-                            .contentShape(.circle)
-                    }
-                    .accessibilityLabel("통화 거절")
                 }
                 .buttonStyle(.plain)
             }
@@ -151,20 +137,6 @@ struct SymptomLiveActivity: Widget {
                         .background(Color("LiveActivityGreen"), in: .capsule)
                         .contentShape(.capsule)
                 }
-
-                Button(action: {
-                    Task {
-                        
-                    }
-                }) {
-                    Image(systemName: "phone.down.fill")
-                        .font(.body.weight(.bold))
-                        .foregroundStyle(Color("DeclineRed"))
-                        .frame(width: buttonHeight, height: buttonHeight)
-                        .background(Color("LiveActivityRed"), in: .circle)
-                        .contentShape(.circle)
-                }
-                .accessibilityLabel("통화 거절")
             }
             .buttonStyle(.plain)
         }
