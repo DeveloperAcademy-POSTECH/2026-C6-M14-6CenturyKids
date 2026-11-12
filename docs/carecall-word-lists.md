@@ -11,6 +11,7 @@
 | 답 전체가 짧은 "아니요"류 ("딱히요") | `shortAnswers.no` (답 전체가 같아야 맞음) |
 | 그 항목을 물을 때만 정상이라는 끝말 ("변은 매일 봐요") | 그 항목의 `absentPhrases` |
 | 그 항목을 물을 때 평소대로 한다는 답 ("한 그릇 비워요") | 그 항목의 `usualAnswer.endings` (줄었다는 말은 `unless`) |
+| 그 항목을 물을 때 평소와 같다는 답 ("입맛은 그대로예요") | 그 항목의 `usualAnswer.sameEndings` (다른 날에 견준 말은 `sameUnless`) |
 | "없다"가 붙어도 증상이 있다는 말 ("입맛 없") | 그 항목의 `presentPhrases` (어느 질문에서나) |
 | 그 항목을 물을 때만 증상이 있다는 말 ("안 나와요" = 변비) | 그 항목의 `answerPhrases` |
 | 목록 밖 증상 표현 ("욱신", "떨려") | `symptomHints` |
@@ -45,7 +46,7 @@
 | `presentPhrases` | 두 낱말이 한 절에서 차례로(사이 8자 이내), 뒤가 부정이 아닐 때. 약 이야기 절은 아님 | 어느 질문에서나 '있음' (그 항목을 묻기 전이면 묻는 차례까지 미룸) |
 | `answerPhrases` | `presentPhrases`와 같은 방법 | **그 항목을 물을 때만** '있음' |
 | `absentPhrases` | 답이 이 말로 끝날 때 | 그 항목을 물을 때 '없음' |
-| `usualAnswer` | 답이 `endings`로 끝나고 `unless`·"…만"·증상 표현·대조가 없을 때 | 그 항목을 물을 때 '없음' (모델이 '있음'이라 해도) |
+| `usualAnswer` | 답이 `endings`로 끝나거나, `sameEndings`로 끝나면서 "…는 건"처럼 풀어 말하지 않고 `sameUnless`가 없을 때. 둘 다 `unless`·"…만"·증상 표현·대조가 없어야 함 | 그 항목을 물을 때 '없음' (모델이 '있음'이라 해도) |
 | `keywordRequired` | — | 첫 답·'그 밖에'에서 이 항목 낱말 없이 고르면 기타 증상 (저림·피부) |
 
 목록끼리 겹치는 말("괜찮아요"가 `noSuffixes`·`noPrefixes`·`shortAnswers.no`에 모두 있음)은 쓰는 곳과 맞추는 방법이 달라 일부러 둔다.
