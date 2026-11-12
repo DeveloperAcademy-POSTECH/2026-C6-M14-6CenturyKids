@@ -376,6 +376,16 @@ struct InterviewEngineTests {
         #expect((engine.ledger["dehydration_nutrition"]?.presence == .absent) == usual)
     }
 
+    @Test(arguments: [("식사는 평소대로 해요", true), ("입맛은 예전하고 똑같아요", true), ("입맛은 그대로예요", true),
+                      ("식사는 잘 하고 있어요", true), ("입맛 없는 건 그대로예요", false), ("물이 안 넘어가는 건 여전해요", false),
+                      ("조금밖에 못 먹는 건 똑같아요", false), ("어제랑 똑같아요", false)])
+    func 식사_질문에_평소와_같다는_답은_없음(answer: String, usual: Bool) async {
+        mock.script[answer] = .empty
+        await reach("dehydration_nutrition")
+        _ = await engine.handle(patientText: answer)
+        #expect((engine.ledger["dehydration_nutrition"]?.presence == .absent) == usual)
+    }
+
     @Test(arguments: [("밥 두 공기 뚝딱 먹어요", true), ("보리차를 자주 마셔요", true), ("밥을 반 공기만 먹어요", false),
                       ("죽만 조금 먹어요", false), ("먹긴 먹는데 많이 못 먹어요", false), ("입맛이 없어서 겨우 먹어요", false)])
     func 식사_질문에_줄었다는_말_없이_먹는다고만_하면_없음(answer: String, usual: Bool) async {

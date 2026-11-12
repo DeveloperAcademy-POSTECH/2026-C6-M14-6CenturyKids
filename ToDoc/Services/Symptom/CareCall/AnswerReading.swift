@@ -151,7 +151,12 @@ struct AnswerReading {
         guard let usual = effect.usualAnswer else { return false }
         let t = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         let compact = Self.normalized(t)
-        return usual.endings.contains { compact.hasSuffix(Self.normalized($0)) }
+        func ends(with list: [String]) -> Bool { list.contains { compact.hasSuffix(Self.normalized($0)) } }
+        // 모델은 평소와 같다는 답("식사는 평소대로 해요", "입맛은 그대로예요")에 아무것도 남기지 않아 다시 물었다 (2026-11-03 보류 세트).
+        // 그대로인 것이 줄어든 상태일 수 있는 답은 보지 않는다: 풀어 말한 답("물이 안 넘어가는 건 여전해요"), 다른 날에 견준 답("어제랑 똑같아요")
+        let same = ends(with: usual.sameEndings ?? []) && t.firstMatch(of: /(건|게|거|것은|것도|것이)\s/) == nil
+            && !(usual.sameUnless ?? []).contains { compact.contains(Self.normalized($0)) }
+        return (ends(with: usual.endings) || same)
             && !usual.unless.contains { compact.contains(Self.normalized($0)) }
             && t.firstMatch(of: /[가-힣]만\s/) == nil
             && symptomHints.matches(t) == nil && !Self.hasContrast(t) && !saysPresent(effect, t, answering: true)
