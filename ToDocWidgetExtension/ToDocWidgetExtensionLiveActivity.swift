@@ -26,71 +26,69 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ToDocWidgetExtensionAttributes.self) { context in
             // Lock screen/banner UI goes here
-            HStack(spacing: 0) {
-                Image(context.attributes.image)
-                    .padding(.leading, 20)
-                    .padding(.trailing, 16)
-                
-                VStack(alignment: .leading) {
-                    Text(context.attributes.name)
-                        .fontWeight(.bold)
-                    Text(context.state.sentence)
+            VStack(alignment: .center, spacing: 8) {
+                HStack(alignment: .lastTextBaseline) {
+                    Image("LiveActivityHangno")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 170, height: 114)
+                        .frame(width: 88, height: 80, alignment: .top)
+                        .clipped()
+                        .offset(y: 22)
+                        .accessibilityHidden(true)
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(context.attributes.name)
+                            .font(.headline.bold())
+                            .foregroundStyle(.white)
+                        Text(context.state.sentence)
+                            .font(.subheadline)
+                            .foregroundStyle(Color("textDisabled"))
+                    }
+                    .multilineTextAlignment(.trailing)
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, minHeight: 56, alignment: .bottomTrailing)
                 }
                 
-                Spacer()
-                
-                Link(
-                    destination: URL(
-                    string: "todoc://record/symptoms?mode=voice"
-                )!
-                ) {
-                    Image(systemName: "stethoscope")
-                        .fontWeight(.bold)
-                        .frame(width: 56, height: 56)
-                        .foregroundStyle(.white)
+                HStack(spacing: 8) {
+                    Link(destination: URL(string: "todoc://record/symptoms?mode=voice")!) {
+                        Label("증상 대화하러 가기", systemImage: "phone.fill")
+                            .font(.body)
+                            .foregroundStyle(Color("AnswerGreen"))
+                            .minimumScaleFactor(0.75)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(Color("LiveActivityGreen"), in: .capsule)
+                            .contentShape(.capsule)
+                    }
+
+                    Button(action: {
+                        Task {
+                            
+                        }
+                    }) {
+                        Image(systemName: "phone.down.fill")
+                            .font(.body.weight(.bold))
+                            .foregroundStyle(Color("DeclineRed"))
+                            .frame(width: 56, height: 56)
+                            .background(Color("LiveActivityRed"), in: .circle)
+                            .contentShape(.circle)
+                    }
+                    .accessibilityLabel("통화 거절")
                 }
-                .frame(width: 56, height: 56)
-                .background(Color("LiveActivityGreen"))
-                .clipShape(.circle)
-                .padding(.trailing, 20)
+                .buttonStyle(.plain)
             }
-            .frame(height: 96)
-            .foregroundStyle(.white)
             .activityBackgroundTint(Color.black)
             .activitySystemActionForegroundColor(Color.white)
-            .widgetURL(symptomURL)
-
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            
         } dynamicIsland: { context in
             DynamicIsland {
-                // Expanded UI goes here.  Compose the expanded UI through
-                // various regions, like leading/trailing/center/bottom
-                DynamicIslandExpandedRegion(.leading) {
-                    Image(context.attributes.image)
-                        .resizable()
-                        .frame(width: 60, height: 60)
-                        .scaledToFit()
-                }
-                DynamicIslandExpandedRegion(.center) {
-                    VStack(alignment: .leading) {
-                        Text(context.attributes.name)
-                            .fontWeight(.bold)
-                        Text(context.state.sentence)
-                    }
-                }
-                DynamicIslandExpandedRegion(.trailing) {
-                    Link(
-                        destination: URL(
-                        string: "todoc://record/symptoms?mode=voice"
-                    )!
-                    ) {
-                        Image(systemName: "stethoscope")
-                            .fontWeight(.bold)
-                            .frame(width: 60, height: 60)
-                            .foregroundStyle(.white)
-                    }
-                    .frame(width: 56, height: 56)
-                    .background(Color("LiveActivityGreen"))
-                    .clipShape(.circle)
+                DynamicIslandExpandedRegion(.bottom) {
+                    expandedContent(context)
                 }
             } compactLeading: {
                 Image("HangnoWithoutBackground")
@@ -107,16 +105,75 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
             }
             .widgetURL(symptomURL)
             .keylineTint(Color("LiveActivityGreen"))
-            .contentMargins(.all, 20, for: .expanded)
+            .contentMargins(.leading, 20, for: .expanded)
+            .contentMargins(.trailing, 20, for: .expanded)
             .contentMargins(.horizontal, 11, for: .minimal)
             .contentMargins(.vertical, 7, for: .minimal)
+        }
+    }
+
+    private func expandedContent(
+        _ context: ActivityViewContext<ToDocWidgetExtensionAttributes>
+    ) -> some View {
+        let buttonHeight: CGFloat = 52
+
+        return VStack(spacing: 0) {
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(context.attributes.name)
+                    .font(.headline.bold())
+                    .foregroundStyle(.white)
+                Text(context.state.sentence)
+                    .font(.subheadline)
+                    .foregroundStyle(Color("textDisabled"))
+            }
+            .multilineTextAlignment(.trailing)
+            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity, minHeight: 56, alignment: .bottomTrailing)
+            .background(alignment: .bottomLeading) {
+                Image("LiveActivityHangno")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 170, height: 114)
+                    .frame(width: 88, height: 80, alignment: .top)
+                    .clipped()
+                    .offset(y: 3)
+                    .accessibilityHidden(true)
+            }
+
+            HStack(spacing: 8) {
+                Link(destination: URL(string: "todoc://record/symptoms?mode=voice")!) {
+                    Label("증상 대화하러 가기", systemImage: "phone.fill")
+                        .font(.body)
+                        .foregroundStyle(Color("AnswerGreen"))
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: buttonHeight)
+                        .background(Color("LiveActivityGreen"), in: .capsule)
+                        .contentShape(.capsule)
+                }
+
+                Button(action: {
+                    Task {
+                        
+                    }
+                }) {
+                    Image(systemName: "phone.down.fill")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(Color("DeclineRed"))
+                        .frame(width: buttonHeight, height: buttonHeight)
+                        .background(Color("LiveActivityRed"), in: .circle)
+                        .contentShape(.circle)
+                }
+                .accessibilityLabel("통화 거절")
+            }
+            .buttonStyle(.plain)
         }
     }
 }
 
 extension ToDocWidgetExtensionAttributes {
     fileprivate static var preview: ToDocWidgetExtensionAttributes {
-        ToDocWidgetExtensionAttributes(name: "Dr.학로", image: "HangnoWithoutBackground")
+        ToDocWidgetExtensionAttributes(name: "Dr. 속닥이", image: "LiveActivityHangno")
     }
 }
 

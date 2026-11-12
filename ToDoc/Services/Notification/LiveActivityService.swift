@@ -81,8 +81,8 @@ class LiveActivityService {
     #if DEBUG
     static func startLocalLiveActivity() throws {
         let attributes = ToDocWidgetExtensionAttributes(
-            name: "Dr.학로",
-            image: "HangnoWithoutBackground"
+            name: "Dr.속닥이",
+            image: "LiveActivityHangno"
         )
         let content = ActivityContent(
             state: ToDocWidgetExtensionAttributes.ContentState(sentence: "오늘 하루는 어떠셨나요?"),
