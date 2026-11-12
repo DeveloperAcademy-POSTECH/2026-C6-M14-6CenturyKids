@@ -25,7 +25,7 @@ class LiveActivityService {
         guard observationTask == nil else { return }
         
         observationTask = Task { [weak self] in
-            for await token in Activity<ToDocWidgetExtensionAttributes>.pushToStartTokenUpdates {
+            for await token in Activity<SymptomLiveActivityAttributes>.pushToStartTokenUpdates {
                 guard !Task.isCancelled else { return }
                 guard let self else { return }
                 
@@ -79,20 +79,45 @@ class LiveActivityService {
     }
 
     #if DEBUG
-    static func startLocalLiveActivity() throws {
-        let attributes = ToDocWidgetExtensionAttributes(
+    static func startLocalSymptomLiveActivity() throws {
+        let attributes = SymptomLiveActivityAttributes(
             name: "Dr.속닥이",
             image: "LiveActivityHangno"
         )
         let content = ActivityContent(
-            state: ToDocWidgetExtensionAttributes.ContentState(sentence: "오늘 하루는 어떠셨나요?"),
+            state: SymptomLiveActivityAttributes.ContentState(sentence: "오늘 하루는 어떠셨나요?"),
             staleDate: nil
         )
-        _ = try Activity<ToDocWidgetExtensionAttributes>.request(
+        _ = try Activity<SymptomLiveActivityAttributes>.request(
             attributes: attributes,
             content: content,
             pushType: nil
         )
     }
     #endif
+    
+    static func startPainLiveActivity() throws {
+        let startedAt: Date = Date.now
+        
+        #if DEBUG
+        let staleDate: Date = startedAt + 60
+        #else
+        let staleDate: Date = startedAt + 3600
+        #endif
+        
+        let attributes = PainLiveActivityAttributes(
+            medicationTakenAt: startedAt
+        )
+        
+        let content = ActivityContent(
+            state: PainLiveActivityAttributes.ContentState(),
+            staleDate: staleDate
+        )
+        
+        _ = try Activity<PainLiveActivityAttributes>.request(
+            attributes: attributes,
+            content: content,
+            pushType: nil
+        )
+    }
 }
