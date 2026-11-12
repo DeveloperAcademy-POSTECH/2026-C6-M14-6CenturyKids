@@ -157,16 +157,14 @@ struct PainLiveActivity: Widget {
                 
                 Text(timerInterval: medicationTakenAt...timerEndsAt)
                     .font(.caption)
-                    .frame(width: 30)
+                    .frame(width: 45)
             } compactTrailing: {
                 Image(systemName: "cross.vial")
             } minimal: {
-                let medicationTakenAt = context.attributes.medicationTakenAt
-                let timerEndsAt = context.attributes.timerEndsAt
-                
-                Text(timerInterval: medicationTakenAt...timerEndsAt)
-                    .font(.caption)
-                    .frame(width: 30)
+                Image("HangnoWithoutBackground")
+                    .resizable()
+                    .frame(width: 30, height: 30)
+                    .scaledToFit()
             }
             .widgetURL(painURL)
             .keylineTint(Color("LiveActivityGreen"))
@@ -221,6 +219,18 @@ extension PainLiveActivityAttributes {
 }
 
 #Preview("Expanded", as: .dynamicIsland(.expanded), using: PainLiveActivityAttributes.preview) {
+    PainLiveActivity()
+} contentStates: {
+    PainLiveActivityAttributes.ContentState()
+}
+
+#Preview("Compact", as: .dynamicIsland(.compact), using: PainLiveActivityAttributes.preview) {
+    PainLiveActivity()
+} contentStates: {
+    PainLiveActivityAttributes.ContentState()
+}
+
+#Preview("Minimal", as: .dynamicIsland(.minimal), using: PainLiveActivityAttributes.preview) {
     PainLiveActivity()
 } contentStates: {
     PainLiveActivityAttributes.ContentState()
