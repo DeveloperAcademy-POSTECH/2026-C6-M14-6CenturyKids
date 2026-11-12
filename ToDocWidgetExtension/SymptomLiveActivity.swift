@@ -9,7 +9,7 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
-struct ToDocWidgetExtensionAttributes: ActivityAttributes {
+struct SymptomLiveActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         // Dynamic stateful properties about your activity go here!
         var sentence: String
@@ -20,11 +20,11 @@ struct ToDocWidgetExtensionAttributes: ActivityAttributes {
     var image: String
 }
 
-struct ToDocWidgetExtensionLiveActivity: Widget {
+struct SymptomLiveActivity: Widget {
     let symptomURL = URL(string: "todoc://record/symptoms")
     
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: ToDocWidgetExtensionAttributes.self) { context in
+        ActivityConfiguration(for: SymptomLiveActivityAttributes.self) { context in
             // Lock screen/banner UI goes here
             VStack(alignment: .center, spacing: 8) {
                 HStack(alignment: .lastTextBaseline) {
@@ -34,7 +34,7 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
                         .frame(width: 170, height: 114)
                         .frame(width: 88, height: 80, alignment: .top)
                         .clipped()
-                        .offset(y: 22)
+                        .offset(y: 26)
                         .accessibilityHidden(true)
                     
                     Spacer()
@@ -48,7 +48,7 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
                             .foregroundStyle(Color("textDisabled"))
                     }
                     .multilineTextAlignment(.trailing)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, 12)
                     .frame(maxWidth: .infinity, minHeight: 56, alignment: .bottomTrailing)
                 }
                 
@@ -113,7 +113,7 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
     }
 
     private func expandedContent(
-        _ context: ActivityViewContext<ToDocWidgetExtensionAttributes>
+        _ context: ActivityViewContext<SymptomLiveActivityAttributes>
     ) -> some View {
         let buttonHeight: CGFloat = 52
 
@@ -171,46 +171,46 @@ struct ToDocWidgetExtensionLiveActivity: Widget {
     }
 }
 
-extension ToDocWidgetExtensionAttributes {
-    fileprivate static var preview: ToDocWidgetExtensionAttributes {
-        ToDocWidgetExtensionAttributes(name: "Dr. 속닥이", image: "LiveActivityHangno")
+extension SymptomLiveActivityAttributes {
+    fileprivate static var preview: SymptomLiveActivityAttributes {
+        SymptomLiveActivityAttributes(name: "Dr. 속닥이", image: "LiveActivityHangno")
     }
 }
 
-extension ToDocWidgetExtensionAttributes.ContentState {
-    fileprivate static var normal: ToDocWidgetExtensionAttributes.ContentState {
-        ToDocWidgetExtensionAttributes.ContentState(sentence: "오늘 하루는 어떠셨나요?")
+extension SymptomLiveActivityAttributes.ContentState {
+    fileprivate static var normal: SymptomLiveActivityAttributes.ContentState {
+        SymptomLiveActivityAttributes.ContentState(sentence: "오늘 하루는 어떠셨나요?")
      }
      
-     fileprivate static var emergency: ToDocWidgetExtensionAttributes.ContentState {
-         ToDocWidgetExtensionAttributes.ContentState(sentence: "오늘 기록이 아직 없어요!")
+     fileprivate static var emergency: SymptomLiveActivityAttributes.ContentState {
+         SymptomLiveActivityAttributes.ContentState(sentence: "오늘 기록이 아직 없어요!")
      }
 }
 
-#Preview("Notification", as: .content, using: ToDocWidgetExtensionAttributes.preview) {
-   ToDocWidgetExtensionLiveActivity()
+#Preview("Notification", as: .content, using: SymptomLiveActivityAttributes.preview) {
+   SymptomLiveActivity()
 } contentStates: {
-    ToDocWidgetExtensionAttributes.ContentState.normal
-    ToDocWidgetExtensionAttributes.ContentState.emergency
+    SymptomLiveActivityAttributes.ContentState.normal
+    SymptomLiveActivityAttributes.ContentState.emergency
 }
 
-#Preview("Expanded", as: .dynamicIsland(.expanded), using: ToDocWidgetExtensionAttributes.preview) {
-   ToDocWidgetExtensionLiveActivity()
+#Preview("Expanded", as: .dynamicIsland(.expanded), using: SymptomLiveActivityAttributes.preview) {
+   SymptomLiveActivity()
 } contentStates: {
-    ToDocWidgetExtensionAttributes.ContentState.normal
-    ToDocWidgetExtensionAttributes.ContentState.emergency
+    SymptomLiveActivityAttributes.ContentState.normal
+    SymptomLiveActivityAttributes.ContentState.emergency
 }
 
-#Preview("Compact", as: .dynamicIsland(.compact), using: ToDocWidgetExtensionAttributes.preview) {
-   ToDocWidgetExtensionLiveActivity()
+#Preview("Compact", as: .dynamicIsland(.compact), using: SymptomLiveActivityAttributes.preview) {
+   SymptomLiveActivity()
 } contentStates: {
-    ToDocWidgetExtensionAttributes.ContentState.normal
-    ToDocWidgetExtensionAttributes.ContentState.emergency
+    SymptomLiveActivityAttributes.ContentState.normal
+    SymptomLiveActivityAttributes.ContentState.emergency
 }
 
-#Preview("Minimal", as: .dynamicIsland(.minimal), using: ToDocWidgetExtensionAttributes.preview) {
-   ToDocWidgetExtensionLiveActivity()
+#Preview("Minimal", as: .dynamicIsland(.minimal), using: SymptomLiveActivityAttributes.preview) {
+   SymptomLiveActivity()
 } contentStates: {
-    ToDocWidgetExtensionAttributes.ContentState.normal
-    ToDocWidgetExtensionAttributes.ContentState.emergency
+    SymptomLiveActivityAttributes.ContentState.normal
+    SymptomLiveActivityAttributes.ContentState.emergency
 }
