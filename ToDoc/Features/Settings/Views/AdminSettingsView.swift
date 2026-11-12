@@ -64,6 +64,7 @@ struct AdminSettingsView: View {
     @State private var running: Action?
     @State private var result: String?
     @AppStorage(DemoCareCallPlan.enabledKey) private var demoCareCall = true
+    @AppStorage(FoundationModelsCareCallAdapter.warmSessionKey) private var warmSession = true
 
     var body: some View {
         SettingsScreen(title: "관리자 설정", cancel: { dismiss() }) {
@@ -74,6 +75,14 @@ struct AdminSettingsView: View {
                 .tint(AppColors.primary)
                 .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
                 .accessibilityIdentifier("settings.admin.demoCareCall")
+            }
+            SettingsSection(title: "", footer: "켜면 다음 AI 분석용 세션을 미리 만들어 데워 둬요. 끄면 예전처럼 분석할 때 만들어요. 시간은 Console 앱에서 FMTiming으로 볼 수 있어요.") {
+                Toggle(isOn: $warmSession) {
+                    Text("AI 세션 미리 데우기").settingsText()
+                }
+                .tint(AppColors.primary)
+                .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
+                .accessibilityIdentifier("settings.admin.warmSession")
             }
             SettingsSection(title: "") {
                 row(.painSkip, subtitle: nil)

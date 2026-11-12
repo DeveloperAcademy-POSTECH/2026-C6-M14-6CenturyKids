@@ -121,7 +121,7 @@ final class InterviewEngine {
         return Output(utterance: say(question), phase: phase)
     }
 
-    /// start() 뒤, 환자 답을 기다리는 동안 부른다 (첫 모델 턴 단축)
+    /// 질문을 정한 뒤(start·handle 뒤), 환자 답을 기다리는 동안 부른다 (모델 턴 단축)
     func prewarm() async {
         await analyzer.prewarm(request(for: phase, patientText: ""))
     }

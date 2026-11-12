@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 
 final class CareCallService: CareCalling {
     private let config: CareCallConfig
@@ -175,14 +176,21 @@ final class CareCallService: CareCalling {
             let text = try await recognizer.listen { onActivity(.hearing($0)) }
             guard !stopped, !text.isEmpty else { break }
             onActivity(.heard(text))
-            let thinkingEnds = ContinuousClock.now.advanced(by: minimumThinking)
+            let heardAt = ContinuousClock.now
+            let thinkingEnds = heardAt.advanced(by: minimumThinking)
             out = await engine.handle(patientText: text)
+            let handled = ContinuousClock.now - heardAt
+            if !out.isFinished { await engine.prewarm() }
             if let completion = out.answerCompletion { onActivity(.answerCompleted(completion)) }
             guard !stopped else { break }
             if out.phase != .emergencyEnded, engine.analyzedLastTurn {
                 try await Task.sleep(until: thinkingEnds, clock: .continuous)
                 guard !stopped else { break }
             }
+            FoundationModelsCareCallAdapter.timingLog.notice("""
+                [턴] 답 처리 \(Int(handled / .milliseconds(1)), privacy: .public)ms · 말하기까지 \
+                \(Int((ContinuousClock.now - heardAt) / .milliseconds(1)), privacy: .public)ms · 모델 \(engine.analyzedLastTurn ? "부름" : "안 부름", privacy: .public)
+                """)
             onActivity(.speaking(out.utterance))
             await voice.speak(out.utterance)
             await voice.waitUntilDone()
