@@ -86,26 +86,13 @@ struct PainLiveActivity: Widget {
                     }
                 }
                 
-                ZStack {
-                    Capsule()
-                        .fill(Color.gray)
-                        .frame(width: .infinity, height: 52)
-                    
-                    ProgressView(timerInterval: medicationTakenAt...timerEndsAt, countsDown: false)
-                        .labelsHidden()
-                        .tint(Color("LiveActivityGreen"))
-                        .scaleEffect(x: 1, y: 16)
-                        .frame(width: .infinity)
-                    
-                    Label("통증 기록하러 가기", systemImage: "cross.vial")
-                        .foregroundStyle(.white)
-                }
-                .clipShape(.capsule)
+                painRecordCapsule(timerInterval: medicationTakenAt...timerEndsAt)
             }
             .activityBackgroundTint(Color.black)
             .activitySystemActionForegroundColor(Color.white)
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
+            .widgetURL(painURL)
         } dynamicIsland: { context in
             DynamicIsland {
                 let medicationTakenAt = context.attributes.medicationTakenAt
@@ -161,21 +148,7 @@ struct PainLiveActivity: Widget {
                         }
                         
                         
-                        ZStack {
-                            Capsule()
-                                .fill(Color.gray)
-                                .frame(width: .infinity, height: 52)
-                            
-                            ProgressView(timerInterval: medicationTakenAt...timerEndsAt, countsDown: false)
-                                .labelsHidden()
-                                .tint(Color("LiveActivityGreen"))
-                                .scaleEffect(x: 1, y: 16)
-                                .frame(width: .infinity)
-                            
-                            Label("통증 기록하러 가기", systemImage: "cross.vial")
-                                .foregroundStyle(.white)
-                        }
-                        .clipShape(.capsule)
+                        painRecordLink(timerInterval: medicationTakenAt...timerEndsAt)
                     }
                 }
             } compactLeading: {
@@ -202,6 +175,36 @@ struct PainLiveActivity: Widget {
             .contentMargins(.horizontal, 11, for: .minimal)
             .contentMargins(.vertical, 7, for: .minimal)
         }
+    }
+
+    @ViewBuilder
+    private func painRecordLink(timerInterval: ClosedRange<Date>) -> some View {
+        if let painURL {
+            Link(destination: painURL) {
+                painRecordCapsule(timerInterval: timerInterval)
+            }
+        } else {
+            painRecordCapsule(timerInterval: timerInterval)
+        }
+    }
+
+    private func painRecordCapsule(timerInterval: ClosedRange<Date>) -> some View {
+        ZStack {
+            Capsule().fill(Color.gray)
+
+            ProgressView(timerInterval: timerInterval, countsDown: false)
+                .labelsHidden()
+                .tint(Color("LiveActivityGreen"))
+                .scaleEffect(x: 1, y: 16)
+                .accessibilityHidden(true)
+
+            Label("통증 기록하러 가기", systemImage: "cross.vial")
+                .foregroundStyle(.white)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+        .clipShape(.capsule)
+        .contentShape(.capsule)
     }
 }
 
