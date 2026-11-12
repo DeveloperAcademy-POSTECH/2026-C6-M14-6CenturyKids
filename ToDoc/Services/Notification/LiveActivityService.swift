@@ -97,23 +97,44 @@ class LiveActivityService {
     #endif
     
     static func startPainLiveActivity() throws {
-        let startedAt: Date = Date.now
-        
-        #if DEBUG
-        let staleDate: Date = startedAt + 60
-        #else
-        let staleDate: Date = startedAt + 3600
-        #endif
-        
-        let attributes = PainLiveActivityAttributes(
-            medicationTakenAt: startedAt
-        )
-        
+        try requestPainLiveActivity(attributes: .init(medicationTakenAt: .now))
+    }
+
+    static func startPainLiveActivity(for record: PainRecord, followUpAt: Date) async {
+        let activities = Activity<PainLiveActivityAttributes>.activities
+        let startedAt = Date.now
+        if ActivityAuthorizationInfo().areActivitiesEnabled,
+           !activities.contains(where: { $0.attributes.recordID == record.id }) {
+            do {
+                try requestPainLiveActivity(attributes: .init(
+                    medicationTakenAt: startedAt < followUpAt ? startedAt : record.recordedDate,
+                    recordID: record.id,
+                    followUpAt: followUpAt
+                ))
+            } catch {
+                print("통증 기록 Live Activity 시작 실패:", error)
+            }
+        }
+
+        for activity in activities {
+            guard let recordID = activity.attributes.recordID, recordID != record.id else { continue }
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
+    static func endPainLiveActivity(recordID: UUID) async {
+        for activity in Activity<PainLiveActivityAttributes>.activities
+        where activity.attributes.recordID == recordID {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
+    private static func requestPainLiveActivity(attributes: PainLiveActivityAttributes) throws {
         let content = ActivityContent(
             state: PainLiveActivityAttributes.ContentState(),
-            staleDate: staleDate
+            staleDate: attributes.timerEndsAt
         )
-        
+
         _ = try Activity<PainLiveActivityAttributes>.request(
             attributes: attributes,
             content: content,

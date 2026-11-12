@@ -15,6 +15,17 @@ struct PainLiveActivityAttributes: ActivityAttributes {
     }
     
     var medicationTakenAt: Date
+    var recordID: UUID?
+    var followUpAt: Date?
+
+    var timerEndsAt: Date {
+        if let followUpAt { return followUpAt }
+        #if DEBUG
+        return medicationTakenAt.addingTimeInterval(60)
+        #else
+        return medicationTakenAt.addingTimeInterval(3_600)
+        #endif
+    }
 }
 
 struct PainLiveActivity: Widget {
@@ -23,11 +34,7 @@ struct PainLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: PainLiveActivityAttributes.self) { context in
             let medicationTakenAt = context.attributes.medicationTakenAt
-            #if DEBUG
-            let timerEndsAt: Date = medicationTakenAt + 60
-            #else
-            let timerEndsAt: Date = medicationTakenAt + 3600
-            #endif
+            let timerEndsAt = context.attributes.timerEndsAt
             
             VStack(alignment: .center, spacing: 0) {
                 HStack(alignment: .lastTextBaseline, spacing: 0) {
@@ -102,11 +109,7 @@ struct PainLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 let medicationTakenAt = context.attributes.medicationTakenAt
-                #if DEBUG
-                let timerEndsAt: Date = medicationTakenAt + 60
-                #else
-                let timerEndsAt: Date = medicationTakenAt + 3600
-                #endif
+                let timerEndsAt = context.attributes.timerEndsAt
                 
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .center, spacing: 0) {
@@ -177,11 +180,7 @@ struct PainLiveActivity: Widget {
                 }
             } compactLeading: {
                 let medicationTakenAt = context.attributes.medicationTakenAt
-                #if DEBUG
-                let timerEndsAt: Date = medicationTakenAt + 60
-                #else
-                let timerEndsAt: Date = medicationTakenAt + 3600
-                #endif
+                let timerEndsAt = context.attributes.timerEndsAt
                 
                 Text(timerInterval: medicationTakenAt...timerEndsAt)
                     .font(.caption)
@@ -190,11 +189,7 @@ struct PainLiveActivity: Widget {
                 Image(systemName: "cross.vial")
             } minimal: {
                 let medicationTakenAt = context.attributes.medicationTakenAt
-                #if DEBUG
-                let timerEndsAt: Date = medicationTakenAt + 60
-                #else
-                let timerEndsAt: Date = medicationTakenAt + 3600
-                #endif
+                let timerEndsAt = context.attributes.timerEndsAt
                 
                 Text(timerInterval: medicationTakenAt...timerEndsAt)
                     .font(.caption)
