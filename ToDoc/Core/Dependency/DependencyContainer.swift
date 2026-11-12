@@ -68,7 +68,9 @@ final class DependencyContainer {
             painRepository: painRepository,
             scheduleAfterReminder: LocalNotificationAdapter.schedulePainAfterReminder(at:),
             cancelAfterReminder: LocalNotificationAdapter.cancelPainAfterReminder,
-            checkRemindersAllowed: LocalNotificationAdapter.isPainReminderAllowed
+            checkRemindersAllowed: LocalNotificationAdapter.isPainReminderAllowed,
+            startLiveActivity: LiveActivityService.startPainLiveActivity(for:followUpAt:),
+            endLiveActivity: LiveActivityService.endPainLiveActivity(recordID:)
         )
     }
 
