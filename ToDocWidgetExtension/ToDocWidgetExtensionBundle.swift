@@ -13,6 +13,7 @@ struct ToDocWidgetExtensionBundle: WidgetBundle {
     var body: some Widget {
 //        ToDocWidgetExtension()
 //        ToDocWidgetExtensionControl()
-        ToDocWidgetExtensionLiveActivity()
+        SymptomLiveActivity()
+        PainLiveActivity()
     }
 }

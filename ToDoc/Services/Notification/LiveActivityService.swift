@@ -25,7 +25,7 @@ class LiveActivityService {
         guard observationTask == nil else { return }
         
         observationTask = Task { [weak self] in
-            for await token in Activity<ToDocWidgetExtensionAttributes>.pushToStartTokenUpdates {
+            for await token in Activity<SymptomLiveActivityAttributes>.pushToStartTokenUpdates {
                 guard !Task.isCancelled else { return }
                 guard let self else { return }
                 
@@ -79,20 +79,66 @@ class LiveActivityService {
     }
 
     #if DEBUG
-    static func startLocalLiveActivity() throws {
-        let attributes = ToDocWidgetExtensionAttributes(
-            name: "Dr.학로",
-            image: "HangnoWithoutBackground"
+    static func startLocalSymptomLiveActivity() throws {
+        let attributes = SymptomLiveActivityAttributes(
+            name: "Dr.속닥이",
+            image: "LiveActivityHangno"
         )
         let content = ActivityContent(
-            state: ToDocWidgetExtensionAttributes.ContentState(sentence: "오늘 하루는 어떠셨나요?"),
+            state: SymptomLiveActivityAttributes.ContentState(sentence: "오늘 하루는 어떠셨나요?"),
             staleDate: nil
         )
-        _ = try Activity<ToDocWidgetExtensionAttributes>.request(
+        _ = try Activity<SymptomLiveActivityAttributes>.request(
             attributes: attributes,
             content: content,
             pushType: nil
         )
     }
     #endif
+    
+    static func startPainLiveActivity() throws {
+        try requestPainLiveActivity(attributes: .init(medicationTakenAt: .now))
+    }
+
+    static func startPainLiveActivity(for record: PainRecord, followUpAt: Date) async {
+        let activities = Activity<PainLiveActivityAttributes>.activities
+        let startedAt = Date.now
+        if ActivityAuthorizationInfo().areActivitiesEnabled,
+           !activities.contains(where: { $0.attributes.recordID == record.id }) {
+            do {
+                try requestPainLiveActivity(attributes: .init(
+                    medicationTakenAt: startedAt < followUpAt ? startedAt : record.recordedDate,
+                    recordID: record.id,
+                    followUpAt: followUpAt
+                ))
+            } catch {
+                print("통증 기록 Live Activity 시작 실패:", error)
+            }
+        }
+
+        for activity in activities {
+            guard let recordID = activity.attributes.recordID, recordID != record.id else { continue }
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
+    static func endPainLiveActivity(recordID: UUID) async {
+        for activity in Activity<PainLiveActivityAttributes>.activities
+        where activity.attributes.recordID == recordID {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
+    private static func requestPainLiveActivity(attributes: PainLiveActivityAttributes) throws {
+        let content = ActivityContent(
+            state: PainLiveActivityAttributes.ContentState(),
+            staleDate: attributes.timerEndsAt
+        )
+
+        _ = try Activity<PainLiveActivityAttributes>.request(
+            attributes: attributes,
+            content: content,
+            pushType: nil
+        )
+    }
 }

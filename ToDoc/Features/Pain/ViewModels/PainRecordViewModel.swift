@@ -46,6 +46,8 @@ final class PainRecordViewModel {
     @ObservationIgnored private let cancelAfterReminder: () -> Void
     /// 기기 알림이 꺼져 있으면 false입니다. 기기 설정은 컨테이너가 넣습니다.
     @ObservationIgnored private let checkRemindersAllowed: () async -> Bool
+    @ObservationIgnored private let startLiveActivity: (PainRecord, Date) async -> Void
+    @ObservationIgnored private let endLiveActivity: (UUID) async -> Void
     private var patientId: UUID?
     private let painRepository: any PainRepository
     private var isLoading = false
@@ -71,13 +73,17 @@ final class PainRecordViewModel {
         painRepository: any PainRepository,
         scheduleAfterReminder: @escaping (Date) async -> Void = { _ in },
         cancelAfterReminder: @escaping () -> Void = {},
-        checkRemindersAllowed: @escaping () async -> Bool = { true }
+        checkRemindersAllowed: @escaping () async -> Bool = { true },
+        startLiveActivity: @escaping (PainRecord, Date) async -> Void = { _, _ in },
+        endLiveActivity: @escaping (UUID) async -> Void = { _ in }
     ) {
         patientSource = .repositories(auth: authRepository, patient: patientRepository)
         self.painRepository = painRepository
         self.scheduleAfterReminder = scheduleAfterReminder
         self.cancelAfterReminder = cancelAfterReminder
         self.checkRemindersAllowed = checkRemindersAllowed
+        self.startLiveActivity = startLiveActivity
+        self.endLiveActivity = endLiveActivity
     }
 
     #if DEBUG
@@ -91,6 +97,8 @@ final class PainRecordViewModel {
         self.scheduleAfterReminder = scheduleAfterReminder
         self.cancelAfterReminder = cancelAfterReminder
         self.checkRemindersAllowed = checkRemindersAllowed
+        startLiveActivity = { _, _ in }
+        endLiveActivity = { _ in }
     }
     #endif
 
@@ -181,7 +189,9 @@ final class PainRecordViewModel {
         try await painRepository.save(entity: record)
 
         pendingRecord = record
-        await scheduleAfterReminder(date.addingTimeInterval(Self.afterDelay))
+        let followUpAt = date.addingTimeInterval(Self.afterDelay)
+        await startLiveActivity(record, followUpAt)
+        await scheduleAfterReminder(followUpAt)
         return record
     }
 
@@ -207,6 +217,7 @@ final class PainRecordViewModel {
 
         pendingRecord = nil
         cancelAfterReminder()
+        await endLiveActivity(record.id)
         return record
     }
 
