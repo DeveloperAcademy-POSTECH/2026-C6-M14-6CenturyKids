@@ -12,9 +12,6 @@ import os
 /// CareCallAI의 기기 안 모델 구현 (Apple Intelligence 기본 모델). 호출마다 새 세션을 쓰고 Ledger 요약만 넣는다 (이전 대화 원문은 넣지 않음).
 /// 세션을 재사용하면 transcript가 쌓여 입력이 길어지므로, 쓰고 나면 바로 다음 호출용 세션을 만들어 prewarm해 둔다.
 final class FoundationModelsCareCallAdapter: CareCallAI {
-    /// 관리자 설정 토글이 저장하는 키. 값이 없으면 켜짐. 끄면 예전처럼 호출 때 세션을 만든다 (속도 비교용)
-    static let warmSessionKey = "demo.fmWarmSession"
-    static var warmSessionEnabled: Bool { UserDefaults.standard.object(forKey: warmSessionKey) as? Bool ?? true }
     /// 관리자 설정 토글이 저장하는 키. 값이 없으면 꺼짐. 켜면 환자가 말을 멈춘 것 같을 때 문장 확정 전에 미리 분석한다
     static let speculationKey = "demo.fmSpeculate"
     static var speculationEnabled: Bool { UserDefaults.standard.bool(forKey: speculationKey) }
@@ -53,7 +50,7 @@ final class FoundationModelsCareCallAdapter: CareCallAI {
         let warm = spare
         spare = nil
         let session = warm?.session ?? LanguageModelSession(model: model, instructions: template.fullInstructions)
-        defer { if Self.warmSessionEnabled { prepareSpare(prefix: nil) } }
+        defer { prepareSpare(prefix: nil) }
         callNumber += 1
         let start = ContinuousClock.now
         let (analysis, firstToken) = try await Self.respond(session: session, prompt: text, options: options)
@@ -69,13 +66,9 @@ final class FoundationModelsCareCallAdapter: CareCallAI {
         return analysis.turnResult
     }
 
-    /// 질문을 읽어 주는 동안 다음 분석용 세션을 데운다. 켜져 있으면 프롬프트의 환자 답 앞부분까지 함께 데운다
+    /// 질문을 읽어 주는 동안 다음 분석용 세션을 프롬프트의 환자 답 앞부분까지 데운다
     func prewarm(_ request: AnalysisRequest) async {
-        if Self.warmSessionEnabled {
-            prepareSpare(prefix: prompt(for: request))
-        } else {
-            LanguageModelSession(model: model, instructions: template.fullInstructions).prewarm()
-        }
+        prepareSpare(prefix: prompt(for: request))
     }
 
     func speculate(_ request: AnalysisRequest) async {
@@ -102,7 +95,7 @@ final class FoundationModelsCareCallAdapter: CareCallAI {
         old.task.cancel()
         // 미리 부른 호출이 데운 세션을 썼으니, 진짜 호출이 쓸 세션을 같은 질문 앞부분으로 다시 데워 둔다.
         // 미리 부를 때 함께 데우면 그 호출이 느려져(Mac 첫 토큰 1.35초 → 1.86초) 버릴 때 데운다
-        if Self.warmSessionEnabled { prepareSpare(prefix: old.prefix) }
+        prepareSpare(prefix: old.prefix)
         let cancelled = ContinuousClock.now
         Self.timingLog.notice("[미리] 버림 · 시작 후 \(ms(cancelled - old.startedAt), privacy: .public)ms")
         // 버린 호출이 실제로 언제 멈추는지 (안 멈추면 다음 호출이 그 뒤에 줄을 선다)

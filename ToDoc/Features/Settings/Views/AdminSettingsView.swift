@@ -64,9 +64,7 @@ struct AdminSettingsView: View {
     @State private var running: Action?
     @State private var result: String?
     @AppStorage(DemoCareCallPlan.enabledKey) private var demoCareCall = true
-    @AppStorage(FoundationModelsCareCallAdapter.warmSessionKey) private var warmSession = true
     @AppStorage(FoundationModelsCareCallAdapter.speculationKey) private var speculation = false
-    @State private var checkingSpeech = false
 
     var body: some View {
         SettingsScreen(title: "관리자 설정", cancel: { dismiss() }) {
@@ -78,15 +76,7 @@ struct AdminSettingsView: View {
                 .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
                 .accessibilityIdentifier("settings.admin.demoCareCall")
             }
-            SettingsSection(title: "", footer: "켜면 다음 AI 분석용 세션을 미리 만들어 데워 둬요. 끄면 예전처럼 분석할 때 만들어요. 시간은 Console 앱에서 FMTiming으로 볼 수 있어요.") {
-                Toggle(isOn: $warmSession) {
-                    Text("AI 세션 미리 데우기").settingsText()
-                }
-                .tint(AppColors.primary)
-                .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
-                .accessibilityIdentifier("settings.admin.warmSession")
-            }
-            SettingsSection(title: "", footer: "켜면 환자가 말을 멈춘 것 같을 때 문장이 확정되기 전에 AI 분석을 미리 시작해요. 문장이 달라지면 버리고 다시 분석해요. Console 앱에서 [미리]로 볼 수 있어요.") {
+            SettingsSection(title: "") {
                 Toggle(isOn: $speculation) {
                     Text("말 끝나기 전에 미리 분석하기").settingsText()
                 }
@@ -105,22 +95,6 @@ struct AdminSettingsView: View {
                 row(.seedMockData, subtitle: "10/16~11/19 증상·통증, 10/16·11/6 진료 전 기록")
                 SettingsDivider()
                 row(.clearAll, subtitle: "모든 기록을 지워요")
-            }
-            SettingsSection(title: "", footer: "한국어 합성 음성으로 대본 10문장을 음성 인식기에 넣어 봐요. 1~2분 걸리고, 결과는 Console 앱에서 SpeechCheck로 볼 수 있어요.") {
-                Button {
-                    checkingSpeech = true
-                    Task {
-                        result = await DemoSpeechCheck.run()
-                        checkingSpeech = false
-                    }
-                } label: {
-                    HStack {
-                        SettingsRow(title: "합성 음성 인식 시험", chevron: !checkingSpeech)
-                        if checkingSpeech { ProgressView().padding(.trailing, 16) }
-                    }
-                }
-                .disabled(checkingSpeech || running != nil)
-                .accessibilityIdentifier("settings.admin.speechCheck")
             }
             if service == nil {
                 SettingsFeedback(error: "로그인한 환자 화면에서만 쓸 수 있어요.")
