@@ -46,6 +46,8 @@ struct ToDocApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(container: container, router: router)
+                // 시연·측정용: Mac에서 환경 변수로 시켰을 때만 자동 환자로 통화를 돌린다
+                .task { await DemoAutoRun.runIfRequested(container: container) }
         }
     }
 }

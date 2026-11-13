@@ -131,8 +131,9 @@ final class DependencyContainer {
 
     /// 케어콜 서비스 (설정 파일·마이크·음성 인식·음성 합성·AI 모델). 부를 때마다 새로 만들고 컨테이너는 들고 있지 않는다.
     /// AI 모델은 대기 화면의 준비 단계(loadModel)에서 확인한다
-    func makeCareCallService() throws -> CareCallService {
-        let recorder = AVAudioEngineAdapter()
+    /// custom: 마이크 대신 쓸 소리 입력 (시연·측정용 자동 환자). 없으면 실제 마이크
+    func makeCareCallService(recorder custom: AudioRecorder? = nil) throws -> CareCallService {
+        let recorder = custom ?? AVAudioEngineAdapter()
         return CareCallService(
             config: try Bundle.main.decodeJSON(CareCallConfig.self, named: "side_effects"),
             rules: try Bundle.main.decodeJSON(EmergencyRules.self, named: "emergency_rules"),

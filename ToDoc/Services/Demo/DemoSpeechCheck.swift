@@ -16,24 +16,33 @@ import Synchronization
 nonisolated enum DemoSpeechCheck {
     private static let log = Logger(subsystem: "ToDoc", category: "SpeechCheck")
     /// 음성 대화 시간 측정에 쓰는 대본의 답
-    private static let sentences = [
+    static let sentences = [
         "괜찮아요", "아니요 속 편안합니다", "대변은 날마다 잘 보고 있어요", "변은 단단하게 잘 나와요", "입속은 하나도 안 헐었어요",
         "아니요", "아뇨 깨끗해요", "식사는 평소대로 해요", "눈이 자주 충혈돼요", "사흘 됐어요",
     ]
+
+    /// 이 기기의 한국어 목소리 중 품질이 가장 좋은 것 (프리미엄 > 고급 > 기본)
+    static func bestKoreanVoice() -> AVSpeechSynthesisVoice? {
+        AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "ko-KR" }.max { $0.quality.rawValue < $1.quality.rawValue }
+    }
+
+    /// 로그에 남기고, Mac에서 명령으로 띄웠을 때 볼 수 있게 표준 출력에도 낸다
+    private static func note(_ line: String) {
+        log.notice("\(line, privacy: .public)")
+        print("AUTO " + line)
+        fflush(stdout)
+    }
 
     private struct Heard {
         var partialAts: [ContinuousClock.Instant] = []
         var final: (text: String, at: ContinuousClock.Instant)?
     }
 
-    /// 이 기기의 한국어 목소리 중 품질이 가장 좋은 것으로 대본을 읽혀 인식시킨다. 반환: 화면에 보여 줄 요약
+    /// 이 기기의 한국어 목소리 중 품질이 가장 좋은 것으로 문장들을 읽혀 인식시킨다. 반환: 화면에 보여 줄 요약
     @concurrent
-    static func run() async -> String {
-        let voices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "ko-KR" }.sorted { $0.quality.rawValue > $1.quality.rawValue }
-        for voice in voices {
-            log.notice("[합성 인식] 목소리 \(voice.name, privacy: .public) · \(quality(voice), privacy: .public)")
-        }
-        guard let voice = voices.first else { return "한국어 목소리가 없어요." }
+    static func run(sentences: [String] = sentences) async -> String {
+        guard let voice = bestKoreanVoice() else { return "한국어 목소리가 없어요." }
+        note("[합성 인식] 목소리 \(voice.name) · \(quality(voice))")
         do {
             let korean = Locale(identifier: "ko-KR")
             guard SpeechTranscriber.isAvailable, let locale = await SpeechTranscriber.supportedLocale(equivalentTo: korean) else {
@@ -103,10 +112,9 @@ nonisolated enum DemoSpeechCheck {
                 if let wait { waits.append(wait) }
                 let fromPartial = got.final.flatMap { final in got.partialAts.last.map { ms(final.at - $0) } }
                 let gaps = zip(got.partialAts, got.partialAts.dropFirst()).map { ms($1 - $0) }.filter { $0 > 100 }
-                log.notice("""
-                    [합성 인식] \(same ? "O" : "X", privacy: .public) ‘\(sentence, privacy: .public)’ → ‘\(got.final?.text ?? "(확정 없음)", privacy: .public)’ · \
-                    말 끝→확정 \(wait.map { "\($0)ms" } ?? "-", privacy: .public) · 마지막 중간 결과→확정 \(fromPartial.map { "\($0)ms" } ?? "-", privacy: .public) · \
-                    중간 결과 간격 \(gaps, privacy: .public)
+                note("""
+                    [합성 인식] \(same ? "O" : "X") ‘\(sentence)’ → ‘\(got.final?.text ?? "(확정 없음)")’ · \
+                    말 끝→확정 \(wait.map { "\($0)ms" } ?? "-") · 마지막 중간 결과→확정 \(fromPartial.map { "\($0)ms" } ?? "-") · 중간 결과 간격 \(gaps)
                     """)
                 // 다음 문장과 섞이지 않게 잠깐 더 쉰다
                 for _ in 0..<10 { if let quiet = silence() { await feed(quiet) } }
@@ -116,16 +124,16 @@ nonisolated enum DemoSpeechCheck {
             results.cancel()
             let middle = waits.sorted().dropFirst(waits.count / 2).first.map { String(format: "%.1f초", Double($0) / 1000) } ?? "-"
             let summary = "목소리 \(voice.name)(\(quality(voice))) · \(sentences.count)문장 중 \(correct)개 맞음 · 말 끝→확정 중앙 \(middle)"
-            log.notice("[합성 인식] 끝 · \(summary, privacy: .public)")
+            note("[합성 인식] 끝 · \(summary)")
             return summary
         } catch {
-            log.notice("[합성 인식] 실패 · \(String(describing: error), privacy: .public)")
+            note("[합성 인식] 실패 · \(String(describing: error))")
             return "시험하지 못했어요: \(error.localizedDescription)"
         }
     }
 
     /// 합성 음성을 소리 조각으로 받는다
-    private static func synthesize(_ text: String, voice: AVSpeechSynthesisVoice) async -> [AVAudioPCMBuffer] {
+    static func synthesize(_ text: String, voice: AVSpeechSynthesisVoice) async -> [AVAudioPCMBuffer] {
         let synthesizer = AVSpeechSynthesizer()
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voice
