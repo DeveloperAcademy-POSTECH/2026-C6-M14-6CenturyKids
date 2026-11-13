@@ -31,7 +31,7 @@ final class InterviewEngine {
     private let keywords: [String: [String]]
 
     private(set) var phase: InterviewPhase = .opening
-    /// 지난 차례에 모델을 불렀는지. 짧고 분명한 답처럼 모델 없이 넘어간 차례는 고민 시간을 채우지 않는다
+    /// 지난 차례에 모델을 불렀는지 (시간 로그에 남긴다)
     private(set) var analyzedLastTurn = false
     private(set) var ledger = Ledger()
     private var otherAsked = false

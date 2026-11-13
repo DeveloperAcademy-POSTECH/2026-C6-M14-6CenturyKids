@@ -27,7 +27,6 @@ final class CareCallService: CareCalling {
     }
     private var conversation: Conversation?
     private var noticed = false
-    private let minimumThinking: Duration = .seconds(5)
 
     init(config: CareCallConfig, rules: EmergencyRules, bodyParts: BodyPartDictionary, recorder: AudioRecorder, recognizer: SpeechRecognizer,
          voice: SpeechSynthesizer, loadAnalyzer: @escaping () async throws -> CareCallAI) {
@@ -177,16 +176,11 @@ final class CareCallService: CareCalling {
             guard !stopped, !text.isEmpty else { break }
             onActivity(.heard(text))
             let heardAt = ContinuousClock.now
-            let thinkingEnds = heardAt.advanced(by: minimumThinking)
             out = await engine.handle(patientText: text)
             let handled = ContinuousClock.now - heardAt
             if !out.isFinished { await engine.prewarm() }
             if let completion = out.answerCompletion { onActivity(.answerCompleted(completion)) }
             guard !stopped else { break }
-            if out.phase != .emergencyEnded, engine.analyzedLastTurn {
-                try await Task.sleep(until: thinkingEnds, clock: .continuous)
-                guard !stopped else { break }
-            }
             FoundationModelsCareCallAdapter.timingLog.notice("""
                 [턴] 답 처리 \(Int(handled / .milliseconds(1)), privacy: .public)ms · 말하기까지 \
                 \(Int((ContinuousClock.now - heardAt) / .milliseconds(1)), privacy: .public)ms · 모델 \(engine.analyzedLastTurn ? "부름" : "안 부름", privacy: .public)
