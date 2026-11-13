@@ -92,15 +92,15 @@ private struct SymptomCharacterVideos: View {
 
     var body: some View {
         ZStack {
-            video("CareCallSpeaking", for: .aiSpeaking)
-            video("CareCallNodding", for: .patientSpeaking)
-            video("CareCallThinking", for: .thinking)
+            video("CareCallSpeaking", shows: state == .aiSpeaking)
+            // 답을 분석하는 동안에도 듣던 끄덕임을 끊지 않고 이어 간다
+            video("CareCallNodding", shows: state != .aiSpeaking)
         }
     }
 
-    private func video(_ name: String, for owner: SymptomVoiceState) -> some View {
-        CareCallCharacterVideo(name: name, isPlaying: state == owner)
-            .opacity(state == owner ? 1 : 0)
+    private func video(_ name: String, shows: Bool) -> some View {
+        CareCallCharacterVideo(name: name, isPlaying: shows)
+            .opacity(shows ? 1 : 0)
     }
 }
 
