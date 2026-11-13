@@ -27,6 +27,11 @@ final class CareCallService: CareCalling {
     }
     private var conversation: Conversation?
     private var noticed = false
+    /// 듣는 말이 이만큼 그대로면 말을 멈춘 것으로 보고 분석을 미리 시작한다 (관리자 설정에서 켰을 때)
+    private static let speculationPause: Duration = .milliseconds(700)
+    private var speculationDebounce: Task<Void, Never>?
+    /// 미리 분석을 시작한 말
+    private var speculatedText: String?
 
     init(config: CareCallConfig, rules: EmergencyRules, bodyParts: BodyPartDictionary, recorder: AudioRecorder, recognizer: SpeechRecognizer,
          voice: SpeechSynthesizer, loadAnalyzer: @escaping () async throws -> CareCallAI) {
@@ -172,12 +177,20 @@ final class CareCallService: CareCalling {
 
         while !out.isFinished, !stopped {
             onActivity(.listening)
-            let text = try await recognizer.listen { onActivity(.hearing($0)) }
+            let text = try await recognizer.listen { [weak self] heard in
+                onActivity(.hearing(heard))
+                self?.speculate(on: heard, engine: engine)
+            }
+            speculationDebounce?.cancel()
             guard !stopped, !text.isEmpty else { break }
             onActivity(.heard(text))
             let heardAt = ContinuousClock.now
             out = await engine.handle(patientText: text)
             let handled = ContinuousClock.now - heardAt
+            speculatedText = nil
+            if await engine.cancelSpeculation() {
+                FoundationModelsCareCallAdapter.timingLog.notice("[미리] 쓰이지 않음 (모델을 안 불렀거나 다른 요청)")
+            }
             if !out.isFinished { await engine.prewarm() }
             if let completion = out.answerCompletion { onActivity(.answerCompleted(completion)) }
             guard !stopped else { break }
@@ -190,6 +203,30 @@ final class CareCallService: CareCalling {
             await voice.waitUntilDone()
         }
         return out.phase
+    }
+
+    /// 듣는 말이 바뀌면 미리 시작한 분석을 버리고, 말이 멈추면 그 말로 다시 시작한다.
+    /// 문장이 확정되면 같은 말이 한 번 더 오는데, 그때는 그대로 둔다
+    private func speculate(on heard: String, engine: InterviewEngine) {
+        guard FoundationModelsCareCallAdapter.speculationEnabled else { return }
+        let text = heard.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text != speculatedText else { return }
+        speculationDebounce?.cancel()
+        if let old = speculatedText {
+            speculatedText = nil
+            Task {
+                guard await engine.cancelSpeculation() else { return }
+                FoundationModelsCareCallAdapter.timingLog.notice(
+                    "[미리] 말이 바뀜 · \(FoundationModelsCareCallAdapter.difference(old, text), privacy: .public)")
+            }
+        }
+        guard !text.isEmpty else { return }
+        speculationDebounce = Task { [weak self] in
+            try? await Task.sleep(for: Self.speculationPause)
+            guard !Task.isCancelled, let self else { return }
+            self.speculatedText = text
+            await engine.speculate(patientText: text)
+        }
     }
 
     private func finish() async {

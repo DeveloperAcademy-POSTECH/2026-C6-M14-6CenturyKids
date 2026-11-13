@@ -126,6 +126,19 @@ final class InterviewEngine {
         await analyzer.prewarm(request(for: phase, patientText: ""))
     }
 
+    /// 환자가 말을 멈춘 것 같을 때(문장 확정 전) 그때까지 들은 말로 분석을 미리 시작한다. 기록은 바꾸지 않는다.
+    /// handle이 모델 없이 처리할 말(위기·응급 표현, 응급 확인 답, 짧고 분명한 답)에는 시작하지 않는다
+    func speculate(patientText: String) async {
+        guard phase != .saved, phase != .emergencyEnded, pendingEmergencyCheck == nil,
+              crisisDetector.matches(patientText) == nil, !isEmergencyText(patientText),
+              quickResult(for: phase, patientText: patientText) == nil else { return }
+        await analyzer.speculate(request(for: phase, patientText: patientText))
+    }
+
+    @discardableResult func cancelSpeculation() async -> Bool {
+        await analyzer.cancelSpeculation()
+    }
+
     func handle(patientText: String) async -> Output {
         guard phase != .saved, phase != .emergencyEnded else {
             return Output(utterance: "", phase: phase)

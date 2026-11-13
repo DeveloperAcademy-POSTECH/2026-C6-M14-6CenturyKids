@@ -10,6 +10,9 @@ final class MockAnalyzer: CareCallAI {
     /// 요청(질문 항목 포함)에 따라 답을 바꿀 때
     var respond: ((AnalysisRequest) -> TurnResult?)?
     private(set) var requests: [AnalysisRequest] = []
+    private(set) var speculated: [AnalysisRequest] = []
+
+    func speculate(_ request: AnalysisRequest) async { speculated.append(request) }
 
     func analyze(_ request: AnalysisRequest) async throws -> TurnResult {
         requests.append(request)
@@ -385,6 +388,20 @@ struct InterviewEngineTests {
         await reach("dehydration_nutrition")
         _ = await engine.handle(patientText: answer)
         #expect((engine.ledger["dehydration_nutrition"]?.presence == .absent) == usual)
+    }
+
+    @Test func 미리_분석은_모델을_부를_답에만_시작하고_기록을_바꾸지_않는다() async {
+        await reach("nausea_vomiting")
+        let before = engine.ledger
+        await engine.speculate(patientText: "아니요")
+        #expect(mock.speculated.isEmpty)
+        await engine.speculate(patientText: "속은 편해요")
+        #expect(mock.speculated.map(\.patientText) == ["속은 편해요"])
+        #expect(engine.ledger.sameRecords(as: before))
+        // handle이 같은 요청을 보내야 미리 받은 결과를 쓸 수 있다
+        _ = await engine.handle(patientText: "속은 편해요")
+        let sent = mock.requests.last, early = mock.speculated.first
+        #expect(sent?.patientText == early?.patientText && sent?.slotKey == early?.slotKey && sent?.question == early?.question)
     }
 
     @Test(arguments: [("밥 두 공기 뚝딱 먹어요", true), ("보리차를 자주 마셔요", true), ("밥을 반 공기만 먹어요", false),

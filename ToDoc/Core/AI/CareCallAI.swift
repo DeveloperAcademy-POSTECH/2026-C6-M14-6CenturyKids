@@ -11,10 +11,16 @@ protocol CareCallAI {
     func analyze(_ request: AnalysisRequest) async throws -> TurnResult
     /// 첫 분석 전에 모델을 준비해 둔다 (첫 질문을 읽어 주는 동안)
     func prewarm(_ request: AnalysisRequest) async
+    /// 환자가 말을 멈춘 것 같을 때 문장 확정을 기다리지 않고 분석을 미리 시작한다. 같은 요청의 analyze가 그 결과를 쓴다
+    func speculate(_ request: AnalysisRequest) async
+    /// 미리 시작한 분석을 버린다. 버린 것이 있었으면 true
+    @discardableResult func cancelSpeculation() async -> Bool
 }
 
 extension CareCallAI {
     func prewarm(_ request: AnalysisRequest) async {}
+    func speculate(_ request: AnalysisRequest) async {}
+    @discardableResult func cancelSpeculation() async -> Bool { false }
 }
 
 /// 엔진이 AI에 넘기는 한 턴

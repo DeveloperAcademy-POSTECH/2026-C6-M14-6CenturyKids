@@ -65,6 +65,7 @@ struct AdminSettingsView: View {
     @State private var result: String?
     @AppStorage(DemoCareCallPlan.enabledKey) private var demoCareCall = true
     @AppStorage(FoundationModelsCareCallAdapter.warmSessionKey) private var warmSession = true
+    @AppStorage(FoundationModelsCareCallAdapter.speculationKey) private var speculation = false
 
     var body: some View {
         SettingsScreen(title: "관리자 설정", cancel: { dismiss() }) {
@@ -83,6 +84,14 @@ struct AdminSettingsView: View {
                 .tint(AppColors.primary)
                 .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
                 .accessibilityIdentifier("settings.admin.warmSession")
+            }
+            SettingsSection(title: "", footer: "켜면 환자가 말을 멈춘 것 같을 때 문장이 확정되기 전에 AI 분석을 미리 시작해요. 문장이 달라지면 버리고 다시 분석해요. Console 앱에서 [미리]로 볼 수 있어요.") {
+                Toggle(isOn: $speculation) {
+                    Text("말 끝나기 전에 미리 분석하기").settingsText()
+                }
+                .tint(AppColors.primary)
+                .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
+                .accessibilityIdentifier("settings.admin.speculation")
             }
             SettingsSection(title: "") {
                 row(.painSkip, subtitle: nil)

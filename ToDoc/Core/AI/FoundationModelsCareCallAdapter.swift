@@ -15,6 +15,9 @@ final class FoundationModelsCareCallAdapter: CareCallAI {
     /// 관리자 설정 토글이 저장하는 키. 값이 없으면 켜짐. 끄면 예전처럼 호출 때 세션을 만든다 (속도 비교용)
     static let warmSessionKey = "demo.fmWarmSession"
     static var warmSessionEnabled: Bool { UserDefaults.standard.object(forKey: warmSessionKey) as? Bool ?? true }
+    /// 관리자 설정 토글이 저장하는 키. 값이 없으면 꺼짐. 켜면 환자가 말을 멈춘 것 같을 때 문장 확정 전에 미리 분석한다
+    static let speculationKey = "demo.fmSpeculate"
+    static var speculationEnabled: Bool { UserDefaults.standard.bool(forKey: speculationKey) }
     static let timingLog = Logger(subsystem: "ToDoc", category: "FMTiming")
 
     /// 턴 분석 출력 상한. 넘으면 형식 실패로 엔진이 재시도한다. Foundation Models 평가(2026-10-21, 시나리오 55개): 상한 없음·100·160의
@@ -29,6 +32,15 @@ final class FoundationModelsCareCallAdapter: CareCallAI {
     /// 미리 만들어 prewarm한 다음 호출용 세션, 데운 시각, 함께 데운 프롬프트 앞부분 (환자 답 앞까지)
     private var spare: (session: LanguageModelSession, warmedAt: ContinuousClock.Instant, prefix: String?)?
     private var callNumber = 0
+    /// 미리 시작한 분석: 그때의 프롬프트와 환자 답 앞부분, 결과(첫 토큰·끝난 시각 포함), 시작 시각
+    private var early: (prompt: String, prefix: String,
+                        task: Task<(result: TurnResult, firstToken: ContinuousClock.Instant, finished: ContinuousClock.Instant), any Error>,
+                        startedAt: ContinuousClock.Instant)?
+    private var options: GenerationOptions {
+        template.temperature == 0
+            ? GenerationOptions(sampling: .greedy, maximumResponseTokens: Self.analysisMaxTokens)
+            : GenerationOptions(temperature: template.temperature, maximumResponseTokens: Self.analysisMaxTokens)
+    }
 
     init(model: SystemLanguageModel, bundle: Bundle = .main) throws {
         self.model = model
@@ -36,15 +48,13 @@ final class FoundationModelsCareCallAdapter: CareCallAI {
     }
 
     func analyze(_ request: AnalysisRequest) async throws -> TurnResult {
-        let options = template.temperature == 0
-            ? GenerationOptions(sampling: .greedy, maximumResponseTokens: Self.analysisMaxTokens)
-            : GenerationOptions(temperature: template.temperature, maximumResponseTokens: Self.analysisMaxTokens)
+        let text = prompt(for: request)
+        if let result = await earlyResult(for: text) { return result }
         let warm = spare
         spare = nil
         let session = warm?.session ?? LanguageModelSession(model: model, instructions: template.fullInstructions)
         defer { if Self.warmSessionEnabled { prepareSpare(prefix: nil) } }
         callNumber += 1
-        let text = prompt(for: request)
         let start = ContinuousClock.now
         let (analysis, firstToken) = try await Self.respond(session: session, prompt: text, options: options)
         let total = ContinuousClock.now - start
@@ -66,6 +76,70 @@ final class FoundationModelsCareCallAdapter: CareCallAI {
         } else {
             LanguageModelSession(model: model, instructions: template.fullInstructions).prewarm()
         }
+    }
+
+    func speculate(_ request: AnalysisRequest) async {
+        let text = prompt(for: request)
+        guard early?.prompt != text else { return }
+        await cancelSpeculation()
+        let warm = spare
+        spare = nil
+        let session = warm?.session ?? LanguageModelSession(model: model, instructions: template.fullInstructions)
+        var blank = request
+        blank.patientText = ""
+        let options = options
+        let task = Task {
+            let (analysis, firstToken) = try await Self.respond(session: session, prompt: text, options: options)
+            return (result: analysis.turnResult, firstToken: firstToken, finished: ContinuousClock.now)
+        }
+        early = (text, prompt(for: blank), task, .now)
+        Self.timingLog.notice("[미리] 시작 · 세션 \(warm == nil ? "그 자리에서 만듦" : "데운 것", privacy: .public) · 프롬프트 \(text.count, privacy: .public)자")
+    }
+
+    @discardableResult func cancelSpeculation() async -> Bool {
+        guard let old = early else { return false }
+        early = nil
+        old.task.cancel()
+        // 미리 부른 호출이 데운 세션을 썼으니, 진짜 호출이 쓸 세션을 같은 질문 앞부분으로 다시 데워 둔다.
+        // 미리 부를 때 함께 데우면 그 호출이 느려져(Mac 첫 토큰 1.35초 → 1.86초) 버릴 때 데운다
+        if Self.warmSessionEnabled { prepareSpare(prefix: old.prefix) }
+        let cancelled = ContinuousClock.now
+        Self.timingLog.notice("[미리] 버림 · 시작 후 \(ms(cancelled - old.startedAt), privacy: .public)ms")
+        // 버린 호출이 실제로 언제 멈추는지 (안 멈추면 다음 호출이 그 뒤에 줄을 선다)
+        Task {
+            _ = await old.task.result
+            Self.timingLog.notice("[미리] 버린 호출 멈춤 · 취소 후 \(ms(ContinuousClock.now - cancelled), privacy: .public)ms")
+        }
+        return true
+    }
+
+    /// 미리 시작한 분석이 같은 프롬프트면 그 결과를 쓴다 (아직 돌고 있으면 끝날 때까지 기다린다). 다르면 버린다
+    private func earlyResult(for text: String) async -> TurnResult? {
+        guard let early else { return nil }
+        guard early.prompt == text else {
+            Self.timingLog.notice("[미리] 빗나감 · \(Self.difference(early.prompt, text), privacy: .public)")
+            await cancelSpeculation()
+            return nil
+        }
+        self.early = nil
+        let asked = ContinuousClock.now
+        guard let done = try? await early.task.value else {
+            Self.timingLog.notice("[미리] 실패 · 다시 부름")
+            return nil
+        }
+        Self.timingLog.notice("""
+            [미리] 적중 · 시작 \(ms(asked - early.startedAt), privacy: .public)ms 뒤 요청 · 더 기다림 \(ms(ContinuousClock.now - asked), privacy: .public)ms · \
+            첫 토큰 \(ms(done.firstToken - early.startedAt), privacy: .public)ms · 전체 \(ms(done.finished - early.startedAt), privacy: .public)ms
+            """)
+        return done.result
+    }
+
+    /// 미리 본 말과 나중 말이 어떻게 다른지 (내용은 남기지 않는다)
+    static func difference(_ early: String, _ later: String) -> String {
+        func letters(_ s: String) -> String { String(s.filter { $0.isLetter || $0.isNumber }) }
+        if letters(early) == letters(later) { return "띄어쓰기·문장부호만 다름" }
+        if letters(later).hasPrefix(letters(early)) { return "뒤에 말이 더 붙음" }
+        return "글자가 다름"
     }
 
     private func prepareSpare(prefix: String?) {
