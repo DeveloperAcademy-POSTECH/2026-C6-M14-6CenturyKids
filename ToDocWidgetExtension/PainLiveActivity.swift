@@ -113,6 +113,7 @@ struct PainLiveActivity: Widget {
                             }
                             .multilineTextAlignment(.trailing)
                             .padding(.bottom, 8)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                             .background(alignment: .bottomLeading) {
                                 Image("ScriptHangno")
                                     .resizable()
@@ -188,7 +189,7 @@ struct PainLiveActivity: Widget {
 
     private func painRecordCapsule(timerInterval: ClosedRange<Date>) -> some View {
         ZStack {
-            Capsule().fill(Color.gray)
+            Capsule().fill(Color("LiveActivityGrey"))
 
             ProgressView(timerInterval: timerInterval, countsDown: false)
                 .labelsHidden()
@@ -197,7 +198,7 @@ struct PainLiveActivity: Widget {
                 .accessibilityHidden(true)
 
             Label("통증 기록하러 가기", systemImage: "cross.vial")
-                .foregroundStyle(.white)
+                .foregroundStyle(Color("AnswerGreen"))
         }
         .frame(maxWidth: .infinity)
         .frame(height: 52)
