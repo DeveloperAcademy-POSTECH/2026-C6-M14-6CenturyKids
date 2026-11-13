@@ -66,6 +66,7 @@ struct AdminSettingsView: View {
     @AppStorage(DemoCareCallPlan.enabledKey) private var demoCareCall = true
     @AppStorage(FoundationModelsCareCallAdapter.warmSessionKey) private var warmSession = true
     @AppStorage(FoundationModelsCareCallAdapter.speculationKey) private var speculation = false
+    @State private var checkingSpeech = false
 
     var body: some View {
         SettingsScreen(title: "관리자 설정", cancel: { dismiss() }) {
@@ -104,6 +105,22 @@ struct AdminSettingsView: View {
                 row(.seedMockData, subtitle: "10/16~11/19 증상·통증, 10/16·11/6 진료 전 기록")
                 SettingsDivider()
                 row(.clearAll, subtitle: "모든 기록을 지워요")
+            }
+            SettingsSection(title: "", footer: "한국어 합성 음성으로 대본 10문장을 음성 인식기에 넣어 봐요. 1~2분 걸리고, 결과는 Console 앱에서 SpeechCheck로 볼 수 있어요.") {
+                Button {
+                    checkingSpeech = true
+                    Task {
+                        result = await DemoSpeechCheck.run()
+                        checkingSpeech = false
+                    }
+                } label: {
+                    HStack {
+                        SettingsRow(title: "합성 음성 인식 시험", chevron: !checkingSpeech)
+                        if checkingSpeech { ProgressView().padding(.trailing, 16) }
+                    }
+                }
+                .disabled(checkingSpeech || running != nil)
+                .accessibilityIdentifier("settings.admin.speechCheck")
             }
             if service == nil {
                 SettingsFeedback(error: "로그인한 환자 화면에서만 쓸 수 있어요.")
