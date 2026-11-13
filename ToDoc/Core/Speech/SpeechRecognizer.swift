@@ -15,8 +15,9 @@ protocol SpeechRecognizer: AnyObject {
 
     /// 환자 말 한 턴을 듣는다 (마이크가 꺼져 있으면 켠다). 말이 끝나면(확정 결과 뒤 무음) 문장을 돌려주고,
     /// 그 전에 정지되면 그때까지 들은 문장을 돌려준다. 마이크를 켜지 못하면 에러.
-    /// 듣는 동안 지금까지 들은 말(아직 바뀔 수 있는 중간 결과 포함)을 onPartial로 알린다
-    func listen(onPartial: @escaping (String) -> Void) async throws -> String
+    /// 듣는 동안 지금까지 들은 말을 onPartial로 알린다. isFinal이 false면 아직 바뀔 수 있는 중간 결과가 섞여 있고,
+    /// true면 그때까지의 말이 확정된 것이다 (환자가 말을 이으면 그 뒤로 더 붙는다)
+    func listen(onPartial: @escaping (_ heard: String, _ isFinal: Bool) -> Void) async throws -> String
 
     func stop() async
 }

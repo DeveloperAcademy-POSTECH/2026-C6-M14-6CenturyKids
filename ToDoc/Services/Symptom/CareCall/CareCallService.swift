@@ -27,8 +27,9 @@ final class CareCallService: CareCalling {
     }
     private var conversation: Conversation?
     private var noticed = false
-    /// 듣는 말이 이만큼 그대로면 말을 멈춘 것으로 보고 분석을 미리 시작한다 (관리자 설정에서 켰을 때)
-    private static let speculationPause: Duration = .milliseconds(700)
+    /// 듣는 말이 이만큼 그대로면 말을 멈춘 것으로 보고 분석을 미리 시작한다 (관리자 설정에서 켰을 때).
+    /// 인식기의 중간 결과가 0.85초쯤 간격으로 와서, 0.7초면 말하는 중에도 걸려 미리 부른 24번 중 17번을 버렸다 (2026-11-13 실기기)
+    private static let speculationPause: Duration = .seconds(1)
     private var speculationDebounce: Task<Void, Never>?
     /// 미리 분석을 시작한 말
     private var speculatedText: String?
@@ -177,9 +178,9 @@ final class CareCallService: CareCalling {
 
         while !out.isFinished, !stopped {
             onActivity(.listening)
-            let text = try await recognizer.listen { [weak self] heard in
+            let text = try await recognizer.listen { [weak self] heard, isFinal in
                 onActivity(.hearing(heard))
-                self?.speculate(on: heard, engine: engine)
+                self?.speculate(on: heard, isFinal: isFinal, engine: engine)
             }
             speculationDebounce?.cancel()
             guard !stopped, !text.isEmpty else { break }
@@ -206,25 +207,24 @@ final class CareCallService: CareCalling {
     }
 
     /// 듣는 말이 바뀌면 미리 시작한 분석을 버리고, 말이 멈추면 그 말로 다시 시작한다.
-    /// 문장이 확정되면 같은 말이 한 번 더 오는데, 그때는 그대로 둔다
-    private func speculate(on heard: String, engine: InterviewEngine) {
+    /// 확정된 말은 더 바뀌지 않으니 기다리지 않고 바로 시작한다. 이미 그 말로 시작했으면 그대로 둔다
+    private func speculate(on heard: String, isFinal: Bool, engine: InterviewEngine) {
         guard FoundationModelsCareCallAdapter.speculationEnabled else { return }
         let text = heard.trimmingCharacters(in: .whitespacesAndNewlines)
         guard text != speculatedText else { return }
         speculationDebounce?.cancel()
-        if let old = speculatedText {
-            speculatedText = nil
-            Task {
-                guard await engine.cancelSpeculation() else { return }
+        let old = speculatedText
+        speculatedText = nil
+        speculationDebounce = Task { [weak self] in
+            if let old, await engine.cancelSpeculation() {
                 FoundationModelsCareCallAdapter.timingLog.notice(
                     "[미리] 말이 바뀜 · \(FoundationModelsCareCallAdapter.difference(old, text), privacy: .public)")
             }
-        }
-        guard !text.isEmpty else { return }
-        speculationDebounce = Task { [weak self] in
-            try? await Task.sleep(for: Self.speculationPause)
+            guard !text.isEmpty else { return }
+            if !isFinal { try? await Task.sleep(for: Self.speculationPause) }
             guard !Task.isCancelled, let self else { return }
             self.speculatedText = text
+            if isFinal { FoundationModelsCareCallAdapter.timingLog.notice("[미리] 문장이 확정돼 바로 부름") }
             await engine.speculate(patientText: text)
         }
     }

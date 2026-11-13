@@ -26,7 +26,7 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
     /// 이번 턴에 확정된 문장
     private var finalized = ""
     /// 이번 턴에서 지금까지 들은 말을 받는 쪽 (중간 결과 포함)
-    private var onPartial: ((String) -> Void)?
+    private var onPartial: ((String, Bool) -> Void)?
     private var turnEnd: CheckedContinuation<String, Never>?
     private var micOn = false
     /// 시간 로그용: 이번 턴의 마지막 중간 결과·마지막 확정 시각, 그 확정 때까지 마지막으로 말소리가 들린 시각, 확정 횟수
@@ -81,7 +81,7 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
         micOn = true
     }
 
-    func listen(onPartial: @escaping (String) -> Void) async throws -> String {
+    func listen(onPartial: @escaping (_ heard: String, _ isFinal: Bool) -> Void) async throws -> String {
         // 준비 전이나 정지 후에는 들을 수 없으니 바로 빈 문장을 돌려준다 (영원히 기다리지 않게)
         guard analyzer != nil else { return "" }
         try startMicrophone()
@@ -142,14 +142,14 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
         // 중간 결과는 확정 문장 뒤에 붙여 보여 주기만 한다 (말하는 동안 바뀔 수 있어 턴 문장에는 넣지 않는다)
         guard isFinal else {
             lastPartialAt = .now
-            onPartial?(Self.joined(finalized, sentence))
+            onPartial?(Self.joined(finalized, sentence), false)
             return
         }
         finalAt = .now
         loudAtFinal = feed.lastLoudAt
         finals += 1
         finalized = Self.joined(finalized, sentence)
-        onPartial?(finalized)
+        onPartial?(finalized, true)
         // 잡음만 들렸으면(확정 문장 없음) 계속 듣는다
         guard !finalized.isEmpty else { return }
         silenceTask = Task { [weak self] in
