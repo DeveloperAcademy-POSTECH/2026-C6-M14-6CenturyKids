@@ -49,6 +49,9 @@ enum DemoAutoRun {
     private static let no = "아니요"
     /// 한 판이 이보다 길어지면 끊는다 (같은 질문을 되풀이하는 경우)
     private static let limit: Duration = .seconds(300)
+    /// 돌린 통화 서비스를 앱이 끝날 때까지 잡아 둔다. 판이 끝나자마자 놓으면 AI 음성 재생기가 마지막 조각을 정리하는 중에 없어져
+    /// 앱이 죽었다 (MediaToolbox에서 EXC_BAD_ACCESS, 2026-11-13 실기기 7번째 판)
+    private static var kept: [CareCallService] = []
 
     /// 시나리오에 나오는 모든 문장 (쉬는 자리는 이어 붙여서)
     static var allSentences: [String] {
@@ -100,6 +103,7 @@ enum DemoAutoRun {
             let rules = try Bundle.main.decodeJSON(EmergencyRules.self, named: "emergency_rules")
             let patient = DemoAutoPatient()
             let service = try container.makeCareCallService(recorder: patient)
+            kept.append(service)
             try await service.requestMicrophone()
             try await service.loadModel()
             try await service.prepareSpeech()
