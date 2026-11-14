@@ -176,6 +176,9 @@ struct AnswerReading {
                 || (config.noSuffixes + (effect?.absentPhrases ?? [])).contains(where: { compact.hasSuffix(Self.normalized($0)) })
         else { return false }
         if Self.hasContrast(t) || t.contains("그리고") { return false }
+        // 정상 끝말 앞에 있다는 말이 있으면 모델이 본다 ("변비가 좀 있어요 잘 보고 있어요"를 끝말만 보고 없음으로 읽지 않는다)
+        if let phrase = effect?.absentPhrases?.map(Self.normalized).first(where: compact.hasSuffix),
+           compact.dropLast(phrase.count).firstMatch(of: /있(어요|습니다|었어요|었습니다|어|네요)/) != nil { return false }
         if NumberParser.hasNumber(t) { return false }
         if config.effects.contains(where: { $0.id != key && $0.said(in: t) }) { return false }
         if negatesOtherThing(t, for: key) { return false }
