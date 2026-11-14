@@ -64,7 +64,8 @@ struct AdminSettingsView: View {
     @State private var running: Action?
     @State private var result: String?
     @AppStorage(DemoCareCallPlan.enabledKey) private var demoCareCall = true
-    @AppStorage(FoundationModelsCareCallAdapter.speculationKey) private var speculation = false
+    @AppStorage(FoundationModelsCareCallAdapter.speculationKey) private var speculation = true
+    @AppStorage(SpeechAnalyzerAdapter.skipSilenceKey) private var skipSilence = true
 
     var body: some View {
         SettingsScreen(title: "관리자 설정", cancel: { dismiss() }) {
@@ -83,6 +84,13 @@ struct AdminSettingsView: View {
                 .tint(AppColors.primary)
                 .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
                 .accessibilityIdentifier("settings.admin.speculation")
+                SettingsDivider()
+                Toggle(isOn: $skipSilence) {
+                    Text("문장이 늦게 확정되면 무음 1초 건너뛰기").settingsText()
+                }
+                .tint(AppColors.primary)
+                .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
+                .accessibilityIdentifier("settings.admin.skipSilence")
             }
             SettingsSection(title: "") {
                 row(.painSkip, subtitle: nil)

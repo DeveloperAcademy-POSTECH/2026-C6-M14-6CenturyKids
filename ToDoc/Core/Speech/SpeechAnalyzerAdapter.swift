@@ -15,6 +15,12 @@ import Synchronization
 final class SpeechAnalyzerAdapter: SpeechRecognizer {
     /// 확정 결과 뒤 이만큼 새 결과가 없으면 말이 끝난 것으로 본다
     private static let silence: Duration = .seconds(1)
+    /// 관리자 설정 토글이 저장하는 키. 값이 없으면 켜짐. 켜면 문장이 늦게 확정된 턴은 무음을 더 기다리지 않고 끝낸다
+    static let skipSilenceKey = "demo.speechSkipSilence"
+    static var skipSilenceEnabled: Bool { UserDefaults.standard.object(forKey: skipSilenceKey) as? Bool ?? true }
+    /// 확정이 마지막 중간 결과보다 이만큼 넘게 늦었으면 인식기가 이미 말이 끝나기를 기다린 것으로 본다
+    /// (실기기에서 말이 끝난 뒤의 확정은 1.9~2.9초 뒤, 말하는 도중의 확정은 바로 온다)
+    private static let lateFinal: Duration = .milliseconds(1500)
     /// 듣기 구간 시간 로그 (Console에서 SpeechTiming). 말소리가 끝난 뒤 문장이 확정되고 턴이 끝나기까지를 잰다
     private static let timingLog = Logger(subsystem: "ToDoc", category: "SpeechTiming")
 
@@ -152,6 +158,10 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
         onPartial?(finalized, true)
         // 잡음만 들렸으면(확정 문장 없음) 계속 듣는다
         guard !finalized.isEmpty else { return }
+        if Self.skipSilenceEnabled, let lastPartialAt, .now - lastPartialAt > Self.lateFinal {
+            finishTurn()
+            return
+        }
         silenceTask = Task { [weak self] in
             try? await Task.sleep(for: Self.silence)
             guard !Task.isCancelled else { return }
