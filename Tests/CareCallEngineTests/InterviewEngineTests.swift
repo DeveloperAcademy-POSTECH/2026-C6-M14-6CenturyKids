@@ -387,6 +387,19 @@ struct InterviewEngineTests {
         #expect((engine.ledger["dehydration_nutrition"]?.presence == .absent) == usual)
     }
 
+    /// 항목 낱말에는 증상이 아닌 말(식사·대변·피부·입안)도 있다. 정상이라는 문장 뒤에 "괜찮아요"가 붙으면 없음, 증상을 말한 문장 뒤면 있음
+    @Test(arguments: [("dehydration_nutrition", "식사는 평소대로 해요. 괜찮아요.", false), ("dehydration_nutrition", "식사는 잘 하고 있어요. 괜찮아요.", false),
+                      ("constipation", "대변은 날마다 잘 보고 있어요. 괜찮아요.", false), ("rash_pruritus", "피부는 깨끗해요. 괜찮아요.", false),
+                      ("stomatitis", "입안은 멀쩡해요. 괜찮아요.", false), ("constipation", "변비가 좀 있어요. 괜찮아요.", true),
+                      ("rash_pruritus", "팔이 가려워요. 괜찮아요.", true), ("stomatitis", "혓바늘이 났는데요 괜찮아요.", true),
+                      ("diarrhea", "설사를 했는데요 괜찮아요.", true)])
+    func 정상이라는_문장_뒤의_괜찮아요는_없음(key: String, answer: String, present: Bool) async {
+        mock.script[answer] = .empty
+        await reach(key)
+        _ = await engine.handle(patientText: answer)
+        #expect(engine.ledger[key]?.presence == (present ? .present : .absent))
+    }
+
     @Test(arguments: [("밥 두 공기 뚝딱 먹어요", true), ("보리차를 자주 마셔요", true), ("밥을 반 공기만 먹어요", false),
                       ("죽만 조금 먹어요", false), ("먹긴 먹는데 많이 못 먹어요", false), ("입맛이 없어서 겨우 먹어요", false)])
     func 식사_질문에_줄었다는_말_없이_먹는다고만_하면_없음(answer: String, usual: Bool) async {

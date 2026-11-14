@@ -300,8 +300,9 @@ struct AnswerReading {
     /// "~지만", "근데", "그래도", "대신"
     /// 답을 절로 나눈다: 쉼표·마침표·"~는데/~지만" 뒤와 "~고 " 뒤에서 끊는다 ("속이 울렁거리고 등이 가렵고 변도 안 나와요" → 세 절)
     static func parts(_ text: String) -> [String] {
-        // "토는 안 했어요 근데 속이 불편해요"도 두 절 (2026-10-30 확인 세트)
-        KeywordMatcher.clauses(text.replacingOccurrences(of: #"고\s+"#, with: "고,", options: .regularExpression)
+        // "토는 안 했어요 근데 속이 불편해요"도 두 절 (2026-10-30 확인 세트).
+        // "~고 있어요"는 한 절이다: "식사는 잘 하고 있어요"가 "식사는 잘 하고"·"있어요"로 나뉘어 앞 절이 증상을 말한 것으로 읽혔다 (2026-11-14)
+        KeywordMatcher.clauses(text.replacingOccurrences(of: #"고\s+(?!있)"#, with: "고,", options: .regularExpression)
             .replacingOccurrences(of: #"\s(근데|그런데)\s"#, with: ",", options: .regularExpression))
     }
 
