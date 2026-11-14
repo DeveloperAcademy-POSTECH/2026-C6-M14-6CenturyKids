@@ -14,7 +14,7 @@ import Synchronization
 final class DemoAutoPatient: AudioRecorder {
     struct NoVoice: Error {}
 
-    /// 문장 안에서 쉬는 자리 ("대변은 날마다|잘 보고 있어요"). 쉬는 길이는 1초
+    /// 문장 안에서 쉬는 자리. 하나에 0.5초 ("대변은 날마다||잘 보고 있어요"는 1초 쉼)
     static let pauseMark: Character = "|"
 
     var onEvent: ((AudioRecorderEvent) -> Void)?
@@ -51,8 +51,9 @@ final class DemoAutoPatient: AudioRecorder {
         guard let voice, let format, let quiet = Self.silence(format) else { return }
         for sentence in sentences where rehearsed[sentence] == nil {
             var buffers: [AVReadOnlyAudioPCMBuffer] = []
-            for (index, part) in sentence.split(separator: Self.pauseMark).enumerated() {
-                if index > 0 { buffers += Array(repeating: quiet, count: 10) }
+            for (index, part) in sentence.split(separator: Self.pauseMark, omittingEmptySubsequences: false).enumerated() {
+                if index > 0 { buffers += Array(repeating: quiet, count: 5) }
+                if part.isEmpty { continue }
                 buffers += await DemoSpeechCheck.synthesize(String(part), voice: voice).map { AVReadOnlyAudioPCMBuffer(copying: $0) }
             }
             rehearsed[sentence] = buffers

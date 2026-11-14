@@ -10,7 +10,8 @@ import OSLog
 
 /// 시연·측정용: 자동 환자(DemoAutoPatient)로 음성 통화를 화면 없이 여러 판 돌린다. 기록은 저장하지 않는다.
 /// Mac에서 앱을 띄울 때 환경 변수로 시킨다 (devicectl은 DEVICECTL_CHILD_ 접두어를 붙여 넘긴다):
-/// - AUTO_PATIENT=1: 시나리오를 돌린다. AUTO_SCEN=S01,S03 (없으면 전부), AUTO_SPECULATE=1|0 (미리 분석하기, 없으면 설정대로)
+/// - AUTO_PATIENT=1: 시나리오를 돌린다. AUTO_SCEN=S01,S03 (없으면 전부), AUTO_SPECULATE=1|0 (미리 분석하기, 없으면 설정대로),
+///   AUTO_SKIP_SILENCE=1|0 (문장이 늦게 확정되면 무음 1초 건너뛰기, 없으면 설정대로)
 /// - AUTO_SPEECH_CHECK=1: 시나리오에 쓰는 문장들이 합성 음성으로 제대로 받아써지는지만 본다 ("문장;문장"을 주면 그 문장들만)
 /// 결과는 표준 출력("AUTO …")과 Documents/auto-patient.txt에 남기고 앱을 끝낸다
 enum DemoAutoRun {
@@ -18,7 +19,7 @@ enum DemoAutoRun {
         let id: String
         let title: String
         /// 질문 종류 → 할 말. 종류: opening, 증상 id(유무 질문), location, count, onset, amount, other, otherFollowUp, confirm.
-        /// 없는 종류는 fallback을 쓴다. "|"에서는 1초 쉰다
+        /// 없는 종류는 fallback을 쓴다. "|" 하나에 0.5초 쉰다
         let answers: [String: String]
     }
 
@@ -35,11 +36,36 @@ enum DemoAutoRun {
         Scenario(id: "S06", title: "피부 있음, 부위를 따로 물음", answers: ["rash_pruritus": "네 가려워요", "location": "왼쪽 팔이요"]),
         Scenario(id: "S07", title: "식사 줄어듦", answers: ["dehydration_nutrition": "밥을 반 공기도 못 먹어요"]),
         Scenario(id: "S08", title: "쉬었다 이어 말하기", answers: [
-            "constipation": "대변은 날마다|잘 보고 있어요", "stomatitis": "입속은 하나도|안 헐었어요", "dehydration_nutrition": "식사는 평소대로|해요",
+            "constipation": "대변은 날마다||잘 보고 있어요", "stomatitis": "입속은 하나도||안 헐었어요", "dehydration_nutrition": "식사는 평소대로||해요",
         ]),
         Scenario(id: "S09", title: "첫 질문에서 증상을 말함", answers: ["opening": "어제부터 속이 울렁거려요"]),
         Scenario(id: "S10", title: "그 밖에 증상", answers: ["other": "눈이 자주 충혈돼요"]),
-    ]
+        // 여러 문장을 쉬지 않고 이어 말한다. 말하는 도중에 앞 문장이 먼저 확정되는지, 그때 턴이 끊기지 않는지 본다
+        Scenario(id: "M2", title: "두 문장을 이어 말함", answers: [
+            "nausea_vomiting": "아니요 속 편안합니다. 괜찮아요", "constipation": "대변은 날마다 잘 보고 있어요. 변은 단단하게 잘 나와요",
+            "diarrhea": "변은 단단하게 잘 나와요. 대변은 날마다 잘 보고 있어요", "stomatitis": "입속은 하나도 안 헐었어요. 아니요 깨끗해요",
+            "neuropathy": "손발은 괜찮아요. 아니요 안 저려요", "rash_pruritus": "아니요 깨끗해요. 괜찮아요",
+            "dehydration_nutrition": "식사는 평소대로 해요. 괜찮아요",
+        ]),
+        Scenario(id: "M3", title: "세 문장을 이어 말함", answers: [
+            "nausea_vomiting": "아니요 속 편안합니다. 괜찮아요. 식사는 평소대로 해요",
+            "constipation": "대변은 날마다 잘 보고 있어요. 변은 단단하게 잘 나와요. 괜찮아요",
+            "diarrhea": "변은 단단하게 잘 나와요. 대변은 날마다 잘 보고 있어요. 괜찮아요",
+            "stomatitis": "입속은 하나도 안 헐었어요. 아니요 깨끗해요. 괜찮아요", "neuropathy": "손발은 괜찮아요. 아니요 안 저려요. 괜찮아요",
+            "rash_pruritus": "아니요 깨끗해요. 괜찮아요. 손발은 괜찮아요", "dehydration_nutrition": "식사는 평소대로 해요. 괜찮아요. 아니요 속 편안합니다",
+        ]),
+    ] + [1, 2, 3, 4, 6].map(pausing)
+
+    /// 문장 중간에 쉬는 길이를 단계별로 바꾼 판 (P05 = 0.5초 … P30 = 3초). 쉬는 자리에서 턴이 끊기는지 본다.
+    /// "아니요" 뒤에 쉬는 답은 끊겨도 뜻이 같고, 나머지는 끊기면 뜻을 알 수 없다. 구역·저림 답은 쉬지 않는다 (비교용)
+    private static func pausing(_ halfSeconds: Int) -> Scenario {
+        let p = String(repeating: DemoAutoPatient.pauseMark, count: halfSeconds)
+        return Scenario(id: String(format: "P%02d", halfSeconds * 5), title: "문장 중간에 \(Double(halfSeconds) / 2)초 쉼", answers: [
+            "nausea_vomiting": "아니요 속 편안합니다", "constipation": "대변은 날마다\(p)잘 보고 있어요", "diarrhea": "변은 단단하게\(p)잘 나와요",
+            "stomatitis": "입속은 하나도\(p)안 헐었어요", "neuropathy": "손발은 괜찮아요", "rash_pruritus": "아니요\(p)깨끗해요",
+            "dehydration_nutrition": "식사는 평소대로\(p)해요",
+        ])
+    }
 
     private static let fallback = [
         "opening": "괜찮아요", "location": "손이요", "count": "두 번이요", "onset": "어제부터요", "amount": "절반 정도요",
@@ -57,7 +83,7 @@ enum DemoAutoRun {
     static var allSentences: [String] {
         var seen = Set<String>()
         return (scenarios.flatMap { $0.answers.values } + fallback.values + [no])
-            .map { $0.replacingOccurrences(of: String(DemoAutoPatient.pauseMark), with: " ") }
+            .map { $0.split(separator: DemoAutoPatient.pauseMark).joined(separator: " ") }
             .filter { seen.insert($0).inserted }
             .sorted()
     }
@@ -74,11 +100,15 @@ enum DemoAutoRun {
         let chosen = scenarios.filter { wanted?.contains($0.id) ?? true }
         // 이 실행 동안만: 7개를 모두 묻게 하고, 미리 분석하기는 시킨 대로 둔다
         let defaults = UserDefaults.standard
-        let keys = [DemoCareCallPlan.enabledKey, FoundationModelsCareCallAdapter.speculationKey]
+        let keys = [DemoCareCallPlan.enabledKey, FoundationModelsCareCallAdapter.speculationKey, SpeechAnalyzerAdapter.skipSilenceKey]
         let saved = keys.map { defaults.object(forKey: $0) }
         defaults.set(false, forKey: DemoCareCallPlan.enabledKey)
         if let speculate = env["AUTO_SPECULATE"] { defaults.set(speculate == "1", forKey: FoundationModelsCareCallAdapter.speculationKey) }
-        var lines = ["[자동] 시작 · 시나리오 \(chosen.count)개 · 미리 분석 \(FoundationModelsCareCallAdapter.speculationEnabled ? "켬" : "끔")"]
+        if let skip = env["AUTO_SKIP_SILENCE"] { defaults.set(skip == "1", forKey: SpeechAnalyzerAdapter.skipSilenceKey) }
+        var lines = ["""
+            [자동] 시작 · 시나리오 \(chosen.count)개 · 미리 분석 \(FoundationModelsCareCallAdapter.speculationEnabled ? "켬" : "끔") · \
+            무음 건너뛰기 \(SpeechAnalyzerAdapter.skipSilenceEnabled ? "켬" : "끔")
+            """]
         note(lines[0])
         for scenario in chosen {
             lines += await run(scenario, container: container)

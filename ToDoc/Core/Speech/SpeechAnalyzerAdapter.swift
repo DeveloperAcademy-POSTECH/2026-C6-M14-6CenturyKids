@@ -40,6 +40,8 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
     private var finalAt: ContinuousClock.Instant?
     private var loudAtFinal: ContinuousClock.Instant?
     private var finals = 0
+    /// 시간 로그용: 이번 턴의 확정마다, 그 직전 중간 결과에서 확정까지 걸린 시간(ms). 짧으면 말하는 도중의 확정이다
+    private var finalGaps: [Int] = []
 
     init(recorder: AudioRecorder) {
         self.recorder = recorder
@@ -96,6 +98,7 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
         finalAt = nil
         loudAtFinal = nil
         finals = 0
+        finalGaps = []
         self.onPartial = onPartial
         feed.listening = true
         return await withCheckedContinuation { turnEnd = $0 }
@@ -152,6 +155,7 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
             return
         }
         finalAt = .now
+        if let lastPartialAt { finalGaps.append(Int((ContinuousClock.now - lastPartialAt) / .milliseconds(1))) }
         loudAtFinal = feed.lastLoudAt
         finals += 1
         finalized = Self.joined(finalized, sentence)
@@ -169,7 +173,7 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
         }
     }
 
-    /// 턴이 끝날 때 한 줄: 말소리 끝 → 확정, 마지막 중간 결과 → 확정, 확정 → 턴 끝(무음 대기), 확정 횟수(2번 이상이면 말이 이어진 것)
+    /// 턴이 끝날 때 한 줄: 말소리 끝 → 확정, 마지막 중간 결과 → 확정, 확정 → 턴 끝(무음 대기), 확정 횟수(2번 이상이면 말이 이어진 것)와 확정마다 직전 중간 결과 뒤 몇 ms였는지
     private func logTiming() {
         guard turnEnd != nil, let finalAt else { return }
         func gap(_ from: ContinuousClock.Instant?) -> String { from.map { "\(Int((finalAt - $0) / .milliseconds(1)))ms" } ?? "모름" }
@@ -177,7 +181,7 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
         let level = String(format: "%.3f", feed.maxLevel)
         Self.timingLog.notice("""
             [듣기] 소리 끝→확정 \(gap(self.loudAtFinal), privacy: .public) · 마지막 중간 결과→확정 \(gap(self.lastPartialAt), privacy: .public) · \
-            확정→턴 끝 \(wait, privacy: .public)ms · 확정 \(self.finals, privacy: .public)번 · 최대 소리 \(level, privacy: .public)
+            확정→턴 끝 \(wait, privacy: .public)ms · 확정 \(self.finals, privacy: .public)번\(self.finalGaps.description, privacy: .public) · 최대 소리 \(level, privacy: .public)
             """)
     }
 
