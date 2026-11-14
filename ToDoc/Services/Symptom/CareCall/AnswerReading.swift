@@ -104,9 +104,23 @@ struct AnswerReading {
     }
 
     /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다
-    func saysNormal(_ text: String) -> Bool {
+    /// 이 항목이 정상이라는 말 ("식사는 평소대로 해요", "대변은 날마다 잘 보고 있어요", "피부는 깨끗해요").
+    /// 항목 낱말에는 증상이 아닌 말(식사·대변·피부·입안)도 있어, 낱말이 나왔다고 증상을 말한 것으로 보지 않으려고 쓴다
+    /// - 정상 끝말은 이 항목 것만 본다 (구내염 질문의 "입안이 헐어서 죽만 다 먹어요"는 식사의 정상 끝말로 끝나도 정상이 아니다)
+    /// - 정상 낱말은 이 항목 낱말보다 뒤에 있을 때만 본다 ("깨끗하다가 다시 가려워요"는 정상이 아니다)
+    func saysFine(_ clause: String, for effect: CareCallConfig.Effect) -> Bool {
+        let compact = Self.normalized(clause)
+        let afterKeywords = effect.keywords.compactMap { compact.range(of: Self.normalized($0), options: .backwards)?.upperBound }.max()
+            ?? compact.startIndex
+        return saysNormal(clause, for: effect) || saysUsual(effect, clause)
+            || config.normalWords.contains { compact[afterKeywords...].contains(Self.normalized($0)) }
+    }
+
+    /// effect를 주면 그 항목의 정상 끝말만 본다
+    func saysNormal(_ text: String, for effect: CareCallConfig.Effect? = nil) -> Bool {
         let compact = Self.normalized(text)
-        return config.effects.flatMap { $0.absentPhrases ?? [] }.contains { compact.hasSuffix(Self.normalized($0)) }
+        let phrases = effect.map { $0.absentPhrases ?? [] } ?? config.effects.flatMap { $0.absentPhrases ?? [] }
+        return phrases.contains { compact.hasSuffix(Self.normalized($0)) }
             // 다 나았다는 말로 끝남 ("쑤시던 건 다 나았어요", "결리던 것도 풀렸어요"). 아직·또·다시·안 나·덜이 있으면 아니다
             || (compact.range(of: #"(나았|풀렸|없어졌|괜찮아졌|가라앉았|멈췄|그쳤|빠졌)(어요|습니다|어|네요)?$"#, options: .regularExpression) != nil
                 && !["아직", "또", "다시", "안나", "덜"].contains(where: compact.contains))
@@ -176,9 +190,16 @@ struct AnswerReading {
                 || (config.noSuffixes + (effect?.absentPhrases ?? [])).contains(where: { compact.hasSuffix(Self.normalized($0)) })
         else { return false }
         if Self.hasContrast(t) || t.contains("그리고") { return false }
-        // 정상 끝말 앞에 있다는 말이 있으면 모델이 본다 ("변비가 좀 있어요 잘 보고 있어요"를 끝말만 보고 없음으로 읽지 않는다)
-        if let phrase = effect?.absentPhrases?.map(Self.normalized).first(where: compact.hasSuffix),
-           compact.dropLast(phrase.count).firstMatch(of: /있(어요|습니다|었어요|었습니다|어|네요)/) != nil { return false }
+        // 앞 문장에서 이 항목 낱말을 부정 없이 말했으면 끝말만 보고 없음으로 읽지 않고 모델이 본다
+        // ("변비가 심해요 잘 보고 있어요", "변비가 좀 있어요 잘 나와요"). 앞 문장이 정상이라는 말이면 그대로 없음이다
+        // ("밥은 잘 먹어요 괜찮아요"). 문장부호나 높임 끝말(요·니다·죠) 뒤에서 나눈다. "다"·"어"만으로는 나누지 않는다 ("날마다 잘")
+        if let effect {
+            let sentences = t.replacingOccurrences(of: #"((요|니다|죠)[.!?]*|[.!?])\s+"#, with: "$1\n", options: .regularExpression)
+                .split(separator: "\n").map(String.init)
+            if sentences.dropLast().contains(where: {
+                effect.affirmed(in: $0, minLength: 2) && !soundsNegative($0) && !saysFine($0, for: effect)
+            }) { return false }
+        }
         if NumberParser.hasNumber(t) { return false }
         if config.effects.contains(where: { $0.id != key && $0.said(in: t) }) { return false }
         if negatesOtherThing(t, for: key) { return false }
