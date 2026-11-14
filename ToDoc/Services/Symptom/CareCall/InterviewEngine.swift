@@ -991,7 +991,7 @@ final class InterviewEngine {
     /// - 마지막 부분이 다 나았다는 말("약 먹고 멈췄어요", "지금은 괜찮아요", "이제 잘 봐요")이고 '아직·덜·좀' 같은 말이 없으면 없음.
     ///   사용자 결정(2026-10-21): 지금 상태 기준, 나아졌다고 분명히 말한 것만 없음, 좀 나아져도 아직 있으면 있음
     /// - 앞부분에서 그 항목 낱말을 부정 없이 말하고 마지막 부분이 괜찮다·정상이라는 말이면 있음.
-    ///   앞부분도 정상이라는 말이면 아니다: 항목 낱말에는 증상이 아닌 말(식사·대변·피부·입안)도 있어 "식사는 평소대로 해요. 괜찮아요"가
+    ///   앞부분이 정상이라는 말이면 아니다: 항목 낱말에는 증상이 아닌 말(식사·대변·피부·입안)도 있어 "식사는 평소대로 해요. 괜찮아요"가
     ///   있음으로 기록됐다 (2026-11-14 실기기)
     private func presenceByClauses(key: String, patientText: String) -> (presence: MentionPresence, clause: String?)? {
         guard let effect = config.effect(key) else { return nil }
@@ -1000,21 +1000,32 @@ final class InterviewEngine {
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         guard let last = parts.last else { return nil }
         let compact = AnswerReading.normalized(last)
-        func normal(_ clause: String) -> Bool {
+        let lastNormal = reading.soundsNegative(last) || reading.saysNormal(last) || config.normalWords.contains { compact.contains(AnswerReading.normalized($0)) }
+        /// 앞 절이 정상이라는 말인지 ("식사는 평소대로 해요", "대변은 날마다 잘 보고 있어요", "피부는 깨끗해요").
+        /// - "~고 있어요"는 parts가 "~고"·"있어요…"로 나누므로 뒤 절의 첫 낱말("있어요")을 붙여서 본다.
+        ///   parts에서 안 나누게 하면 "설사를 하고 있어요 괜찮아요"가 한 절이 되어 없음으로 뒤집혔다
+        /// - 정상 낱말은 그 항목 낱말보다 뒤에 있을 때만 본다 ("깨끗하다가 다시 가려워요"는 정상이 아니다)
+        func saysFine(at index: Int) -> Bool {
+            var clause = parts[index]
+            if let next = parts[index + 1].split(separator: " ").first, next.hasPrefix("있") { clause += " " + next }
             let compact = AnswerReading.normalized(clause)
-            return reading.soundsNegative(clause) || reading.saysNormal(clause) || config.normalWords.contains { compact.contains(AnswerReading.normalized($0)) }
+            let afterKeywords = effect.keywords.compactMap { compact.range(of: AnswerReading.normalized($0), options: .backwards)?.upperBound }.max()
+                ?? compact.startIndex
+            return reading.saysNormal(clause) || reading.saysUsual(effect, clause)
+                || config.normalWords.contains { compact[afterKeywords...].contains(AnswerReading.normalized($0)) }
         }
-        let lastNormal = normal(last)
         if !Self.partialWords.contains(where: compact.contains),
            Self.resolvedWords.contains(where: { compact.contains($0) && !compact.contains("안" + $0) && !compact.contains("못" + $0) })
             || (Self.nowWords.contains(where: compact.contains) && lastNormal) {
             return (.absent, nil)
         }
         if reading.deniesOnePartAffirmsOther(patientText, for: key) { return (.present, nil) }
-        if parts.count > 1, lastNormal, let clause = parts.dropLast().first(where: {
-            effect.affirmed(in: $0, minLength: 2) && !normal($0) && !reading.saysUsual(effect, $0) && !$0.contains("않") && $0.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil
+        if parts.count > 1, lastNormal, let index = parts.indices.dropLast().first(where: {
+            let clause = parts[$0]
+            return effect.affirmed(in: clause, minLength: 2) && !reading.soundsNegative(clause) && !saysFine(at: $0) && !clause.contains("않")
+                && clause.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil
         }) {
-            return (.present, clause)
+            return (.present, parts[index])
         }
         return nil
     }
