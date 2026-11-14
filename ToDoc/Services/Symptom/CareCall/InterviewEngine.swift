@@ -1000,32 +1000,35 @@ final class InterviewEngine {
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         guard let last = parts.last else { return nil }
         let compact = AnswerReading.normalized(last)
-        let lastNormal = reading.soundsNegative(last) || reading.saysNormal(last) || config.normalWords.contains { compact.contains(AnswerReading.normalized($0)) }
-        /// 앞 절이 정상이라는 말인지 ("식사는 평소대로 해요", "대변은 날마다 잘 보고 있어요", "피부는 깨끗해요").
-        /// - "~고 있어요"는 parts가 "~고"·"있어요…"로 나누므로 뒤 절의 첫 낱말("있어요")을 붙여서 본다.
-        ///   parts에서 안 나누게 하면 "설사를 하고 있어요 괜찮아요"가 한 절이 되어 없음으로 뒤집혔다
-        /// - 정상 낱말은 그 항목 낱말보다 뒤에 있을 때만 본다 ("깨끗하다가 다시 가려워요"는 정상이 아니다)
-        func saysFine(at index: Int) -> Bool {
-            var clause = parts[index]
-            if let next = parts[index + 1].split(separator: " ").first, next.hasPrefix("있") { clause += " " + next }
+        func normal(_ clause: String) -> Bool {
             let compact = AnswerReading.normalized(clause)
-            let afterKeywords = effect.keywords.compactMap { compact.range(of: AnswerReading.normalized($0), options: .backwards)?.upperBound }.max()
-                ?? compact.startIndex
-            return reading.saysNormal(clause) || reading.saysUsual(effect, clause)
-                || config.normalWords.contains { compact[afterKeywords...].contains(AnswerReading.normalized($0)) }
+            return reading.soundsNegative(clause) || reading.saysNormal(clause) || config.normalWords.contains { compact.contains(AnswerReading.normalized($0)) }
         }
+        let lastNormal = normal(last)
         if !Self.partialWords.contains(where: compact.contains),
            Self.resolvedWords.contains(where: { compact.contains($0) && !compact.contains("안" + $0) && !compact.contains("못" + $0) })
             || (Self.nowWords.contains(where: compact.contains) && lastNormal) {
             return (.absent, nil)
         }
         if reading.deniesOnePartAffirmsOther(patientText, for: key) { return (.present, nil) }
-        if parts.count > 1, lastNormal, let index = parts.indices.dropLast().first(where: {
-            let clause = parts[$0]
-            return effect.affirmed(in: clause, minLength: 2) && !reading.soundsNegative(clause) && !saysFine(at: $0) && !clause.contains("않")
-                && clause.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil
+        // 아래 판단은 "~고 있어요"를 한 절로 본다: parts는 "~고"·"있어요…"로 나누므로 "있어요"를 앞 절에 붙이고 그 뒤 말은 따로 둔다
+        // ("설사를 하고 있어요 괜찮아요" → "설사를 하고 있어요"·"괜찮아요", "변비가 심해요. 잘 보고 있어요" → 끝 절이 "잘 보고 있어요").
+        // parts에서 안 나누게 하면 앞 문장이 한 절이 되어 없음으로 뒤집혔다
+        var clauses: [String] = []
+        for part in parts {
+            if let before = clauses.last, before.hasSuffix("고"), part.hasPrefix("있"), let word = part.split(separator: " ").first {
+                clauses[clauses.count - 1] = before + " " + word
+                let rest = part.dropFirst(word.count).trimmingCharacters(in: .whitespaces)
+                if !rest.isEmpty { clauses.append(rest) }
+            } else {
+                clauses.append(part)
+            }
+        }
+        if clauses.count > 1, let end = clauses.last, normal(end), let clause = clauses.dropLast().first(where: {
+            effect.affirmed(in: $0, minLength: 2) && !reading.soundsNegative($0) && !reading.saysFine($0, for: effect) && !$0.contains("않")
+                && $0.range(of: #"(^|\s)안\s"#, options: .regularExpression) == nil
         }) {
-            return (.present, parts[index])
+            return (.present, clause)
         }
         return nil
     }

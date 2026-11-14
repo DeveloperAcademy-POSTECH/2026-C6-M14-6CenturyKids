@@ -394,7 +394,10 @@ struct InterviewEngineTests {
                       ("constipation", "변비가 좀 있어요. 괜찮아요.", true), ("rash_pruritus", "팔이 가려워요. 괜찮아요.", true),
                       ("stomatitis", "혓바늘이 났는데요 괜찮아요.", true), ("diarrhea", "설사를 했는데요 괜찮아요.", true),
                       ("diarrhea", "설사를 하고 있어요 괜찮아요", true), ("neuropathy", "손이 저리고 있어요 괜찮아요", true),
-                      ("stomatitis", "입안이 헐고 있어요 괜찮아요", true), ("rash_pruritus", "피부가 깨끗하다가 다시 가려워요. 괜찮아요.", true)])
+                      ("stomatitis", "입안이 헐고 있어요 괜찮아요", true), ("rash_pruritus", "피부가 깨끗하다가 다시 가려워요. 괜찮아요.", true),
+                      ("constipation", "변비가 심해요. 잘 보고 있어요.", true), ("constipation", "변비가 좀 있어요. 잘 보고 있어요.", true),
+                      ("constipation", "변비가 있고 잘 보고 있어요", true), ("stomatitis", "입안이 헐어서 죽만 다 먹어요. 괜찮아요.", true),
+                      ("rash_pruritus", "가려워서 긁어도 잘 나와요. 괜찮아요.", true), ("dehydration_nutrition", "밥은 잘 먹어요 괜찮아요", false)])
     func 정상이라는_문장_뒤의_괜찮아요는_없음(key: String, answer: String, present: Bool) async {
         mock.script[answer] = .empty
         await reach(key)
@@ -402,8 +405,8 @@ struct InterviewEngineTests {
         #expect(engine.ledger[key]?.presence == (present ? .present : .absent))
     }
 
-    @Test(arguments: ["변비가 좀 있어요 잘 보고 있어요", "변비가 좀 있어요. 잘 보고 있어요."])
-    func 있다는_말_뒤의_정상_끝말은_없음으로_단정하지_않는다(answer: String) async {
+    @Test(arguments: ["변비가 좀 있어요 잘 보고 있어요", "변비가 심해요 잘 보고 있어요", "변비가 심해요 잘 나와요"])
+    func 증상을_말한_문장_뒤의_정상_끝말은_없음으로_단정하지_않는다(answer: String) async {
         mock.script[answer] = .empty
         await reach("constipation")
         _ = await engine.handle(patientText: answer)
