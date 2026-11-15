@@ -31,7 +31,7 @@ struct AnalysisRequest: Sendable {
     var slotName: String?
     var step: CareCallStep?
     var question: String
-    /// 지금까지의 기록 (Ledger.summaryText)
+    /// 지금까지의 기록 (Ledger.summaryText). 프롬프트에는 넣지 않고(v16 slotTemplate에 자리가 없다) 평가기가 같은 요청인지 가릴 때 쓴다
     var ledgerSummary: String
 }
 

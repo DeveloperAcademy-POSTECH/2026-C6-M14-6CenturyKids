@@ -9,7 +9,7 @@ import Foundation
 import FoundationModels
 import os
 
-/// CareCallAI의 기기 안 모델 구현 (Apple Intelligence 기본 모델). 호출마다 새 세션을 쓰고 Ledger 요약만 넣는다 (이전 대화 원문은 넣지 않음).
+/// CareCallAI의 기기 안 모델 구현 (Apple Intelligence 기본 모델). 호출마다 새 세션을 쓰고 방금 한 질문·확인 항목·환자 답만 넣는다 (이전 대화 원문은 넣지 않음).
 /// 분석에 쓰는 세션은 미리 데우지(prewarm) 않는다: 데운 세션으로 부르면 같은 요청인데 모델 답이 달라졌다
 /// (2026-11-14 Mac 평가: 회귀 세트 요청 225개 중 23개, 통과 169 → 166, 보류 세트 92 → 91·91 → 73. 0.6초 빠른 대신 틀린 쪽은 전부 데운 쪽)
 final class FoundationModelsCareCallAdapter: CareCallAI {
@@ -129,7 +129,6 @@ final class FoundationModelsCareCallAdapter: CareCallAI {
             "effectId": request.slotKey ?? "없음",
             "effectName": request.slotName ?? "컨디션·기타 증상 전반",
             "missingFields": request.step.flatMap { missingFieldNames[$0] } ?? "언급된 증상 전부",
-            "ledgerSummary": request.ledgerSummary,
             "patientText": request.patientText,
         ])
     }
