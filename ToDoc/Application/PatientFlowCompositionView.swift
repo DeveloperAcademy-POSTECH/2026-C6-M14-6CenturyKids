@@ -16,6 +16,7 @@ struct PatientFlowCompositionView: View {
     @State private var demoAdmin: DemoAdminService
     private let container: DependencyContainer
     private let patientId: UUID
+    private enum PrevisitWriteError: Error { case notApplied }
 
     init(container: DependencyContainer, patientId: UUID) {
         self.container = container
@@ -35,6 +36,13 @@ struct PatientFlowCompositionView: View {
                     patientId: patientId, from: date, to: end)
                 return try await PrevisitRecordedDays.make(pain: pain, symptoms: symptoms,
                                                            patientID: patientId, calendar: calendar).first
+            },
+            delete: { id in
+                // 권한이 없으면 오류 없이 안 지워질 수 있어, 지운 뒤 다시 찾아 남아 있으면 실패로 봅니다.
+                try await container.previsitRepository.deleteById(id)
+                guard try await container.previsitRepository.findById(id) == nil else {
+                    throw PrevisitWriteError.notApplied
+                }
             }
         ))
         _demoAdmin = State(initialValue: DemoAdminService(

@@ -130,4 +130,58 @@ final class PrevisitLetterViewModelTests: XCTestCase {
         XCTAssertNil(id)
         XCTAssertEqual(saves, 0)
     }
+
+    func testOnlyLetterSentTodayCanBeEditedAndKeepsSentTime() async throws {
+        let sentAt = Date(timeIntervalSince1970: 1793314800)
+        var today = sentAt
+        var saved: [PrevisitRecord] = []
+        let record = try PrevisitRecord(id: UUID(), patientId: patientID, selectedDate: sentAt, memo: "원문",
+                                        stateOfMind: .unsure, submittedAt: sentAt)
+        let model = PrevisitLetterViewModel(patientID: patientID, now: { today }, load: { [record] },
+                                            save: { saved.append($0) })
+        await model.load(days: [], doctorName: "선생님")
+        let letter = try XCTUnwrap(model.letters.first)
+        XCTAssertTrue(model.canEdit(letter))
+
+        let unchanged = await model.update(record.id, letter: "원문")
+        XCTAssertTrue(unchanged)
+        XCTAssertTrue(saved.isEmpty)
+
+        let edited = await model.update(record.id, letter: "고친 말", mood: .candid)
+        XCTAssertTrue(edited)
+        XCTAssertEqual(saved.last?.id, record.id)
+        XCTAssertEqual(saved.last?.submittedAt, sentAt)
+        XCTAssertEqual(saved.last?.memo, "고친 말")
+        XCTAssertEqual(saved.last?.stateOfMind, .candid)
+        XCTAssertEqual(model.letters.first?.draft.mood, .candid)
+        XCTAssertEqual(model.notice, "수정이 완료되었어요")
+
+        // 하루가 지나면 (24시간이 안 됐어도 날짜가 바뀌면) 고칠 수 없습니다.
+        today = Calendar.current.startOfDay(for: sentAt).addingTimeInterval(24 * 60 * 60 + 1)
+        XCTAssertFalse(model.canEdit(try XCTUnwrap(model.letters.first)))
+        let late = await model.update(record.id, mood: .unsure)
+        XCTAssertFalse(late)
+        XCTAssertEqual(saved.count, 1)
+    }
+
+    func testOnlyLetterSentTodayCanBeDeleted() async throws {
+        let sentAt = Date(timeIntervalSince1970: 1793314800)
+        var today = Calendar.current.startOfDay(for: sentAt).addingTimeInterval(24 * 60 * 60 + 1)
+        var deleted: [UUID] = []
+        let record = try PrevisitRecord(id: UUID(), patientId: patientID, selectedDate: sentAt, memo: nil,
+                                        stateOfMind: .unsure, submittedAt: sentAt)
+        let model = PrevisitLetterViewModel(patientID: patientID, now: { today }, load: { [record] },
+                                            delete: { deleted.append($0) })
+        await model.load(days: [], doctorName: "선생님")
+        let refused = await model.delete(record.id)
+        XCTAssertFalse(refused)
+        XCTAssertTrue(deleted.isEmpty)
+
+        today = sentAt
+        let removed = await model.delete(record.id)
+        XCTAssertTrue(removed)
+        XCTAssertEqual(deleted, [record.id])
+        XCTAssertTrue(model.letters.isEmpty)
+        XCTAssertFalse(model.hasSentToday)
+    }
 }

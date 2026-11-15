@@ -11,23 +11,28 @@ import ToDocDomain
 #endif
 import Observation
 
-/// 저장소에 전송된 기록을 조회하고, 새 기록을 전송합니다. 전송 후 변경 기능은 제공하지 않습니다.
-/// 진료 전 기록은 보낸 날 기준 하루에 한 번만 보낼 수 있습니다.
+/// 저장소에 전송된 기록을 조회하고, 새 기록을 전송합니다.
+/// 진료 전 기록은 보낸 날 기준 하루에 한 번만 보낼 수 있고, 보낸 날(달력 기준)이 오늘인 기록만 고치거나 지울 수 있습니다.
 @MainActor
 @Observable
 final class PrevisitLetterViewModel {
     typealias Load = () async throws -> [PrevisitRecord]
     typealias LoadDay = (Date) async throws -> PrevisitDay?
     typealias Save = (PrevisitRecord) async throws -> Void
+    typealias Delete = (UUID) async throws -> Void
     private let patientID: UUID?
     private let loadRecords: Load?
     private let saveRecord: Save?
+    private let deleteRecord: Delete?
     private let loadDay: LoadDay?
     private(set) var loadingDetails: Set<UUID> = []
     private(set) var detailErrors: [UUID: String] = [:]
     private(set) var isLoading = false
     private(set) var isSubmitting = false
     private(set) var errorMessage: String?
+    /// 수정·삭제 결과 토스트. 화면 전환 중에도 사라지지 않게 시간은 여기서 셉니다.
+    private(set) var notice: String?
+    @ObservationIgnored private var noticeTask: Task<Void, Never>?
     private var days: [PrevisitDay] = []
     private var doctorName = "선생님"
 
@@ -43,12 +48,13 @@ final class PrevisitLetterViewModel {
     private let now: () -> Date
 
     init(patientID: UUID? = nil, calendar: Calendar = .current, now: @escaping () -> Date = { .now },
-         load: Load? = nil, save: Save? = nil, loadDay: LoadDay? = nil) {
+         load: Load? = nil, save: Save? = nil, loadDay: LoadDay? = nil, delete: Delete? = nil) {
         self.patientID = patientID
         self.calendar = calendar
         self.now = now
         self.loadRecords = load
         self.saveRecord = save
+        self.deleteRecord = delete
         self.loadDay = loadDay
     }
 
@@ -125,6 +131,65 @@ final class PrevisitLetterViewModel {
             submission?.finish(error: error)
             errorMessage = "전송하지 못했어요. 작성한 내용은 유지돼요. 다시 시도해 주세요."
             return nil
+        }
+    }
+
+    /// 24시간이 아니라 날짜로 봅니다: 어제 밤에 보낸 기록은 오늘 고칠 수 없습니다.
+    func canEdit(_ letter: PrevisitLetter) -> Bool { calendar.isDate(letter.sentAt, inSameDayAs: now()) }
+
+    /// 하고싶은말·기분만 고칩니다. 보낸 시각은 그대로 둬서 하루 한 번 규칙과 목록 순서가 바뀌지 않습니다.
+    /// 바뀐 게 없으면 저장하지 않고 true를 돌려줍니다.
+    func update(_ id: UUID, letter text: String? = nil, mood: StateOfMind? = nil) async -> Bool {
+        guard !isSubmitting, let patientID, let saveRecord, let current = letter(id), canEdit(current),
+              let date = current.draft.day?.recordedDate else { return false }
+        var draft = current.draft
+        if let text { draft.letter = text }
+        if let mood { draft.mood = mood }
+        guard draft.letter != current.draft.letter || draft.mood != current.draft.mood else { return true }
+        guard let newMood = draft.mood else { return false }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            let record = try PrevisitRecord(id: id, patientId: patientID, selectedDate: date,
+                                           memo: draft.letter.isEmpty ? nil : draft.letter,
+                                           stateOfMind: newMood, submittedAt: current.sentAt)
+            // 같은 id로 upsert하면 서버에서는 수정(UPDATE)이 됩니다.
+            try await saveRecord(record)
+            if let index = letters.firstIndex(where: { $0.id == id }) {
+                letters[index].draft.letter = draft.letter
+                letters[index].draft.mood = draft.mood
+            }
+            show("수정이 완료되었어요")
+            return true
+        } catch {
+            print("[진료 전] 수정 실패: \(error)")
+            show("수정하지 못했어요. 다시 시도해 주세요.")
+            return false
+        }
+    }
+
+    func delete(_ id: UUID) async -> Bool {
+        guard !isSubmitting, let deleteRecord, let current = letter(id), canEdit(current) else { return false }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            try await deleteRecord(id)
+            letters.removeAll { $0.id == id }
+            return true
+        } catch {
+            print("[진료 전] 삭제 실패: \(error)")
+            show("삭제하지 못했어요. 다시 시도해 주세요.")
+            return false
+        }
+    }
+
+    private func show(_ message: String) {
+        noticeTask?.cancel()
+        notice = message
+        noticeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            self?.notice = nil
         }
     }
 
