@@ -60,7 +60,7 @@ final class FoundationModelsCareCallAdapter: CareCallAI {
     }
 
     /// 첫 분석 전에 모델을 메모리에 올려 둔다 (분석에는 쓰지 않는 세션으로, 한 번만)
-    func prewarm(_ request: AnalysisRequest) async {
+    func prewarm() async {
         guard !modelLoaded else { return }
         modelLoaded = true
         LanguageModelSession(model: model, instructions: template.fullInstructions).prewarm()

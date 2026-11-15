@@ -121,9 +121,8 @@ final class InterviewEngine {
         return Output(utterance: say(question), phase: phase)
     }
 
-    /// 질문을 정한 뒤(start·handle 뒤), 환자 답을 기다리는 동안 부른다 (모델 턴 단축)
     func prewarm() async {
-        await analyzer.prewarm(request(for: phase, patientText: ""))
+        await analyzer.prewarm()
     }
 
     /// 환자가 말을 멈춘 것 같을 때(문장 확정 전) 그때까지 들은 말로 분석을 미리 시작한다. 기록은 바꾸지 않는다.

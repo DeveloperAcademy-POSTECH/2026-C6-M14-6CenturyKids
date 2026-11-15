@@ -177,7 +177,7 @@ final class CareCallService: CareCalling {
         try recognizer.startMicrophone()
         onActivity(.speaking(opening))
         await voice.speak(opening)
-        if engine.phase == .opening { await engine.prewarm() }
+        await engine.prewarm()
         await voice.waitUntilDone()
 
         while !out.isFinished, !stopped {
@@ -196,7 +196,6 @@ final class CareCallService: CareCalling {
             if await engine.cancelSpeculation() {
                 FoundationModelsCareCallAdapter.timingLog.notice("[미리] 쓰이지 않음 (모델을 안 불렀거나 다른 요청)")
             }
-            if !out.isFinished { await engine.prewarm() }
             if let completion = out.answerCompletion { onActivity(.answerCompleted(completion)) }
             guard !stopped else { break }
             FoundationModelsCareCallAdapter.timingLog.notice("""
