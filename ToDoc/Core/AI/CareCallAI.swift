@@ -35,7 +35,7 @@ struct AnalysisRequest: Sendable {
     var ledgerSummary: String
 }
 
-/// AI가 돌려주는 한 턴의 분석 결과. AI 쪽 출력 형식(@Generable)과 분리된 타입 (변환은 FoundationModelsCareCallAdapter)
+/// AI가 돌려주는 한 턴의 분석 결과. AI 쪽 출력 형식(@Generable)과 분리된 타입 (변환은 TurnAnalysis.turnResult)
 struct TurnResult: Equatable, Sendable {
     var mentions: [Mention]
     var needsClarification = false
