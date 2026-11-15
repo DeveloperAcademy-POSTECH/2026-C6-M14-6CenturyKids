@@ -118,7 +118,7 @@ final class InterviewEngine {
 
     /// start() 뒤, 환자 답을 기다리는 동안 부른다 (첫 모델 턴 단축)
     func prewarm() async {
-        await analyzer.prewarm(request(for: phase, patientText: ""))
+        await analyzer.prewarm()
     }
 
     func handle(patientText: String) async -> Output {

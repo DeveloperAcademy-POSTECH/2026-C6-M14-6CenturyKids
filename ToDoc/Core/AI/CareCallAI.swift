@@ -10,11 +10,11 @@
 protocol CareCallAI {
     func analyze(_ request: AnalysisRequest) async throws -> TurnResult
     /// 첫 분석 전에 모델을 준비해 둔다 (첫 질문을 읽어 주는 동안)
-    func prewarm(_ request: AnalysisRequest) async
+    func prewarm() async
 }
 
 extension CareCallAI {
-    func prewarm(_ request: AnalysisRequest) async {}
+    func prewarm() async {}
 }
 
 /// 엔진이 AI에 넘기는 한 턴
