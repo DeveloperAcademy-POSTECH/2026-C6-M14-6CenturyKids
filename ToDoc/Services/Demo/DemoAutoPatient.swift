@@ -60,9 +60,25 @@ final class DemoAutoPatient: AudioRecorder {
         }
     }
 
-    /// 환자가 말하듯 이 문장의 소리를 넣는다 (rehearse로 만들어 둔 문장)
-    func say(_ sentence: String) {
-        line.enqueue(rehearsed[sentence] ?? [])
+    /// 환자가 말하듯 이 문장의 소리를 넣는다 (rehearse로 만들어 둔 문장). 반환: 그 소리의 길이
+    @discardableResult
+    func say(_ sentence: String) -> Duration {
+        let buffers = rehearsed[sentence] ?? []
+        line.enqueue(buffers)
+        return buffers.reduce(.zero) { $0 + .milliseconds($1.frameLength * 1000 / max(1, Int($1.format.sampleRate))) }
+    }
+
+    /// 시끄러운 곳 흉내: 환자가 말하지 않는 동안 무음 대신 이 문장을 작은 소리(gain배)로 되풀이해 넣는다
+    func murmur(_ sentence: String, gain: Float) async {
+        guard let voice else { return }
+        line.setIdle(await DemoSpeechCheck.synthesize(sentence, voice: voice).map { buffer in
+            if let samples = buffer.floatChannelData {
+                for channel in 0..<Int(buffer.format.channelCount) {
+                    for i in 0..<Int(buffer.frameLength) { samples[channel][i] *= gain }
+                }
+            }
+            return AVReadOnlyAudioPCMBuffer(copying: buffer)
+        })
     }
 
     /// 0.1초짜리 무음
@@ -84,6 +100,9 @@ private nonisolated final class Line: Sendable {
     private struct State {
         var queue: [AVReadOnlyAudioPCMBuffer] = []
         var pump: Task<Void, Never>?
+        /// 말하지 않는 동안 무음 대신 되풀이할 소리 (없으면 무음)
+        var idle: [AVReadOnlyAudioPCMBuffer] = []
+        var idleIndex = 0
     }
 
     private let state = Mutex(State())
@@ -92,7 +111,12 @@ private nonisolated final class Line: Sendable {
         let pump = Task.detached { [self] in
             var due = ContinuousClock.now
             while !Task.isCancelled {
-                let buffer = state.withLock { $0.queue.isEmpty ? nil : $0.queue.removeFirst() } ?? silence
+                let buffer = state.withLock { s -> AVReadOnlyAudioPCMBuffer? in
+                    if !s.queue.isEmpty { return s.queue.removeFirst() }
+                    guard !s.idle.isEmpty else { return nil }
+                    s.idleIndex = (s.idleIndex + 1) % s.idle.count
+                    return s.idle[s.idleIndex]
+                } ?? silence
                 onBuffer(buffer)
                 due += .milliseconds(buffer.frameLength * 1000 / max(1, Int(buffer.format.sampleRate)))
                 try? await Task.sleep(until: due, clock: .continuous)
@@ -110,6 +134,10 @@ private nonisolated final class Line: Sendable {
             $0.pump = nil
             $0.queue = []
         }
+    }
+
+    func setIdle(_ buffers: [AVReadOnlyAudioPCMBuffer]) {
+        state.withLock { $0.idle = buffers }
     }
 
     func enqueue(_ buffers: [AVReadOnlyAudioPCMBuffer]) {

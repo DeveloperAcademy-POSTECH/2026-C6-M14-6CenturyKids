@@ -88,6 +88,9 @@ enum DemoAutoRun {
             .sorted()
     }
 
+    private static var noise: Float?
+    private static var finishAfter: Int?
+
     static func runIfRequested(container: DependencyContainer) async {
         let env = ProcessInfo.processInfo.environment
         if let check = env["AUTO_SPEECH_CHECK"] {
@@ -100,14 +103,20 @@ enum DemoAutoRun {
         let chosen = scenarios.filter { wanted?.contains($0.id) ?? true }
         // 이 실행 동안만: 7개를 모두 묻게 하고, 미리 분석하기는 시킨 대로 둔다
         let defaults = UserDefaults.standard
-        let keys = [DemoCareCallPlan.enabledKey, FoundationModelsCareCallAdapter.speculationKey, SpeechAnalyzerAdapter.skipSilenceKey]
+        let keys = [DemoCareCallPlan.enabledKey, FoundationModelsCareCallAdapter.speculationKey, SpeechAnalyzerAdapter.skipSilenceKey,
+                    MicGate.thresholdKey]
         let saved = keys.map { defaults.object(forKey: $0) }
         defaults.set(false, forKey: DemoCareCallPlan.enabledKey)
         if let speculate = env["AUTO_SPECULATE"] { defaults.set(speculate == "1", forKey: FoundationModelsCareCallAdapter.speculationKey) }
         if let skip = env["AUTO_SKIP_SILENCE"] { defaults.set(skip == "1", forKey: SpeechAnalyzerAdapter.skipSilenceKey) }
+        // 수음 강도(AUTO_GATE), 주변 목소리 크기(AUTO_NOISE, 환자 목소리의 몇 배), 말이 끝나고 몇 ms 뒤 "다 말했어요"를 누를지(AUTO_FINISH)
+        if let gate = env["AUTO_GATE"].flatMap(Double.init) { defaults.set(gate, forKey: MicGate.thresholdKey) }
+        noise = env["AUTO_NOISE"].flatMap(Float.init)
+        finishAfter = env["AUTO_FINISH"].flatMap(Int.init)
         var lines = ["""
             [자동] 시작 · 시나리오 \(chosen.count)개 · 미리 분석 \(FoundationModelsCareCallAdapter.speculationEnabled ? "켬" : "끔") · \
-            무음 건너뛰기 \(SpeechAnalyzerAdapter.skipSilenceEnabled ? "켬" : "끔")
+            무음 건너뛰기 \(SpeechAnalyzerAdapter.skipSilenceEnabled ? "켬" : "끔") · 수음 강도 \(MicGate.savedThreshold) · \
+            주변 목소리 \(noise.map { "\($0)배" } ?? "없음") · 다 말했어요 \(finishAfter.map { "말 끝 \($0)ms 뒤" } ?? "안 누름")
             """]
         note(lines[0])
         for scenario in chosen {
@@ -138,8 +147,10 @@ enum DemoAutoRun {
             try await service.loadModel()
             try await service.prepareSpeech()
             await patient.rehearse(Array(scenario.answers.values) + Array(fallback.values) + [no])
+            if let noise { await patient.murmur("오늘 점심은 뭐 먹을까요 저기 사람이 정말 많네요", gain: noise) }
             _ = try service.begin(patientId: UUID(), previous: nil)
             var question = ""
+            var hearing = ""
             let watchdog = Task {
                 try? await Task.sleep(for: limit)
                 guard !Task.isCancelled else { return }
@@ -150,14 +161,22 @@ enum DemoAutoRun {
                 switch activity {
                 case .speaking(let text):
                     question = text
+                case .hearing(let text):
+                    hearing = text
                 case .listening:
+                    hearing = ""
                     let kind = kind(of: question, config: config, rules: rules)
                     let answer = scenario.answers[kind] ?? fallback[kind] ?? no
                     say("[자동] 질문(\(kind)) ‘\(question)’ → 답 ‘\(answer)’")
                     // 사람이 대답을 시작하기까지의 틈
                     Task {
                         try? await Task.sleep(for: .milliseconds(400))
-                        patient.say(answer)
+                        let length = patient.say(answer)
+                        guard let finishAfter else { return }
+                        try? await Task.sleep(for: length + .milliseconds(finishAfter))
+                        // 화면처럼, 들은 말이 보여야 누를 수 있다
+                        for _ in 0..<50 where hearing.isEmpty { try? await Task.sleep(for: .milliseconds(100)) }
+                        service.finishListening()
                     }
                 case .heard(let text):
                     say("[자동] 들린 말 ‘\(text)’")
