@@ -32,6 +32,82 @@ extension StateOfMind {
     }
 }
 
+extension StateOfMind {
+    /// 목록·상세에 쓰는 기분 한마디
+    var historyLabel: String {
+        switch self {
+        case .candid: "안정돼요"
+        case .comfortable: "긴장돼요"
+        case .slowly: "걱정돼요"
+        case .carefully: "불안해요"
+        case .unsure: "잘 모르겠어요"
+        }
+    }
+
+    /// 기분 수정 시트 순서
+    static let editOrder: [StateOfMind] = [.candid, .comfortable, .slowly, .carefully, .unsure]
+}
+
+/// Figma 기분 수정 시트의 얼굴(40×40 원 안에 기분 슬라이더 그림을 93×62로 잘라 넣음)
+struct PrevisitMoodFace: View {
+    let mood: StateOfMind
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 40, height: 40)
+            .overlay(alignment: .topLeading) {
+                Image(artwork)
+                    .resizable()
+                    .frame(width: 93, height: 62)
+                    .offset(x: mood == .unsure ? -28 : -26, y: 1)
+            }
+            .clipShape(Circle())
+            .accessibilityHidden(true)
+    }
+
+    private var artwork: String {
+        switch self.mood {
+        case .candid: "PrevisitMoodCalm"
+        case .comfortable: "PrevisitMoodTense"
+        case .slowly: "PrevisitMoodWorried"
+        case .carefully: "PrevisitMoodAnxiousOverlay"
+        case .unsure: "PrevisitMoodUnsure"
+        }
+    }
+
+    private var color: Color {
+        switch self.mood {
+        case .candid: AppColors.Semantic.Avatar.calm
+        case .comfortable: AppColors.Semantic.Avatar.worried
+        case .slowly: AppColors.Semantic.Avatar.anxious
+        case .carefully: AppColors.Semantic.Avatar.notReady
+        case .unsure: AppColors.Semantic.Avatar.unsure
+        }
+    }
+}
+
+/// Figma Bottom Sheet Header: 손잡이 · 가운데 제목 · 오른쪽 확인(체크) 버튼
+struct PrevisitSheetHeader: View {
+    let title: String
+    let onConfirm: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Capsule().fill(AppColors.Semantic.Border.default).frame(width: 36, height: 5).accessibilityHidden(true)
+            HStack(alignment: .top, spacing: 8) {
+                Color.clear.frame(width: 44, height: 44)
+                AppNavigation.PageTitle(title, alignment: .center)
+                AppActions.IconButton("수정 완료", icon: Image("PrevisitCheck"),
+                                      fill: AppColors.Semantic.Background.selected, action: onConfirm)
+                    .accessibilityIdentifier("previsitEdit.confirm")
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 10)
+    }
+}
+
 extension View {
     /// 공용 카드 중 버튼으로만 만들어진 것(Day Record Card·Mood Option)을 읽기 전용으로 씁니다
     func previsitReadOnly() -> some View {

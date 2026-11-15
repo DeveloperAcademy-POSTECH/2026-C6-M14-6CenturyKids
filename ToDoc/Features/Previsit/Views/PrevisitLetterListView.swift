@@ -111,15 +111,3 @@ struct PrevisitSentHeader: View {
         }
     }
 }
-
-private extension StateOfMind {
-    var historyLabel: String {
-        switch self {
-        case .candid: "안정돼요"
-        case .comfortable: "긴장돼요"
-        case .slowly: "걱정돼요"
-        case .carefully: "불안해요"
-        case .unsure: "잘 모르겠어요"
-        }
-    }
-}

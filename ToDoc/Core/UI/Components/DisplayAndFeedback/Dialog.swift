@@ -17,6 +17,8 @@ extension AppFeedback {
         private let primary: AppActions.Action
         private let primaryKind: AppActions.Button.Kind
         private let secondary: AppActions.Action
+        /// Text 형식에서 왼쪽 글자 버튼을 빨갛게(삭제하기 등) 할 때 .destructive
+        private let secondaryKind: AppActions.Button.Kind
 
         init(
             _ title: String,
@@ -26,7 +28,8 @@ extension AppFeedback {
             icon: Image? = nil,
             primary: AppActions.Action,
             primaryKind: AppActions.Button.Kind = .primary,
-            secondary: AppActions.Action
+            secondary: AppActions.Action,
+            secondaryKind: AppActions.Button.Kind = .secondary
         ) {
             self.title = title
             self.titleStyle = titleStyle
@@ -36,6 +39,7 @@ extension AppFeedback {
             self.primary = primary
             self.primaryKind = primaryKind
             self.secondary = secondary
+            self.secondaryKind = secondaryKind
         }
 
         var body: some View {
@@ -90,8 +94,8 @@ extension AppFeedback {
                     .frame(height: 1)
                     .accessibilityHidden(true)
                 HStack(spacing: 0) {
-                    textAction(secondary)
-                    textAction(primary)
+                    textAction(secondary, kind: secondaryKind)
+                    textAction(primary, kind: primaryKind)
                 }
                 .overlay {
                     Rectangle()
@@ -103,11 +107,11 @@ extension AppFeedback {
             }
         }
 
-        private func textAction(_ action: AppActions.Action) -> some View {
+        private func textAction(_ action: AppActions.Action, kind: AppActions.Button.Kind) -> some View {
             SwiftUI.Button(action: action.perform) {
                 Text(action.title)
                     .appTypography(.labelLarge)
-                    .foregroundStyle(AppColors.Semantic.Text.default)
+                    .foregroundStyle(kind == .destructive ? AppColors.Semantic.Text.error : AppColors.Semantic.Text.default)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 12)
