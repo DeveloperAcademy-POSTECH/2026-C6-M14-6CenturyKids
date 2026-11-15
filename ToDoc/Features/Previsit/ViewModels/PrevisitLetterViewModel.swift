@@ -162,7 +162,7 @@ final class PrevisitLetterViewModel {
             show("수정이 완료되었어요")
             return true
         } catch {
-            print("[진료 전] 수정 실패: \(error)")
+            print("[진료 전] 수정 실패: \(type(of: error))")
             show("수정하지 못했어요. 다시 시도해 주세요.")
             return false
         }
@@ -177,7 +177,7 @@ final class PrevisitLetterViewModel {
             letters.removeAll { $0.id == id }
             return true
         } catch {
-            print("[진료 전] 삭제 실패: \(error)")
+            print("[진료 전] 삭제 실패: \(type(of: error))")
             show("삭제하지 못했어요. 다시 시도해 주세요.")
             return false
         }
