@@ -28,7 +28,6 @@ final class InterviewEngine {
     private let reading: AnswerReading
     private let knownIds: Set<String>
     private let names: [String: String]
-    private let keywords: [String: [String]]
 
     private(set) var phase: InterviewPhase = .opening
     /// 지난 차례에 모델을 불렀는지. 짧고 분명한 답처럼 모델 없이 넘어간 차례는 고민 시간을 채우지 않는다
@@ -106,7 +105,6 @@ final class InterviewEngine {
         self.analyzer = analyzer
         self.knownIds = Set(config.effects.map(\.id))
         self.names = Dictionary(uniqueKeysWithValues: config.effects.map { ($0.id, $0.name) })
-        self.keywords = Dictionary(uniqueKeysWithValues: config.effects.map { ($0.id, $0.keywords) })
         self.unasked = unasked
         self.lastQuestion = unasked == nil ? config.openingQuestion : config.followUpCall.question
     }
@@ -724,7 +722,8 @@ final class InterviewEngine {
         switch phase {
         case .slot(let key, _) where key == mention.effectId: return true
         default:
-            let words = mention.effectId == "other" ? [mention.otherName ?? ""].filter { !$0.isEmpty } : keywords[mention.effectId] ?? []
+            let words = mention.effectId == "other" ? [mention.otherName ?? ""].filter { !$0.isEmpty }
+                : config.effect(mention.effectId)?.keywords ?? []
             return words.contains { patientText.contains($0) }
         }
     }
@@ -1109,15 +1108,15 @@ final class InterviewEngine {
 
     /// 새 항목은 설정 파일 문구. 같은 항목을 다시 물을 때 엔진이 정한 꼬리질문(followUp)이 있으면 그것을 쓴다
     private func question(key: String, step: CareCallStep, followUp: String?) -> String {
-        let model = followUp?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let followUp = followUp?.trimmingCharacters(in: .whitespacesAndNewlines)
         switch step {
         case .presence:
-            if let model, !model.isEmpty { return model }
+            if let followUp, !followUp.isEmpty { return followUp }
             return config.effect(key)?.ask ?? config.otherQuestion
         case .detail:
             return pendingDetail(for: key)?.question ?? config.otherQuestion
         case .location:
-            if let model, !model.isEmpty { return model }
+            if let followUp, !followUp.isEmpty { return followUp }
             return config.locationPrompt
         }
     }
