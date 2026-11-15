@@ -112,7 +112,6 @@ final class InterviewEngine {
         questionIDs[key] = id
         return id
     }
-    /// 부위 낱말 (body_parts.json). 절 판단으로 '있음'이 된 답에서 그 절의 부위를 찾을 때만 쓴다
 
     init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI, followUp unasked: Set<String>? = nil,
          locationWords: [String] = []) {
@@ -446,7 +445,7 @@ final class InterviewEngine {
         }
         if !toldNewSymptom, !settled, !toldAbsent, openingFirstAnswer == nil {
             openingFirstAnswer = patientText
-            // 첫 답에서 생긴 기타 항목: 되물은 답에서 같은 증상을 또 기록하지 않게 (위의 되묻기와 같다).
+            // openingFollowUp처럼 첫 답에서 생긴 기타 항목을 기억해 둔다.
             // 바로 위에서 남긴 '달라진 점' 모름은 증상이 아니라 제외한다 (되물은 답의 증상이 그 이름으로 붙지 않게)
             let unclearKey = Ledger.key(effectId: "other", otherName: config.followUpCall.unclearName)
             openingOtherName = ledger.order.first { $0.hasPrefix("other:") && $0 != unclearKey && before[$0] == nil }
@@ -569,11 +568,9 @@ final class InterviewEngine {
     /// - 유무 질문에 다른 것이 주어인 '없다'는 답 ("오른쪽 팔에 힘이 없어요" → 저림, 2026-10-24)
     /// 처음·그 밖에는 normalizedOthers가 원문으로 이름을 붙이고, 그 항목은 차례가 오면 그대로 묻는다
     private func unevidencedAsOther(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
-        // 유무 질문에 다른 것이 주어인 '없다'는 답도: 모델이 낱말 없는 목록 항목("팔에 힘이 없어요" → 저림)을 고르면 기타 증상이다
         var otherSubject = false
         if case .slot(let key, .presence) = phase { otherSubject = reading.negatesOtherThing(patientText, for: key) }
         guard phase == .opening || phase == .other || otherSubject else { return mentions }
-        // 목록 낱말이 하나도 없고 증상 표현만 있는 말("요새 어지러워서 자꾸 누워 있어요", "머리가 핑 돌아요")은 어느 항목으로 골랐든 목록 밖 증상이다
         let nonListOnly = symptomHints.matches(patientText) != nil && !config.saysAnyEffect(in: patientText)
         return mentions.map { m in
             // '모름'(다시 확인해 이미 낮춘 것)은 그대로 둔다: 그 항목 차례에 다시 묻는다
@@ -730,14 +727,13 @@ final class InterviewEngine {
                 guard current == .other else { return say(config.otherQuestion) }
                 return say(followUp ?? config.repeatPrefix + " " + config.otherQuestion)
             case .done:
-                // 정리 문장(요약 확인)은 읽지 않고 바로 마무리 인사 (요약 기능은 계약 변경안 5번에 따라 없음)
                 phase = .saved
                 return say(rules.closingMessage)
             }
         }
     }
 
-    /// 이미 기록된 값을 바꿔도 되는지. 지금 묻는 항목이거나 환자가 그 증상을 직접 말한 경우만 .
+    /// 이미 기록된 값을 바꿔도 되는지. 지금 묻는 항목이거나 환자가 그 증상을 직접 말한 경우만.
     /// 다른 항목을 묻는 중 "없어요", "네, 맞아요" 같은 짧은 답을 모델이 엉뚱한 항목에 붙여 기록을 뒤집는 것을 막는다.
     private func mayChangeRecorded(_ mention: Mention, during phase: InterviewPhase, patientText: String) -> Bool {
         switch phase {
@@ -786,8 +782,8 @@ final class InterviewEngine {
         return merged.otherName == nil ? kept : kept + [merged]
     }
 
-    /// 형식 출력이 잘리면(구조화 출력 실패, 2026-10-08 재평가 90회 중 7회) 같은 답을 한 번 더 분석한다.
-    /// 같은 모델 객체의 다음 호출은 출력이 달라져 대개 성공하고, 되묻기(질문을 다시 듣고 답하기)보다 짧다
+    /// 형식 출력이 잘리면(구조화 출력 실패, Foundation Models로 바꾸기 전인 2026-10-08 재평가 90회 중 7회) 같은 답을 한 번 더 분석한다.
+    /// 되묻기(질문을 다시 듣고 답하기)보다 짧다
     private func analyze(_ phase: InterviewPhase, patientText: String) async -> TurnResult? {
         for _ in 0..<2 {
             do {
@@ -878,7 +874,7 @@ final class InterviewEngine {
         case .opening, .other: break
         default: return false
         }
-        // ponytail: 낱말 목록 휴리스틱. "안 아파요"처럼 부정이어도 다시 분석할 뿐(기록은 모델이 정함), 비용은 모델 호출 1회
+        // 낱말 목록 휴리스틱. "안 아파요"처럼 부정이어도 다시 분석할 뿐(기록은 모델이 정함), 비용은 모델 호출 1회
         return result.mentions.isEmpty && !result.needsClarification && hints.contains { patientText.contains($0) }
     }
 
@@ -1101,7 +1097,7 @@ final class InterviewEngine {
         case .slot(_, .detail): // 횟수·시작 시점·섭취량: 모델 없이 환자 말 그대로 기록 (settleAnswer)
             return TurnResult(mentions: [])
         // 달라진 게 없다는 답은 짧을 때만 모델 없이 처리한다 ("똑같아요", "없어요"). 긴 답은 증상이 섞였을 수 있어 모델이 먼저 본다
-        // ("요즘 입맛이 좀 없어요"). 모델이 찾은 게 없고 달라진 게 없다는 말이면 그때 마친다 (handle)
+        // ("요즘 입맛이 좀 없어요"). 모델이 찾은 게 없고 달라진 게 없다는 말이면 그때 마친다 (followUpCallReply)
         case .opening where unasked != nil && (yes || (reading.isUnchanged(patientText) && text.count <= 8) || reading.isUnclearChange(patientText)):
             // 다시 거는 통화: 달라진 게 없음·모르겠음 → 기록할 증상 없음 ("글쎄요"는 '모름'으로 남기고 "네"만 한 답은 되묻는다, followUpCallReply)
             return TurnResult(mentions: [])

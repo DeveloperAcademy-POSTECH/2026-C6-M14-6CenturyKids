@@ -107,7 +107,6 @@ struct CareCallConfig: Decodable, Sendable {
     let aiVoiceNotice: String
     let openingQuestion: String
     let otherQuestion: String
-    /// 첫 질문 꼬리질문: 답에 증상 표현(symptomHints)이나 컨디션이 나쁘다는 말(openingConcerns)이 있고 목록 증상이 기록되지 않았으면 한 번
     /// 첫 답이 컨디션이 나쁘다는 말뿐일 때 한 번 되묻는 말 (무엇이 불편한지). 증상을 말했으면 otherDetail로 시작 시점을 묻는다
     let openingFollowUp: String
     /// 언제부터인지 이미 말한 답의 낱말 ("어제부터", "사흘째", "이틀 동안"). 이 말이 있으면 시작 시점을 다시 묻지 않는다.
