@@ -20,7 +20,8 @@ struct SymptomTextInputView: View {
                           caption: isSubmitting ? nil : "증상을 입력해주세요.", isEditing: isFocused,
                           canSend: hasAnswer && !isSubmitting,
                           onClose: onEnd, onSwitchToVoice: onSwitchToVoice,
-                          onSend: onNext.map { next in { keepsKeyboard = isFocused; next() } }) {
+                          onSend: onNext.map { next in { keepsKeyboard = isFocused; next() } },
+                          onTapOutside: { isFocused = false }) {
             // 보내는 동안엔 입력을 비워 안내 문구를 보이되, 같은 입력칸을 써서 키보드는 내리지 않는다
             TextField("답변", text: isSubmitting ? .constant("") : $text,
                       prompt: Text(isSubmitting ? "말씀을 정리하고 있어요..." : "")

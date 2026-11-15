@@ -19,7 +19,8 @@ struct SymptomFrequencyInputView: View {
                           character: SymptomChatCharacter(current: isSubmitting ? .thinking : (isFocused ? .nodding : .hello)),
                           caption: isSubmitting ? nil : "증상을 입력해주세요.", isEditing: isFocused, canSend: canSubmit,
                           onClose: onEnd, onSwitchToVoice: onSwitchToVoice,
-                          onSend: { if let frequency { keepsKeyboard = isFocused; onSubmit?(frequency) } }) {
+                          onSend: { if let frequency { keepsKeyboard = isFocused; onSubmit?(frequency) } },
+                          onTapOutside: { isFocused = false }) {
             HStack(spacing: 0) {
                 TextField("횟수", text: $digits,
                           prompt: Text("00").foregroundStyle(AppColors.Semantic.Text.disabled))

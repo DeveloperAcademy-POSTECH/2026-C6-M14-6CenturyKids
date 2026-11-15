@@ -14,6 +14,8 @@ struct SymptomChatLayout<Field: View>: View {
     var onClose: (() -> Void)?
     var onSwitchToVoice: (() -> Void)?
     var onSend: (() -> Void)?
+    /// 입력 바 밖을 눌렀을 때 (키보드를 내린다)
+    var onTapOutside: (() -> Void)?
     @ViewBuilder let field: () -> Field
 
     var body: some View {
@@ -36,6 +38,8 @@ struct SymptomChatLayout<Field: View>: View {
         }
         .padding(.horizontal, AppLayout.Phone.horizontalMargin)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture { onTapOutside?() }
         .background(alignment: .top) {
             ZStack(alignment: .top) {
                 LinearGradient(stops: [
@@ -82,6 +86,8 @@ struct SymptomChatLayout<Field: View>: View {
         }
         .padding(10)
         .background(AppColors.Semantic.Background.default, in: RoundedRectangle(cornerRadius: 30))
+        // 입력 바의 빈 곳을 누른 것은 바깥을 누른 것이 아니다
+        .onTapGesture {}
     }
 }
 
