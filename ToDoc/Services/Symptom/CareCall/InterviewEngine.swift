@@ -1043,7 +1043,7 @@ final class InterviewEngine {
         }
         let lastNormal = normal(last)
         if !Self.partialWords.contains(where: compact.contains),
-           Self.resolvedWords.contains(where: { compact.contains($0) && !compact.contains("안" + $0) && !compact.contains("못" + $0) })
+           KeywordMatcher.resolvedInLastClause.contains(where: { compact.contains($0) && !compact.contains("안" + $0) && !compact.contains("못" + $0) })
             || (Self.nowWords.contains(where: compact.contains) && lastNormal) {
             return (.absent, nil)
         }
@@ -1077,7 +1077,6 @@ final class InterviewEngine {
             .sorted { clause.range(of: $0)!.lowerBound < clause.range(of: $1)!.lowerBound }
     }
 
-    private static let resolvedWords = ["나았", "멈췄", "멎었", "그쳤", "없어졌", "괜찮아졌", "가라앉았", "들어갔", "아물었", "풀렸", "사라졌"]
     private static let nowWords = ["지금은", "이제", "요즘은", "뒤로는", "후로는"]
     private static let partialWords = ["아직", "덜", "조금", "좀", "가끔", "여전"]
 
