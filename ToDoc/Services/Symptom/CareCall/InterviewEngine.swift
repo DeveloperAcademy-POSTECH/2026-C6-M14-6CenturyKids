@@ -1078,41 +1078,33 @@ final class InterviewEngine {
         let yes = reading.isShortYes(patientText), no = config.shortAnswers.no.contains(text)
         // "네? 뭐라고요?": 기록하지 않고 같은 질문을 다시 한다 (모델이 "네"를 보고 '있음'으로 남겼다, 2026-10-22 평가)
         if reading.isRepeatRequest(patientText), phase.asksQuestion {
-            return TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
-                              emergencySignal: false, utterance: "")
+            return TurnResult(mentions: [], needsClarification: true)
         }
         switch phase {
         case .other where otherDetailKey != nil:
-            // 기타 증상 꼬리질문의 답: 모델 없이 그대로 기록 (아래 switch)
-            return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
+            // 기타 증상 꼬리질문의 답: 모델 없이 그대로 기록 (settleAnswer)
+            return TurnResult(mentions: [])
         case .slot(let key, .presence) where yes || no || reading.isClearNo(patientText, for: key):
             let entry = ledger[key]
             let mention = Mention(effectId: entry?.effectId ?? key, otherName: entry?.otherName,
                                   presence: yes && !no ? .present : .absent, quote: fullText)
-            return TurnResult(mentions: [mention], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
+            return TurnResult(mentions: [mention])
         case .other where yes: // "네"만: 무엇이 불편한지 되묻는다 (모델이 "네"를 증상으로 기록하지 않도록)
-            return TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
-                              emergencySignal: false, utterance: config.otherFollowUp)
+            return TurnResult(mentions: [], needsClarification: true, utterance: config.otherFollowUp)
         case .slot(_, .presence) where reading.isUnknownAnswer(patientText) || reading.isVagueAnswer(patientText),
              .slot(_, .location) where reading.isUnknownAnswer(patientText) || reading.isNoLocation(patientText),
              .other where reading.isUnknownAnswer(patientText) || reading.isVagueAnswer(patientText):
-            // "모르겠어요"·"그냥 그래요": 모델 없이 '모름' + 원문으로 기록 (아래 switch)
-            return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
-        case .slot(_, .detail): // 횟수·시작 시점·섭취량: 모델 없이 환자 말 그대로 기록 (아래 switch)
-            return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
+            // "모르겠어요"·"그냥 그래요": 모델 없이 '모름' + 원문으로 기록 (settleAnswer)
+            return TurnResult(mentions: [])
+        case .slot(_, .detail): // 횟수·시작 시점·섭취량: 모델 없이 환자 말 그대로 기록 (settleAnswer)
+            return TurnResult(mentions: [])
         // 달라진 게 없다는 답은 짧을 때만 모델 없이 처리한다 ("똑같아요", "없어요"). 긴 답은 증상이 섞였을 수 있어 모델이 먼저 본다
         // ("요즘 입맛이 좀 없어요"). 모델이 찾은 게 없고 달라진 게 없다는 말이면 그때 마친다 (handle)
         case .opening where unasked != nil && (yes || (reading.isUnchanged(patientText) && text.count <= 8) || reading.isUnclearChange(patientText)):
-            // 다시 거는 통화: 달라진 게 없음·모르겠음 → 기록할 증상 없음 ("글쎄요"는 아래에서 '모름'으로 남긴다), "네"만 → 아래에서 되묻는다
-            return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
+            // 다시 거는 통화: 달라진 게 없음·모르겠음 → 기록할 증상 없음 ("글쎄요"는 '모름'으로 남기고 "네"만 한 답은 되묻는다, followUpCallReply)
+            return TurnResult(mentions: [])
         case .opening where no || reading.isOpeningFine(patientText), .other where no:
-            return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
+            return TurnResult(mentions: [])
         default:
             return nil
         }
