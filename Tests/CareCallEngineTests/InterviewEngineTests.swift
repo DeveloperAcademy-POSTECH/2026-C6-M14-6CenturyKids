@@ -25,17 +25,17 @@ final class MockAnalyzer: CareCallAI {
             : text.contains("네") || text.contains("있") ? .present : .unclear
         let id = key.hasPrefix("other:") ? "other" : key
         return TurnResult(mentions: [Mention(effectId: id, presence: presence, locations: [], quote: text)],
-                          answeredCurrentSlot: presence != .unclear, needsClarification: presence == .unclear,
+                          needsClarification: presence == .unclear,
                           emergencySignal: false, utterance: presence == .unclear ? "조금 더 자세히 말씀해 주시겠어요?" : "")
     }
 
 }
 
 extension TurnResult {
-    static let empty = TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: false,
+    static let empty = TurnResult(mentions: [], needsClarification: false,
                                   emergencySignal: false, utterance: "")
     static func mentions(_ m: Mention...) -> TurnResult {
-        TurnResult(mentions: m, answeredCurrentSlot: true, needsClarification: false, emergencySignal: false, utterance: "")
+        TurnResult(mentions: m, needsClarification: false, emergencySignal: false, utterance: "")
     }
 }
 
