@@ -713,10 +713,12 @@ final class FakeAuth: AuthRepository {
     func resendSignUpConfirmationEmail(to email: String, redirectTo url: URL?) async throws {}
     func signIn(email: String, password: String) async throws -> UUID { throw Failure() }
     func signInWithApple(idToken: String, nonce: String) async throws -> UUID { throw Failure() }
+    func signInWithKakao(idToken: String) async throws -> UUID { throw Failure() }
     func signOut() async throws {}
     func requestPasswordChangeVerification() async throws {}
     func deleteAccount() async throws { throw Failure() }
     func withdrawAppleAccount(authorizationCode: String) async throws { throw Failure() }
+    func withdrawKakaoAccount() async throws { throw Failure() }
     func sendPasswordResetEmail(to email: String, redirectTo url: URL?) async throws {}
     func updatePassword(to newPassword: String, nonce: String?) async throws {}
 }
