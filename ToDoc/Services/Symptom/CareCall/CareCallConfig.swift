@@ -92,7 +92,7 @@ struct CareCallConfig: Decodable, Sendable {
             }
         }
 
-        private static let deniedInClause = #"않|없|아니|괜찮|(^|\s)안\s|나았|멈췄|그쳤|가라앉|풀렸|사라졌"#
+        private static let deniedInClause = #"않|없|아니|괜찮|(^|\s)안\s|"# + KeywordMatcher.resolvedInDetailClause.joined(separator: "|")
     }
 
     let version: String

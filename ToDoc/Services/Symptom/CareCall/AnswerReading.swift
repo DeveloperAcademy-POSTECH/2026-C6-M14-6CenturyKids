@@ -122,7 +122,7 @@ struct AnswerReading {
         let phrases = effect.map { $0.absentPhrases ?? [] } ?? config.effects.flatMap { $0.absentPhrases ?? [] }
         return phrases.contains { compact.hasSuffix(Self.normalized($0)) }
             // 다 나았다는 말로 끝남 ("쑤시던 건 다 나았어요", "결리던 것도 풀렸어요"). 아직·또·다시·안 나·덜이 있으면 아니다
-            || (compact.range(of: #"(나았|풀렸|없어졌|괜찮아졌|가라앉았|멈췄|그쳤|빠졌)(어요|습니다|어|네요)?$"#, options: .regularExpression) != nil
+            || (compact.range(of: Self.resolvedEnding, options: .regularExpression) != nil
                 && !["아직", "또", "다시", "안나", "덜"].contains(where: compact.contains))
     }
 
@@ -341,6 +341,8 @@ struct AnswerReading {
     static func hasContrast(_ text: String) -> Bool {
         text.range(of: #"[가-힣]데요?(?=[\s,.?!]|$)|지만|그래도|대신"#, options: .regularExpression) != nil
     }
+
+    private static let resolvedEnding = "(" + KeywordMatcher.resolvedEndings.joined(separator: "|") + #")(어요|습니다|어|네요)?$"#
 
     /// 되묻는 말 앞뒤에 붙어도 되는 말 ("죄송한데 다시 말씀해 주시겠어요?")
     static let repeatCourtesy = ["죄송한데", "죄송하지만", "죄송해요", "저기요", "잠깐만요", "네", "예", "좀"]
