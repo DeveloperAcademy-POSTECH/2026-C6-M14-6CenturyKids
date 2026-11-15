@@ -50,6 +50,8 @@ enum SymptomAction {
     case switchMode(SymptomConversationMode)
     case pause, resume, discard
     case stopForEmergency, continueAfterEmergency
+    /// 음성으로 답하다가 "다 말했어요"를 누름
+    case finishSpeaking
 }
 @Observable final class SymptomScreenState {
     var question: SymptomConversationQuestion?

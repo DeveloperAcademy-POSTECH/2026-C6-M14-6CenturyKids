@@ -19,5 +19,9 @@ protocol SpeechRecognizer: AnyObject {
     /// true면 그때까지의 말이 확정된 것이다 (환자가 말을 이으면 그 뒤로 더 붙는다)
     func listen(onPartial: @escaping (_ heard: String, _ isFinal: Bool) -> Void) async throws -> String
 
+    /// 듣는 중에 환자가 "다 말했어요"를 눌렀을 때. 더 듣지 않고, 그때까지 들어간 말을 확정해 턴을 끝낸다 (listen이 그 문장을 돌려준다).
+    /// 아직 들은 말이 없으면 아무 일도 하지 않는다
+    func finishListening()
+
     func stop() async
 }

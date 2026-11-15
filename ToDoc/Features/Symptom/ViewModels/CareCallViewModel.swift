@@ -216,7 +216,15 @@ final class CareCallViewModel {
             discard()
         case .stopForEmergency: stopForEmergency()
         case .continueAfterEmergency: continueAfterEmergency()
+        case .finishSpeaking: finishSpeaking()
         }
+    }
+
+    /// 시끄러운 곳에서는 주변 목소리 때문에 말이 끝난 것을 알아채지 못한다. 환자가 눌러서 지금까지 들은 말로 넘어간다
+    private func finishSpeaking() {
+        guard conversation.mode == .voice, conversation.voiceState == .patientSpeaking, !conversation.transcript.isEmpty else { return }
+        conversation.voiceState = .thinking
+        service.finishListening()
     }
 
     var analyticsScreen: SymptomConversationAnalytics.Screen {

@@ -66,6 +66,8 @@ struct AdminSettingsView: View {
     @AppStorage(DemoCareCallPlan.enabledKey) private var demoCareCall = true
     @AppStorage(FoundationModelsCareCallAdapter.speculationKey) private var speculation = true
     @AppStorage(SpeechAnalyzerAdapter.skipSilenceKey) private var skipSilence = true
+    @AppStorage(MicGate.thresholdKey) private var micGate = MicGate.defaultThreshold
+    @AppStorage(SpeechAnalyzerAdapter.lastLevelsKey) private var lastLevels = "아직 없음"
 
     var body: some View {
         SettingsScreen(title: "관리자 설정", cancel: { dismiss() }) {
@@ -91,6 +93,19 @@ struct AdminSettingsView: View {
                 .tint(AppColors.primary)
                 .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
                 .accessibilityIdentifier("settings.admin.skipSilence")
+            }
+            SettingsSection(title: "", footer: """
+                이보다 작은 소리는 듣지 않아요. 기본값 \(MicGate.defaultThreshold.formatted())은 20cm에서 말하는 목소리 기준이고, 0이면 모두 들어요. \
+                주변 말이 섞이면 올리고, 내 말이 빠지면 내려요. 다음 답부터 적용돼요.
+                지난 답: \(lastLevels)
+                """) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("수음 강도 \(micGate.formatted(.number.precision(.fractionLength(2))))").settingsText()
+                    Slider(value: $micGate, in: 0...0.3, step: 0.01)
+                        .tint(AppColors.primary)
+                        .accessibilityIdentifier("settings.admin.micGate")
+                }
+                .padding(.horizontal, 16).padding(.vertical, 12)
             }
             SettingsSection(title: "") {
                 row(.painSkip, subtitle: nil)

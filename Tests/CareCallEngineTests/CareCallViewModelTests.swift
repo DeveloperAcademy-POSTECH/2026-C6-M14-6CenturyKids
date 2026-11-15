@@ -67,6 +67,9 @@ final class FakeCareCall: CareCalling {
         return endOutcome
     }
 
+    private(set) var finishListeningCount = 0
+    func finishListening() { finishListeningCount += 1 }
+
     func stop() async {
         stopCount += 1
         release()
@@ -291,6 +294,24 @@ struct CareCallViewModelTests {
         for _ in 0..<1_000 where !service.isHolding { await Task.yield() }
         #expect(conversation.transcript == "그럭저럭이요")
         #expect(conversation.voiceState == .patientSpeaking && !conversation.isWorking) // 아직 듣는 중
+        service.release()
+        await task?.value
+    }
+
+    @Test func 듣는_중에_다_말했어요를_누르면_들은_말로_넘어간다() async {
+        await enterVoiceCall()
+        service.activities = [.speaking("오늘 컨디션은 어떠세요?"), .listening]
+        service.hold = .call
+        let task = viewModel.startCall()
+        for _ in 0..<1_000 where !service.isHolding { await Task.yield() }
+        conversation.onAction?(.finishSpeaking) // 아직 들은 말이 없으면 누를 수 없다
+        #expect(service.finishListeningCount == 0)
+        conversation.transcript = "그럭저럭이요"
+        conversation.onAction?(.finishSpeaking)
+        #expect(service.finishListeningCount == 1)
+        #expect(conversation.voiceState == .thinking)
+        conversation.onAction?(.finishSpeaking) // 정리하는 동안 다시 눌러도 한 번만
+        #expect(service.finishListeningCount == 1)
         service.release()
         await task?.value
     }

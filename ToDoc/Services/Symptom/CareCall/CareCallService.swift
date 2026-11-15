@@ -160,6 +160,10 @@ final class CareCallService: CareCalling {
         return outcome(of: conversation, phase: phase)
     }
 
+    func finishListening() {
+        recognizer.finishListening()
+    }
+
     func stop() async {
         stopped = true
         voice.stop()

@@ -56,7 +56,7 @@ let package = Package(
                     "Features/Symptom/Presentation", "Features/Symptom/ViewModels",
                     "Services/Symptom/CareCall/CareCalling.swift", "Services/Symptom/CareCall/CareCallActivity.swift",
                     "Services/Symptom/CareCall/CareCallOutcome.swift", "Services/Symptom/CareCall/CareCallTurn.swift",
-                    "Services/Symptom/CareCall/CareCallServiceError.swift", "Core/Audio/AudioRecorderError.swift",
+                    "Services/Symptom/CareCall/CareCallServiceError.swift", "Core/Audio/AudioRecorderError.swift", "Core/Audio/MicGate.swift",
                     "Core/AI/LanguageModelError.swift", "Core/Speech/SpeechRecognizerError.swift", "Core/Speech/DoctorVoiceClips.swift",
                     "Data/Repositories/Protocols/Repository.swift",
                     "Data/DTOs/Helpers/DateOnlyFormatter.swift",

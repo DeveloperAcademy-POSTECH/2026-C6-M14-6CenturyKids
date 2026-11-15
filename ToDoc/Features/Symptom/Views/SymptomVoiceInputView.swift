@@ -7,6 +7,8 @@ struct SymptomVoiceInputView: View {
     var voiceState = SymptomVoiceState.thinking
     var onEnd: (() -> Void)?
     var onSwitchToText: (() -> Void)?
+    /// 시연용: 시끄러운 곳에서 말이 끝났다고 직접 알리는 버튼
+    var onFinishSpeaking: (() -> Void)?
 
     private var usesScrollableLayout: Bool { dynamicTypeSize >= .xxxLarge }
 
@@ -44,6 +46,8 @@ struct SymptomVoiceInputView: View {
                         .offset(y: -337)
                 }
                 .padding(.bottom, 79)
+                // 카드와 글 입력 버튼 사이 빈자리에 올려, 버튼이 나타나도 화면이 밀리지 않게 한다
+                .overlay(alignment: .bottom) { finishSpeaking.padding(.bottom, 16) }
             switchToText.padding(.vertical, -12.5)
         }
     }
@@ -73,12 +77,28 @@ struct SymptomVoiceInputView: View {
                 }
                 .padding(.vertical, 12)
             }
+            finishSpeaking
             switchToText.padding(.vertical, 8)
         }
     }
 
     private var voiceCard: some View {
         SymptomVoiceCard(transcript: transcript, state: voiceState, showsFullTranscript: usesScrollableLayout)
+    }
+
+    @ViewBuilder private var finishSpeaking: some View {
+        if let onFinishSpeaking, voiceState == .patientSpeaking, !transcript.isEmpty {
+            Button(action: onFinishSpeaking) {
+                Text("다 말했어요")
+                    .appTypography(.labelLarge)
+                    .foregroundStyle(AppColors.Semantic.Text.onPrimary)
+                    .padding(.horizontal, 28)
+                    .frame(minHeight: 48)
+                    .background(AppColors.Semantic.Primary.default, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("symptom.finishSpeaking")
+        }
     }
 
     private var switchToText: some View {
@@ -202,7 +222,7 @@ private struct SymptomShimmerText: View {
                                           guidance: "지금부터 AI음성으로 오늘 몸 상태를 여쭤볼게요.",
                                           progress: 0.25, input: .text),
                           transcript: "어제 저녁부터 배가 살살 아프고 밤에 두 번 정도 깼어요", voiceState: .patientSpeaking,
-                          onEnd: {}, onSwitchToText: {})
+                          onEnd: {}, onSwitchToText: {}, onFinishSpeaking: {})
 }
 
 #Preview("정리 중") {

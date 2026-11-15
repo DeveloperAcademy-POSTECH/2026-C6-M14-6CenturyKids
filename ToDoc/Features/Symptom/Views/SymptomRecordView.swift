@@ -92,7 +92,8 @@ private struct SymptomConversationContent: View {
             if state.mode == .voice {
                 SymptomVoiceInputView(question: question, transcript: state.transcript,
                                       voiceState: state.voiceState,
-                                      onEnd: onEnd, onSwitchToText: { onSwitch(.text) })
+                                      onEnd: onEnd, onSwitchToText: { onSwitch(.text) },
+                                      onFinishSpeaking: { state.onAction?(.finishSpeaking) })
             } else {
                 switch question.input {
                 case .text:

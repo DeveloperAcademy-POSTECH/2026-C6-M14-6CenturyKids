@@ -23,6 +23,8 @@ protocol CareCalling: AnyObject {
     func run(onActivity: @escaping (CareCallActivity) -> Void) async throws -> CareCallOutcome
     func answer(_ text: String) async throws -> CareCallTurn
     func end() -> CareCallOutcome
+    /// 음성 통화에서 환자가 "다 말했어요"를 눌렀을 때. 그때까지 들은 말로 답을 받고 넘어간다
+    func finishListening()
     func stop() async
     var canGoBack: Bool { get }
     func back() -> (turn: CareCallTurn, answer: String)?
