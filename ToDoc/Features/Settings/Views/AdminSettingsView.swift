@@ -71,6 +71,32 @@ struct AdminSettingsView: View {
 
     var body: some View {
         SettingsScreen(title: "관리자 설정", cancel: { dismiss() }) {
+            SettingsSection(title: "") {
+                row(.painSkip, subtitle: nil)
+                SettingsDivider()
+                row(.resetSymptom, subtitle: "오늘 기록만 지워요")
+                SettingsDivider()
+                row(.resetPrevisit, subtitle: "오늘 기록만 지워요")
+            }
+            SettingsSection(title: "") {
+                row(.seedMockData, subtitle: "10/16~11/19 증상·통증, 10/16·11/6 진료 전 기록")
+                SettingsDivider()
+                row(.clearAll, subtitle: "모든 기록을 지워요")
+            }
+            SettingsSection(title: "") {
+                #if DEBUG
+                liveActivityRow("증상 Live Activity 테스트", id: "symptomLiveActivity") {
+                    try LiveActivityService.startLocalSymptomLiveActivity()
+                }
+                SettingsDivider()
+                #endif
+                liveActivityRow("통증 Live Activity 테스트", id: "painLiveActivity") {
+                    try LiveActivityService.startPainLiveActivity()
+                }
+            }
+            if service == nil {
+                SettingsFeedback(error: "로그인한 환자 화면에서만 쓸 수 있어요.")
+            }
             SettingsSection(title: "", footer: "켜면 그날 처음 증상 기록할 때 7개 중 3개만 랜덤으로 묻고, 나머지 4개는 목데이터로 채워요. 다음 증상 기록부터 적용돼요.") {
                 Toggle(isOn: $demoCareCall) {
                     Text("증상 데모 흐름").settingsText()
@@ -106,32 +132,6 @@ struct AdminSettingsView: View {
                         .accessibilityIdentifier("settings.admin.micGate")
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12)
-            }
-            SettingsSection(title: "") {
-                row(.painSkip, subtitle: nil)
-                SettingsDivider()
-                row(.resetSymptom, subtitle: "오늘 기록만 지워요")
-                SettingsDivider()
-                row(.resetPrevisit, subtitle: "오늘 기록만 지워요")
-            }
-            SettingsSection(title: "") {
-                row(.seedMockData, subtitle: "10/16~11/19 증상·통증, 10/16·11/6 진료 전 기록")
-                SettingsDivider()
-                row(.clearAll, subtitle: "모든 기록을 지워요")
-            }
-            SettingsSection(title: "") {
-                #if DEBUG
-                liveActivityRow("증상 Live Activity 테스트", id: "symptomLiveActivity") {
-                    try LiveActivityService.startLocalSymptomLiveActivity()
-                }
-                SettingsDivider()
-                #endif
-                liveActivityRow("통증 Live Activity 테스트", id: "painLiveActivity") {
-                    try LiveActivityService.startPainLiveActivity()
-                }
-            }
-            if service == nil {
-                SettingsFeedback(error: "로그인한 환자 화면에서만 쓸 수 있어요.")
             }
         }
         .toolbar(.hidden, for: .tabBar)
