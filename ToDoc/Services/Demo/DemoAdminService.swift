@@ -22,7 +22,7 @@ final class DemoAdminService {
     }
 
     /// 스킵하면 복용 후 통증까지 남는 시간
-    static let skippedWait: TimeInterval = 10
+    static let skippedWait: TimeInterval = 30
 
     @ObservationIgnored private let patientId: UUID
     @ObservationIgnored private let pain: any PainRepository
@@ -46,7 +46,7 @@ final class DemoAdminService {
         self.cancelPainAfterReminder = cancelPainAfterReminder
     }
 
-    /// 기다리는 통증 기록의 시각을 앞당겨, 10초 뒤에 복용 후 통증을 기록할 수 있게 한다.
+    /// 기다리는 통증 기록의 시각을 앞당겨, 30초 뒤에 복용 후 통증을 기록할 수 있게 한다.
     /// 서버가 기록 시각으로 1시간을 확인하므로 같은 id·부위·복용 전 점수로 시각만 바꿔 다시 저장한다.
     func skipPainWait(now: Date = .now) async throws -> String {
         guard let pending = try await pain.findLatestByPatientId(patientId), pending.painAfter == nil else {
@@ -75,7 +75,7 @@ final class DemoAdminService {
         await schedulePainAfterReminder(available)
         await Self.restartPainLiveActivity(recordID: pending.id, followUpAt: available, now: now)
         await onChanged()
-        return "10초 뒤에 복용 후 통증을 기록할 수 있어요."
+        return "30초 뒤에 복용 후 통증을 기록할 수 있어요."
     }
 
     /// 타이머 끝 시각은 띄울 때 정해져 바꿀 수 없으므로, 떠 있던 것을 끄고 앞당긴 시각으로 다시 띄운다.
