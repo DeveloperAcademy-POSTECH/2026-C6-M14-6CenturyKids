@@ -103,7 +103,6 @@ struct AnswerReading {
             && symptomHints.matches(text) == nil && !config.saysAnyEffect(in: text) && !locationWords.contains { text.contains($0) }
     }
 
-    /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다
     /// 이 항목이 정상이라는 말 ("식사는 평소대로 해요", "대변은 날마다 잘 보고 있어요", "피부는 깨끗해요").
     /// 항목 낱말에는 증상이 아닌 말(식사·대변·피부·입안)도 있어, 낱말이 나왔다고 증상을 말한 것으로 보지 않으려고 쓴다
     /// - 정상 끝말은 이 항목 것만 본다 (구내염 질문의 "입안이 헐어서 죽만 다 먹어요"는 식사의 정상 끝말로 끝나도 정상이 아니다)
@@ -116,13 +115,14 @@ struct AnswerReading {
             || config.normalWords.contains { compact[afterKeywords...].contains(Self.normalized($0)) }
     }
 
+    /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다.
     /// effect를 주면 그 항목의 정상 끝말만 본다
     func saysNormal(_ text: String, for effect: CareCallConfig.Effect? = nil) -> Bool {
         let compact = Self.normalized(text)
         let phrases = effect.map { $0.absentPhrases ?? [] } ?? config.effects.flatMap { $0.absentPhrases ?? [] }
         return phrases.contains { compact.hasSuffix(Self.normalized($0)) }
             // 다 나았다는 말로 끝남 ("쑤시던 건 다 나았어요", "결리던 것도 풀렸어요"). 아직·또·다시·안 나·덜이 있으면 아니다
-            || (compact.range(of: #"(나았|풀렸|없어졌|괜찮아졌|가라앉았|멈췄|그쳤|빠졌)(어요|습니다|어|네요)?$"#, options: .regularExpression) != nil
+            || (compact.range(of: Self.resolvedEnding, options: .regularExpression) != nil
                 && !["아직", "또", "다시", "안나", "덜"].contains(where: compact.contains))
     }
 
@@ -212,7 +212,7 @@ struct AnswerReading {
         guard openingConcerns.matches(patientText) == nil else { return false }
         if isUnknownAnswer(patientText) { return true }
         let compact = Self.normalized(patientText)
-        // 숫자가 섞이면 모델이 본다 ("글쎄요 두 번?"). 모델이 찾은 게 없으면 원문은 handle에서 남긴다
+        // 숫자가 섞이면 모델이 본다 ("글쎄요 두 번?"). 모델이 찾은 게 없으면 원문은 엔진이 남긴다 (followUpCallReply)
         guard config.vagueAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
               !NumberParser.hasNumber(patientText),
               !Self.continuesAfterContrast(patientText) else { return false }
@@ -320,8 +320,6 @@ struct AnswerReading {
         return words.joined(separator: " ")
     }
 
-    /// 뒤에 다른 말이 올 수 있는 대조 표현: "~데"·"~데요"(깨끗한데·괜찮은데·저리긴 한데요 — "는데"만 보면 "한데"를, 끝 경계만 보면 "한데요,"를 놓친다),
-    /// "~지만", "근데", "그래도", "대신"
     /// 답을 절로 나눈다: 쉼표·마침표·"~는데/~지만" 뒤와 "~고 " 뒤에서 끊는다 ("속이 울렁거리고 등이 가렵고 변도 안 나와요" → 세 절)
     static func parts(_ text: String) -> [String] {
         // "토는 안 했어요 근데 속이 불편해요"도 두 절 (2026-10-30 확인 세트)
@@ -338,9 +336,13 @@ struct AnswerReading {
         return ["근데", "그런데", "는데", "지만", "한데"].contains(where: t.contains)
     }
 
+    /// 뒤에 다른 말이 올 수 있는 대조 표현: "~데"·"~데요"(깨끗한데·괜찮은데·저리긴 한데요 — "는데"만 보면 "한데"를, 끝 경계만 보면 "한데요,"를 놓친다),
+    /// "~지만", "근데", "그래도", "대신"
     static func hasContrast(_ text: String) -> Bool {
         text.range(of: #"[가-힣]데요?(?=[\s,.?!]|$)|지만|그래도|대신"#, options: .regularExpression) != nil
     }
+
+    private static let resolvedEnding = "(" + KeywordMatcher.resolvedEndings.joined(separator: "|") + #")(어요|습니다|어|네요)?$"#
 
     /// 되묻는 말 앞뒤에 붙어도 되는 말 ("죄송한데 다시 말씀해 주시겠어요?")
     static let repeatCourtesy = ["죄송한데", "죄송하지만", "죄송해요", "저기요", "잠깐만요", "네", "예", "좀"]

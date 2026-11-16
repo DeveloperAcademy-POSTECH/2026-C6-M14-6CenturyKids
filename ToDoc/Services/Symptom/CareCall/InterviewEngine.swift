@@ -28,29 +28,49 @@ final class InterviewEngine {
     private let reading: AnswerReading
     private let knownIds: Set<String>
     private let names: [String: String]
-    private let keywords: [String: [String]]
 
-    private(set) var phase: InterviewPhase = .opening
+    /// 이전 질문으로 돌아갈 때 되돌리는 대화 상태. 되돌려야 하는 상태는 여기에 더한다 (엔진에 따로 두면 되돌릴 때 빠진다)
+    private struct State {
+        var phase: InterviewPhase = .opening
+        var ledger = Ledger()
+        var otherAsked = false
+        var otherAttempts = 0
+        /// '그 밖에'에서 말한 기타 증상: 한 번 더 물은 뒤 답을 그대로 기록할 항목
+        var otherDetailKey: String?
+        /// 같은 질문을 다시 묻게 한 답 (불명확·분석 실패). 두 번 다시 물어도 분명하지 않아 항목을 닫으면 원문으로 남긴다. 키: "항목|단계"
+        var unsettledAnswers: [String: [String]] = [:]
+        /// '그 밖에'에 "네"만 답해 무엇인지 이미 되물었음 (그 답에는 또 묻지 않는다)
+        var otherYesFollowedUp = false
+        /// 첫 질문에 꼬리질문을 했으면 그 첫 답
+        var openingFirstAnswer: String?
+        var openingOtherName: String?
+        /// 마지막으로 한 말 = 답을 기다리는 질문 (음성·문자를 바꿔도 이 질문부터 이어 간다)
+        var lastQuestion: String
+        /// 모델만 응급이라고 본 답 뒤에 확인 질문을 했으면, '아니요'일 때 이어 갈 말과 단계, 응급으로 끝낼 때 남길 그 답
+        var pendingEmergencyCheck: (output: Output, phase: InterviewPhase, patientText: String)?
+        /// 이번 답에서 근거 없이 고른 목록 증상을 기타로 돌렸음 (새 기타 항목을 검토 필요로 둔다)
+        var convertedToOther = false
+    }
+
+    private var state: State
+    private(set) var phase: InterviewPhase { get { state.phase } set { state.phase = newValue } }
+    private(set) var ledger: Ledger { get { state.ledger } set { state.ledger = newValue } }
+    private(set) var lastQuestion: String { get { state.lastQuestion } set { state.lastQuestion = newValue } }
+    private var otherAsked: Bool { get { state.otherAsked } set { state.otherAsked = newValue } }
+    private var otherAttempts: Int { get { state.otherAttempts } set { state.otherAttempts = newValue } }
+    private var otherDetailKey: String? { get { state.otherDetailKey } set { state.otherDetailKey = newValue } }
+    private var unsettledAnswers: [String: [String]] { get { state.unsettledAnswers } set { state.unsettledAnswers = newValue } }
+    private var otherYesFollowedUp: Bool { get { state.otherYesFollowedUp } set { state.otherYesFollowedUp = newValue } }
+    private var openingFirstAnswer: String? { get { state.openingFirstAnswer } set { state.openingFirstAnswer = newValue } }
+    private var openingOtherName: String? { get { state.openingOtherName } set { state.openingOtherName = newValue } }
+    private var pendingEmergencyCheck: (output: Output, phase: InterviewPhase, patientText: String)? {
+        get { state.pendingEmergencyCheck }
+        set { state.pendingEmergencyCheck = newValue }
+    }
+    private var convertedToOther: Bool { get { state.convertedToOther } set { state.convertedToOther = newValue } }
+
     /// 지난 차례에 모델을 불렀는지. 짧고 분명한 답처럼 모델 없이 넘어간 차례는 고민 시간을 채우지 않는다
     private(set) var analyzedLastTurn = false
-    private(set) var ledger = Ledger()
-    private var otherAsked = false
-    private var otherAttempts = 0
-    /// '그 밖에'에서 말한 기타 증상: 한 번 더 물은 뒤 답을 그대로 기록할 항목
-    private var otherDetailKey: String?
-    /// 같은 질문을 다시 묻게 한 답 (불명확·분석 실패). 두 번 다시 물어도 분명하지 않아 항목을 닫으면 원문으로 남긴다. 키: "항목|단계"
-    private var unsettledAnswers: [String: [String]] = [:]
-    /// '그 밖에'에 "네"만 답해 무엇인지 이미 되물었음 (그 답에는 또 묻지 않는다)
-    private var otherYesFollowedUp = false
-    /// 첫 질문에 꼬리질문을 했으면 그 첫 답
-    private var openingFirstAnswer: String?
-    private var openingOtherName: String?
-    /// 마지막으로 한 말 = 답을 기다리는 질문 (음성·문자를 바꿔도 이 질문부터 이어 간다)
-    private(set) var lastQuestion: String
-    /// 모델만 응급이라고 본 답 뒤에 확인 질문을 했으면, '아니요'일 때 이어 갈 말과 단계, 응급으로 끝낼 때 남길 그 답
-    private var pendingEmergencyCheck: (output: Output, phase: InterviewPhase, patientText: String)?
-    /// 이번 답에서 근거 없이 고른 목록 증상을 기타로 돌렸음 (새 기타 항목을 검토 필요로 둔다)
-    private var convertedToOther = false
     /// 같은 날 다시 거는 통화면 오늘 기록에 아직 없는 항목(지난 통화가 끊겨 못 물음), 처음 통화면 nil.
     /// 다시 거는 통화는 "달라졌거나 새로 불편한 점"을 묻고, 그 답에서 나온 증상과 이 항목만 묻는다
     private let unasked: Set<String>?
@@ -92,7 +112,6 @@ final class InterviewEngine {
         questionIDs[key] = id
         return id
     }
-    /// 부위 낱말 (body_parts.json). 절 판단으로 '있음'이 된 답에서 그 절의 부위를 찾을 때만 쓴다
 
     init(config: CareCallConfig, rules: EmergencyRules, analyzer: any CareCallAI, followUp unasked: Set<String>? = nil,
          locationWords: [String] = []) {
@@ -106,9 +125,8 @@ final class InterviewEngine {
         self.analyzer = analyzer
         self.knownIds = Set(config.effects.map(\.id))
         self.names = Dictionary(uniqueKeysWithValues: config.effects.map { ($0.id, $0.name) })
-        self.keywords = Dictionary(uniqueKeysWithValues: config.effects.map { ($0.id, $0.keywords) })
         self.unasked = unasked
-        self.lastQuestion = unasked == nil ? config.openingQuestion : config.followUpCall.question
+        self.state = State(lastQuestion: unasked == nil ? config.openingQuestion : config.followUpCall.question)
     }
 
     func start() -> Output {
@@ -118,7 +136,7 @@ final class InterviewEngine {
 
     /// start() 뒤, 환자 답을 기다리는 동안 부른다 (첫 모델 턴 단축)
     func prewarm() async {
-        await analyzer.prewarm(request(for: phase, patientText: ""))
+        await analyzer.prewarm()
     }
 
     func handle(patientText: String) async -> Output {
@@ -127,7 +145,7 @@ final class InterviewEngine {
         }
         analyzedLastTurn = false
         let turnIndex = history.count
-        history.append(snapshot(answer: patientText))
+        history.append(Snapshot(answer: patientText, state: state))
         // 위기 표현(자살 생각·자해·약 과다 복용)은 모델 판단 없이 안내하고 끝낸다. 말은 원문으로 남긴다
         // (2026-10-21 Foundation Models: "죽고 싶다는 생각이 들어요"를 되묻기만 해 기록 없이 사라졌다)
         if crisisDetector.matches(patientText) != nil {
@@ -427,7 +445,7 @@ final class InterviewEngine {
         }
         if !toldNewSymptom, !settled, !toldAbsent, openingFirstAnswer == nil {
             openingFirstAnswer = patientText
-            // 첫 답에서 생긴 기타 항목: 되물은 답에서 같은 증상을 또 기록하지 않게 (위의 되묻기와 같다).
+            // openingFollowUp처럼 첫 답에서 생긴 기타 항목을 기억해 둔다.
             // 바로 위에서 남긴 '달라진 점' 모름은 증상이 아니라 제외한다 (되물은 답의 증상이 그 이름으로 붙지 않게)
             let unclearKey = Ledger.key(effectId: "other", otherName: config.followUpCall.unclearName)
             openingOtherName = ledger.order.first { $0.hasPrefix("other:") && $0 != unclearKey && before[$0] == nil }
@@ -550,11 +568,9 @@ final class InterviewEngine {
     /// - 유무 질문에 다른 것이 주어인 '없다'는 답 ("오른쪽 팔에 힘이 없어요" → 저림, 2026-10-24)
     /// 처음·그 밖에는 normalizedOthers가 원문으로 이름을 붙이고, 그 항목은 차례가 오면 그대로 묻는다
     private func unevidencedAsOther(_ mentions: [Mention], during phase: InterviewPhase, patientText: String) -> [Mention] {
-        // 유무 질문에 다른 것이 주어인 '없다'는 답도: 모델이 낱말 없는 목록 항목("팔에 힘이 없어요" → 저림)을 고르면 기타 증상이다
         var otherSubject = false
         if case .slot(let key, .presence) = phase { otherSubject = reading.negatesOtherThing(patientText, for: key) }
         guard phase == .opening || phase == .other || otherSubject else { return mentions }
-        // 목록 낱말이 하나도 없고 증상 표현만 있는 말("요새 어지러워서 자꾸 누워 있어요", "머리가 핑 돌아요")은 어느 항목으로 골랐든 목록 밖 증상이다
         let nonListOnly = symptomHints.matches(patientText) != nil && !config.saysAnyEffect(in: patientText)
         return mentions.map { m in
             // '모름'(다시 확인해 이미 낮춘 것)은 그대로 둔다: 그 항목 차례에 다시 묻는다
@@ -711,20 +727,20 @@ final class InterviewEngine {
                 guard current == .other else { return say(config.otherQuestion) }
                 return say(followUp ?? config.repeatPrefix + " " + config.otherQuestion)
             case .done:
-                // 정리 문장(요약 확인)은 읽지 않고 바로 마무리 인사 (요약 기능은 계약 변경안 5번에 따라 없음)
                 phase = .saved
                 return say(rules.closingMessage)
             }
         }
     }
 
-    /// 이미 기록된 값을 바꿔도 되는지. 지금 묻는 항목이거나 환자가 그 증상을 직접 말한 경우만 .
+    /// 이미 기록된 값을 바꿔도 되는지. 지금 묻는 항목이거나 환자가 그 증상을 직접 말한 경우만.
     /// 다른 항목을 묻는 중 "없어요", "네, 맞아요" 같은 짧은 답을 모델이 엉뚱한 항목에 붙여 기록을 뒤집는 것을 막는다.
     private func mayChangeRecorded(_ mention: Mention, during phase: InterviewPhase, patientText: String) -> Bool {
         switch phase {
         case .slot(let key, _) where key == mention.effectId: return true
         default:
-            let words = mention.effectId == "other" ? [mention.otherName ?? ""].filter { !$0.isEmpty } : keywords[mention.effectId] ?? []
+            let words = mention.effectId == "other" ? [mention.otherName ?? ""].filter { !$0.isEmpty }
+                : config.effect(mention.effectId)?.keywords ?? []
             return words.contains { patientText.contains($0) }
         }
     }
@@ -766,8 +782,8 @@ final class InterviewEngine {
         return merged.otherName == nil ? kept : kept + [merged]
     }
 
-    /// 형식 출력이 잘리면(구조화 출력 실패, 2026-10-08 재평가 90회 중 7회) 같은 답을 한 번 더 분석한다.
-    /// 같은 모델 객체의 다음 호출은 출력이 달라져 대개 성공하고, 되묻기(질문을 다시 듣고 답하기)보다 짧다
+    /// 형식 출력이 잘리면(구조화 출력 실패, Foundation Models로 바꾸기 전인 2026-10-08 재평가 90회 중 7회) 같은 답을 한 번 더 분석한다.
+    /// 되묻기(질문을 다시 듣고 답하기)보다 짧다
     private func analyze(_ phase: InterviewPhase, patientText: String) async -> TurnResult? {
         for _ in 0..<2 {
             do {
@@ -858,7 +874,7 @@ final class InterviewEngine {
         case .opening, .other: break
         default: return false
         }
-        // ponytail: 낱말 목록 휴리스틱. "안 아파요"처럼 부정이어도 다시 분석할 뿐(기록은 모델이 정함), 비용은 모델 호출 1회
+        // 낱말 목록 휴리스틱. "안 아파요"처럼 부정이어도 다시 분석할 뿐(기록은 모델이 정함), 비용은 모델 호출 1회
         return result.mentions.isEmpty && !result.needsClarification && hints.contains { patientText.contains($0) }
     }
 
@@ -1006,7 +1022,7 @@ final class InterviewEngine {
         }
         let lastNormal = normal(last)
         if !Self.partialWords.contains(where: compact.contains),
-           Self.resolvedWords.contains(where: { compact.contains($0) && !compact.contains("안" + $0) && !compact.contains("못" + $0) })
+           KeywordMatcher.resolvedInLastClause.contains(where: { compact.contains($0) && !compact.contains("안" + $0) && !compact.contains("못" + $0) })
             || (Self.nowWords.contains(where: compact.contains) && lastNormal) {
             return (.absent, nil)
         }
@@ -1040,7 +1056,6 @@ final class InterviewEngine {
             .sorted { clause.range(of: $0)!.lowerBound < clause.range(of: $1)!.lowerBound }
     }
 
-    private static let resolvedWords = ["나았", "멈췄", "멎었", "그쳤", "없어졌", "괜찮아졌", "가라앉았", "들어갔", "아물었", "풀렸", "사라졌"]
     private static let nowWords = ["지금은", "이제", "요즘은", "뒤로는", "후로는"]
     private static let partialWords = ["아직", "덜", "조금", "좀", "가끔", "여전"]
 
@@ -1061,41 +1076,33 @@ final class InterviewEngine {
         let yes = reading.isShortYes(patientText), no = config.shortAnswers.no.contains(text)
         // "네? 뭐라고요?": 기록하지 않고 같은 질문을 다시 한다 (모델이 "네"를 보고 '있음'으로 남겼다, 2026-10-22 평가)
         if reading.isRepeatRequest(patientText), phase.asksQuestion {
-            return TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
-                              emergencySignal: false, utterance: "")
+            return TurnResult(mentions: [], needsClarification: true)
         }
         switch phase {
         case .other where otherDetailKey != nil:
-            // 기타 증상 꼬리질문의 답: 모델 없이 그대로 기록 (아래 switch)
-            return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
+            // 기타 증상 꼬리질문의 답: 모델 없이 그대로 기록 (settleAnswer)
+            return TurnResult(mentions: [])
         case .slot(let key, .presence) where yes || no || reading.isClearNo(patientText, for: key):
             let entry = ledger[key]
             let mention = Mention(effectId: entry?.effectId ?? key, otherName: entry?.otherName,
                                   presence: yes && !no ? .present : .absent, quote: fullText)
-            return TurnResult(mentions: [mention], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
+            return TurnResult(mentions: [mention])
         case .other where yes: // "네"만: 무엇이 불편한지 되묻는다 (모델이 "네"를 증상으로 기록하지 않도록)
-            return TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
-                              emergencySignal: false, utterance: config.otherFollowUp)
+            return TurnResult(mentions: [], needsClarification: true, utterance: config.otherFollowUp)
         case .slot(_, .presence) where reading.isUnknownAnswer(patientText) || reading.isVagueAnswer(patientText),
              .slot(_, .location) where reading.isUnknownAnswer(patientText) || reading.isNoLocation(patientText),
              .other where reading.isUnknownAnswer(patientText) || reading.isVagueAnswer(patientText):
-            // "모르겠어요"·"그냥 그래요": 모델 없이 '모름' + 원문으로 기록 (아래 switch)
-            return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
-        case .slot(_, .detail): // 횟수·시작 시점·섭취량: 모델 없이 환자 말 그대로 기록 (아래 switch)
-            return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
+            // "모르겠어요"·"그냥 그래요": 모델 없이 '모름' + 원문으로 기록 (settleAnswer)
+            return TurnResult(mentions: [])
+        case .slot(_, .detail): // 횟수·시작 시점·섭취량: 모델 없이 환자 말 그대로 기록 (settleAnswer)
+            return TurnResult(mentions: [])
         // 달라진 게 없다는 답은 짧을 때만 모델 없이 처리한다 ("똑같아요", "없어요"). 긴 답은 증상이 섞였을 수 있어 모델이 먼저 본다
-        // ("요즘 입맛이 좀 없어요"). 모델이 찾은 게 없고 달라진 게 없다는 말이면 그때 마친다 (handle)
+        // ("요즘 입맛이 좀 없어요"). 모델이 찾은 게 없고 달라진 게 없다는 말이면 그때 마친다 (followUpCallReply)
         case .opening where unasked != nil && (yes || (reading.isUnchanged(patientText) && text.count <= 8) || reading.isUnclearChange(patientText)):
-            // 다시 거는 통화: 달라진 게 없음·모르겠음 → 기록할 증상 없음 ("글쎄요"는 아래에서 '모름'으로 남긴다), "네"만 → 아래에서 되묻는다
-            return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
+            // 다시 거는 통화: 달라진 게 없음·모르겠음 → 기록할 증상 없음 ("글쎄요"는 '모름'으로 남기고 "네"만 한 답은 되묻는다, followUpCallReply)
+            return TurnResult(mentions: [])
         case .opening where no || reading.isOpeningFine(patientText), .other where no:
-            return TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
-                              emergencySignal: false, utterance: "")
+            return TurnResult(mentions: [])
         default:
             return nil
         }
@@ -1117,15 +1124,15 @@ final class InterviewEngine {
 
     /// 새 항목은 설정 파일 문구. 같은 항목을 다시 물을 때 엔진이 정한 꼬리질문(followUp)이 있으면 그것을 쓴다
     private func question(key: String, step: CareCallStep, followUp: String?) -> String {
-        let model = followUp?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let followUp = followUp?.trimmingCharacters(in: .whitespacesAndNewlines)
         switch step {
         case .presence:
-            if let model, !model.isEmpty { return model }
+            if let followUp, !followUp.isEmpty { return followUp }
             return config.effect(key)?.ask ?? config.otherQuestion
         case .detail:
             return pendingDetail(for: key)?.question ?? config.otherQuestion
         case .location:
-            if let model, !model.isEmpty { return model }
+            if let followUp, !followUp.isEmpty { return followUp }
             return config.locationPrompt
         }
     }
@@ -1184,25 +1191,7 @@ final class InterviewEngine {
     private struct Snapshot {
         var answerRevision: UUID? = nil
         let answer: String
-        let phase: InterviewPhase
-        let ledger: Ledger
-        let otherAsked: Bool
-        let otherAttempts: Int
-        let otherDetailKey: String?
-        let unsettledAnswers: [String: [String]]
-        let otherYesFollowedUp: Bool
-        let openingFirstAnswer: String?
-        let openingOtherName: String?
-        let lastQuestion: String
-        let pendingEmergencyCheck: (output: Output, phase: InterviewPhase, patientText: String)?
-        let convertedToOther: Bool
-    }
-
-    private func snapshot(answer: String) -> Snapshot {
-        Snapshot(answer: answer, phase: phase, ledger: ledger, otherAsked: otherAsked, otherAttempts: otherAttempts,
-                 otherDetailKey: otherDetailKey, unsettledAnswers: unsettledAnswers, otherYesFollowedUp: otherYesFollowedUp,
-                 openingFirstAnswer: openingFirstAnswer, openingOtherName: openingOtherName, lastQuestion: lastQuestion,
-                 pendingEmergencyCheck: pendingEmergencyCheck, convertedToOther: convertedToOther)
+        let state: State
     }
 
     /// 대화 중이고 되돌릴 답이 있음
@@ -1211,18 +1200,7 @@ final class InterviewEngine {
     /// 마지막 답을 받기 전으로 되돌린다: 그 답으로 기록한 것을 지우고 그 질문을 다시 묻는다. 그때 한 답도 돌려준다
     func goBack() -> (output: Output, answer: String)? {
         guard canGoBack, let last = history.popLast() else { return nil }
-        phase = last.phase
-        ledger = last.ledger
-        otherAsked = last.otherAsked
-        otherAttempts = last.otherAttempts
-        otherDetailKey = last.otherDetailKey
-        unsettledAnswers = last.unsettledAnswers
-        otherYesFollowedUp = last.otherYesFollowedUp
-        openingFirstAnswer = last.openingFirstAnswer
-        openingOtherName = last.openingOtherName
-        lastQuestion = last.lastQuestion
-        pendingEmergencyCheck = last.pendingEmergencyCheck
-        convertedToOther = last.convertedToOther
+        state = last.state
         return (Output(utterance: lastQuestion, phase: phase), last.answer)
     }
 
