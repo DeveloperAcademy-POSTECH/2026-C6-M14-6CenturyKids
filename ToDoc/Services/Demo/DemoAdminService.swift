@@ -1,3 +1,4 @@
+import ActivityKit
 import Foundation
 import Observation
 
@@ -72,8 +73,21 @@ final class DemoAdminService {
             throw error
         }
         await schedulePainAfterReminder(available)
+        await Self.restartPainLiveActivity(recordID: pending.id, followUpAt: available, now: now)
         await onChanged()
         return "10초 뒤에 복용 후 통증을 기록할 수 있어요."
+    }
+
+    /// 타이머 끝 시각은 띄울 때 정해져 바꿀 수 없으므로, 떠 있던 것을 끄고 앞당긴 시각으로 다시 띄운다.
+    /// 방금 끈 것이 목록에 잠깐 남아 있을 수 있어 LiveActivityService의 "이미 떠 있으면 건너뛰기"를 거치지 않는다.
+    private static func restartPainLiveActivity(recordID: UUID, followUpAt: Date, now: Date) async {
+        await LiveActivityService.endPainLiveActivity(recordID: recordID)
+        let attributes = PainLiveActivityAttributes(medicationTakenAt: now, recordID: recordID, followUpAt: followUpAt)
+        _ = try? Activity<PainLiveActivityAttributes>.request(
+            attributes: attributes,
+            content: ActivityContent(state: PainLiveActivityAttributes.ContentState(), staleDate: followUpAt),
+            pushType: nil
+        )
     }
 
     /// 오늘 증상 기록(서버·폰에 남은 저장 대기 통화)을 지워 처음부터 다시 기록할 수 있게 한다.
@@ -125,8 +139,11 @@ final class DemoAdminService {
             try await previsits.findByPatientId(patientId).filter { $0.submittedAt >= start && $0.submittedAt < end }
         }
         for record in try await oldSymptoms() { try await symptoms.deleteById(record.id) }
-        for record in try await oldPain() { try await pain.deleteById(record.id) }
-        // 지운 기록을 기다리던 1시간 알림이 남지 않게 (목데이터 통증은 모두 복용 후까지 기록돼 있다)
+        for record in try await oldPain() {
+            try await pain.deleteById(record.id)
+            await LiveActivityService.endPainLiveActivity(recordID: record.id)
+        }
+        // 지운 기록을 기다리던 1시간 알림이 남지 않게 (목데이터 통증은 모두 복용 후까지 기록돼 있다). 라이브 액티비티는 위에서 기록마다 끈다
         cancelPainAfterReminder()
         for record in try await oldPrevisits() { try await previsits.deleteById(record.id) }
         guard try await oldSymptoms().isEmpty, try await oldPain().isEmpty, try await oldPrevisits().isEmpty else {
@@ -144,7 +161,10 @@ final class DemoAdminService {
     func clearAllRecords() async throws -> String {
         for call in try pendingCalls.findAll(patientId: patientId) { try pendingCalls.delete(id: call.id, patientId: patientId) }
         for record in try await symptoms.findByPatientId(patientId) { try await symptoms.deleteById(record.id) }
-        for record in try await pain.findByPatientId(patientId) { try await pain.deleteById(record.id) }
+        for record in try await pain.findByPatientId(patientId) {
+            try await pain.deleteById(record.id)
+            await LiveActivityService.endPainLiveActivity(recordID: record.id)
+        }
         cancelPainAfterReminder()
         for record in try await previsits.findByPatientId(patientId) { try await previsits.deleteById(record.id) }
         guard try await symptoms.findByPatientId(patientId).isEmpty, try await pain.findByPatientId(patientId).isEmpty,
