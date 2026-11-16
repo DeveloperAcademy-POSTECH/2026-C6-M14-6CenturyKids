@@ -175,7 +175,7 @@ struct PainRecordView: View {
                     }
             case .after:
                 if let pending = viewModel.pendingRecord {
-                    PainAfterMedicationView(locations: pending.location, before: pending.painBefore,
+                    PainAfterMedicationView(locations: pending.location,
                         score: afterScoreBinding, isSaving: viewModel.isSaving,
                         errorMessage: state.errorMessage,
                         onPrevious: returnToTimer, onNext: saveAfter, onClose: close,

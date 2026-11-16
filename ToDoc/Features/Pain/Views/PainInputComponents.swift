@@ -22,7 +22,15 @@ func painLocationName(_ location: BodyLocation, among locations: [BodyLocation])
     return painLocationName(location) + (duplicates ? " (\(location.bodyView.displayName))" : "")
 }
 
-/// Figma 규칙표의 통증 말 (Pain Scale과 같음)
+/// 점수 슬라이더 아래 한 줄 설명. 병원 통증 구간(1–3 / 4–6 / 7–10)에 맞춘 문구이며 의료진 검토 전입니다.
+func painScoreDescription(_ score: Int) -> String {
+    let descriptions = ["아프지 않아요", "거의 느껴지지 않아요", "느껴지지만 신경 쓰이진 않아요", "신경 쓰여도 평소대로 지내요",
+                        "하던 일이 조금 불편해요", "하던 일을 멈출 정도예요", "일상생활이 힘들어요", "혼자서는 일상생활을 못 해요",
+                        "간단한 것도 하기 힘들어요", "아무것도 할 수 없어요", "이보다 더 아플 수 없어요"]
+    return descriptions[min(max(score, 0), 10)]
+}
+
+/// 대기·결과 화면 캡슐의 통증 말
 func painScoreWord(_ score: Int) -> String {
     let words = ["안 아파요", "거의 안 느껴져요", "느껴져도 괜찮아요", "가끔 신경 쓰여요", "할 일은 할 수 있어요",
                  "하던 일을 멈춰요", "무시하기 힘들어요", "일상생활이 안 돼요", "너무 괴로워요", "참을 수가 없어요",
