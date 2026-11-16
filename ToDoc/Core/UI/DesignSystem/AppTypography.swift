@@ -2,7 +2,7 @@ import CoreText
 import SwiftUI
 import UIKit
 
-/// 최신 Figma 타이포그래피 9개와 공용 폰트 등록입니다.
+/// 최신 Figma 타이포그래피 10개와 공용 폰트 등록입니다.
 enum AppTypography {
     // 앱과 독립 Preview 모두 첫 사용 시 한 번 등록합니다.
     static let registerFont: Void = {
@@ -27,6 +27,7 @@ enum AppTypography {
         case labelLarge = "Label-large"
         case label = "Label"
         case caption = "Caption"
+        case captionBold = "Caption-bold"
 
         static let fontFamily = "Pretendard Variable"
 
@@ -60,6 +61,9 @@ enum AppTypography {
             case .caption:
                 Specification(size: 12, lineHeight: 16, weight: .regular,
                               letterSpacingPercent: 2.5, usage: "날짜, 주석")
+            case .captionBold:
+                Specification(size: 12, lineHeight: 16, weight: .semiBold,
+                              letterSpacingPercent: 2.5, usage: "강조 캡션")
             }
         }
 
