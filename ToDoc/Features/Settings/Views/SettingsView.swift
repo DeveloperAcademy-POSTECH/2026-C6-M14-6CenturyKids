@@ -6,10 +6,6 @@ struct SettingsView: View {
     @State private var showsLogoutConfirmation = false
     @State private var selectedDocument: LegalDocument?
     @State private var showsSupportError = false
-    #if DEBUG
-    @State private var showsLiveActivityError = false
-    @State private var liveActivityErrorMessage = ""
-    #endif
     private let onPersonalInfo: (() -> Void)?
     private let onCancerType: (() -> Void)?
     private let onCancerStage: (() -> Void)?
@@ -100,28 +96,6 @@ struct SettingsView: View {
                             SettingsRow(title: "오픈소스 라이선스", chevron: true)
                         }
                         .accessibilityIdentifier("settings.licenses")
-                        #if DEBUG
-                        SettingsDivider()
-                        Button(action: startLocalSymptomLiveActivity) {
-                            SettingsRow(title: "증상 Live Activity 테스트", chevron: true)
-                        }
-                        .accessibilityIdentifier("settings.debug.startLiveActivity")
-                        .alert("Live Activity를 실행할 수 없어요", isPresented: $showsLiveActivityError) {
-                            Button("확인", role: .cancel) {}
-                        } message: {
-                            Text(liveActivityErrorMessage)
-                        }
-                        SettingsDivider()
-                        Button(action: startLocalPainLiveActivity) {
-                            SettingsRow(title: "통증 Live Activity 테스트", chevron: true)
-                        }
-                        .accessibilityIdentifier("settings.debug.startLiveActivity")
-                        .alert("Live Activity를 실행할 수 없어요", isPresented: $showsLiveActivityError) {
-                            Button("확인", role: .cancel) {}
-                        } message: {
-                            Text(liveActivityErrorMessage)
-                        }
-                        #endif
                     }
                     Spacer(minLength: 0)
                     VStack(spacing: 8) {
@@ -169,26 +143,6 @@ struct SettingsView: View {
             showsSupportError = !accepted
         }
     }
-
-    #if DEBUG
-    private func startLocalSymptomLiveActivity() {
-        do {
-            try LiveActivityService.startLocalSymptomLiveActivity()
-        } catch {
-            liveActivityErrorMessage = error.localizedDescription
-            showsLiveActivityError = true
-        }
-    }
-    
-    private func startLocalPainLiveActivity() {
-        do {
-            try LiveActivityService.startPainLiveActivity()
-        } catch {
-            liveActivityErrorMessage = error.localizedDescription
-            showsLiveActivityError = true
-        }
-    }
-    #endif
 
     private var avatar: some View {
         SettingsProfileAvatar(size: 64)

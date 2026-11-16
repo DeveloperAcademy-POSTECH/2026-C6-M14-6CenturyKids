@@ -119,6 +119,17 @@ struct AdminSettingsView: View {
                 SettingsDivider()
                 row(.clearAll, subtitle: "모든 기록을 지워요")
             }
+            SettingsSection(title: "") {
+                #if DEBUG
+                liveActivityRow("증상 Live Activity 테스트", id: "symptomLiveActivity") {
+                    try LiveActivityService.startLocalSymptomLiveActivity()
+                }
+                SettingsDivider()
+                #endif
+                liveActivityRow("통증 Live Activity 테스트", id: "painLiveActivity") {
+                    try LiveActivityService.startPainLiveActivity()
+                }
+            }
             if service == nil {
                 SettingsFeedback(error: "로그인한 환자 화면에서만 쓸 수 있어요.")
             }
@@ -145,6 +156,15 @@ struct AdminSettingsView: View {
         }
         .disabled(service == nil || running != nil)
         .accessibilityIdentifier("settings.admin.\(action.rawValue)")
+    }
+
+    private func liveActivityRow(_ title: String, id: String, start: @escaping () throws -> Void) -> some View {
+        Button {
+            do { try start() } catch { result = "Live Activity를 실행할 수 없어요.\n\(error.localizedDescription)" }
+        } label: {
+            SettingsRow(title: title, chevron: true)
+        }
+        .accessibilityIdentifier("settings.admin.\(id)")
     }
 
     private func run(_ action: Action) {
