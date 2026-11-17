@@ -101,6 +101,24 @@ final class DemoAdminService {
         return "오늘 증상 기록을 지웠어요."
     }
 
+    /// 오늘 통증 기록을 지워 처음부터 다시 기록할 수 있게 한다.
+    func resetTodayPain(now: Date = .now) async throws -> String {
+        // 통증 저장소는 끝 날을 포함하므로 오늘 하루만 찾는다
+        let records = try await pain.findByPatientIdAndDate(patientId: patientId, from: now, to: now)
+        guard !records.isEmpty else { throw Failure.nothing("오늘 통증 기록이 없어요.") }
+        for record in records {
+            try await pain.deleteById(record.id)
+            await LiveActivityService.endPainLiveActivity(recordID: record.id)
+        }
+        // 복용 후 통증을 기다리던 기록을 지웠으면 그 1시간 알림도 남기지 않는다
+        if records.contains(where: { $0.painAfter == nil }) { cancelPainAfterReminder() }
+        guard try await pain.findByPatientIdAndDate(patientId: patientId, from: now, to: now).isEmpty else {
+            throw Failure.notApplied("통증 기록")
+        }
+        await onChanged()
+        return "오늘 통증 기록을 지웠어요."
+    }
+
     /// 오늘 보낸 진료 전 기록을 지워 다시 작성할 수 있게 한다.
     func resetTodayPrevisit(now: Date = .now) async throws -> String {
         guard let record = try await previsits.findByPatientIdAndDate(patientId: patientId, date: now) else {

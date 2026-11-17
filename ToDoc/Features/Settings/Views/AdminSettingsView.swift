@@ -55,13 +55,14 @@ extension View {
 /// 시연용 관리자 기능 목록. 누르면 한 번 확인한 뒤 실행하고 결과를 알려 준다.
 struct AdminSettingsView: View {
     enum Action: String, Identifiable {
-        case painSkip, resetSymptom, resetPrevisit, seedMockData, clearAll
+        case painSkip, resetSymptom, resetPain, resetPrevisit, seedMockData, clearAll
 
         var id: String { rawValue }
         var title: String {
             switch self {
             case .painSkip: "통증 1시간 스킵"
             case .resetSymptom: "증상 초기화"
+            case .resetPain: "통증 초기화"
             case .resetPrevisit: "진료 전 기록 초기화"
             case .seedMockData: "목데이터 채우기"
             case .clearAll: "목데이터 지우기"
@@ -71,6 +72,7 @@ struct AdminSettingsView: View {
             switch self {
             case .painSkip: "기다리는 통증 기록을 30초 뒤에 기록할 수 있게 바꿀까요?"
             case .resetSymptom: "오늘 증상 기록을 지울까요? 되돌릴 수 없어요."
+            case .resetPain: "오늘 통증 기록을 지울까요? 되돌릴 수 없어요."
             case .resetPrevisit: "오늘 보낸 진료 전 기록을 지울까요? 되돌릴 수 없어요."
             case .seedMockData: "10월 16일~11월 19일의 증상·통증·진료 전 기록을 지우고 목데이터로 다시 채울까요? 되돌릴 수 없어요."
             case .clearAll: "이 계정의 모든 증상·통증·진료 전 기록을 지울까요? 날짜와 상관없이 전부 지워지고 되돌릴 수 없어요."
@@ -106,6 +108,8 @@ struct AdminSettingsView: View {
                 row(.painSkip, subtitle: nil)
                 SettingsDivider()
                 row(.resetSymptom, subtitle: "오늘 기록만 지워요")
+                SettingsDivider()
+                row(.resetPain, subtitle: "오늘 기록만 지워요")
                 SettingsDivider()
                 row(.resetPrevisit, subtitle: "오늘 기록만 지워요")
             }
@@ -216,6 +220,7 @@ struct AdminSettingsView: View {
                 result = switch action {
                 case .painSkip: try await service.skipPainWait()
                 case .resetSymptom: try await service.resetTodaySymptoms()
+                case .resetPain: try await service.resetTodayPain()
                 case .resetPrevisit: try await service.resetTodayPrevisit()
                 case .seedMockData: try await service.seedMockData()
                 case .clearAll: try await service.clearAllRecords()
