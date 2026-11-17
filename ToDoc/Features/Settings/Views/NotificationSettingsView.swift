@@ -29,7 +29,7 @@ struct NotificationSettingsView: View {
                         HStack(spacing: 0) {
                             Picker("시", selection: hour) {
                                 ForEach(allowedHours, id: \.self) { hour in
-                                    Text("오후 \(hour - 12)시").tag(hour)
+                                    Text(hourText(hour) + "시").tag(hour)
                                 }
                             }
                             Picker("분", selection: minute) {
@@ -46,7 +46,9 @@ struct NotificationSettingsView: View {
                 .disabled(!viewModel.hasLoaded || viewModel.isSaving)
                 .accessibilityIdentifier("settings.notification.time")
             } footer: {
-                Text("선택한 시간에 이 기기에서 알림을 표시하도록 설정해요.")
+                Text(OfflineMode.isOn
+                     ? "하루 중 어느 시각이든 고를 수 있어요. 같은 시각에 증상 기록 알림과 실시간 현황이 함께 나와요."
+                     : "선택한 시간에 이 기기에서 알림을 표시하도록 설정해요.")
             }
 
             Section {
@@ -73,6 +75,30 @@ struct NotificationSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                if viewModel.isScheduling {
+                    ProgressView("알림과 실시간 현황을 예약하고 있어요")
+                }
+
+                if let date = viewModel.reminderStatus.nextLiveActivityDate {
+                    LabeledContent("다음 증상 실시간 현황") {
+                        Text(date, format: .dateTime.month().day().hour().minute())
+                    }
+                    .accessibilityIdentifier("settings.notification.nextActivity")
+                }
+
+                if let warning = viewModel.reminderStatus.warningMessage {
+                    Text(warning)
+                        .foregroundStyle(.orange)
+                        .accessibilityIdentifier("settings.notification.scheduleWarning")
+                    Button("예약 다시 시도") { Task { await viewModel.refreshSchedule() } }
+                        .disabled(viewModel.isSaving || viewModel.isScheduling)
+                    Button("iPhone 설정 열기") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                }
+
                 Button("저장") {
                     Task {
                         await viewModel.saveTime()
@@ -80,6 +106,10 @@ struct NotificationSettingsView: View {
                 }
                 .disabled(!viewModel.canSave)
                 .accessibilityIdentifier("settings.notification.save")
+            } footer: {
+                if OfflineMode.isOn {
+                    Text("일반 알림은 매일 반복돼요. 실시간 현황은 다음 한 번을 예약하며, 앱을 열면 다음 일정이 이어서 예약돼요. 예약한 시각에는 인터넷 없이도 표시돼요.")
+                }
             }
         }
         .navigationTitle("알림 설정")
@@ -91,15 +121,19 @@ struct NotificationSettingsView: View {
 
     // DatePicker는 범위 밖 시간을 숨기지 못하고 흐리게만 보여 줘서, 허용된 시만 담은 휠을 직접 그린다.
     private var allowedHours: Range<Int> {
-        let minutes = NotificationSettingsViewModel.allowedMinutes
+        let minutes = viewModel.allowedMinutes
         return (minutes.lowerBound / 60)..<(minutes.upperBound / 60)
     }
 
-    // 허용 범위가 모두 오후라서 "오후"로 고정해 표시한다.
     private var timeText: String {
         let hour = viewModel.selectedTime.hour ?? 20
         let minute = viewModel.selectedTime.minute ?? 0
-        return "오후 \(hour - 12):" + String(format: "%02d", minute)
+        return hourText(hour) + ":" + String(format: "%02d", minute)
+    }
+
+    /// 20 → "오후 8", 0 → "오전 12"
+    private func hourText(_ hour: Int) -> String {
+        "\(hour < 12 ? "오전" : "오후") \(hour % 12 == 0 ? 12 : hour % 12)"
     }
 
     private var hour: Binding<Int> {

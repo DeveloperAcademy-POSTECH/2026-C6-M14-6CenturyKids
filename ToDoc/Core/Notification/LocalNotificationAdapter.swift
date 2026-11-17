@@ -15,6 +15,27 @@ enum LocalNotificationAdapter {
     private static let painReminderHours = [8, 12, 18]
     private static let painAfterReminderID = "painAfterReminder"
 
+    /// 기기에만 저장하는 모드에서 증상 기록 알림을 매일 같은 시각에 예약한다 (서버 모드는 서버가 보낸다).
+    /// 같은 식별자로 넣어 시간을 바꾸면 이전 예약이 바뀌고, 꺼져 있으면 예약을 지운다.
+    static func scheduleCareCallReminder(_ settings: NotificationSettingsDTO) async throws {
+        let center = UNUserNotificationCenter.current()
+        let id = "offline.carecall.daily"
+        guard settings.isEnabled else {
+            center.removePendingNotificationRequests(withIdentifiers: [id])
+            return
+        }
+        guard let schedule = CareCallReminderSchedule(settings: settings) else {
+            throw CocoaError(.coderInvalidValue)
+        }
+        let content = UNMutableNotificationContent()
+        content.title = "오늘의 증상을 기록해 주세요"
+        content.body = "인터넷 없이 이 기기에서 대화하고 저장할 수 있어요."
+        content.sound = .default
+        content.userInfo = [deepLinkKey: "todoc://record/symptoms"]
+        try await center.add(UNNotificationRequest(identifier: id, content: content,
+                                                   trigger: UNCalendarNotificationTrigger(dateMatching: schedule.components, repeats: true)))
+    }
+
     /// 돌발성 통증 기록 알림을 매일 8·12·18시에 예약한다.
     /// 같은 식별자로 다시 넣으면 기존 예약이 바뀌므로 앱을 열 때마다 불러도 쌓이지 않는다.
     /// 권한은 묻지 않는다: 허용 전에 넣은 예약도 남아 있다가 허용하면 뜬다 (권한은 위치 권한 다음에 한 번 묻는다).
