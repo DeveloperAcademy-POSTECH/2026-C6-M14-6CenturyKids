@@ -13,8 +13,9 @@ extension AppFeedback {
         var descriptor: (Int) -> String = { _ in "" }
         var onInteractionEnded: ((Int) -> Void)?
 
-        /// 끄는 동안의 기준 자리(x). 손을 댄 순간에 정해 두고 움직인 거리만큼 더합니다
-        @State private var dragOrigin: CGFloat?
+        /// 끄는 동안의 기준 자리. 손을 댄 순간에 정해 두고 움직인 거리만큼 더합니다.
+        /// 끌기가 중간에 끊기면 끝났다는 알림이 오지 않으므로, 손을 댄 자리(start)가 달라지면 새로 잡습니다
+        @State private var dragAnchor: (start: CGPoint, origin: CGFloat)?
 
         /// Figma Pain Scale이 변수 없이 직접 지정한 값
         private enum Palette {
@@ -55,10 +56,10 @@ extension AppFeedback {
             .accessibilityLabel(label)
             .accessibilityValue(value.map { "\($0)점, \(descriptor($0))" } ?? "선택하지 않음")
             .accessibilityAdjustableAction { direction in
-                let current = value ?? range.lowerBound
                 switch direction {
-                case .increment: select(value == nil ? range.lowerBound : current + 1)
-                case .decrement: select(current - 1)
+                case .increment: select(value.map { $0 + 1 } ?? range.lowerBound)
+                // 고르기 전에 내리기만으로 점수가 정해지지 않게 합니다
+                case .decrement: if let value { select(value - 1) }
                 @unknown default: break
                 }
                 if let value { onInteractionEnded?(value) }
@@ -208,18 +209,21 @@ extension AppFeedback {
             let step = width / 10
             return DragGesture(minimumDistance: 0)
                 .onChanged { gesture in
-                    if dragOrigin == nil {
+                    let origin: CGFloat
+                    if let dragAnchor, dragAnchor.start == gesture.startLocation {
+                        origin = dragAnchor.origin
+                    } else {
                         // 손잡이를 잡았으면 지금 자리에서, 비탈의 다른 곳을 눌렀으면 그 칸의 점수 자리에서 시작합니다
                         let fillWidth = CGFloat(value ?? 0) * step
                         let center = handleCenter(fillWidth: fillWidth, width: width)
                         let grabsHandle = abs(gesture.startLocation.x - center) <= Metrics.handleGrabRadius
-                        dragOrigin = grabsHandle ? fillWidth : (gesture.startLocation.x / step).rounded(.up) * step
+                        origin = grabsHandle ? fillWidth : (gesture.startLocation.x / step).rounded(.up) * step
+                        dragAnchor = (gesture.startLocation, origin)
                     }
-                    let position = (dragOrigin ?? 0) + gesture.translation.width
-                    select(Int((position / step).rounded()))
+                    select(Int(((origin + gesture.translation.width) / step).rounded()))
                 }
                 .onEnded { _ in
-                    dragOrigin = nil
+                    dragAnchor = nil
                     if let value { onInteractionEnded?(value) }
                 }
         }
