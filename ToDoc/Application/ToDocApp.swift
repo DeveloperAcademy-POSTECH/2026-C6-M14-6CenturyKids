@@ -40,7 +40,8 @@ struct ToDocApp: App {
         
         notificationDelegate = LocalNotificationDelegate(router: router)
         UNUserNotificationCenter.current().delegate = notificationDelegate
-        container.hospitalArrivalService.start()
+        // 기기에만 저장하는 모드는 병원이 없으니, 서버 모드에서 남은 병원 감시가 알림을 띄우지 않게 듣지 않는다
+        if !OfflineMode.isOn { container.hospitalArrivalService.start() }
     }
     
     var body: some Scene {

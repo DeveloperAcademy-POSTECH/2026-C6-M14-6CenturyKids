@@ -2,33 +2,53 @@ import SwiftUI
 
 /// 시연용 관리자 설정 진입. 비밀번호가 맞으면 관리자 화면으로 간다.
 struct SettingsAdminEntry: View {
-    private static let password = "1120"
-    @State private var input = ""
     @State private var asksPassword = false
-    @State private var showsWrongPassword = false
     @State private var showsAdmin = false
 
     var body: some View {
         SettingsSection(title: "관리자") {
-            Button { input = ""; asksPassword = true } label: {
+            Button { asksPassword = true } label: {
                 SettingsRow(title: "관리자 설정", chevron: true)
             }
             .accessibilityIdentifier("settings.admin")
         }
-        .alert("관리자 비밀번호", isPresented: $asksPassword) {
-            SecureField("비밀번호", text: $input)
-                .keyboardType(.numberPad)
-            Button("취소", role: .cancel) {}
-            Button("확인") {
-                if input == Self.password { showsAdmin = true } else { showsWrongPassword = true }
-            }
-        } message: {
-            Text("비밀번호를 입력해 주세요.")
-        }
-        .alert("비밀번호가 맞지 않아요", isPresented: $showsWrongPassword) {
-            Button("확인", role: .cancel) {}
-        }
+        .adminPasswordGate(isAsking: $asksPassword) { showsAdmin = true }
         .navigationDestination(isPresented: $showsAdmin) { AdminSettingsView() }
+    }
+}
+
+/// 관리자 비밀번호를 묻고, 맞으면 onUnlock을 부른다. 설정 화면과 로그인 전 시작 화면이 함께 쓴다.
+private struct AdminPasswordGate: ViewModifier {
+    private static let password = "1120"
+    @Binding var isAsking: Bool
+    let onUnlock: () -> Void
+    @State private var input = ""
+    @State private var showsWrongPassword = false
+
+    func body(content: Content) -> some View {
+        content
+            .alert("관리자 비밀번호", isPresented: $isAsking) {
+                SecureField("비밀번호", text: $input)
+                    .keyboardType(.numberPad)
+                Button("취소", role: .cancel) {}
+                Button("확인") {
+                    if input == Self.password { onUnlock() } else { showsWrongPassword = true }
+                }
+            } message: {
+                Text("비밀번호를 입력해 주세요.")
+            }
+            .alert("비밀번호가 맞지 않아요", isPresented: $showsWrongPassword) {
+                Button("확인", role: .cancel) {}
+            }
+            .onChange(of: isAsking) { _, asking in
+                if asking { input = "" }
+            }
+    }
+}
+
+extension View {
+    func adminPasswordGate(isAsking: Binding<Bool>, onUnlock: @escaping () -> Void) -> some View {
+        modifier(AdminPasswordGate(isAsking: isAsking, onUnlock: onUnlock))
     }
 }
 
@@ -64,6 +84,7 @@ struct AdminSettingsView: View {
     @State private var running: Action?
     @State private var result: String?
     @State private var isChangingLiveActivity = false
+    @AppStorage(OfflineMode.enabledKey) private var offlineMode = false
     @AppStorage(DemoCareCallPlan.enabledKey) private var demoCareCall = true
     @AppStorage(FoundationModelsCareCallAdapter.speculationKey) private var speculation = true
     @AppStorage(SpeechAnalyzerAdapter.skipSilenceKey) private var skipSilence = true
@@ -72,6 +93,15 @@ struct AdminSettingsView: View {
 
     var body: some View {
         SettingsScreen(title: "관리자 설정", cancel: { dismiss() }) {
+            // 토글은 앱을 다시 켤 때 적용되므로, 지금 실제로 어디에 저장하는지를 따로 보여 준다
+            SettingsSection(title: "", footer: "지금: \(OfflineMode.isOn ? "기기에 저장" : "서버에 저장")\(offlineMode == OfflineMode.isOn ? "" : " (다시 켜면 바뀌어요)")") {
+                Toggle(isOn: $offlineMode) {
+                    Text("기기에만 저장 (오프라인)").settingsText()
+                }
+                .tint(AppColors.primary)
+                .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
+                .accessibilityIdentifier("settings.admin.offlineMode")
+            }
             SettingsSection(title: "") {
                 row(.painSkip, subtitle: nil)
                 SettingsDivider()

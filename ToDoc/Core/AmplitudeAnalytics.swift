@@ -9,9 +9,10 @@ final class AmplitudeAnalytics {
     private let logger = Logger(subsystem: "ToDoc", category: "Analytics")
 
     init(bundle: Bundle = .main) {
-        // Preview와 단위 테스트에서는 수집하지 않습니다.
+        // Preview와 단위 테스트, 기기에만 저장하는 모드(체험자 기록이 실제 분석에 섞이지 않게)에서는 수집하지 않습니다.
         guard ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != "1",
-              ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
+              ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
+              !OfflineMode.isOn else {
             client = nil
             return
         }

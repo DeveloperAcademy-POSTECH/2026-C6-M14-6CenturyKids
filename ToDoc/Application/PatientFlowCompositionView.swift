@@ -12,6 +12,7 @@ struct PatientFlowCompositionView: View {
     @State private var recordsViewModel: RecordsViewModel
     @State private var notificationViewModel: NotificationViewModel
     @Environment(AppRouter.self) private var router
+    @Environment(\.scenePhase) private var scenePhase
     @State private var previsitLetterViewModel: PrevisitLetterViewModel
     @State private var demoAdmin: DemoAdminService
     private let container: DependencyContainer
@@ -160,6 +161,12 @@ struct PatientFlowCompositionView: View {
             }
         }
         .task(id: homeViewModel.state.doctorName) { await loadPrevisitLetters() }
+        .task(id: scenePhase) {
+            if scenePhase == .active {
+                await LiveActivityService.refreshLiveActivityPriorities()
+                await notificationSettingsViewModel.refreshSchedule()
+            }
+        }
     }
 
     private func loadPrevisitLetters() async {
@@ -187,6 +194,11 @@ struct PatientFlowCompositionView: View {
         notificationViewModel.onOpen = { type in
             guard type == .previsitReminder else { return }
             router.handle(.previsit)
+        }
+        // 기기에만 저장하는 체험자는 연결된 병원이 없어 위치는 묻지 않고, 통증·증상 알림에 쓸 알림 권한만 묻는다
+        guard !OfflineMode.isOn else {
+            await LocalNotificationAdapter.requestAuthorization()
+            return
         }
         permission.onChange = { status in
             Task { await arrival.update(patientId: patientId, authorized: status.allowsArrival) }

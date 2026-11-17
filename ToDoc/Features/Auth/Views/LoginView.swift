@@ -13,6 +13,8 @@ struct LoginFormView: View {
     @FocusState private var isEmailFocused: Bool
     @FocusState private var isPasswordFocused: Bool
     @ScaledMetric(relativeTo: .body) private var separatorFontSize: CGFloat = 16
+    @State private var asksAdminPassword = false
+    @State private var showsAdmin = false
     let viewModel: LoginViewModel
 
     private var state: LoginScreenState {
@@ -28,10 +30,18 @@ struct LoginFormView: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    // 로고를 1초 누르면 관리자 비밀번호를 묻는다 (시연 진행자용).
+                    // 네트워크가 안 돼 로그인할 수 없을 때도 "기기에만 저장"을 켤 수 있게 한다
                     Image("SodakLogo")
                         .resizable().scaledToFit()
                         .frame(width: 49, height: 24.126)
                         .accessibilityLabel("속닥")
+                        .contentShape(Rectangle().inset(by: -12))
+                        .onLongPressGesture(minimumDuration: 1) { asksAdminPassword = true }
+                        .adminPasswordGate(isAsking: $asksAdminPassword) { showsAdmin = true }
+                        .sheet(isPresented: $showsAdmin) {
+                            NavigationStack { AdminSettingsView() }
+                        }
                         .padding(.bottom, 13.874)
                     Text("만나서 반가워요")
                         .appTypography(.titleLarge)

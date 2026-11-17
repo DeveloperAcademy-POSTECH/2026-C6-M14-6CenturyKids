@@ -12,7 +12,8 @@ final class DependencyContainer {
     let analytics: AmplitudeAnalytics
     /// 로그인·설정·탈퇴가 함께 사용하는 앱 수명의 인증 상태입니다.
     let authSession: AuthSessionState
-    let supabaseProvider: SupabaseClientProvider
+    /// 기기에만 저장하는 모드(OfflineMode)에서만 있습니다.
+    let localStore: LocalFileStore?
     let authRepository: any AuthRepository
     let userRepository: any UserRepository
     let hospitalRepository: any HospitalRepository
@@ -25,6 +26,8 @@ final class DependencyContainer {
     /// 앱 알림 목록은 서버 없이 폰에만 남긴다
     let notificationRepository: any NotificationRepository
     let notificationSettingsRepository: any NotificationSettingsRepository
+    /// 기기에만 저장하는 모드에서만 있습니다. 서버 모드에서는 서버가 알림을 보냅니다.
+    let careCallReminderScheduler: CareCallReminderScheduler?
     
     let liveActivityService: LiveActivityService
     let locationPermission: LocationPermissionRequester
@@ -33,26 +36,42 @@ final class DependencyContainer {
     init(configuration: SupabaseConfiguration, analytics: AmplitudeAnalytics) {
         self.analytics = analytics
         authSession = AuthSessionState(loginPreference: AuthLoginPreference(defaults: .standard))
-        let provider = SupabaseClientProvider(
-            configuration: configuration
-        )
-
-        supabaseProvider = provider
-        let client = provider.client
-        authRepository = SupabaseAuthRepository(client: client, configuration: configuration)
-        userRepository = SupabaseUserRepository(client: client)
-        hospitalRepository = SupabaseHospitalRepository(client: client)
-        doctorRepository = SupabaseDoctorRepository(client: client)
-        patientRepository = SupabasePatientRepository(client: client)
-        symptomRepository = SupabaseSymptomRepository(client: client)
-        previsitRepository = SupabasePrevisitRepository(client: client)
-        painRepository = SupabasePainRepository(client: client)
-        deviceTokenRepository = SupabaseDeviceTokenRepository(client: client)
+        if OfflineMode.isOn {
+            // 서버에 닿지 않는다: 기록·프로필은 기기 파일에 두고, 병원·의사·푸시 토큰은 비워 둔다
+            let store = LocalFileStore()
+            localStore = store
+            authRepository = LocalAuthRepository()
+            userRepository = LocalUserRepository(store: store)
+            hospitalRepository = OfflineHospitalRepository()
+            doctorRepository = OfflineDoctorRepository()
+            patientRepository = LocalPatientRepository(store: store)
+            symptomRepository = LocalSymptomRepository(store: store)
+            previsitRepository = LocalPrevisitRepository(store: store)
+            painRepository = LocalPainRepository(store: store)
+            deviceTokenRepository = OfflineDeviceTokenRepository()
+            let notificationSettings = LocalNotificationSettingsRepository(store: store)
+            notificationSettingsRepository = notificationSettings
+            // 서버 푸시가 없으니 증상 알림과 실시간 현황을 기기에서 직접 예약한다
+            careCallReminderScheduler = CareCallReminderScheduler(repository: notificationSettings, userId: OfflineProfile.id)
+        } else {
+            localStore = nil
+            let client = SupabaseClientProvider(configuration: configuration).client
+            authRepository = SupabaseAuthRepository(client: client, configuration: configuration)
+            userRepository = SupabaseUserRepository(client: client)
+            hospitalRepository = SupabaseHospitalRepository(client: client)
+            doctorRepository = SupabaseDoctorRepository(client: client)
+            patientRepository = SupabasePatientRepository(client: client)
+            symptomRepository = SupabaseSymptomRepository(client: client)
+            previsitRepository = SupabasePrevisitRepository(client: client)
+            painRepository = SupabasePainRepository(client: client)
+            deviceTokenRepository = SupabaseDeviceTokenRepository(client: client)
+            notificationSettingsRepository = SupabaseNotificationSettingsRepository(
+                client: client
+            )
+            careCallReminderScheduler = nil
+        }
         notificationRepository = FileNotificationRepository()
-        notificationSettingsRepository = SupabaseNotificationSettingsRepository(
-            client: client
-        )
-        
+
         self.liveActivityService = LiveActivityService(tokenRepository: deviceTokenRepository, authRepository: authRepository)
         locationPermission = LocationPermissionRequester()
         hospitalArrivalService = HospitalArrivalService(
@@ -93,7 +112,10 @@ final class DependencyContainer {
     ) -> NotificationSettingsViewModel {
         NotificationSettingsViewModel(
             userId: userId,
-            notificationSettingsRepository: notificationSettingsRepository
+            notificationSettingsRepository: notificationSettingsRepository,
+            allowedMinutes: OfflineMode.isOn ? NotificationSettingsViewModel.allDayMinutes
+                                             : NotificationSettingsViewModel.eveningMinutes,
+            synchronizeReminders: careCallReminderScheduler?.synchronize ?? { .init() }
         )
     }
 
