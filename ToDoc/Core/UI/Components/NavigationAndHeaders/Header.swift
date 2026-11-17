@@ -11,13 +11,13 @@ extension AppNavigation {
         }
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(spacing: 8) {
                 Text(title)
                     .appTypography(.title)
                     .foregroundStyle(AppColors.Semantic.Text.default)
                     .accessibilityAddTraits(.isHeader)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, minHeight: 66, alignment: .bottomLeading)
+                    .frame(maxWidth: .infinity, minHeight: 66, alignment: .bottom)
 
                 if let description {
                     Text(description)
@@ -26,7 +26,8 @@ extension AppNavigation {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
         }
     }
 }
