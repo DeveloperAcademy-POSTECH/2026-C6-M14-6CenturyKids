@@ -44,11 +44,26 @@ import ToDocDomain
             try Task.checkCancellation()
             session.patient = patient
         } catch {
+            // 네트워크에 닿지 못한 것은 로그인이 틀린 것이 아니라 확인을 못 한 것이다.
+            // 저장된 로그인을 지우지 않고 두어, 연결된 뒤 앱을 다시 열면 그대로 복원한다.
+            guard !Self.isConnectionFailure(error) else {
+                session.patient = nil
+                errorMessage = "인터넷에 연결되지 않아 로그인을 확인하지 못했어요. 연결한 뒤 앱을 다시 열어 주세요."
+                return
+            }
             session.loginPreference.isEnabled = false
             session.patient = nil
             errorMessage = (error as? AuthFlowError)?.message ?? "이전 로그인을 확인하지 못했어요. 다시 로그인해 주세요."
             do { try await auth.signOut() }
             catch { errorMessage = "이전 인증 상태를 정리하지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요." }
         }
+    }
+
+    /// 요청이 서버에 닿지 못해 난 오류인지 (비행기 모드, 연결 끊김, 시간 초과 등).
+    /// 서버가 로그인을 거절한 경우는 URL 오류가 아니라 인증 오류로 온다.
+    private static func isConnectionFailure(_ error: any Error) -> Bool {
+        let error = error as NSError
+        if error.domain == NSURLErrorDomain { return true }
+        return (error.userInfo[NSUnderlyingErrorKey] as? NSError)?.domain == NSURLErrorDomain
     }
 }
