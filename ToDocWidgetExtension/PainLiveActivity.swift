@@ -164,26 +164,21 @@ struct PainLiveActivity: Widget {
                     }
                 }
             } compactLeading: {
-                let medicationTakenAt = context.attributes.medicationTakenAt
-                let timerEndsAt = context.attributes.timerEndsAt
-                
-                Text(timerInterval: medicationTakenAt...timerEndsAt)
-                    .font(.caption)
-                    .frame(width: 45)
-            } compactTrailing: {
                 Image(systemName: "cross.vial")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 20, height: 24)
+            } compactTrailing: {
+                PainIslandCountdown(attributes: context.attributes, minimal: false)
             } minimal: {
-                Image("HangnoWithoutBackground")
-                    .resizable()
-                    .frame(width: 30, height: 30)
-                    .scaledToFit()
+                PainIslandCountdown(attributes: context.attributes, minimal: true)
             }
             .widgetURL(painURL)
             .keylineTint(Color("LiveActivityGreen"))
             .contentMargins(.leading, 20, for: .expanded)
             .contentMargins(.trailing, 20, for: .expanded)
-            .contentMargins(.horizontal, 11, for: .minimal)
-            .contentMargins(.vertical, 7, for: .minimal)
+            .contentMargins(.horizontal, 2, for: .minimal)
+            .contentMargins(.vertical, 0, for: .minimal)
         }
     }
 
@@ -215,6 +210,29 @@ struct PainLiveActivity: Widget {
         .frame(height: 52)
         .clipShape(.capsule)
         .contentShape(.capsule)
+    }
+}
+
+/// iPhone switches to minimal presentation when another app also has a Live Activity.
+/// Keep the countdown visible there too, within the 45 × 36.67 pt minimal bounds.
+private struct PainIslandCountdown: View {
+    let attributes: PainLiveActivityAttributes
+    let minimal: Bool
+    @Environment(\.isDynamicIslandLimitedInWidth) private var limitedWidth
+
+    private var interval: ClosedRange<Date> { attributes.medicationTakenAt...attributes.timerEndsAt }
+
+    var body: some View {
+        Text(timerInterval: interval, countsDown: true, showsHours: false)
+            .font(.system(size: limitedWidth ? 9 : (minimal ? 12 : 15), weight: .semibold, design: .monospaced))
+            .monospacedDigit()
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+            .multilineTextAlignment(.center)
+            .frame(width: limitedWidth ? 24 : (minimal ? 40 : 49), height: 24)
+            .accessibilityLabel("통증 기록까지 남은 시간")
+            .accessibilityValue(Text(timerInterval: interval, countsDown: true, showsHours: false))
     }
 }
 

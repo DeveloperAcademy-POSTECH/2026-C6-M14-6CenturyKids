@@ -12,6 +12,7 @@ struct PatientFlowCompositionView: View {
     @State private var recordsViewModel: RecordsViewModel
     @State private var notificationViewModel: NotificationViewModel
     @Environment(AppRouter.self) private var router
+    @Environment(\.scenePhase) private var scenePhase
     @State private var previsitLetterViewModel: PrevisitLetterViewModel
     @State private var demoAdmin: DemoAdminService
     private let container: DependencyContainer
@@ -166,6 +167,12 @@ struct PatientFlowCompositionView: View {
             }
         }
         .task(id: homeViewModel.state.doctorName) { await loadPrevisitLetters() }
+        .task(id: scenePhase) {
+            if scenePhase == .active {
+                await LiveActivityService.refreshLiveActivityPriorities()
+                await notificationSettingsViewModel.refreshSchedule()
+            }
+        }
     }
 
     private func loadPrevisitLetters() async {

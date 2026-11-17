@@ -18,19 +18,20 @@ enum LocalNotificationAdapter {
     static func scheduleCareCallReminder(_ settings: NotificationSettingsDTO) async throws {
         let center = UNUserNotificationCenter.current()
         let id = "offline.carecall.daily"
-        center.removePendingNotificationRequests(withIdentifiers: [id])
-        guard settings.isEnabled else { return }
-        let parts = settings.notificationTime.split(separator: ":").compactMap { Int($0) }
-        guard parts.count >= 2, (0..<24).contains(parts[0]), (0..<60).contains(parts[1]) else { return }
+        guard settings.isEnabled else {
+            center.removePendingNotificationRequests(withIdentifiers: [id])
+            return
+        }
+        guard let schedule = CareCallReminderSchedule(settings: settings) else {
+            throw CocoaError(.coderInvalidValue)
+        }
         let content = UNMutableNotificationContent()
         content.title = "오늘의 증상을 기록해 주세요"
         content.body = "인터넷 없이 이 기기에서 대화하고 저장할 수 있어요."
         content.sound = .default
         content.userInfo = [deepLinkKey: "todoc://record/symptoms"]
-        var date = DateComponents(hour: parts[0], minute: parts[1])
-        date.timeZone = TimeZone(identifier: settings.timezone) ?? .current
         try await center.add(UNNotificationRequest(identifier: id, content: content,
-                                                   trigger: UNCalendarNotificationTrigger(dateMatching: date, repeats: true)))
+                                                   trigger: UNCalendarNotificationTrigger(dateMatching: schedule.components, repeats: true)))
     }
 
     /// 돌발성 통증 기록 알림을 매일 8·12·18시에 예약한다.

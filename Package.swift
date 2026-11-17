@@ -31,7 +31,9 @@ let package = Package(
                     "Data/Repositories/Protocols/NotificationRepository.swift",
 
                     "Features/Auth", "Features/Previsit", "Features/Home", "Features/Notification", "Features/Onboarding", "Features/Pain/Views", "Features/Pain/Presentation",
-                    "Features/Patient", "Features/Records/Views", "Features/Settings", "Features/Symptom/Views",
+                    "Features/Patient", "Features/Records/Views", "Features/Symptom/Views",
+                    "Features/Settings/Views", "Features/Settings/Previews", "Features/Settings/Presentation",
+                    "Features/Settings/ViewModels/AccountWithdrawalViewModel.swift", "Features/Settings/ViewModels/SettingsViewModel.swift",
                     "Core/AppIntents", "Core/Dependency", "Core/Errors", "Core/Extensions",
                     "Core/Navigation", "Core/Notification", "Core/UI",
                     "Core/Audio/AVAudioEngineAdapter.swift", "Core/Audio/AudioRecorder.swift", "Core/Audio/AudioRecorderEvent.swift",
@@ -47,6 +49,7 @@ let package = Package(
                     "Core/AI/OfflineCareCallAnalyzer.swift",
                     "Data/DTOs/Pain", "Data/DTOs/Previsit", "Data/DTOs/Symptom", "Data/DTOs/User", "Data/DTOs/Errors",
                     "Data/DTOs/DeviceToken", "Data/DTOs/Notification",
+                    "Features/Settings/ViewModels/NotificationSettingsViewModel.swift",
                     "Data/Repositories/Local/LocalFileStore.swift", "Data/Repositories/Local/LocalRecordRepositories.swift",
                     "Data/Repositories/Local/LocalProfileRepositories.swift", "Data/Repositories/Local/FilePendingCareCallRepository.swift",
                     "Data/Repositories/Protocols/PrevisitRepository.swift", "Data/Repositories/Protocols/NotificationSettingsRepository.swift",

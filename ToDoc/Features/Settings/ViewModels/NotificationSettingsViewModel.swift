@@ -6,6 +6,7 @@ import Observation
 final class NotificationSettingsViewModel {
     @ObservationIgnored private let userId: UUID
     @ObservationIgnored private let notificationSettingsRepository: any NotificationSettingsRepository
+    @ObservationIgnored private let synchronizeReminders: () async -> CareCallReminderStatus
     @ObservationIgnored private var loadedSettings: NotificationSettingsDTO?
     static let allowedMinutes = 0..<(24 * 60)
 
@@ -17,6 +18,8 @@ final class NotificationSettingsViewModel {
     private(set) var isSaving = false
     private(set) var didSave = false
     private(set) var errorMessage: String?
+    private(set) var reminderStatus = CareCallReminderStatus()
+    private(set) var isScheduling = false
 
     var savedTimeString: String {
         String(format: "%02d:%02d:00", savedTime.hour ?? 20, savedTime.minute ?? 0)
@@ -24,15 +27,18 @@ final class NotificationSettingsViewModel {
 
     var hasChanges: Bool { selectedTime != savedTime }
     var canSave: Bool {
-        hasLoaded && !isLoading && !isSaving && (!hasStoredTime || hasChanges)
+        hasLoaded && !isLoading && !isSaving && !isScheduling
+            && (!hasStoredTime || hasChanges || reminderStatus.warningMessage != nil)
     }
 
     init(
         userId: UUID,
-        notificationSettingsRepository: any NotificationSettingsRepository
+        notificationSettingsRepository: any NotificationSettingsRepository,
+        synchronizeReminders: @escaping () async -> CareCallReminderStatus = { .init() }
     ) {
         self.userId = userId
         self.notificationSettingsRepository = notificationSettingsRepository
+        self.synchronizeReminders = synchronizeReminders
     }
 
     func loadTime() async {
@@ -75,6 +81,7 @@ final class NotificationSettingsViewModel {
             selectedTime = time
             hasStoredTime = true
             hasLoaded = true
+            await updateReminderStatus()
         } catch is CancellationError {
             return
         } catch {
@@ -126,9 +133,22 @@ final class NotificationSettingsViewModel {
             savedTime = timeToSave
             hasStoredTime = true
             didSave = true
+            await updateReminderStatus()
         } catch {
             errorMessage = "알림 시간의 저장 결과를 확인하지 못했어요. 다시 시도해 주세요."
         }
+    }
+
+    /// Called on foreground entry, including after returning from iPhone permission settings.
+    func refreshSchedule() async {
+        guard !isLoading, !isSaving, !isScheduling else { return }
+        await updateReminderStatus()
+    }
+
+    private func updateReminderStatus() async {
+        isScheduling = true
+        defer { isScheduling = false }
+        reminderStatus = await synchronizeReminders()
     }
 
     private func parseTime(_ value: String) -> DateComponents? {

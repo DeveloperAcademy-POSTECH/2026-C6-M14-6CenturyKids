@@ -18,6 +18,8 @@ nonisolated struct SymptomLiveActivityAttributes: ActivityAttributes {
     // Fixed non-changing properties about your activity go here!
     var name: String
     var image: String
+    // Optional so activities created by earlier app versions remain decodable.
+    var scheduledFor: Date? = nil
 }
 
 struct SymptomLiveActivity: Widget {

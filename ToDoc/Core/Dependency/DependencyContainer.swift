@@ -25,6 +25,7 @@ final class DependencyContainer {
     /// 앱 알림 목록은 서버 없이 폰에만 남긴다
     let notificationRepository: any NotificationRepository
     let notificationSettingsRepository: any NotificationSettingsRepository
+    let careCallReminderScheduler: CareCallReminderScheduler
     
     let liveActivityService: LiveActivityService
     let locationPermission: LocationPermissionRequester
@@ -45,7 +46,9 @@ final class DependencyContainer {
         painRepository = LocalPainRepository(store: store)
         deviceTokenRepository = OfflineDeviceTokenRepository()
         notificationRepository = FileNotificationRepository()
-        notificationSettingsRepository = LocalNotificationSettingsRepository(store: store)
+        let notificationSettings = LocalNotificationSettingsRepository(store: store)
+        notificationSettingsRepository = notificationSettings
+        careCallReminderScheduler = CareCallReminderScheduler(repository: notificationSettings, userId: OfflineProfile.id)
 
         self.liveActivityService = LiveActivityService(tokenRepository: deviceTokenRepository, authRepository: authRepository)
         locationPermission = LocationPermissionRequester()
@@ -87,7 +90,8 @@ final class DependencyContainer {
     ) -> NotificationSettingsViewModel {
         NotificationSettingsViewModel(
             userId: userId,
-            notificationSettingsRepository: notificationSettingsRepository
+            notificationSettingsRepository: notificationSettingsRepository,
+            synchronizeReminders: careCallReminderScheduler.synchronize
         )
     }
 

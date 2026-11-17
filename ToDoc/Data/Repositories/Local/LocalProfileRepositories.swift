@@ -96,10 +96,6 @@ final class LocalNotificationSettingsRepository: NotificationSettingsRepository 
     }
     func save(settings: NotificationSettingsDTO) async throws {
         try store.write(settings, collection: "notification-settings", id: settings.userId)
-        #if os(iOS)
-        await LocalNotificationAdapter.requestAuthorization()
-        try await LocalNotificationAdapter.scheduleCareCallReminder(settings)
-        #endif
     }
 }
 
