@@ -47,6 +47,7 @@ let package = Package(
                 ],
                 sources: [
                     "Core/AI/OfflineCareCallAnalyzer.swift",
+                    "Core/AI/FallbackCareCallAnalyzer.swift",
                     "Data/DTOs/Pain", "Data/DTOs/Previsit", "Data/DTOs/Symptom", "Data/DTOs/User", "Data/DTOs/Errors",
                     "Data/DTOs/DeviceToken", "Data/DTOs/Notification",
                     "Features/Settings/ViewModels/NotificationSettingsViewModel.swift",

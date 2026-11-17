@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 
 @MainActor
 final class DependencyContainer {
@@ -145,7 +146,14 @@ final class DependencyContainer {
             // 의사 선생님 녹음으로 읽고, 녹음이 없는 문장은 기기 음성으로 읽는다
             voice: DoctorVoiceSynthesizer(clips: try Bundle.main.decodeJSON(DoctorVoiceClips.self, named: "doctor_voice"),
                                           fallback: AVSpeechSynthesizerAdapter()),
-            loadAnalyzer: { OfflineCareCallAnalyzer(config: config, bodyParts: bodyParts) }
+            loadAnalyzer: {
+                let fallback = OfflineCareCallAnalyzer(config: config, bodyParts: bodyParts)
+                // SystemLanguageModel.default runs on this device. Never request
+                // a model download or a cloud model while preparing the booth app.
+                let primary = try? FoundationModelsCareCallAdapter(model: LanguageModelProvider.systemModel())
+                FoundationModelsCareCallAdapter.timingLog.notice("증상 분석 준비: \(primary == nil ? "오프라인 규칙 (FM 사용 불가)" : "온디바이스 FM 우선", privacy: .public)")
+                return FallbackCareCallAnalyzer(primary: primary, fallback: fallback)
+            }
         )
     }
 

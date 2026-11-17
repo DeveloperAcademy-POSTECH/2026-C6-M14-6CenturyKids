@@ -24,7 +24,8 @@ for path in (root / 'ToDoc').rglob('*.swift'):
         require(marker not in source, f'{path.relative_to(root)}: {marker}')
 
 container = (root / 'ToDoc/Core/Dependency/DependencyContainer.swift').read_text()
-for marker in ('LocalPainRepository', 'LocalSymptomRepository', 'LocalPrevisitRepository', 'LocalAuthRepository', 'OfflineCareCallAnalyzer'):
+for marker in ('LocalPainRepository', 'LocalSymptomRepository', 'LocalPrevisitRepository', 'LocalAuthRepository',
+               'OfflineCareCallAnalyzer', 'FallbackCareCallAnalyzer', 'FoundationModelsCareCallAdapter'):
     require(marker in container, f'Offline dependency missing: {marker}')
 require('Supabase' not in container, 'Remote repository remains in dependency container')
 
@@ -42,4 +43,4 @@ for key in ('aps-environment', 'com.apple.developer.applesignin', 'com.apple.dev
 if failures:
     print('\n'.join(f'FAIL: {message}' for message in failures))
     sys.exit(1)
-print('PASS: no external SDK packages, direct HTTP/asset downloads, remote push entitlements; offline repositories and analyzer are wired.')
+print('PASS: no external SDK packages, direct HTTP/asset downloads, remote push entitlements; local repositories and FM-first analysis with offline fallback are wired.')

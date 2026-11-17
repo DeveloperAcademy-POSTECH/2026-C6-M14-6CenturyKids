@@ -10,7 +10,7 @@ import Foundation
 import FoundationModels
 
 /// 케어콜 턴 분석에 쓰는 기기 안 언어 모델: Apple Intelligence 기본 모델 (Foundation Models).
-/// 쓸 수 없는 기기·설정이면 대체 모델 없이 에러. 시뮬레이터는 Mac에서 Apple Intelligence를 켜면 쓸 수 있다.
+/// 쓸 수 없는 기기·설정이면 오류를 반환하고, 호출자가 오프라인 분석기를 선택한다.
 nonisolated enum LanguageModelProvider {
     static func systemModel() throws -> SystemLanguageModel {
         let model = SystemLanguageModel.default
