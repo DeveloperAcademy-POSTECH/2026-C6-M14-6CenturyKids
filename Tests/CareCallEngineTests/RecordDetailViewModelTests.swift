@@ -61,9 +61,11 @@ struct RecordDetailViewModelTests {
             try symptoms(17, [(.numbness, .present), (.numbness, .present), (.diarrhea, .absent)]),
             try symptoms(18, [(.numbness, .present), (.diarrhea, .present), (.constipation, .unknown)])
         ], period: .week, calendar: calendar)
-        // 같은 날 부위별 항목 두 개는 하루, 없음·모름은 세지 않는다
+        // 같은 날 부위별 항목 두 개는 하루, 없음·모름은 세지 않는다. 카드는 항목마다 최신순
         #expect(detail.symptoms.map(\.type) == [.numbness, .diarrhea])
         #expect(detail.symptoms.map(\.weight) == [2, 1])
+        #expect(detail.symptoms.map(\.count) == [2, 1])
+        #expect(detail.symptoms.first?.cards.map(\.date) == [date(18), date(17), date(17)])
         #expect(detail.records.map(\.recordedDate) == [date(18), date(17)])
     }
 
@@ -74,9 +76,11 @@ struct RecordDetailViewModelTests {
             try entry(.constipation), try entry(.diarrhea, .absent, count: 4)
         ])
         let detail = RecordDetailViewModel.symptomDetail([record], period: .day, calendar: calendar)
-        // 같은 증상의 부위별 항목은 한 칸, 없음은 빼고 증상 순서대로 같은 크기
-        #expect(detail.symptoms.map(\.type) == [.nauseaVomiting, .constipation, .numbness])
+        // 같은 증상의 부위별 항목은 한 칸, 없음은 빼고 하루 기록 증상 순서대로 같은 크기, 횟수는 없음
+        #expect(detail.symptoms.map(\.type) == [.nauseaVomiting, .numbness, .constipation])
         #expect(detail.symptoms.map(\.weight) == [1, 1, 1])
+        #expect(detail.symptoms.map(\.count) == [nil, nil, nil])
+        #expect(detail.symptoms.map(\.cards.count) == [2, 2, 1])
     }
 
     @Test func 주_이름은_목요일이_든_달의_몇_번째_주로_센다() throws {
@@ -120,7 +124,7 @@ struct RecordDetailViewModelTests {
         let state = viewModel.symptom
         state.onAction?(.load)
         await waitUntil { state.loadState.isLoaded }
-        state.onAction?(.edit(.numbness))
+        state.onAction?(.edit)
         return (viewModel, state, numbness.id)
     }
 
@@ -135,12 +139,13 @@ struct RecordDetailViewModelTests {
     @Test func 수정을_완료하면_그날_기록을_저장하고_그_카드의_편집을_닫는다() async throws {
         let repository = FakeRecordSymptomRepository()
         let (viewModel, state, id) = try await editing(repository)
-        #expect(state.editingEntryIDs == [id])
+        // 수정은 보이는 기간의 카드 전체(손발 저림·설사)를 편집 상태로 연다
+        #expect(state.editingEntryIDs.count == 2 && state.editingEntryIDs.contains(id))
 
         state.onAction?(.finishEdit(id, input(id, in: state, count: "3")))
         await waitUntil { !state.isSaving && repository.saved.count == 1 }
         #expect(repository.saved.first?.symptoms.first { $0.id == id }?.occurrenceCount == 3)
-        #expect(state.editingEntryIDs.isEmpty)
+        #expect(state.editingEntryIDs.count == 1 && !state.editingEntryIDs.contains(id))
         guard case .symptom(let data) = state.content else { Issue.record("하루 기록 없음"); return }
         #expect(data.records.flatMap(\.symptoms).first { $0.id == id }?.occurrenceCount == 3)
         withExtendedLifetime(viewModel) {}
@@ -151,7 +156,7 @@ struct RecordDetailViewModelTests {
         let (viewModel, state, id) = try await editing(repository)
         state.onAction?(.finishEdit(id, input(id, in: state, count: "두 번")))
         #expect(state.editErrors[id] == "횟수는 1에서 100 사이 숫자로 입력해 주세요.")
-        #expect(state.editingEntryIDs == [id])
+        #expect(state.editingEntryIDs.contains(id))
         #expect(repository.saved.isEmpty)
         withExtendedLifetime(viewModel) {}
     }
@@ -163,7 +168,7 @@ struct RecordDetailViewModelTests {
         state.onAction?(.finishEdit(id, input(id, in: state, count: "3")))
         await waitUntil { !state.isSaving && state.editErrors[id] != nil }
         #expect(state.editErrors[id] == "저장하지 못했어요. 다시 시도해 주세요.")
-        #expect(state.editingEntryIDs == [id])
+        #expect(state.editingEntryIDs.contains(id))
         withExtendedLifetime(viewModel) {}
     }
 

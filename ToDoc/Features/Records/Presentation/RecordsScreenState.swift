@@ -19,13 +19,28 @@ struct RecordOverviewSnapshot {
     /// 부위별 항목은 각각 1건입니다. nil은 집계 미제공, 0은 실제 0건입니다.
     struct Symptom { let presentCount: Int?; let types: [SymptomType] }
 }
-/// 선택 기간의 증상별 크기와 그 기간의 기록. 크기(weight) 기준은 ViewModel이 정합니다.
-/// records는 최신순입니다 (주·월 카드 목록 순서).
+/// 선택 기간의 증상별 크기·카드와 그 기간의 기록. 크기(weight) 기준은 ViewModel이 정합니다.
+/// symptoms는 많은 순(그래프 칸·카드 순서), records는 최신순입니다.
 struct RecordSymptomDetail { let symptoms: [RecordSymptomItem]; let records: [SymptomRecordDisplay] }
 struct RecordSymptomItem: Identifiable {
     let type: SymptomType
     let weight: Double
+    /// 주·월: '있음'으로 기록된 날 수. 일은 횟수를 보여 주지 않아 nil
+    let count: Int?
+    /// 그 기간의 '있음' 항목, 최신순 (첫 장이 접혀 있을 때 대표 카드)
+    let cards: [RecordSymptomCardItem]
     var id: SymptomType { type }
+}
+struct RecordSymptomCardItem: Identifiable {
+    let date: Date
+    let entry: SymptomEntryDisplay
+    var id: UUID { entry.id }
+    /// 카드에 보이는 원문: 앞의 '[검토 필요]' 표시는 빼고, 비면 없음
+    var quote: String? {
+        guard var text = entry.detail?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
+        if text.hasPrefix("[검토 필요]") { text = String(text.dropFirst("[검토 필요]".count)).trimmingCharacters(in: .whitespaces) }
+        return text.isEmpty ? nil : text
+    }
 }
 struct PainRecordDisplay: Identifiable {
     let id: UUID
@@ -45,8 +60,8 @@ enum RecordsAction { case load, moveDay(Int), select(RecordOverviewKind), cancel
 }
 enum RecordDetailAction {
     case load, movePeriod(Int), selectPeriod(RecordPeriod), cancel
-    /// 하루 기록: 그 증상의 카드 전체를 편집 상태로 / 카드 하나 고친 값 저장 / 카드 하나 지우기 / 남은 편집 닫기
-    case edit(SymptomType), finishEdit(UUID, SymptomEntryEditInput), delete(UUID), endEdit
+    /// 하루 기록: 보이는 기간의 카드 전체를 편집 상태로 / 카드 하나 고친 값 저장 / 카드 하나 지우기 / 남은 편집 닫기
+    case edit, finishEdit(UUID, SymptomEntryEditInput), delete(UUID), endEdit
 }
 /// 날짜 범위·축과 집계값은 호수의 새 ViewModel이 제공합니다. View는 집계를 계산하지 않습니다.
 @Observable final class RecordDetailScreenState {

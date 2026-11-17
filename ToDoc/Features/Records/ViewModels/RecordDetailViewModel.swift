@@ -89,10 +89,9 @@ final class RecordDetailViewModel {
             guard state.period != period else { return }
             state.period = period
             load(kind)
-        case .edit(let type):
+        case .edit:
             guard kind == .symptom, !state.isSaving else { return }
-            state.editingEntryIDs = Set(symptomRecords.flatMap(\.symptoms)
-                .filter { $0.symptomType == type && $0.presence == .present }.map(\.id))
+            state.editingEntryIDs = Set(symptomRecords.flatMap(\.symptoms).filter { $0.presence == .present }.map(\.id))
             state.editErrors = [:]
         case .finishEdit(let id, let input):
             guard let record = symptomRecords.first(where: { $0.symptoms.contains { $0.id == id } }), !state.isSaving else { return }
@@ -261,25 +260,23 @@ final class RecordDetailViewModel {
         return changes.isEmpty ? nil : Double(changes.reduce(0, +)) / Double(changes.count)
     }
 
-    /// 일: 그날 '있음'인 증상을 같은 크기로.
-    /// 주·월: 증상마다 '있음'으로 나타난 날 수로 크기를 정한다 (같은 날 부위별 항목이 여러 개여도 하루).
-    /// 많은 순, 같으면 증상 순서대로 (화면은 이 순서로 배치·색을 정한다)
+    /// 일: 그날 '있음'인 증상을 같은 크기로, 횟수는 보여 주지 않는다.
+    /// 주·월: 증상마다 '있음'으로 나타난 날 수를 횟수·크기로 한다 (같은 날 부위별 항목이 여러 개여도 하루).
+    /// 많은 순, 같으면 하루 기록 증상 순서대로. 카드는 증상마다 최신순으로 모은다
     static func symptomDetail(_ records: [SymptomRecord], period: RecordPeriod, calendar: Calendar) -> RecordSymptomDetail {
-        var days: [SymptomType: Set<Date>] = [:]
-        for record in records {
-            let day = calendar.startOfDay(for: record.recordedDate)
-            for entry in record.symptoms where entry.presence == .present {
-                days[entry.symptomType, default: []].insert(day)
+        let displays = records.sorted { $0.recordedDate > $1.recordedDate }.map(SymptomRecordDisplay.init(record:))
+        let symptoms: [RecordSymptomItem] = SymptomType.recordOrder.compactMap { type in
+            let cards = displays.flatMap { record in
+                record.presentSymptoms.filter { $0.symptomType == type }.map { RecordSymptomCardItem(date: record.recordedDate, entry: $0) }
             }
+            guard !cards.isEmpty else { return nil }
+            let days = Set(cards.map { calendar.startOfDay(for: $0.date) }).count
+            return RecordSymptomItem(type: type, weight: period == .day ? 1 : Double(days), count: period == .day ? nil : days, cards: cards)
         }
-        let symptoms: [RecordSymptomItem] = SymptomType.allCases.compactMap { type in
-            guard let count = days[type]?.count else { return nil }
-            return RecordSymptomItem(type: type, weight: period == .day ? 1 : Double(count))
-        }
-        let order = { (type: SymptomType) in SymptomType.allCases.firstIndex(of: type) ?? 0 }
         return RecordSymptomDetail(
-            symptoms: symptoms.sorted { $0.weight != $1.weight ? $0.weight > $1.weight : order($0.type) < order($1.type) },
-            // 카드는 최신순 (주·월 목록)
-            records: records.sorted { $0.recordedDate > $1.recordedDate }.map(SymptomRecordDisplay.init(record:)))
+            symptoms: symptoms.enumerated()
+                .sorted { $0.element.weight != $1.element.weight ? $0.element.weight > $1.element.weight : $0.offset < $1.offset }
+                .map(\.element),
+            records: displays)
     }
 }

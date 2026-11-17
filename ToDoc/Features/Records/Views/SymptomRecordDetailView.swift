@@ -1,184 +1,262 @@
 import SwiftUI
+import UIKit
 
+/// 하루 기록: 위는 증상 그래프(넓이가 횟수에 비례하는 칸), 아래는 증상마다 세부 카드.
+/// 기준은 Figma '하루 기록 · 통증 점수 — 개발 전달'의 하루 기록 부분입니다. 화면을 넘으면 스크롤합니다.
 struct SymptomRecordDetailView: View {
     @State var state = RecordDetailScreenState(kind: .symptom)
-    /// 카드를 보여 줄 증상. 칸을 누르면 바뀌고, 같은 칸을 다시 누르거나 기간을 바꾸면 해제됩니다.
-    @State private var selected: SymptomType?
+    /// 펼친 증상 (기간을 바꾸면 모두 접힘)
+    @State private var expanded: Set<SymptomType> = []
     var body: some View {
         RecordDetailLayout(state: state, editing: state.isEditing) {
             if case .symptom(let data) = state.content {
-                if data.symptoms.isEmpty || data.records.allSatisfy(\.presentSymptoms.isEmpty) {
-                    Text("표시할 증상 기록이 없어요.").foregroundStyle(.secondary).padding(.vertical, 40)
+                if data.symptoms.isEmpty {
+                    RecordSymptomEmptyBox(period: state.period)
                 } else {
-                    bubbles(data.symptoms).padding(.top, 20)
-                    cards(data.records).padding(.top, 20)
-                }
-            }
-        }
-        .onChange(of: state.periodLabel) { selected = nil }
-        .onChange(of: state.period) { selected = nil }
-    }
-
-    /// 고른 증상의 카드. 기록은 최신순으로 받으므로 주·월은 최신순 목록이 됩니다.
-    @ViewBuilder private func cards(_ records: [SymptomRecordDisplay]) -> some View {
-        let cards = records.flatMap { record in
-            record.presentSymptoms.filter { $0.symptomType == selected }.map { (date: record.recordedDate, entry: $0) }
-        }
-        if cards.isEmpty {
-            Text("자세한 기록을 보려면\n키워드를 선택해주세요.").modifier(RecordTextStyle(size: 14))
-                .foregroundStyle(Color(white: 141/255)).multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity).padding(.vertical, 44)
-                .background(.white, in: RoundedRectangle(cornerRadius: 24))
-        } else {
-            VStack(alignment: .trailing, spacing: 12) {
-                if state.canEdit, let selected {
-                    // 수정: 보이는 카드 전체를 편집 상태로. 카드마다 완료·삭제하면 저장되고, 닫기는 남은 편집을 버립니다.
-                    HStack(spacing: 8) {
-                        if state.isSaving { ProgressView().controlSize(.small) }
-                        Button(state.isEditing ? "닫기" : "수정") { state.onAction?(state.isEditing ? .endEdit : .edit(selected)) }
-                            .modifier(RecordTextStyle(size: 14)).foregroundStyle(Color(white: 141/255))
-                            .buttonStyle(.plain).disabled(state.onAction == nil || state.isSaving)
-                    }
-                }
-                ForEach(cards, id: \.entry.id) { card in
-                    if state.editingEntryIDs.contains(card.entry.id) {
-                        SymptomSummaryEntryEditor(draft: card.entry, errorMessage: state.editErrors[card.entry.id],
-                                                  onDelete: { state.onAction?(.delete(card.entry.id)) },
-                                                  onFinish: { state.onAction?(.finishEdit(card.entry.id, $0)) })
-                            .disabled(state.isSaving)
-                            .padding(20).background(.white, in: RoundedRectangle(cornerRadius: 24))
-                    } else {
-                        RecordSymptomCard(date: card.date, entry: card.entry, calendar: state.calendar)
+                    VStack(spacing: 24) {
+                        RecordSymptomTreemapView(items: data.symptoms).frame(height: 240)
+                        cards(data.symptoms)
                     }
                 }
             }
         }
+        .onChange(of: state.periodLabel) { expanded = [] }
+        .onChange(of: state.period) { expanded = [] }
     }
 
-    private func bubbles(_ symptoms: [RecordSymptomItem]) -> some View {
-        // 많은 순, 같으면 받은 순서(증상 순서). 이 순서가 배치와 색 순위가 됩니다.
-        let ranked = symptoms.enumerated()
-            .sorted { $0.element.weight != $1.element.weight ? $0.element.weight > $1.element.weight : $0.offset < $1.offset }
-            .map(\.element)
-        return RecordSymptomGridLayout {
-            ForEach(Array(ranked.enumerated()), id: \.element.id) { rank, item in
-                RecordSymptomBubble(item: item, color: RecordChartStyle.rankColor(rank), isSelected: selected == item.type) {
-                    // 편집 중에는 다른 증상으로 바꾸지 않는다
-                    guard !state.isEditing else { return }
-                    selected = selected == item.type ? nil : item.type
+    private func cards(_ items: [RecordSymptomItem]) -> some View {
+        VStack(alignment: .trailing, spacing: 10) {
+            if state.canEdit {
+                // 수정: 보이는 카드 전체를 편집 상태로. 카드마다 완료·삭제하면 저장되고, 닫기는 남은 편집을 버립니다.
+                HStack(spacing: 8) {
+                    if state.isSaving { ProgressView().controlSize(.small) }
+                    Button(state.isEditing ? "닫기" : "수정") { state.onAction?(state.isEditing ? .endEdit : .edit) }
+                        .appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
+                        .buttonStyle(.plain).disabled(state.onAction == nil || state.isSaving)
                 }
-                    .layoutValue(key: RecordSymptomWeight.self, value: item.weight)
             }
-        }.frame(height: 280)
+            VStack(spacing: 10) {
+                ForEach(items) { item in
+                    let count = item.count.map { "\($0)회" }
+                    let toggle = { expanded.formSymmetricDifference([item.type]) }
+                    if item.cards.count > 1 && (state.isEditing || expanded.contains(item.type)) {
+                        // 펼침: 제목 카드 한 장 + 기록 카드 최신순
+                        RecordSymptomCard(type: item.type, quote: nil, trailing: count,
+                                          expanded: state.isEditing ? nil : true, toggle: toggle)
+                        ForEach(item.cards) { card in
+                            if state.editingEntryIDs.contains(card.id) {
+                                editor(card, item.type)
+                            } else {
+                                RecordSymptomEntryCard(date: state.period == .day ? nil : dateLabel(card.date), quote: card.quote)
+                            }
+                        }
+                    } else if let card = item.cards.first {
+                        // 접힘: 제목과 가장 최근 원문을 한 장에
+                        if state.editingEntryIDs.contains(card.id) {
+                            editor(card, item.type)
+                        } else {
+                            RecordSymptomCard(type: item.type, quote: card.quote, trailing: count,
+                                              expanded: item.cards.count > 1 ? false : nil, toggle: toggle)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func editor(_ card: RecordSymptomCardItem, _ type: SymptomType) -> some View {
+        SymptomSummaryEntryEditor(draft: card.entry, title: type.recordCardName, errorMessage: state.editErrors[card.id],
+                                  onDelete: { state.onAction?(.delete(card.id)) },
+                                  onFinish: { state.onAction?(.finishEdit(card.id, $0)) })
+            .disabled(state.isSaving)
+            .padding(20).background(AppColors.Semantic.Background.surface, in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    private func dateLabel(_ date: Date) -> String {
+        "\(state.calendar.component(.month, from: date))월 \(state.calendar.component(.day, from: date))일"
     }
 }
 
-private struct RecordSymptomBubble: View {
-    let item: RecordSymptomItem
-    let color: Color
-    let isSelected: Bool
-    let action: () -> Void
+/// 펼친 증상의 기록 한 장: 주·월은 날짜, 아래 원문 두 줄
+private struct RecordSymptomEntryCard: View {
+    let date: String?
+    let quote: String?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let date { Text(date).appTypography(.caption).foregroundStyle(AppColors.Semantic.Text.sub) }
+            Text(quote.map { "\"\($0)\"" } ?? "남긴 말이 없어요").appTypography(.bodySmall)
+                .foregroundStyle(AppColors.Semantic.Text.sub).lineLimit(2)
+        }
+        .padding(.horizontal, 20).padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppColors.Semantic.Background.surface, in: RoundedRectangle(cornerRadius: 20))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// 세부 카드 한 장: 색 점 + 이름, 오른쪽 횟수와 접기 화살표, 아래 원문 두 줄 (펼친 제목 카드는 원문 없이)
+private struct RecordSymptomCard: View {
+    let type: SymptomType
+    let quote: String?
+    var trailing: String?
+    /// nil이면 화살표 없음
+    var expanded: Bool?
+    var toggle: () -> Void = {}
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let expanded {
+                Button(action: toggle) { header(expanded) }.buttonStyle(.plain)
+                    .accessibilityHint(expanded ? "접으면 가장 최근 기록만 보여요" : "펼치면 이 기간의 기록을 모두 보여요")
+            } else {
+                header(nil)
+            }
+            if let quote {
+                Text("\"\(quote)\"").appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
+                    .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 18)
+            }
+        }
+        .padding(.horizontal, 20).padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppColors.Semantic.Background.surface, in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    private func header(_ expanded: Bool?) -> some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Circle().fill(type.recordColors.dark).frame(width: 10, height: 10)
+                Text(type.recordCardName).modifier(RecordTextStyle(size: 16, weight: .medium))
+                    .foregroundStyle(AppColors.Semantic.Text.default)
+            }
+            Spacer(minLength: 8)
+            HStack(spacing: 6) {
+                if let trailing {
+                    Text(trailing).modifier(RecordTextStyle(size: 15, weight: .regular)).foregroundStyle(AppColors.Semantic.Text.sub)
+                }
+                if let expanded {
+                    Image(systemName: "chevron.down").font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppColors.Semantic.Text.sub)
+                        .rotationEffect(.degrees(expanded ? 180 : 0)).accessibilityHidden(true)
+                }
+            }
+        }
+        .frame(minHeight: 24).contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(expanded.map { $0 ? "펼침" : "접힘" } ?? "")
+    }
+}
+
+private struct RecordSymptomEmptyBox: View {
+    let period: RecordPeriod
+    var body: some View {
+        VStack(spacing: 8) {
+            Text(period == .day ? "이 날은 기록이 없어요" : period == .week ? "이 주에는 기록이 없어요" : "이 달에는 기록이 없어요")
+                .modifier(RecordTextStyle(size: 18, weight: .bold)).foregroundStyle(AppColors.Semantic.Text.default)
+            Text("증상을 기록하면 여기에 모여요").appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity).frame(height: 240)
+        .background(AppColors.Semantic.Background.secondary, in: RoundedRectangle(cornerRadius: 24))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// 증상 그래프: 칸 사이 간격 0, 모서리 24, 테두리 2 INSIDE 세로 그라데이션 (그림자 없음)
+private struct RecordSymptomTreemapView: View {
+    let items: [RecordSymptomItem]
     var body: some View {
         GeometryReader { proxy in
-            let side = min(proxy.size.width, proxy.size.height)
-            // 모서리: min(짧은 변의 절반, 50)의 절반을 내림
-            RoundedRectangle(cornerRadius: (min(side / 2, 50) / 2).rounded(.down)).fill(color)
-                .contentShape(Rectangle()).onTapGesture(perform: action)
-                .overlay {
-                    // 짧은 변의 절반(11~34pt)에서, 이름이 칸 너비에 들어가도록 더 줄입니다
-                    let name = item.type.displayName
-                    let fit = (proxy.size.width - 8) / CGFloat(max(name.count, 1))
-                    Text(name).font(.system(size: max(min(min(max(side * 0.5, 11), 34), fit), 8), weight: .bold))
-                        .foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.3).padding(.horizontal, 4)
+            let labels = items.map { RecordSymptomTreemap.Label(name: $0.type.recordChartName, count: $0.count.map { "\($0)회" }) }
+            let cells = RecordSymptomTreemap.layout(weights: items.map(\.weight), labels: labels, in: proxy.size,
+                                                    measure: RecordSymptomCellText.width)
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(zip(items, zip(labels, cells))), id: \.0.id) { item, pair in
+                    RecordSymptomCell(type: item.type, label: pair.0, tier: pair.1.tier)
+                        .frame(width: pair.1.rect.width, height: pair.1.rect.height)
+                        .offset(x: pair.1.rect.minX, y: pair.1.rect.minY)
                 }
+            }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(item.type.displayName)
-        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
-        .accessibilityAction { action() }
     }
 }
 
-private struct RecordSymptomCard: View {
-    let date: Date
-    let entry: SymptomEntryDisplay
-    let calendar: Calendar
-    private var title: String {
-        let location = entry.rawLocationText.flatMap { $0.isEmpty ? nil : $0 }
-            ?? entry.bodyPart.map { [entry.bodySide?.displayName, $0.displayName].compactMap { $0 }.joined(separator: " ") }
-        return [entry.symptomType.displayName, location].compactMap { $0 }.joined(separator: " · ")
-    }
-    private var amount: String? {
-        entry.occurrenceCount.map { "\($0)회" } ?? entry.durationMinutes.map { "\($0)분" }
-    }
+private struct RecordSymptomCell: View {
+    let type: SymptomType
+    let label: RecordSymptomTreemap.Label
+    let tier: RecordSymptomTreemap.Tier
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                if let amount {
-                    HStack(spacing: 4) {
-                        Circle().fill(Color(red: 232/255, green: 85/255, blue: 62/255)).frame(width: 6, height: 6)
-                        Text(amount).modifier(RecordTextStyle(size: 12))
+        let colors = type.recordColors
+        let shape = RoundedRectangle(cornerRadius: 24)
+        shape.fill(colors.fill)
+            .overlay {
+                shape.strokeBorder(LinearGradient(colors: [colors.borderTop, colors.borderBottom], startPoint: .top, endPoint: .bottom),
+                                   lineWidth: 2)
+            }
+            .overlay {
+                VStack(spacing: RecordSymptomTreemap.countSpacing) {
+                    switch tier {
+                    case .e: text(label.inline, size: tier.nameSize, bold: true, lineHeight: tier.nameLineHeight)
+                    case .f: text(label.name, size: tier.nameSize, bold: true, lineHeight: tier.nameLineHeight)
+                    default:
+                        text(label.name, size: tier.nameSize, bold: true, lineHeight: tier.nameLineHeight)
+                        if let count = label.count, let size = tier.countSize {
+                            text(count, size: size, bold: false, lineHeight: tier.countLineHeight)
+                        }
                     }
                 }
-                Spacer(minLength: 8)
-                Text("\(calendar.component(.month, from: date))/\(calendar.component(.day, from: date))")
-                    .modifier(RecordTextStyle(size: 12)).foregroundStyle(Color(white: 141/255))
+                .foregroundStyle(colors.text).padding(.horizontal, 4)
             }
-            Text(title).modifier(RecordTextStyle(size: 15, weight: .semibold))
-            if let detail = entry.detail, !detail.isEmpty { Text("'\(detail)'").modifier(RecordTextStyle(size: 12)) }
-        }.fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 22).padding(.vertical, 18).frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white, in: RoundedRectangle(cornerRadius: 24))
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel([type.recordCardName, label.count].compactMap(\.self).joined(separator: " "))
+    }
+
+    private func text(_ string: String, size: CGFloat, bold: Bool, lineHeight: CGFloat) -> some View {
+        Text(string).font(Font(RecordSymptomCellText.font(size, bold: bold))).tracking(RecordSymptomCellText.tracking(size))
+            .lineLimit(1).frame(height: lineHeight)
     }
 }
 
-private struct RecordSymptomWeight: LayoutValueKey { static let defaultValue: Double = 1 }
-
-/// 받은 순서(많은 순)대로 놓습니다. 무게가 모두 같으면 '일' 줄 배치로 같은 크기,
-/// 다르면 1위(동률이면 1위 전부, 위아래로 같은 높이)가 전체에서 차지하는 비율만큼 왼쪽을 채우고 나머지를 오른쪽에 비례해 놓습니다.
-private struct RecordSymptomGridLayout: Layout {
-    var spacing: CGFloat = 2
-    /// 한 줄에 놓는 칸 수 (위 줄부터)
-    static let dayRows: [Int: [Int]] = [1: [1], 2: [2], 3: [2, 1], 4: [2, 2], 5: [3, 2], 6: [3, 3], 7: [2, 2, 3], 8: [3, 3, 2]]
-    static let rightRows: [Int: [Int]] = [1: [1], 2: [1, 1], 3: [1, 2], 4: [2, 2], 5: [1, 2, 2], 6: [2, 2, 2], 7: [1, 2, 2, 2]]
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        proposal.replacingUnspecifiedDimensions(by: CGSize(width: 345, height: 280))
+/// 칸 글자: Pretendard, 크기별 자간은 디자인 시스템 텍스트 사다리 값. 칸 크기가 정해져 있어 글자 크기 조절은 따르지 않습니다.
+private enum RecordSymptomCellText {
+    static func font(_ size: CGFloat, bold: Bool) -> UIFont {
+        _ = AppTypography.registerFont
+        let weight: AppTypography.Semantic.Weight = bold ? .bold : .regular
+        return UIFont(name: weight.fontName, size: size) ?? .systemFont(ofSize: size, weight: bold ? .bold : .regular)
     }
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let weights = subviews.map { max($0[RecordSymptomWeight.self], .leastNonzeroMagnitude) }
-        guard let first = weights.first else { return }
-        let top = weights.prefix { $0 == first }.count
-        let place: (Int, CGRect) -> Void = { index, rect in
-            let rect = rect.insetBy(dx: spacing / 2, dy: spacing / 2)
-            subviews[index].place(at: rect.origin, proposal: ProposedViewSize(rect.size))
-        }
-        let all = Array(weights.indices)
-        guard top < weights.count else {
-            return rows(all, pattern: Self.dayRows[all.count] ?? [all.count], weights: weights, in: bounds, place)
-        }
-        let left = bounds.width * weights[..<top].reduce(0, +) / weights.reduce(0, +)
-        let (leftRect, rightRect) = bounds.divided(atDistance: left, from: .minXEdge)
-        rows(Array(all[..<top]), pattern: Array(repeating: 1, count: top), weights: weights, in: leftRect, place)
-        let rest = Array(all[top...])
-        rows(rest, pattern: Self.rightRows[rest.count] ?? [rest.count], weights: weights, in: rightRect, place)
+    static func tracking(_ size: CGFloat) -> CGFloat {
+        let percent = AppTypography.Semantic.allCases.first { $0.specification.size == size }?.specification.letterSpacingPercent ?? 0
+        return size * percent / 100
     }
-    /// 줄 높이는 그 줄 무게 합, 칸 너비는 줄 안의 무게 비율이라 칸 넓이가 무게에 비례합니다.
-    private func rows(_ indices: [Int], pattern: [Int], weights: [Double], in rect: CGRect, _ place: (Int, CGRect) -> Void) {
-        let total = indices.reduce(0) { $0 + weights[$1] }
-        var start = 0, y = rect.minY
-        for count in pattern where start < indices.count {
-            let row = indices[start..<min(start + count, indices.count)]
-            let rowSum = row.reduce(0) { $0 + weights[$1] }
-            let height = rect.height * rowSum / total
-            var x = rect.minX
-            for index in row {
-                let width = rect.width * weights[index] / rowSum
-                place(index, CGRect(x: x, y: y, width: width, height: height))
-                x += width
-            }
-            y += height; start += count
+    static func width(_ string: String, size: CGFloat, bold: Bool) -> CGFloat {
+        (string as NSString).size(withAttributes: [.font: font(size, bold: bold), .kern: tracking(size)]).width.rounded(.up)
+    }
+}
+
+/// 증상마다 고정 색 (그래프 칸·카드 색 점·주 탭 목록 모두 같음)
+private struct RecordSymptomColors {
+    let fill: Color, text: Color, dark: Color
+    let borderTop: Color, borderBottom: Color
+    init(fill: Color, text: Color, dark: Color) {
+        self.fill = fill; self.text = text; self.dark = dark
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        UIColor(fill).resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        let border = RecordSymptomTreemap.border(of: (Double(red), Double(green), Double(blue)))
+        let color = { (rgb: RecordSymptomTreemap.RGB) in Color(red: rgb.red, green: rgb.green, blue: rgb.blue) }
+        borderTop = color(border.top); borderBottom = color(border.bottom)
+    }
+}
+
+private extension SymptomType {
+    var recordColors: RecordSymptomColors {
+        typealias Category = AppColors.Semantic.Chart.Category
+        return switch self {
+        case .nauseaVomiting: RecordSymptomColors(fill: Category.Cyan.fill, text: Category.Cyan.text, dark: Category.Cyan.dark)
+        case .diarrhea: RecordSymptomColors(fill: Category.Orange.fill, text: Category.Orange.text, dark: Category.Orange.dark)
+        case .dehydrationNutrition: RecordSymptomColors(fill: Category.Lime.fill, text: Category.Lime.text, dark: Category.Lime.dark)
+        case .rashItching: RecordSymptomColors(fill: Category.Purple.fill, text: Category.Purple.text, dark: Category.Purple.dark)
+        case .numbness: RecordSymptomColors(fill: Category.Blue.fill, text: Category.Blue.text, dark: Category.Blue.dark)
+        case .constipation: RecordSymptomColors(fill: Category.Yellow.fill, text: Category.Yellow.text, dark: Category.Yellow.dark)
+        case .oralPain: RecordSymptomColors(fill: Category.Pink.fill, text: Category.Pink.text, dark: Category.Pink.dark)
+        case .other: RecordSymptomColors(fill: Category.Gray.fill, text: Category.Gray.text, dark: Category.Gray.dark)
         }
     }
 }

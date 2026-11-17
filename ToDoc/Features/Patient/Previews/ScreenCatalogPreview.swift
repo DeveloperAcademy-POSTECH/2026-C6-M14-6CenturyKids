@@ -93,6 +93,11 @@ struct ScreenCatalogPreview: View {
             .init(id: UUID(), symptomType: .rashItching, presence: .unknown, detail: "[검토 필요] 잘 모르겠어요.")
         ].filter { includesPresent || $0.presence != .present })
     }
+    private func symptomItem(_ type: SymptomType, weight: Double, count: Int?) -> RecordSymptomItem {
+        .init(type: type, weight: weight, count: count, cards: [
+            .init(date: .now, entry: .init(id: UUID(), symptomType: type, presence: .present, detail: "어제부터 두세 번 불편했어요. (화면 예시)"))
+        ])
+    }
     private func detailState(_ kind: RecordOverviewKind) -> RecordDetailScreenState {
         let state = RecordDetailScreenState(kind: kind)
         let date = Date()
@@ -103,7 +108,7 @@ struct ScreenCatalogPreview: View {
             ]))
         } else {
             state.canEdit = true
-            state.content = .symptom(.init(symptoms: [.init(type: .constipation, weight: 1), .init(type: .diarrhea, weight: 1)],
+            state.content = .symptom(.init(symptoms: [symptomItem(.constipation, weight: 1, count: nil), symptomItem(.diarrhea, weight: 1, count: nil)],
                                            records: [symptomRecord()]))
         }
         return state
@@ -122,7 +127,7 @@ struct ScreenCatalogPreview: View {
         } else {
             // 주: 증상마다 '있음'으로 나타난 날 수 (1위 동률 예시)
             let days: [(SymptomType, Double)] = [(.nauseaVomiting, 3), (.numbness, 3), (.diarrhea, 2), (.oralPain, 1), (.rashItching, 1)]
-            state.content = .symptom(.init(symptoms: days.map { .init(type: $0.0, weight: $0.1) }, records: [symptomRecord()]))
+            state.content = .symptom(.init(symptoms: days.map { symptomItem($0.0, weight: $0.1, count: Int($0.1)) }, records: [symptomRecord()]))
         }
         return state
     }

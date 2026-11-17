@@ -7,10 +7,13 @@ struct SymptomSummaryEntryEditor: View {
     let onFinish: (SymptomEntryEditInput) -> Void
     @State private var input: SymptomEntryEditInput
     var errorMessage: String?
+    /// 증상 이름 (하루 기록 화면은 카드 이름을 넘깁니다)
+    let title: String
 
-    init(draft: SymptomEntryDisplay, errorMessage: String? = nil, onDelete: @escaping () -> Void,
+    init(draft: SymptomEntryDisplay, title: String? = nil, errorMessage: String? = nil, onDelete: @escaping () -> Void,
          onFinish: @escaping (SymptomEntryEditInput) -> Void) {
         self.draft = draft; self.errorMessage = errorMessage
+        self.title = title ?? draft.symptomType.displayName
         self.onDelete = onDelete
         self.onFinish = onFinish
         _input = State(initialValue: SymptomEntryEditInput(draft))
@@ -19,7 +22,7 @@ struct SymptomSummaryEntryEditor: View {
     var body: some View {
         VStack(spacing: 16) {
             HStack {
-                Text(draft.symptomType.displayName)
+                Text(title)
                     .modifier(SymptomTextStyle(size: 16, weight: .semibold))
                 Spacer()
                 HStack(spacing: 40) {

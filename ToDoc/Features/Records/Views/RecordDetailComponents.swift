@@ -126,14 +126,6 @@ struct RecordPlot<Marks: View>: View {
     static let decrease = Color(red: 197/255, green: 242/255, blue: 118/255)
     static let increase = Color(red: 233/255, green: 128/255, blue: 78/255)
     static let meals = [Color(red: 156/255, green: 228/255, blue: 46/255), AppColors.primary, Color(red: 229/255, green: 247/255, blue: 196/255)]
-    /// 하루 기록 순위별 색 (임시, 디자인 확정 전): 1~4위는 상위색, 5위부터 하위색. 동률이어도 정렬 순서대로 씁니다.
-    static func rankColor(_ rank: Int) -> Color {
-        let top: [(Double, Double, Double)] = [(130, 246, 239), (165, 246, 176), (197, 242, 118), (244, 225, 116)]
-        let bottom: [(Double, Double, Double)] = [(252, 171, 115), (252, 157, 212), (210, 174, 252), (158, 194, 252), (87, 209, 252)]
-        let palette = top + bottom
-        let (red, green, blue) = palette[min(max(rank, 0), palette.count - 1)]
-        return Color(red: red / 255, green: green / 255, blue: blue / 255)
-    }
     static func label(_ date: Date, state: RecordDetailScreenState) -> String {
         if state.period == .week {
             let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = state.calendar.timeZone; formatter.dateFormat = "EEEEE"
