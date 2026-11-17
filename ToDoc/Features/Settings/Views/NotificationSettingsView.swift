@@ -29,7 +29,7 @@ struct NotificationSettingsView: View {
                         HStack(spacing: 0) {
                             Picker("시", selection: hour) {
                                 ForEach(allowedHours, id: \.self) { hour in
-                                    Text("오후 \(hour - 12)시").tag(hour)
+                                    Text(String(format: "%02d시", hour)).tag(hour)
                                 }
                             }
                             Picker("분", selection: minute) {
@@ -46,7 +46,7 @@ struct NotificationSettingsView: View {
                 .disabled(!viewModel.hasLoaded || viewModel.isSaving)
                 .accessibilityIdentifier("settings.notification.time")
             } footer: {
-                Text("선택한 시간에 이 기기에서 알림을 표시하도록 설정해요.")
+                Text("00:00부터 23:59까지 원하는 시간에 이 기기에서 알림을 표시해요.")
             }
 
             Section {
@@ -89,17 +89,16 @@ struct NotificationSettingsView: View {
         }
     }
 
-    // DatePicker는 범위 밖 시간을 숨기지 못하고 흐리게만 보여 줘서, 허용된 시만 담은 휠을 직접 그린다.
+    // 부스에서는 하루 중 어느 시각이든 알림을 예약할 수 있습니다.
     private var allowedHours: Range<Int> {
         let minutes = NotificationSettingsViewModel.allowedMinutes
         return (minutes.lowerBound / 60)..<(minutes.upperBound / 60)
     }
 
-    // 허용 범위가 모두 오후라서 "오후"로 고정해 표시한다.
     private var timeText: String {
         let hour = viewModel.selectedTime.hour ?? 20
         let minute = viewModel.selectedTime.minute ?? 0
-        return "오후 \(hour - 12):" + String(format: "%02d", minute)
+        return String(format: "%02d:%02d", hour, minute)
     }
 
     private var hour: Binding<Int> {

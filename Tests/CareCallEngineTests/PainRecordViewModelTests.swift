@@ -148,6 +148,30 @@ struct PainRecordViewModelTests {
         #expect(reminders.count == 1)
     }
 
+    @Test func liveActivityFailureKeepsSavedPainAndCanRetry() async throws {
+        enum Failure: Error { case quota }
+        let repository = StubPainRepository(latest: nil)
+        var fails = true
+        var starts = 0
+        let model = PainRecordViewModel(patientId: patientId, painRepository: repository,
+                                       startLiveActivity: { _, _ in
+            starts += 1
+            if fails { throw Failure.quota }
+        })
+        await model.load()
+        model.selectLocation(chest)
+        model.setBeforeScore(6)
+        let record = try await model.saveBeforeRecord()
+        #expect(repository.saved.map(\.id) == [record.id])
+        #expect(model.liveActivityError != nil)
+        #expect(!model.isStartingLiveActivity)
+        fails = false
+        await model.refreshLiveActivity()
+        #expect(starts == 2)
+        #expect(model.liveActivityError == nil)
+        #expect(repository.saved.count == 1)
+    }
+
     @Test func 부위를_다시_누르면_빠지고_모두_지우면_비어있다() {
         let viewModel = PainRecordViewModel(patientId: patientId, painRepository: StubPainRepository(latest: nil))
         let back = BodyLocation(bodyPart: .backLowerBack, bodySide: .center, bodyView: .back)

@@ -9,6 +9,9 @@ struct PainAfterTimerView: View {
     let recordedDate: Date
     let availableDate: Date
     var remindersAllowed = true
+    var liveActivityError: String?
+    var onRetryLiveActivity: (() -> Void)?
+    var isStartingLiveActivity = false
     var onLater: (() -> Void)?
     var onRecord: (() -> Void)?
     var onNewRecord: (() -> Void)?
@@ -212,6 +215,21 @@ struct PainAfterTimerView: View {
 
     private func infoBox(_ phase: Phase) -> some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let liveActivityError {
+                infoText(liveActivityError)
+                HStack {
+                    Button("다시 표시") { onRetryLiveActivity?() }
+                        .disabled(isStartingLiveActivity)
+                        .accessibilityIdentifier("pain.timer.retryLiveActivity")
+                    Spacer()
+                    Button("설정 열기") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                    }
+                }
+                .appTypography(.label)
+                .foregroundStyle(AppColors.Semantic.Text.action)
+                .frame(minHeight: 44)
+            }
             switch phase {
             case .waiting where !remindersAllowed:
                 infoText("알림이 꺼져 있어서 \(availableTime)에 알려 드릴 수 없어요.")

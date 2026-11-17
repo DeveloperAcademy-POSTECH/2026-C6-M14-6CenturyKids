@@ -63,6 +63,7 @@ struct AdminSettingsView: View {
     @State private var confirming: Action?
     @State private var running: Action?
     @State private var result: String?
+    @State private var isChangingLiveActivity = false
     @AppStorage(DemoCareCallPlan.enabledKey) private var demoCareCall = true
     @AppStorage(FoundationModelsCareCallAdapter.speculationKey) private var speculation = true
     @AppStorage(SpeechAnalyzerAdapter.skipSilenceKey) private var skipSilence = true
@@ -84,14 +85,16 @@ struct AdminSettingsView: View {
                 row(.clearAll, subtitle: "모든 기록을 지워요")
             }
             SettingsSection(title: "") {
-                #if DEBUG
                 liveActivityRow("증상 Live Activity 테스트", id: "symptomLiveActivity") {
-                    try LiveActivityService.startLocalSymptomLiveActivity()
+                    try await LiveActivityService.startLocalSymptomLiveActivity()
                 }
                 SettingsDivider()
-                #endif
                 liveActivityRow("통증 Live Activity 테스트", id: "painLiveActivity") {
-                    try LiveActivityService.startPainLiveActivity()
+                    try await LiveActivityService.startPainLiveActivity()
+                }
+                SettingsDivider()
+                liveActivityRow("라이브 액티비티 모두 닫기", id: "closeLiveActivities") {
+                    await LiveActivityService.endAllLiveActivities()
                 }
             }
             if service == nil {
@@ -143,12 +146,19 @@ struct AdminSettingsView: View {
         .accessibilityIdentifier("settings.admin.\(action.rawValue)")
     }
 
-    private func liveActivityRow(_ title: String, id: String, start: @escaping () throws -> Void) -> some View {
+    private func liveActivityRow(_ title: String, id: String, start: @escaping () async throws -> Void) -> some View {
         Button {
-            do { try start() } catch { result = "Live Activity를 실행할 수 없어요.\n\(error.localizedDescription)" }
+            guard !isChangingLiveActivity else { return }
+            isChangingLiveActivity = true
+            Task {
+                defer { isChangingLiveActivity = false }
+                do { try await start() }
+                catch { result = "Live Activity를 실행할 수 없어요.\n\(error.localizedDescription)" }
+            }
         } label: {
             SettingsRow(title: title, chevron: true)
         }
+        .disabled(isChangingLiveActivity)
         .accessibilityIdentifier("settings.admin.\(id)")
     }
 

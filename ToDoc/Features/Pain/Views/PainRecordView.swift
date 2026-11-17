@@ -144,6 +144,9 @@ struct PainRecordView: View {
                     PainAfterTimerView(locations: pending.location, before: pending.painBefore,
                                        recordedDate: pending.recordedDate, availableDate: availableDate,
                                        remindersAllowed: viewModel.remindersAllowed,
+                                       liveActivityError: viewModel.liveActivityError,
+                                       onRetryLiveActivity: { Task { await viewModel.refreshLiveActivity() } },
+                                       isStartingLiveActivity: viewModel.isStartingLiveActivity,
                                        onLater: deferFollowup, onRecord: { stage = .after },
                                        onNewRecord: {
                                            viewModel.startNewRecord()

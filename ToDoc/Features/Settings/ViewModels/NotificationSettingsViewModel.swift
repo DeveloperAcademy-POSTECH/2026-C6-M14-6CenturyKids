@@ -7,7 +7,7 @@ final class NotificationSettingsViewModel {
     @ObservationIgnored private let userId: UUID
     @ObservationIgnored private let notificationSettingsRepository: any NotificationSettingsRepository
     @ObservationIgnored private var loadedSettings: NotificationSettingsDTO?
-    static let allowedMinutes = (20 * 60)..<(24 * 60)
+    static let allowedMinutes = 0..<(24 * 60)
 
     private(set) var savedTime = DateComponents(hour: 20, minute: 0)
     private(set) var selectedTime = DateComponents(hour: 20, minute: 0)

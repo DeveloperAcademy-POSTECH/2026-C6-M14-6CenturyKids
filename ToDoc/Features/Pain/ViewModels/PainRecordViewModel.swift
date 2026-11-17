@@ -46,7 +46,7 @@ final class PainRecordViewModel {
     @ObservationIgnored private let cancelAfterReminder: () -> Void
     /// 기기 알림이 꺼져 있으면 false입니다. 기기 설정은 컨테이너가 넣습니다.
     @ObservationIgnored private let checkRemindersAllowed: () async -> Bool
-    @ObservationIgnored private let startLiveActivity: (PainRecord, Date) async -> Void
+    @ObservationIgnored private let startLiveActivity: (PainRecord, Date) async throws -> Void
     @ObservationIgnored private let endLiveActivity: (UUID) async -> Void
     private var patientId: UUID?
     private let painRepository: any PainRepository
@@ -61,6 +61,8 @@ final class PainRecordViewModel {
     private(set) var isSaving = false
     /// 꺼져 있으면 타이머 화면이 1시간 뒤에 알려 줄 수 없다고 안내합니다.
     private(set) var remindersAllowed = true
+    private(set) var liveActivityError: String?
+    private(set) var isStartingLiveActivity = false
 
     /// 이 시각부터 이어서 기록할 수 있습니다.
     var afterAvailableDate: Date? {
@@ -74,7 +76,7 @@ final class PainRecordViewModel {
         scheduleAfterReminder: @escaping (Date) async -> Void = { _ in },
         cancelAfterReminder: @escaping () -> Void = {},
         checkRemindersAllowed: @escaping () async -> Bool = { true },
-        startLiveActivity: @escaping (PainRecord, Date) async -> Void = { _, _ in },
+        startLiveActivity: @escaping (PainRecord, Date) async throws -> Void = { _, _ in },
         endLiveActivity: @escaping (UUID) async -> Void = { _ in }
     ) {
         patientSource = .repositories(auth: authRepository, patient: patientRepository)
@@ -90,14 +92,15 @@ final class PainRecordViewModel {
     init(patientId: UUID, painRepository: any PainRepository,
          scheduleAfterReminder: @escaping (Date) async -> Void = { _ in },
          cancelAfterReminder: @escaping () -> Void = {},
-         checkRemindersAllowed: @escaping () async -> Bool = { true }) {
+         checkRemindersAllowed: @escaping () async -> Bool = { true },
+         startLiveActivity: @escaping (PainRecord, Date) async throws -> Void = { _, _ in }) {
         patientSource = .knownPatient(patientId)
         self.patientId = patientId
         self.painRepository = painRepository
         self.scheduleAfterReminder = scheduleAfterReminder
         self.cancelAfterReminder = cancelAfterReminder
         self.checkRemindersAllowed = checkRemindersAllowed
-        startLiveActivity = { _, _ in }
+        self.startLiveActivity = startLiveActivity
         endLiveActivity = { _ in }
     }
     #endif
@@ -190,7 +193,7 @@ final class PainRecordViewModel {
 
         pendingRecord = record
         let followUpAt = date.addingTimeInterval(Self.afterDelay)
-        await startLiveActivity(record, followUpAt)
+        await refreshLiveActivity()
         await scheduleAfterReminder(followUpAt)
         return record
     }
@@ -216,6 +219,7 @@ final class PainRecordViewModel {
         try await painRepository.savePainAfter(recordId: pending.id, painAfter: painAfter)
 
         pendingRecord = nil
+        liveActivityError = nil
         cancelAfterReminder()
         await endLiveActivity(record.id)
         return record
@@ -224,9 +228,22 @@ final class PainRecordViewModel {
     /// 타이머 화면에 들어오거나 설정에서 돌아오면 알림 권한을 다시 확인합니다.
     /// 다시 켰으면 남은 알림을 예약합니다 (같은 식별자라 이미 있으면 바뀝니다).
     func refreshReminderPermission(now: Date = Date()) async {
+        await refreshLiveActivity()
         remindersAllowed = await checkRemindersAllowed()
         if remindersAllowed, let date = afterAvailableDate, date > now {
             await scheduleAfterReminder(date)
+        }
+    }
+
+    func refreshLiveActivity() async {
+        guard !isStartingLiveActivity, let pendingRecord, let afterAvailableDate else { return }
+        isStartingLiveActivity = true
+        defer { isStartingLiveActivity = false }
+        do {
+            try await startLiveActivity(pendingRecord, afterAvailableDate)
+            liveActivityError = nil
+        } catch {
+            liveActivityError = "통증 기록은 저장됐지만 잠금화면 타이머를 표시하지 못했어요.\n\(error.localizedDescription)"
         }
     }
 

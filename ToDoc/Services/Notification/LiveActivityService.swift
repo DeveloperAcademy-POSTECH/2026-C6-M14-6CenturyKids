@@ -34,66 +34,91 @@ class LiveActivityService {
         try await tokenRepository.testStartLiveActivity()
     }
 
-    #if DEBUG
-    static func startLocalSymptomLiveActivity() throws {
-        let attributes = SymptomLiveActivityAttributes(
-            name: "Dr.속닥이",
-            image: "LiveActivityHangno"
-        )
-        let content = ActivityContent(
-            state: SymptomLiveActivityAttributes.ContentState(sentence: "오늘 하루는 어떠셨나요?"),
-            staleDate: nil
-        )
+    private static let painCoordinator = SingleLiveActivityCoordinator()
+
+    enum Failure: LocalizedError {
+        case disabled
+        var errorDescription: String? {
+            "설정에서 속닥의 실시간 현황이 꺼져 있어요. 설정 → 앱 → 속닥 → 실시간 현황을 켜 주세요."
+        }
+    }
+
+    static func startLocalSymptomLiveActivity() async throws {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { throw Failure.disabled }
+        for activity in Activity<SymptomLiveActivityAttributes>.activities {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
         _ = try Activity<SymptomLiveActivityAttributes>.request(
-            attributes: attributes,
-            content: content,
+            attributes: .init(name: "Dr.속닥이", image: "LiveActivityHangno"),
+            content: ActivityContent(state: .init(sentence: "오늘 하루는 어떠셨나요?"), staleDate: nil),
             pushType: nil
         )
     }
-    #endif
-    
-    static func startPainLiveActivity() throws {
-        try requestPainLiveActivity(attributes: .init(medicationTakenAt: .now))
+
+    static func startPainLiveActivity() async throws {
+        try await ensurePainActivity(attributes: .init(medicationTakenAt: .now))
     }
 
-    static func startPainLiveActivity(for record: PainRecord, followUpAt: Date) async {
-        let activities = Activity<PainLiveActivityAttributes>.activities
-        let startedAt = Date.now
-        if ActivityAuthorizationInfo().areActivitiesEnabled,
-           !activities.contains(where: { $0.attributes.recordID == record.id }) {
-            do {
-                try requestPainLiveActivity(attributes: .init(
-                    medicationTakenAt: startedAt < followUpAt ? startedAt : record.recordedDate,
-                    recordID: record.id,
-                    followUpAt: followUpAt
-                ))
-            } catch {
-                print("통증 기록 Live Activity 시작 실패:", error)
-            }
-        }
+    static func startPainLiveActivity(for record: PainRecord, followUpAt: Date) async throws {
+        guard !LiveActivityDismissalStore.isDismissed(record.id) else { return }
+        let startedAt = min(Date.now, record.recordedDate)
+        try await ensurePainActivity(attributes: .init(medicationTakenAt: startedAt,
+                                                       recordID: record.id, followUpAt: followUpAt))
+    }
 
-        for activity in activities {
-            guard let recordID = activity.attributes.recordID, recordID != record.id else { continue }
-            await activity.end(nil, dismissalPolicy: .immediate)
-        }
+    private static func key(_ attributes: PainLiveActivityAttributes) -> String {
+        "\(attributes.recordID?.uuidString ?? "test")/\(attributes.timerEndsAt.timeIntervalSince1970)"
+    }
+
+    private static func ensurePainActivity(attributes: PainLiveActivityAttributes) async throws {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { throw Failure.disabled }
+        try await painCoordinator.ensure(key: key(attributes), current: {
+            Activity<PainLiveActivityAttributes>.activities.map {
+                .init(id: $0.id, key: key($0.attributes),
+                      isRunning: $0.activityState == .active || $0.activityState == .stale)
+            }
+        }, end: { id in
+            for activity in Activity<PainLiveActivityAttributes>.activities where activity.id == id {
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+        }, start: {
+            if let id = attributes.recordID, LiveActivityDismissalStore.isDismissed(id) { return }
+            do {
+                try requestPainLiveActivity(attributes: attributes)
+            } catch ActivityAuthorizationError.targetMaximumExceeded {
+                // ActivityKit may briefly retain a slot after end() completes.
+                try await Task.sleep(for: .milliseconds(500))
+                try requestPainLiveActivity(attributes: attributes)
+            }
+        })
     }
 
     static func endPainLiveActivity(recordID: UUID) async {
-        for activity in Activity<PainLiveActivityAttributes>.activities
-        where activity.attributes.recordID == recordID {
-            await activity.end(nil, dismissalPolicy: .immediate)
+        try? await painCoordinator.run {
+            for activity in Activity<PainLiveActivityAttributes>.activities
+            where activity.attributes.recordID == recordID {
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+        }
+    }
+
+    /// Also removes legacy demo activities that have no record ID.
+    static func endAllLiveActivities() async {
+        try? await painCoordinator.run {
+            for activity in Activity<PainLiveActivityAttributes>.activities {
+                if let id = activity.attributes.recordID { LiveActivityDismissalStore.dismiss(id) }
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+            for activity in Activity<SymptomLiveActivityAttributes>.activities {
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
         }
     }
 
     private static func requestPainLiveActivity(attributes: PainLiveActivityAttributes) throws {
-        let content = ActivityContent(
-            state: PainLiveActivityAttributes.ContentState(),
-            staleDate: attributes.timerEndsAt
-        )
-
         _ = try Activity<PainLiveActivityAttributes>.request(
             attributes: attributes,
-            content: content,
+            content: ActivityContent(state: .init(), staleDate: attributes.timerEndsAt),
             pushType: nil
         )
     }

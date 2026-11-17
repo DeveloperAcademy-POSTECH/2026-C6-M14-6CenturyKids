@@ -75,6 +75,7 @@
 		A1E7E8123089270A007C0049 /* Exceptions for "ToDocWidgetExtension" folder in "ToDoc" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				DismissLiveActivityIntent.swift,
 				PainLiveActivity.swift,
 				SymptomLiveActivity.swift,
 			);
