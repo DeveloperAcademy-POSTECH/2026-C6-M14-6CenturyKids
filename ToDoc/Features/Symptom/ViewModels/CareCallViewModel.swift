@@ -40,6 +40,7 @@ final class CareCallViewModel {
     private let repository: any SymptomRepository
     private let pending: any PendingCareCallRepository
     private let pendingId = UUID()
+    var preservesPartialFollowUps = false
     @ObservationIgnored private let patientSource: PatientSource
     private var patientId: UUID?
     private var isLoadingPatient = false
@@ -496,7 +497,7 @@ final class CareCallViewModel {
         conversation.canGoPrevious = canGoBack
         return SymptomConversationQuestion(id: UUID(), text: text, guidance: turn?.asksMore == true ? Self.moreGuidance : nil,
                                            progress: turn?.progress, input: input, isLastQuestion: turn?.isLast ?? false,
-                                           allowsPrevious: canGoBack)
+                                           allowsPrevious: canGoBack, suggestedAnswers: turn?.suggestedAnswers ?? [])
     }
 
     private func goBack() {
@@ -736,7 +737,7 @@ final class CareCallViewModel {
         let source: SymptomConversationAnalytics.SaveSource = showingResult ? .userSave : .automaticPreservation
         let task = Task {
             do {
-                let storedID = try await store(record, complete: complete)
+                let storedID = try await store(record, complete: complete, attemptID: pendingId)
                 if let storedID { analytics.recordSaveSuccess(recordID: storedID, source: source, context: context) }
                 forget() 
                 isSaved = true
@@ -767,8 +768,12 @@ final class CareCallViewModel {
     private func keep(_ record: SymptomRecord?) {
         guard let record, !isSaved else { return }
         let complete = Self.isFinal(outcome) || hadEmergency
-        try? pending.save(PendingCareCall(id: pendingId, record: record, complete: complete,
-                                          analytics: saveAnalyticsContext(for: record)))
+        do {
+            try pending.save(PendingCareCall(id: pendingId, record: record, complete: complete,
+                                            analytics: saveAnalyticsContext(for: record)))
+        } catch {
+            conversation.errorMessage = "대화 내용을 기기에 보관하지 못했어요. 저장 공간을 확인해 주세요."
+        }
     }
 
     private func saveAnalyticsContext(for record: SymptomRecord) -> PendingCareCall.Analytics? {
@@ -796,7 +801,7 @@ final class CareCallViewModel {
         guard let patientId else { return }
         for left in (try? pending.findAll(patientId: patientId)) ?? [] where left.id != pendingId {
             do {
-                if let storedID = try await store(left.record, complete: left.complete) {
+                if let storedID = try await store(left.record, complete: left.complete, attemptID: left.id) {
                     analytics.recordSaveSuccess(recordID: storedID, source: .pendingRetry, context: left.analytics)
                 }
             } catch {
@@ -806,10 +811,13 @@ final class CareCallViewModel {
         }
     }
 
-    private func store(_ record: SymptomRecord, complete: Bool) async throws -> UUID? {
+    private func store(_ record: SymptomRecord, complete: Bool, attemptID: UUID) async throws -> UUID? {
+        if preservesPartialFollowUps, let local = repository as? LocalSymptomRepository {
+            return try local.savePending(record, attemptID: attemptID, merge: Self.merge)
+        }
         let stored: SymptomRecord
         if let existing = try await savedRecord(of: record.patientId, on: record.recordedDate) {
-            guard complete else { return nil }
+            guard complete || preservesPartialFollowUps else { return nil }
             stored = Self.merge(existing, with: record)
         } else {
             stored = record

@@ -44,16 +44,16 @@ struct AdminSettingsView: View {
             case .resetSymptom: "증상 초기화"
             case .resetPrevisit: "진료 전 기록 초기화"
             case .seedMockData: "목데이터 채우기"
-            case .clearAll: "목데이터 지우기"
+            case .clearAll: "이 기기의 모든 기록 지우기"
             }
         }
         var question: String {
             switch self {
             case .painSkip: "기다리는 통증 기록을 30초 뒤에 기록할 수 있게 바꿀까요?"
             case .resetSymptom: "오늘 증상 기록을 지울까요? 되돌릴 수 없어요."
-            case .resetPrevisit: "오늘 보낸 진료 전 기록을 지울까요? 되돌릴 수 없어요."
+            case .resetPrevisit: "오늘 저장한 진료 전 기록을 지울까요? 되돌릴 수 없어요."
             case .seedMockData: "10월 16일~11월 19일의 증상·통증·진료 전 기록을 지우고 목데이터로 다시 채울까요? 되돌릴 수 없어요."
-            case .clearAll: "이 계정의 모든 증상·통증·진료 전 기록을 지울까요? 날짜와 상관없이 전부 지워지고 되돌릴 수 없어요."
+            case .clearAll: "이 기기의 모든 증상·통증·진료 전 기록을 지울까요? 날짜와 상관없이 전부 지워지고 되돌릴 수 없어요."
             }
         }
     }
@@ -97,22 +97,7 @@ struct AdminSettingsView: View {
             if service == nil {
                 SettingsFeedback(error: "로그인한 환자 화면에서만 쓸 수 있어요.")
             }
-            SettingsSection(title: "", footer: "켜면 그날 처음 증상 기록할 때 7개 중 3개만 랜덤으로 묻고, 나머지 4개는 목데이터로 채워요. 다음 증상 기록부터 적용돼요.") {
-                Toggle(isOn: $demoCareCall) {
-                    Text("증상 데모 흐름").settingsText()
-                }
-                .tint(AppColors.primary)
-                .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
-                .accessibilityIdentifier("settings.admin.demoCareCall")
-            }
-            SettingsSection(title: "") {
-                Toggle(isOn: $speculation) {
-                    Text("말 끝나기 전에 미리 분석하기").settingsText()
-                }
-                .tint(AppColors.primary)
-                .padding(.horizontal, 16).padding(.vertical, 12).frame(minHeight: 52)
-                .accessibilityIdentifier("settings.admin.speculation")
-                SettingsDivider()
+            SettingsSection(title: "음성 입력") {
                 Toggle(isOn: $skipSilence) {
                     Text("문장이 늦게 확정되면 무음 1초 건너뛰기").settingsText()
                 }

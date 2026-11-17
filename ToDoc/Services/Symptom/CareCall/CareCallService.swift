@@ -60,7 +60,7 @@ final class CareCallService: CareCalling {
     func begin(patientId: UUID, previous: SymptomRecord?) throws -> CareCallTurn {
         guard let analyzer else { throw CareCallServiceError.notPrepared }
         // 시연: 관리자 설정에서 켜 두면 그날 처음 통화는 3개만 랜덤으로 묻는다 (다시 거는 통화는 그대로)
-        let demo = previous == nil && DemoCareCallPlan.isEnabled ? DemoCareCallPlan(effectIds: config.effects.map(\.id)) : nil
+        let demo: DemoCareCallPlan? = nil
         let engine = InterviewEngine(config: config, rules: rules, analyzer: analyzer, followUp: previous.map(converter.unasked(in:)),
                                      askOnly: demo?.asked, locationWords: converter.bodyParts.parts.values.flatMap { $0 })
         let conversation = Conversation(engine: engine, patientId: patientId, followUp: previous != nil, demo: demo)
@@ -112,11 +112,20 @@ final class CareCallService: CareCalling {
     }
 
     private func turn(_ out: InterviewEngine.Output, of conversation: Conversation) -> CareCallTurn {
-        CareCallTurn(utterance: out.utterance, number: conversation.engine.expectedNumber,
+        var result = CareCallTurn(utterance: out.utterance, number: conversation.engine.expectedNumber,
                      outcome: out.isFinished ? outcome(of: conversation, phase: out.phase) : nil,
                      progress: conversation.engine.progress, asksMore: conversation.engine.asksMore,
                      isLast: conversation.engine.phase == .other,
                      questionID: conversation.engine.currentQuestionID, answerCompletion: out.answerCompletion)
+        if !conversation.engine.asksMore {
+            switch conversation.engine.phase {
+            case .opening: result.suggestedAnswers = ["괜찮아요", "잘 모르겠어요"]
+            case .slot(_, .presence): result.suggestedAnswers = ["없어요", "네, 있어요", "잘 모르겠어요"]
+            case .other: result.suggestedAnswers = ["없어요"]
+            default: break
+            }
+        }
+        return result
     }
 
     private func outcome(of conversation: Conversation, phase: InterviewPhase) -> CareCallOutcome {

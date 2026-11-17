@@ -9,6 +9,8 @@ struct SymptomChatLayout<Field: View>: View {
     var caption: String?
     /// 키보드가 올라와 있으면 안내 문구를 숨기고 바를 키보드 위 8에 둔다
     var isEditing = false
+    var suggestedAnswers: [String] = []
+    var onSuggestedAnswer: ((String) -> Void)?
     var showsBar = true
     var canSend = false
     var onClose: (() -> Void)?
@@ -29,6 +31,16 @@ struct SymptomChatLayout<Field: View>: View {
                     .foregroundStyle(AppColors.Semantic.Text.action)
                     .multilineTextAlignment(.center)
                     .padding(.bottom, 10)
+            }
+            if !suggestedAnswers.isEmpty, let onSuggestedAnswer {
+                HStack(spacing: 8) {
+                    ForEach(suggestedAnswers, id: \.self) { answer in
+                        Button(answer) { onSuggestedAnswer(answer) }
+                            .font(.subheadline).buttonStyle(.bordered)
+                            .accessibilityIdentifier("symptom.quick.\(answer)")
+                    }
+                }
+                .padding(.bottom, 12)
             }
             if showsBar {
                 bar

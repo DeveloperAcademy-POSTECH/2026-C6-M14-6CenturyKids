@@ -43,7 +43,7 @@ struct PatientFlowCompositionView: View {
                 guard try await container.previsitRepository.findById(id) == nil else {
                     throw PrevisitWriteError.notApplied
                 }
-            }
+            }, allowsMultiplePerDay: true
         ))
         _demoAdmin = State(initialValue: DemoAdminService(
             patientId: patientId, pain: container.painRepository, symptoms: container.symptomRepository,
@@ -100,7 +100,13 @@ struct PatientFlowCompositionView: View {
                     try Task.checkCancellation()
                     let days = try PrevisitRecordedDays.make(pain: records.0, symptoms: records.1, patientID: patientId,
                                                             calendar: RecordDetailViewModel.calendar)
-                    return PrevisitRecordedDays.selectableDays(days, now: now, calendar: calendar)
+                    var selectable = PrevisitRecordedDays.selectableDays(days, now: now, calendar: calendar)
+                    if !selectable.contains(where: { $0.recordedDate.map { calendar.isDateInToday($0) } == true }) {
+                        let today = calendar.startOfDay(for: now)
+                        selectable.insert(PrevisitDay(id: "today", dateLabel: "오늘", weekday: "",
+                                                     entries: [], recordedDate: today), at: 0)
+                    }
+                    return selectable
                 }
             },
             previsitLetters: previsitLetterViewModel,
@@ -150,7 +156,7 @@ struct PatientFlowCompositionView: View {
             }
         )
         .environment(demoAdmin)
-        .task(id: patientId) { await startArrivalNotifications() }
+
         .task {
             // 관리자 기능으로 기록을 바꾸면 통증·진료 전·홈이 다시 불러온다
             demoAdmin.onChanged = {

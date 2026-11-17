@@ -201,7 +201,7 @@ struct PendingCareCallTests {
         #expect(pending.items.isEmpty)
     }
 
-    @Test func 폰에_남기지_못해도_대화는_이어_간다() async {
+    @Test func 폰에_남기지_못하면_알리고_대화는_이어_간다() async {
         pending.failSave = true
         let viewModel = makeViewModel()
         await enterText(viewModel)
@@ -209,7 +209,7 @@ struct PendingCareCallTests {
         service.replies = [turn("하루에 몇 번 정도 하셨나요?")]
         await viewModel.answer(.text("설사를 했어요"))?.value
         #expect(viewModel.conversation.question?.text == "하루에 몇 번 정도 하셨나요?")
-        #expect(viewModel.conversation.errorMessage == nil)
+        #expect(viewModel.conversation.errorMessage?.contains("보관하지 못했어요") == true)
     }
 
     @Test func 기록_중단에서_그만하면_저장하지_않고_폰에서도_지운다() async {

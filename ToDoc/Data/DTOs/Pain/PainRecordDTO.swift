@@ -1,3 +1,6 @@
+#if SWIFT_PACKAGE
+import ToDocDomain
+#endif
 //
 //  PainRecordDTO.swift
 //  ToDoc

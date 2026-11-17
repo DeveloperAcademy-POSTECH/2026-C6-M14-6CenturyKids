@@ -35,6 +35,9 @@ struct PrevisitRecordView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if let error = session.persistenceError {
+                Text(error).font(.footnote).foregroundStyle(.red).padding(.horizontal)
+            }
             ScrollView {
                 VStack(spacing: 20) {
                     if step != .day { recordNotice }
@@ -72,8 +75,8 @@ struct PrevisitRecordView: View {
             if showsSubmitConfirmation {
                 ZStack {
                     Color.black.opacity(0.6).ignoresSafeArea().accessibilityHidden(true)
-                    AppFeedback.Dialog("기록을 전송할까요?", message: "전송한 진료 전 기록은 수정하거나 삭제할 수 없어요. 내용을 확인한 뒤 전송해 주세요.",
-                        primary: .init("전송하기") {
+                    AppFeedback.Dialog("기록을 저장할까요?", message: "작성한 내용은 이 기기에만 저장돼요. 저장 후에도 오늘 기록을 수정할 수 있어요.",
+                        primary: .init("기기에 저장하기") {
                             showsSubmitConfirmation = false
                             onSubmit?(draft)
                         }, secondary: .init("다시 확인하기") { showsSubmitConfirmation = false })
@@ -285,12 +288,12 @@ struct PrevisitRecordView: View {
 
     private var footer: some View {
         VStack(spacing: AppSpacing.compact) {
-            if isSubmitting { ProgressView("전송 중이에요") }
+            if isSubmitting { ProgressView("저장 중이에요") }
             if let submissionError {
                 Text(submissionError).appTextStyle(.caption).foregroundStyle(.secondary)
             }
             if step == .mood, onSubmit == nil {
-                Text("현재 기록을 전송할 수 없어요. 화면을 닫고 다시 시도해 주세요.")
+                Text("현재 기록을 저장할 수 없어요. 화면을 닫고 다시 시도해 주세요.")
                     .appTextStyle(.caption).foregroundStyle(.secondary)
                     .accessibilityIdentifier("previsit.unsent")
             }
@@ -299,7 +302,7 @@ struct PrevisitRecordView: View {
                     AppActions.BackButton(action: previous)
                         .accessibilityIdentifier("previsit.previous")
                 }
-                AppActions.Button(step == .mood ? "전송하기" : "다음", action: next)
+                AppActions.Button(step == .mood ? "기기에 저장하기" : "다음", action: next)
                     .disabled(!canContinue)
                     .accessibilityIdentifier("previsit.next")
             }

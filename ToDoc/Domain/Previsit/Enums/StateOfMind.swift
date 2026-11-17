@@ -5,7 +5,7 @@
 //  Created by 앤디 on 10/30/26.
 //
 
-nonisolated public enum StateOfMind: String, CaseIterable, Sendable {
+nonisolated public enum StateOfMind: String, CaseIterable, Sendable, Codable {
     case candid = "candid"
     case comfortable = "comfortable"
     case slowly = "slowly"

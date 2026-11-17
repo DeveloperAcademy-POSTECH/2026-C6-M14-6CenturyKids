@@ -4,8 +4,8 @@ import ToDocDomain
 #endif
 
 /// 저장된 하루 기록의 표시 값과 원본 식별자입니다. 전송 계약은 별도입니다.
-struct PrevisitDay: Identifiable, Hashable {
-    struct PainRow: Hashable {
+struct PrevisitDay: Identifiable, Hashable, Codable {
+    struct PainRow: Hashable, Codable {
         let location: String
         let before: Int
         let after: Int?
@@ -13,7 +13,7 @@ struct PrevisitDay: Identifiable, Hashable {
         var entry: String { "\(location) 통증 \(before) → \(after.map { String($0) } ?? "사후 통증 미기록")" }
     }
 
-    struct SymptomRow: Hashable {
+    struct SymptomRow: Hashable, Codable {
         let label: String
         let detail: String?
         let entry: String
@@ -35,7 +35,7 @@ struct PrevisitDay: Identifiable, Hashable {
     var symptomRows: [SymptomRow] = []
     var representativePain: PainRow? = nil
 
-    var isSelectable: Bool { !entries.isEmpty }
+    var isSelectable: Bool { recordedDate != nil || !entries.isEmpty }
 
     var displayDate: String {
         guard let recordedDate else { return dateLabel }
@@ -53,12 +53,12 @@ struct PrevisitDay: Identifiable, Hashable {
 enum PrevisitRecordState: Equatable {
     case loading, loaded([PrevisitDay]), failed
 }
-struct PrevisitDraft: Equatable {
+struct PrevisitDraft: Equatable, Codable {
     var day: PrevisitDay?
     var letter = ""
     var mood: StateOfMind?
 }
-enum PrevisitStep: Equatable { case day, letter, mood }
+enum PrevisitStep: String, Equatable, Codable { case day, letter, mood }
 /// 보낸 진료 전 기록 한 건. 날짜는 고른 기록의 날이 아니라 작성(전송)한 날입니다.
 struct PrevisitLetter: Identifiable, Equatable {
     let id: UUID

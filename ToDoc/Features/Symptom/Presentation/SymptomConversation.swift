@@ -9,9 +9,11 @@ struct SymptomConversationQuestion: Identifiable, Sendable {
     let input: Input
     let isLastQuestion: Bool
     let allowsPrevious: Bool
+    let suggestedAnswers: [String]
 
     init(id: UUID, text: String, guidance: String?, progress: Double?, input: Input,
-         isLastQuestion: Bool = false, allowsPrevious: Bool = false) {
+         isLastQuestion: Bool = false, allowsPrevious: Bool = false, suggestedAnswers: [String] = []) {
+        self.suggestedAnswers = suggestedAnswers
         self.id = id
         self.text = text
         self.guidance = guidance

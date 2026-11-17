@@ -12,7 +12,7 @@ final class DependencyContainer {
     let analytics: AmplitudeAnalytics
     /// 로그인·설정·탈퇴가 함께 사용하는 앱 수명의 인증 상태입니다.
     let authSession: AuthSessionState
-    let supabaseProvider: SupabaseClientProvider
+    let localStore: LocalFileStore
     let authRepository: any AuthRepository
     let userRepository: any UserRepository
     let hospitalRepository: any HospitalRepository
@@ -30,29 +30,23 @@ final class DependencyContainer {
     let locationPermission: LocationPermissionRequester
     let hospitalArrivalService: HospitalArrivalService
     
-    init(configuration: SupabaseConfiguration, analytics: AmplitudeAnalytics) {
+    init(analytics: AmplitudeAnalytics) {
         self.analytics = analytics
         authSession = AuthSessionState(loginPreference: AuthLoginPreference(defaults: .standard))
-        let provider = SupabaseClientProvider(
-            configuration: configuration
-        )
-
-        supabaseProvider = provider
-        let client = provider.client
-        authRepository = SupabaseAuthRepository(client: client, configuration: configuration)
-        userRepository = SupabaseUserRepository(client: client)
-        hospitalRepository = SupabaseHospitalRepository(client: client)
-        doctorRepository = SupabaseDoctorRepository(client: client)
-        patientRepository = SupabasePatientRepository(client: client)
-        symptomRepository = SupabaseSymptomRepository(client: client)
-        previsitRepository = SupabasePrevisitRepository(client: client)
-        painRepository = SupabasePainRepository(client: client)
-        deviceTokenRepository = SupabaseDeviceTokenRepository(client: client)
+        let store = LocalFileStore()
+        localStore = store
+        authRepository = LocalAuthRepository()
+        userRepository = LocalUserRepository(store: store)
+        hospitalRepository = OfflineHospitalRepository()
+        doctorRepository = OfflineDoctorRepository()
+        patientRepository = LocalPatientRepository(store: store)
+        symptomRepository = LocalSymptomRepository(store: store)
+        previsitRepository = LocalPrevisitRepository(store: store)
+        painRepository = LocalPainRepository(store: store)
+        deviceTokenRepository = OfflineDeviceTokenRepository()
         notificationRepository = FileNotificationRepository()
-        notificationSettingsRepository = SupabaseNotificationSettingsRepository(
-            client: client
-        )
-        
+        notificationSettingsRepository = LocalNotificationSettingsRepository(store: store)
+
         self.liveActivityService = LiveActivityService(tokenRepository: deviceTokenRepository, authRepository: authRepository)
         locationPermission = LocationPermissionRequester()
         hospitalArrivalService = HospitalArrivalService(
@@ -136,23 +130,25 @@ final class DependencyContainer {
     /// custom: 마이크 대신 쓸 소리 입력 (시연·측정용 자동 환자). 없으면 실제 마이크
     func makeCareCallService(recorder custom: AudioRecorder? = nil) throws -> CareCallService {
         let recorder = custom ?? AVAudioEngineAdapter()
+        let config = try Bundle.main.decodeJSON(CareCallConfig.self, named: "side_effects")
+        let bodyParts = try Bundle.main.decodeJSON(BodyPartDictionary.self, named: "body_parts")
         return CareCallService(
-            config: try Bundle.main.decodeJSON(CareCallConfig.self, named: "side_effects"),
+            config: config,
             rules: try Bundle.main.decodeJSON(EmergencyRules.self, named: "emergency_rules"),
-            bodyParts: try Bundle.main.decodeJSON(BodyPartDictionary.self, named: "body_parts"),
+            bodyParts: bodyParts,
             recorder: recorder,
             recognizer: SpeechAnalyzerAdapter(recorder: recorder),
             // 의사 선생님 녹음으로 읽고, 녹음이 없는 문장은 기기 음성으로 읽는다
             voice: DoctorVoiceSynthesizer(clips: try Bundle.main.decodeJSON(DoctorVoiceClips.self, named: "doctor_voice"),
                                           fallback: AVSpeechSynthesizerAdapter()),
-            loadAnalyzer: { try FoundationModelsCareCallAdapter(model: try LanguageModelProvider.systemModel()) }
+            loadAnalyzer: { OfflineCareCallAnalyzer(config: config, bodyParts: bodyParts) }
         )
     }
 
     /// 케어콜 화면에 들어갈 때마다 새로 만든다 (서비스와 같은 이유). 로그인 환자는 ViewModel이 찾는다
     @MainActor
     func makeCareCallViewModel() throws -> CareCallViewModel {
-        CareCallViewModel(
+        let model = CareCallViewModel(
             service: try makeCareCallService(),
             repository: symptomRepository,
             pending: FilePendingCareCallRepository(),
@@ -160,6 +156,8 @@ final class DependencyContainer {
             patientRepository: patientRepository,
             trackAnalytics: analytics.track
         )
+        model.preservesPartialFollowUps = true
+        return model
     }
 
     @MainActor

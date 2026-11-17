@@ -67,7 +67,7 @@ struct PatientFlowView: View {
         self.onReloadHome = onReloadHome
         self.previsit = previsit
         self.previsitLetters = previsitLetters ?? .init()
-        _previsitSession = State(initialValue: PrevisitSession(trackAnalytics: trackPrevisitAnalytics))
+        _previsitSession = State(initialValue: PrevisitSession(storageURL: PrevisitSession.deviceDraftURL, trackAnalytics: trackPrevisitAnalytics))
         self.pain = pain
         self.preparePainDetail = preparePainDetail
         self.painDetail = painDetail
@@ -115,6 +115,9 @@ struct PatientFlowView: View {
             settings().tabItem { Label("설정", systemImage: "gearshape.fill") }.tag(Tab.settings)
         }
         .tint(AppColors.Semantic.Text.action)
+        .onReceive(NotificationCenter.default.publisher(for: PrevisitSession.didResetDraft)) { _ in
+            previsitSession.discard()
+        }
         .onChange(of: router.pendingDeepLink, initial: true) { _, deepLink in
             guard let deepLink else { return }
             // 바텀시트가 떠 있으면 먼저 닫는다. 닫는 중에는 다른 화면을 띄울 수 없어, 닫힌 뒤 openPrevisitNext가 이어서 연다
@@ -130,7 +133,7 @@ struct PatientFlowView: View {
             previsitPromptOpenedFromHome = false
             openPrevisitNext()
         }) {
-            let sentToday = previsitLetters.todaySentLetter
+            let sentToday: PrevisitLetter? = nil
             PrevisitPromptView(startTitle: previsitSession.hasDraft ? "이어서 작성하기" : nil,
                                onViewToday: sentToday.map { letter in
                                    { closePrevisitPrompt(then: .letter(letter.id)) }
@@ -205,7 +208,7 @@ struct PatientFlowView: View {
         case .previsit:
             tab = .home
             // 오늘 이미 보냈으면 작성 대신 보낸 기록을 볼 수 있는 바텀시트를 엽니다
-            if previsitLetters.hasSentToday {
+            if previsitLetters.hasSentToday && !previsitLetters.allowsMultiplePerDay {
                 openPrevisitPrompt()
             } else {
                 previsitSession.start()
@@ -224,7 +227,7 @@ struct PatientFlowView: View {
         }
         switch previsitNext {
         case .write:
-            if previsitLetters.hasSentToday {
+            if previsitLetters.hasSentToday && !previsitLetters.allowsMultiplePerDay {
                 openPrevisitPrompt()
             } else {
                 previsitSession.start()

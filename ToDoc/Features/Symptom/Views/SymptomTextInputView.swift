@@ -18,6 +18,8 @@ struct SymptomTextInputView: View {
         SymptomChatLayout(title: question.text, sub: question.guidance, progress: question.progress ?? 0,
                           character: SymptomChatCharacter(current: isSubmitting ? .thinking : (isFocused ? .nodding : .hello)),
                           caption: isSubmitting ? nil : "증상을 입력해주세요.", isEditing: isFocused,
+                          suggestedAnswers: isSubmitting ? [] : question.suggestedAnswers,
+                          onSuggestedAnswer: { answer in text = answer; keepsKeyboard = false; isFocused = false; onNext?() },
                           canSend: hasAnswer && !isSubmitting,
                           onClose: onEnd, onSwitchToVoice: onSwitchToVoice,
                           onSend: onNext.map { next in { keepsKeyboard = isFocused; next() } },

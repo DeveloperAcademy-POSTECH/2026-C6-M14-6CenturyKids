@@ -20,6 +20,7 @@ final class PrevisitLetterViewModel {
     typealias LoadDay = (Date) async throws -> PrevisitDay?
     typealias Save = (PrevisitRecord) async throws -> Void
     typealias Delete = (UUID) async throws -> Void
+    let allowsMultiplePerDay: Bool
     private let patientID: UUID?
     private let loadRecords: Load?
     private let saveRecord: Save?
@@ -48,7 +49,8 @@ final class PrevisitLetterViewModel {
     private let now: () -> Date
 
     init(patientID: UUID? = nil, calendar: Calendar = .current, now: @escaping () -> Date = { .now },
-         load: Load? = nil, save: Save? = nil, loadDay: LoadDay? = nil, delete: Delete? = nil) {
+         load: Load? = nil, save: Save? = nil, loadDay: LoadDay? = nil, delete: Delete? = nil, allowsMultiplePerDay: Bool = false) {
+        self.allowsMultiplePerDay = allowsMultiplePerDay
         self.patientID = patientID
         self.calendar = calendar
         self.now = now
@@ -110,7 +112,7 @@ final class PrevisitLetterViewModel {
               startTracking: () -> PrevisitAnalytics.Submission? = { nil }) async -> UUID? {
         guard !isSubmitting, let patientID, let saveRecord,
               let date = draft.day?.recordedDate, let mood = draft.mood else { return nil }
-        guard !hasSentToday else {
+        guard allowsMultiplePerDay || !hasSentToday else {
             errorMessage = "진료 전 기록은 하루에 한 번만 보낼 수 있어요."
             return nil
         }
@@ -129,7 +131,7 @@ final class PrevisitLetterViewModel {
             return record.id
         } catch {
             submission?.finish(error: error)
-            errorMessage = "전송하지 못했어요. 작성한 내용은 유지돼요. 다시 시도해 주세요."
+            errorMessage = "기기에 저장하지 못했어요. 작성한 내용은 유지돼요. 저장 공간을 확인하고 다시 시도해 주세요."
             return nil
         }
     }

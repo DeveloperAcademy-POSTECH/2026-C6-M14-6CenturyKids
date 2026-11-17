@@ -98,6 +98,9 @@ struct CareCallFlowView: View {
             viewModel = made
         }
         await viewModel?.loadPatient()
+        if !hasEntered, viewModel?.connectionState == .ready {
+            enter(.text)
+        }
     }
 }
 #Preview { NavigationStack { CareCallFlowView() } }

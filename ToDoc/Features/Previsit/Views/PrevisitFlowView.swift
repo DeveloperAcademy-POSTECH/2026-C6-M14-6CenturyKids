@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 작성 → 전송 완료 팝업 → 보낸 기록 보기. 시작 안내 바텀시트는 홈(PatientFlowView)이 띄웁니다.
+/// 작성 → 전송 완료 팝업 → 저장한 기록 보기. 시작 안내 바텀시트는 홈(PatientFlowView)이 띄웁니다.
 /// 기존 기록 조회와 전송받을 ViewModel을 부모가 주입합니다. 저장소 전송에 성공한 뒤 완료 화면을 보여 줍니다.
 struct PrevisitFlowView: View {
     var doctorName = "선생님"

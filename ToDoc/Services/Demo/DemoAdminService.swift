@@ -6,7 +6,7 @@ import Observation
 import ToDocDomain
 #endif
 
-/// 시연용 관리자 기능. 서버가 권한으로 막으면 오류 없이 아무것도 안 바뀔 수 있어, 바꾼 뒤 다시 조회해 확인한다.
+/// 기기에 저장된 부스 체험 기록을 관리하고 변경 결과를 다시 조회해 확인한다.
 @MainActor @Observable
 final class DemoAdminService {
     enum Failure: LocalizedError {
@@ -16,7 +16,7 @@ final class DemoAdminService {
         var errorDescription: String? {
             switch self {
             case .nothing(let message): message
-            case .notApplied(let what): "\(what)을(를) 서버가 바꾸지 않았어요. 데이터베이스 권한을 확인해 주세요."
+            case .notApplied(let what): "\(what)을(를) 기기에 반영하지 못했어요. 저장 공간을 확인하고 다시 시도해 주세요."
             }
         }
     }
@@ -47,7 +47,7 @@ final class DemoAdminService {
     }
 
     /// 기다리는 통증 기록의 시각을 앞당겨, 30초 뒤에 복용 후 통증을 기록할 수 있게 한다.
-    /// 서버가 기록 시각으로 1시간을 확인하므로 같은 id·부위·복용 전 점수로 시각만 바꿔 다시 저장한다.
+    /// 저장소가 기록 시각으로 1시간을 확인하므로 같은 id·부위·복용 전 점수로 시각만 바꿔 다시 저장한다.
     func skipPainWait(now: Date = .now) async throws -> String {
         guard let pending = try await pain.findLatestByPatientId(patientId), pending.painAfter == nil else {
             throw Failure.nothing("복용 후 통증을 기다리는 기록이 없어요.")
@@ -90,7 +90,7 @@ final class DemoAdminService {
         )
     }
 
-    /// 오늘 증상 기록(서버·폰에 남은 저장 대기 통화)을 지워 처음부터 다시 기록할 수 있게 한다.
+    /// 오늘 증상 기록(기기에 남은 저장 대기 통화 포함)을 지워 처음부터 다시 기록할 수 있게 한다.
     func resetTodaySymptoms(now: Date = .now) async throws -> String {
         let calendar = RecordDetailViewModel.calendar
         let start = calendar.startOfDay(for: now)
@@ -110,12 +110,12 @@ final class DemoAdminService {
         return "오늘 증상 기록을 지웠어요."
     }
 
-    /// 오늘 보낸 진료 전 기록을 지워 다시 작성할 수 있게 한다.
+    /// 오늘 저장한 진료 전 기록을 지워 다시 작성할 수 있게 한다.
     func resetTodayPrevisit(now: Date = .now) async throws -> String {
-        guard let record = try await previsits.findByPatientIdAndDate(patientId: patientId, date: now) else {
-            throw Failure.nothing("오늘 보낸 진료 전 기록이 없어요.")
-        }
-        try await previsits.deleteById(record.id)
+        let records = try await previsits.findByPatientId(patientId)
+            .filter { RecordDetailViewModel.calendar.isDate($0.submittedAt, inSameDayAs: now) }
+        for record in records { try await previsits.deleteById(record.id) }
+        try PrevisitSession.removeDeviceDraft()
         guard try await previsits.findByPatientIdAndDate(patientId: patientId, date: now) == nil else {
             throw Failure.notApplied("진료 전 기록")
         }
@@ -167,6 +167,7 @@ final class DemoAdminService {
         }
         cancelPainAfterReminder()
         for record in try await previsits.findByPatientId(patientId) { try await previsits.deleteById(record.id) }
+        try PrevisitSession.removeDeviceDraft()
         guard try await symptoms.findByPatientId(patientId).isEmpty, try await pain.findByPatientId(patientId).isEmpty,
               try await previsits.findByPatientId(patientId).isEmpty else {
             throw Failure.notApplied("기록")

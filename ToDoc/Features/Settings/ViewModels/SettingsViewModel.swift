@@ -7,7 +7,7 @@
 
 import Foundation
 import Observation
-import enum Auth.AuthError
+
 
 @MainActor
 @Observable
@@ -164,16 +164,10 @@ final class SettingsViewModel {
                 return
             }
 
-            guard let disease = patient.disease else {
-                screenState.profile = nil
-                screenState.loadState = .failed
-                return
-            }
-
             var profile = ProfileDisplayData(
                 name: patient.user.name,
-                cancerName: disease.carcinoma.displayName,
-                stageName: disease.stage.displayName,
+                cancerName: patient.disease?.carcinoma.displayName,
+                stageName: patient.disease?.stage.displayName,
                 hospitalName: nil,
                 doctorName: nil
             )
@@ -239,10 +233,7 @@ final class SettingsViewModel {
                 return
             }
 
-            guard let disease = patient.disease else {
-                state.errorMessage = "진단 정보를 찾지 못했어요."
-                return
-            }
+            let disease = patient.disease ?? CarcinomaDetail(carcinoma: .unknown, stage: .unknown)
 
             switch field {
             case .carcinoma: state.selection = .carcinoma(disease.carcinoma)
@@ -580,21 +571,7 @@ final class SettingsViewModel {
             state.didSave = true
         } catch {
             guard passwordChangeRequestID == requestID, !Task.isCancelled else { return false }
-            switch (error as? AuthError)?.errorCode {
-            case .some(.reauthenticationNotValid):
-                state.codeError = "인증코드가 올바르지 않아요. 다시 확인해 주세요."
-            case .some(.reauthenticationNeeded):
-                state.requiresReauthentication = true
-                state.hasSentCode = false
-                state.verificationCode = ""
-                return true
-            case .some(.samePassword):
-                state.newPasswordError = "기존 비밀번호와 다른 비밀번호를 입력해 주세요."
-            case .some(.weakPassword):
-                state.newPasswordError = "비밀번호 조건에 맞게 다시 입력해 주세요."
-            default:
-                state.errorMessage = "비밀번호를 변경하지 못했어요. 다시 시도해 주세요."
-            }
+            state.errorMessage = "이 기기에서는 비밀번호 없이 사용할 수 있어요."
         }
         return false
     }
@@ -674,10 +651,7 @@ final class SettingsViewModel {
                 return
             }
 
-            guard var disease = patient.disease else {
-                state.errorMessage = "진단 정보를 찾지 못했어요."
-                return
-            }
+            var disease = patient.disease ?? CarcinomaDetail(carcinoma: .unknown, stage: .unknown)
 
             switch (field, selection) {
             case (.carcinoma, .carcinoma(let type)):

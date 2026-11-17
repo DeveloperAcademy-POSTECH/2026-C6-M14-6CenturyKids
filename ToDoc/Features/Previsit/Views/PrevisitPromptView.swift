@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 완료 표시는 전송 결과를 받은 부모가 선택합니다. 이 View는 저장/전송하지 않습니다.
 /// 시작 안내는 홈의 바텀시트(Figma 02)로, 전송 완료는 가운데 팝업으로 그립니다.
-/// 완료 상태의 '보낸 기록 보기'는 onStart로 부모가 이동을 정합니다.
+/// 완료 상태의 '저장한 기록 보기'는 onStart로 부모가 이동을 정합니다.
 struct PrevisitPromptView: View {
     var completedDraft: PrevisitDraft?
     var startTitle: String?
@@ -41,7 +41,7 @@ struct PrevisitPromptView: View {
             Capsule().fill(AppColors.Semantic.Border.default).frame(width: 36, height: 5).accessibilityHidden(true)
             HStack(alignment: .top, spacing: 8) {
                 Color.clear.frame(width: 44, height: 44)
-                AppNavigation.PageTitle(onViewToday == nil ? "진료 받기 전 대기중인가요?" : "오늘 기록을 보냈어요",
+                AppNavigation.PageTitle(onViewToday == nil ? "진료 받기 전 대기중인가요?" : "오늘 기록을 저장했어요",
                                         alignment: .center, overline: "진료 전 기록하기")
                 // Figma 아이콘이 아직 자리만 있어 뒤로가기(Prev)와 같은 굵기·크기로 그린 닫기 아이콘을 씁니다
                 AppActions.IconButton("닫기", icon: Image("PrevisitClose"), action: onClose)
@@ -49,7 +49,7 @@ struct PrevisitPromptView: View {
             // 홈의 통증 기록하기·증상 대화하기 카드 간격(14)과 맞춤
             VStack(spacing: 14) {
                 if let onViewToday {
-                    AppActions.Button("오늘 보낸 기록 보기", action: onViewToday)
+                    AppActions.Button("오늘 저장한 기록 보기", action: onViewToday)
                         .accessibilityIdentifier("previsit.viewToday")
                 } else {
                     AppActions.Button(startTitle ?? "진료 전 기록하기", action: onStart)
@@ -68,8 +68,8 @@ struct PrevisitPromptView: View {
     private var completionDialog: some View {
         AppFeedback.Dialog(
             "기록이 완료되었습니다",
-            message: "의사 선생님께 전달 되었어요",
-            primary: .init("보낸 기록 보기", action: onStart),
+            message: "이 기기에 안전하게 저장했어요",
+            primary: .init("저장한 기록 보기", action: onStart),
             secondary: .init("닫기", action: onClose)
         )
         .accessibilityAddTraits(.isModal)

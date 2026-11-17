@@ -25,4 +25,5 @@ struct CareCallTurn: Sendable {
     var isLast = false
     var questionID: UUID? = nil
     var answerCompletion: CareCallAnswerCompletion? = nil
+    var suggestedAnswers: [String] = []
 }

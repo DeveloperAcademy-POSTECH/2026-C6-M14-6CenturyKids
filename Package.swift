@@ -22,14 +22,14 @@ let package = Package(
                 // 앱의 다른 파일은 빌드하지 않는다 (새 폴더가 생겨도 테스트가 깨지지 않게 sources로 고정, exclude는 경고 방지)
                 exclude: [
                     "Application", "Domain", "Resources", "ToDoc.entitlements",
-                    "Data/DTOs/DeviceToken", "Data/DTOs/Errors", "Data/DTOs/Hospital", "Data/DTOs/Notification",
-                    "Data/DTOs/Pain", "Data/DTOs/Previsit", "Data/DTOs/Symptom", "Data/DTOs/User",
-                    "Data/Supabase", "Data/Repositories/Supabase", "Data/Repositories/Local",
-                    "Data/Repositories/Protocols/DeviceTokenRepository.swift",
-                    "Data/Repositories/Protocols/DoctorRepository.swift", "Data/Repositories/Protocols/ExerciseRepository.swift",
-                    "Data/Repositories/Protocols/HospitalRepository.swift", "Data/Repositories/Protocols/IntakeRepository.swift",
+                    "Data/DTOs/Hospital",
+
+
+
+                    "Data/Repositories/Protocols/ExerciseRepository.swift",
+                    "Data/Repositories/Protocols/IntakeRepository.swift",
                     "Data/Repositories/Protocols/NotificationRepository.swift",
-                    "Data/Repositories/Protocols/UserRepository.swift",
+
                     "Features/Auth", "Features/Previsit", "Features/Home", "Features/Notification", "Features/Onboarding", "Features/Pain/Views", "Features/Pain/Presentation",
                     "Features/Patient", "Features/Records/Views", "Features/Settings", "Features/Symptom/Views",
                     "Core/AppIntents", "Core/Dependency", "Core/Errors", "Core/Extensions",
@@ -44,6 +44,14 @@ let package = Package(
                     "Services/Symptom/CareCall/CareCallService.swift",
                 ],
                 sources: [
+                    "Core/AI/OfflineCareCallAnalyzer.swift",
+                    "Data/DTOs/Pain", "Data/DTOs/Previsit", "Data/DTOs/Symptom", "Data/DTOs/User", "Data/DTOs/Errors",
+                    "Data/DTOs/DeviceToken", "Data/DTOs/Notification",
+                    "Data/Repositories/Local/LocalFileStore.swift", "Data/Repositories/Local/LocalRecordRepositories.swift",
+                    "Data/Repositories/Local/LocalProfileRepositories.swift", "Data/Repositories/Local/FilePendingCareCallRepository.swift",
+                    "Data/Repositories/Protocols/PrevisitRepository.swift", "Data/Repositories/Protocols/NotificationSettingsRepository.swift",
+                    "Data/Repositories/Protocols/DeviceTokenRepository.swift", "Data/Repositories/Protocols/DoctorRepository.swift",
+                    "Data/Repositories/Protocols/HospitalRepository.swift", "Data/Repositories/Protocols/UserRepository.swift",
                     "Core/AI/CareCallAI.swift", "Core/AI/CareCallStep.swift", "Core/AI/MentionPresence.swift",
                     "Services/Symptom/CareCall/BodyPartDictionary.swift",
                     "Services/Symptom/CareCall/CareCallConfig.swift", "Services/Symptom/CareCall/CareCallConfigError.swift",

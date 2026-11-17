@@ -1,90 +1,54 @@
 import SwiftUI
-import KakaoSDKAuth
 
 @MainActor
 struct ContentView: View {
-    @Environment(\.scenePhase) private var scenePhase
-    
-    @State private var authFlow: AuthFlowViewModel
     @State private var router: AppRouter
-    @State private var showsSplash = true
-
+    @State private var isReady = false
+    @State private var storageError: String?
     private let container: DependencyContainer
 
     init(container: DependencyContainer, router: AppRouter) {
         self.container = container
-        _authFlow = State(initialValue: container.makeAuthFlow())
         _router = State(initialValue: router)
     }
 
     var body: some View {
-        AuthRootView(authFlow: authFlow) { patient in
-            PatientFlowCompositionView(container: container, patientId: patient.user.id)
-                                          .task(id: patient.user.id) {
-                    await syncLiveActivityToken()
-                    await LocalNotificationAdapter.schedulePainReminders()
+        Group {
+            if isReady {
+                PatientFlowCompositionView(container: container, patientId: OfflineProfile.id)
+            } else if let storageError {
+                ContentUnavailableView {
+                    Label("기기 저장소를 열 수 없어요", systemImage: "externaldrive.badge.exclamationmark")
+                } description: {
+                    Text(storageError)
+                } actions: {
+                    Button("다시 시도") { Task { await prepare() } }
                 }
-        }
-        // 기존 화면을 유지한 채 가려 세션 복원과 딥 링크 처리를 함께 진행합니다.
-        .allowsHitTesting(!showsSplash)
-        .accessibilityHidden(showsSplash)
-        .overlay {
-            if showsSplash {
-                SplashVideoView { showsSplash = false }
-                    .ignoresSafeArea()
-            }
-        }
-        .statusBarHidden(showsSplash)
-        .task {
-            container.liveActivityService.startObserving()
-            // 앱을 끈 사이에 로그인이 끝났으면 복원 뒤에도 환자가 없으니 남은 예약과 병원 감시를 멈춘다.
-            await authFlow.restoreSessionOnce()
-            if authFlow.session.patient == nil {
-                LocalNotificationAdapter.cancelPainReminders()
-                container.hospitalArrivalService.stop()
-            }
-        }
-        // 로그아웃은 모두 session.patient를 비우는 것으로 끝난다.
-        .onChange(of: authFlow.session.patient?.user.id) { oldID, newID in
-            guard oldID != nil, newID == nil else { return }
-            LocalNotificationAdapter.cancelPainReminders()
-            container.locationPermission.onChange = nil
-            container.hospitalArrivalService.onSaved = nil
-            container.hospitalArrivalService.stop()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            
-            Task {
-                await syncLiveActivityToken()
+            } else {
+                ProgressView("기기 기록을 준비하고 있어요")
             }
         }
         .environment(router)
+        .task { await prepare() }
         .onOpenURL { url in
-            if AuthApi.isKakaoTalkLoginUrl(url) {
-                _ = AuthController.handleOpenUrl(url: url)
-            } else if let deepLink = DeepLink(url: url) {
-                router.handle(deepLink)
-            } else {
-                Task {
-                    await authFlow.handleURL(url)
+            if let deepLink = DeepLink(url: url) { router.handle(deepLink) }
+        }
+    }
+
+    private func prepare() async {
+        do {
+            try OfflineProfile.prepare(store: container.localStore)
+            let pending = FilePendingCareCallRepository()
+            if let local = container.symptomRepository as? LocalSymptomRepository {
+                for answer in try pending.findAll(patientId: OfflineProfile.id) {
+                    _ = try local.savePending(answer.record, attemptID: answer.id, merge: CareCallViewModel.merge)
+                    try pending.delete(id: answer.id, patientId: OfflineProfile.id)
                 }
             }
-        }
-    }
-    
-    private func syncLiveActivityToken() async {
-        do {
-            try await container.liveActivityService.syncToken()
+            storageError = nil
+            isReady = true
         } catch {
-            print("Live Activity 토큰 동기화 실패: ", error)
+            storageError = "저장 공간과 기기 잠금 상태를 확인한 뒤 다시 시도해 주세요. 기존 기록은 그대로 유지돼요."
         }
     }
 }
-
-#if DEBUG
-#Preview {
-    PatientFlowView.preview()
-        .environment(AppRouter())
-}
-#endif

@@ -66,7 +66,7 @@ struct SettingsFlowView: View {
 
     private var personalDestination: PersonalInfoEditView {
         var view = personal()
-        view.onWithdrawal = { path.append(.withdrawal) }
+        view.onWithdrawal = nil
         return view
     }
 

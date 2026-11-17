@@ -9,7 +9,7 @@ nonisolated struct HomeGreeting: Identifiable, Equatable, Sendable {
         .init(id: 1, text: "오늘 하루는 어떠셨어요?"),
         .init(id: 2, text: "시간 괜찮으시면 오늘의 안부를 남겨주세요."),
         .init(id: 3, text: "오늘 이야기를 기록해보는거 어때요?"),
-        .init(id: 4, text: "기록은 잘 남겨뒀다가 선생님께 전달할게요."),
+        .init(id: 4, text: "기록은 이 기기에 잘 보관해 둘게요."),
         .init(id: 5, text: "밥은 꼭꼭 챙겨 먹어요"),
         .init(id: 6, text: "오늘 기분은 어때요?"),
         .init(id: 7, text: "오늘 식사는 어떠셨어요?"),

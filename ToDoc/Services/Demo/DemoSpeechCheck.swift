@@ -49,9 +49,7 @@ nonisolated enum DemoSpeechCheck {
                 return "이 기기에서 한국어 음성 인식을 쓸 수 없어요."
             }
             let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
-            if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-                try await request.downloadAndInstall()
-            }
+            guard await AssetInventory.status(forModules: [transcriber]) == .installed else { return "한국어 음성 인식 자료가 없어 문자 대화를 사용해 주세요." }
             let first = await synthesize(sentences[0], voice: voice)
             guard let source = first.first?.format,
                   let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber], considering: source),

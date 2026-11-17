@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct DoctorConnectionInfo {
+public struct DoctorConnectionInfo {
     let doctorId: UUID
     let doctorName: String
     let doctorCode: String

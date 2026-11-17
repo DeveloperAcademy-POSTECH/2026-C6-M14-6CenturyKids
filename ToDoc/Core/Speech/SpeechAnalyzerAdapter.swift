@@ -75,9 +75,9 @@ final class SpeechAnalyzerAdapter: SpeechRecognizer {
             // 마이크 권한을 먼저 받는다 (거부하면 에셋을 내려받지 않는다)
             let micFormat = try await recorder.prepare()
             let module = try await makeTranscriber()
-            // 한국어 인식 에셋이 없으면 처음 한 번 내려받는다
-            if let request = try await AssetInventory.assetInstallationRequest(supporting: [module]) {
-                try await request.downloadAndInstall()
+            // Offline booth: only installed assets may be used; never request a download.
+            guard await AssetInventory.status(forModules: [module]) == .installed else {
+                throw SpeechRecognizerError.koreanUnsupported
             }
             guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [module], considering: micFormat) else {
                 throw SpeechRecognizerError.noAudioFormat
