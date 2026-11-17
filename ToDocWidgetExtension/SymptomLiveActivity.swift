@@ -9,7 +9,7 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
-struct SymptomLiveActivityAttributes: ActivityAttributes {
+nonisolated struct SymptomLiveActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         // Dynamic stateful properties about your activity go here!
         var sentence: String
@@ -18,6 +18,8 @@ struct SymptomLiveActivityAttributes: ActivityAttributes {
     // Fixed non-changing properties about your activity go here!
     var name: String
     var image: String
+    // Optional so activities created by earlier app versions remain decodable.
+    var scheduledFor: Date? = nil
 }
 
 struct SymptomLiveActivity: Widget {
@@ -27,6 +29,7 @@ struct SymptomLiveActivity: Widget {
         ActivityConfiguration(for: SymptomLiveActivityAttributes.self) { context in
             // Lock screen/banner UI goes here
             VStack(alignment: .center, spacing: 8) {
+
                 HStack(alignment: .lastTextBaseline) {
                     Image("LiveActivityHangno")
                         .resizable()
@@ -48,6 +51,7 @@ struct SymptomLiveActivity: Widget {
                             .foregroundStyle(Color("textDisabled"))
                     }
                     .multilineTextAlignment(.trailing)
+                        .padding(.trailing, 40)
                     .padding(.bottom, 12)
                     .frame(maxWidth: .infinity, minHeight: 56, alignment: .bottomTrailing)
                 }
@@ -66,6 +70,10 @@ struct SymptomLiveActivity: Widget {
                 }
                 .buttonStyle(.plain)
             }
+            .overlay(alignment: .topTrailing) {
+                LiveActivityCloseButton(activityID: context.activityID)
+                    .padding(.trailing, 8)
+            }
             .activityBackgroundTint(Color.black)
             .activitySystemActionForegroundColor(Color.white)
             .padding(.horizontal, 20)
@@ -73,6 +81,10 @@ struct SymptomLiveActivity: Widget {
             
         } dynamicIsland: { context in
             DynamicIsland {
+                DynamicIslandExpandedRegion(.trailing) {
+                    LiveActivityCloseButton(activityID: context.activityID)
+                }
+
                 DynamicIslandExpandedRegion(.bottom) {
                     expandedContent(context)
                 }

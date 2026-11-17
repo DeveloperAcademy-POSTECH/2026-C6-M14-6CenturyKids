@@ -73,21 +73,12 @@ final class DemoAdminService {
             throw error
         }
         await schedulePainAfterReminder(available)
-        await Self.restartPainLiveActivity(recordID: pending.id, followUpAt: available, now: now)
+        var activityWarning: String?
+        do { try await LiveActivityService.startPainLiveActivity(for: shifted, followUpAt: available) }
+        catch { activityWarning = error.localizedDescription }
         await onChanged()
-        return "30초 뒤에 복용 후 통증을 기록할 수 있어요."
-    }
-
-    /// 타이머 끝 시각은 띄울 때 정해져 바꿀 수 없으므로, 떠 있던 것을 끄고 앞당긴 시각으로 다시 띄운다.
-    /// 방금 끈 것이 목록에 잠깐 남아 있을 수 있어 LiveActivityService의 "이미 떠 있으면 건너뛰기"를 거치지 않는다.
-    private static func restartPainLiveActivity(recordID: UUID, followUpAt: Date, now: Date) async {
-        await LiveActivityService.endPainLiveActivity(recordID: recordID)
-        let attributes = PainLiveActivityAttributes(medicationTakenAt: now, recordID: recordID, followUpAt: followUpAt)
-        _ = try? Activity<PainLiveActivityAttributes>.request(
-            attributes: attributes,
-            content: ActivityContent(state: PainLiveActivityAttributes.ContentState(), staleDate: followUpAt),
-            pushType: nil
-        )
+        return "30초 뒤에 복용 후 통증을 기록할 수 있어요." +
+            (activityWarning.map { "\n잠금화면 타이머를 표시하지 못했어요. \($0)" } ?? "")
     }
 
     /// 오늘 증상 기록(서버·폰에 남은 저장 대기 통화)을 지워 처음부터 다시 기록할 수 있게 한다.
@@ -167,6 +158,7 @@ final class DemoAdminService {
         }
         cancelPainAfterReminder()
         for record in try await previsits.findByPatientId(patientId) { try await previsits.deleteById(record.id) }
+        await LiveActivityService.endAllLiveActivities()
         guard try await symptoms.findByPatientId(patientId).isEmpty, try await pain.findByPatientId(patientId).isEmpty,
               try await previsits.findByPatientId(patientId).isEmpty else {
             throw Failure.notApplied("기록")
