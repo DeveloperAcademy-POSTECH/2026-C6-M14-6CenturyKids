@@ -120,7 +120,7 @@ struct EngineGuardTests {
         let engine = InterviewEngine(config: config,
                                      rules: try fixture(EmergencyRules.self, "emergency_rules"),
                                      analyzer: ScriptedAnalyzer { request in
-                                         TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
+                                         TurnResult(mentions: [], needsClarification: false,
                                                     emergencySignal: false, utterance: request.patientText)
                                      })
         _ = engine.start()
@@ -455,7 +455,7 @@ struct OtherSymptomRetryTests {
         ("열이 조금 나요.", false),                     // 환자 말 그대로 따라 씀
     ])
     func 맞장구만_쓴_답(utterance: String, retry: Bool) {
-        let r = TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false, emergencySignal: false, utterance: utterance)
+        let r = TurnResult(mentions: [], needsClarification: false, emergencySignal: false, utterance: utterance)
         #expect(InterviewEngine.acknowledgedWithoutRecord(r, during: .other, patientText: "열이 조금 나요") == retry)
         #expect(!InterviewEngine.acknowledgedWithoutRecord(r, during: .slot(key: "diarrhea", step: .presence), patientText: "열이 조금 나요"))
     }
@@ -469,7 +469,7 @@ struct SymptomHintTests {
         ("기침이 나요", true),
     ])
     func 증상_표현이_있는데_기록이_없으면_재분석(text: String, retry: Bool) {
-        let empty = TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false, emergencySignal: false, utterance: "")
+        let empty = TurnResult(mentions: [], needsClarification: false, emergencySignal: false, utterance: "")
         let hints = ["아파", "기침"]
         #expect(InterviewEngine.missedSymptomHint(empty, during: .opening, patientText: text, hints: hints) == retry)
         #expect(!InterviewEngine.missedSymptomHint(empty, during: .slot(key: "diarrhea", step: .presence), patientText: text, hints: hints))
@@ -724,7 +724,7 @@ struct OtherClarificationTests {
     @Test func 그_밖에_증상_표현이_있으면_모델이_되물어도_원문을_남기고_내용을_묻는다() async throws {
         let config = try fixture(CareCallConfig.self, "side_effects")
         let mock = MockAnalyzer()
-        mock.script["잘 모르겠는데 머리가 아파요"] = TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
+        mock.script["잘 모르겠는데 머리가 아파요"] = TurnResult(mentions: [], needsClarification: true,
                                                          emergencySignal: false, utterance: "어디가 아프신지 조금 더 말씀해 주시겠어요?")
         let engine = InterviewEngine(config: config, rules: try fixture(EmergencyRules.self, "emergency_rules"), analyzer: mock)
         _ = engine.start()
@@ -831,7 +831,7 @@ struct EmergencySafetyTests {
     @Test func 그_밖에에서_모델이_되물은_말은_다음_답이_없어요여도_원문으로_남는다() async {
         let answer = "이렇게 살아서 뭐하나 싶어요"
         let mock = MockAnalyzer()
-        mock.script[answer] = TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: true,
+        mock.script[answer] = TurnResult(mentions: [], needsClarification: true,
                                          emergencySignal: false, utterance: "")
         let engine = await atOther(mock)
         _ = await engine.handle(patientText: answer)
@@ -879,7 +879,7 @@ struct EmergencySafetyTests {
     func 모델만_응급이면_한_번_확인한다(reply: String, ends: Bool) async {
         let answer = "어지러워서 잠깐 주저앉았어요"
         let mock = MockAnalyzer()
-        mock.script[answer] = TurnResult(mentions: [], answeredCurrentSlot: true, needsClarification: false,
+        mock.script[answer] = TurnResult(mentions: [], needsClarification: false,
                                          emergencySignal: true, utterance: "")
         let engine = await atOther(mock)
         let check = await engine.handle(patientText: answer)
@@ -903,9 +903,9 @@ struct SaidEffectRecheckTests {
     private func opening(_ answer: String, first: [Mention], recheck: @escaping (AnalysisRequest) -> [Mention]) async -> InterviewEngine {
         let mock = MockAnalyzer()
         mock.respond = { request in
-            if request.slotKey == nil { return TurnResult(mentions: first, answeredCurrentSlot: true, needsClarification: false,
+            if request.slotKey == nil { return TurnResult(mentions: first, needsClarification: false,
                                                           emergencySignal: false, utterance: "") }
-            return TurnResult(mentions: recheck(request), answeredCurrentSlot: true, needsClarification: false,
+            return TurnResult(mentions: recheck(request), needsClarification: false,
                               emergencySignal: false, utterance: "")
         }
         let engine = InterviewEngine(config: config, rules: rules, analyzer: mock)

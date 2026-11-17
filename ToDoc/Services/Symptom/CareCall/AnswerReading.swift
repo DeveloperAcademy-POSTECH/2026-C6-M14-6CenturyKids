@@ -103,12 +103,26 @@ struct AnswerReading {
             && symptomHints.matches(text) == nil && !config.saysAnyEffect(in: text) && !locationWords.contains { text.contains($0) }
     }
 
-    /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다
-    func saysNormal(_ text: String) -> Bool {
+    /// 이 항목이 정상이라는 말 ("식사는 평소대로 해요", "대변은 날마다 잘 보고 있어요", "피부는 깨끗해요").
+    /// 항목 낱말에는 증상이 아닌 말(식사·대변·피부·입안)도 있어, 낱말이 나왔다고 증상을 말한 것으로 보지 않으려고 쓴다
+    /// - 정상 끝말은 이 항목 것만 본다 (구내염 질문의 "입안이 헐어서 죽만 다 먹어요"는 식사의 정상 끝말로 끝나도 정상이 아니다)
+    /// - 정상 낱말은 이 항목 낱말보다 뒤에 있을 때만 본다 ("깨끗하다가 다시 가려워요"는 정상이 아니다)
+    func saysFine(_ clause: String, for effect: CareCallConfig.Effect) -> Bool {
+        let compact = Self.normalized(clause)
+        let afterKeywords = effect.keywords.compactMap { compact.range(of: Self.normalized($0), options: .backwards)?.upperBound }.max()
+            ?? compact.startIndex
+        return saysNormal(clause, for: effect) || saysUsual(effect, clause)
+            || config.normalWords.contains { compact[afterKeywords...].contains(Self.normalized($0)) }
+    }
+
+    /// 어느 항목의 정상이라는 말로 끝남 ("변은 잘 나와요", "평소만큼 먹어요"). '그 밖에' 답을 기타 증상으로 남기지 않을 때 쓴다.
+    /// effect를 주면 그 항목의 정상 끝말만 본다
+    func saysNormal(_ text: String, for effect: CareCallConfig.Effect? = nil) -> Bool {
         let compact = Self.normalized(text)
-        return config.effects.flatMap { $0.absentPhrases ?? [] }.contains { compact.hasSuffix(Self.normalized($0)) }
+        let phrases = effect.map { $0.absentPhrases ?? [] } ?? config.effects.flatMap { $0.absentPhrases ?? [] }
+        return phrases.contains { compact.hasSuffix(Self.normalized($0)) }
             // 다 나았다는 말로 끝남 ("쑤시던 건 다 나았어요", "결리던 것도 풀렸어요"). 아직·또·다시·안 나·덜이 있으면 아니다
-            || (compact.range(of: #"(나았|풀렸|없어졌|괜찮아졌|가라앉았|멈췄|그쳤|빠졌)(어요|습니다|어|네요)?$"#, options: .regularExpression) != nil
+            || (compact.range(of: Self.resolvedEnding, options: .regularExpression) != nil
                 && !["아직", "또", "다시", "안나", "덜"].contains(where: compact.contains))
     }
 
@@ -151,7 +165,12 @@ struct AnswerReading {
         guard let usual = effect.usualAnswer else { return false }
         let t = patientText.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         let compact = Self.normalized(t)
-        return usual.endings.contains { compact.hasSuffix(Self.normalized($0)) }
+        func ends(with list: [String]) -> Bool { list.contains { compact.hasSuffix(Self.normalized($0)) } }
+        // 모델은 평소와 같다는 답("식사는 평소대로 해요", "입맛은 그대로예요")에 아무것도 남기지 않아 다시 물었다 (2026-11-03 보류 세트).
+        // 그대로인 것이 줄어든 상태일 수 있는 답은 보지 않는다: 풀어 말한 답("물이 안 넘어가는 건 여전해요"), 다른 날에 견준 답("어제랑 똑같아요")
+        let same = ends(with: usual.sameEndings ?? []) && t.firstMatch(of: /(건|게|거|것은|것도|것이)\s/) == nil
+            && !(usual.sameUnless ?? []).contains { compact.contains(Self.normalized($0)) }
+        return (ends(with: usual.endings) || same)
             && !usual.unless.contains { compact.contains(Self.normalized($0)) }
             && t.firstMatch(of: /[가-힣]만\s/) == nil
             && symptomHints.matches(t) == nil && !Self.hasContrast(t) && !saysPresent(effect, t, answering: true)
@@ -171,6 +190,16 @@ struct AnswerReading {
                 || (config.noSuffixes + (effect?.absentPhrases ?? [])).contains(where: { compact.hasSuffix(Self.normalized($0)) })
         else { return false }
         if Self.hasContrast(t) || t.contains("그리고") { return false }
+        // 앞 문장에서 이 항목 낱말을 부정 없이 말했으면 끝말만 보고 없음으로 읽지 않고 모델이 본다
+        // ("변비가 심해요 잘 보고 있어요", "변비가 좀 있어요 잘 나와요"). 앞 문장이 정상이라는 말이면 그대로 없음이다
+        // ("밥은 잘 먹어요 괜찮아요"). 문장부호나 높임 끝말(요·니다·죠) 뒤에서 나눈다. "다"·"어"만으로는 나누지 않는다 ("날마다 잘")
+        if let effect {
+            let sentences = t.replacingOccurrences(of: #"((요|니다|죠)[.!?]*|[.!?])\s+"#, with: "$1\n", options: .regularExpression)
+                .split(separator: "\n").map(String.init)
+            if sentences.dropLast().contains(where: {
+                effect.affirmed(in: $0, minLength: 2) && !soundsNegative($0) && !saysFine($0, for: effect)
+            }) { return false }
+        }
         if NumberParser.hasNumber(t) { return false }
         if config.effects.contains(where: { $0.id != key && $0.said(in: t) }) { return false }
         if negatesOtherThing(t, for: key) { return false }
@@ -183,7 +212,7 @@ struct AnswerReading {
         guard openingConcerns.matches(patientText) == nil else { return false }
         if isUnknownAnswer(patientText) { return true }
         let compact = Self.normalized(patientText)
-        // 숫자가 섞이면 모델이 본다 ("글쎄요 두 번?"). 모델이 찾은 게 없으면 원문은 handle에서 남긴다
+        // 숫자가 섞이면 모델이 본다 ("글쎄요 두 번?"). 모델이 찾은 게 없으면 원문은 엔진이 남긴다 (followUpCallReply)
         guard config.vagueAnswers.contains(where: { compact.contains(Self.normalized($0)) }),
               !NumberParser.hasNumber(patientText),
               !Self.continuesAfterContrast(patientText) else { return false }
@@ -291,8 +320,6 @@ struct AnswerReading {
         return words.joined(separator: " ")
     }
 
-    /// 뒤에 다른 말이 올 수 있는 대조 표현: "~데"·"~데요"(깨끗한데·괜찮은데·저리긴 한데요 — "는데"만 보면 "한데"를, 끝 경계만 보면 "한데요,"를 놓친다),
-    /// "~지만", "근데", "그래도", "대신"
     /// 답을 절로 나눈다: 쉼표·마침표·"~는데/~지만" 뒤와 "~고 " 뒤에서 끊는다 ("속이 울렁거리고 등이 가렵고 변도 안 나와요" → 세 절)
     static func parts(_ text: String) -> [String] {
         // "토는 안 했어요 근데 속이 불편해요"도 두 절 (2026-10-30 확인 세트)
@@ -309,9 +336,13 @@ struct AnswerReading {
         return ["근데", "그런데", "는데", "지만", "한데"].contains(where: t.contains)
     }
 
+    /// 뒤에 다른 말이 올 수 있는 대조 표현: "~데"·"~데요"(깨끗한데·괜찮은데·저리긴 한데요 — "는데"만 보면 "한데"를, 끝 경계만 보면 "한데요,"를 놓친다),
+    /// "~지만", "근데", "그래도", "대신"
     static func hasContrast(_ text: String) -> Bool {
         text.range(of: #"[가-힣]데요?(?=[\s,.?!]|$)|지만|그래도|대신"#, options: .regularExpression) != nil
     }
+
+    private static let resolvedEnding = "(" + KeywordMatcher.resolvedEndings.joined(separator: "|") + #")(어요|습니다|어|네요)?$"#
 
     /// 되묻는 말 앞뒤에 붙어도 되는 말 ("죄송한데 다시 말씀해 주시겠어요?")
     static let repeatCourtesy = ["죄송한데", "죄송하지만", "죄송해요", "저기요", "잠깐만요", "네", "예", "좀"]

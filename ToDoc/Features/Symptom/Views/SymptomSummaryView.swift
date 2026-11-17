@@ -5,6 +5,7 @@ import SwiftUI
 struct SymptomSummaryView: View {
     @State private var state: SymptomSummaryScreenState
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var onBack: (() -> Void)?
 
     init(state: SymptomSummaryScreenState, onBack: (() -> Void)? = nil) {
@@ -12,6 +13,7 @@ struct SymptomSummaryView: View {
     }
 
     private var canEdit: Bool { !state.isSaving && state.onAction != nil && state.editingEntryID == nil }
+    private var usesLargeLayout: Bool { dynamicTypeSize.isAccessibilitySize }
 
     var body: some View {
         ScrollView {
@@ -32,6 +34,8 @@ struct SymptomSummaryView: View {
                     }
                     if state.record.presentSymptoms.isEmpty {
                         Text("표시할 증상 기록이 없어요.").font(.body).foregroundStyle(.secondary)
+                    } else if usesLargeLayout {
+                        editHint
                     }
                 }
             }
@@ -45,9 +49,8 @@ struct SymptomSummaryView: View {
                     Text(error).font(.body).foregroundStyle(.red)
                         .accessibilityIdentifier("symptom.summary.error")
                 }
-                if !state.record.presentSymptoms.isEmpty {
-                    Text("눌러서 수정할 수 있어요").modifier(SymptomTextStyle(size: 14, weight: .medium))
-                        .foregroundStyle(Color(white: 114 / 255))
+                if !usesLargeLayout, !state.record.presentSymptoms.isEmpty {
+                    editHint
                 }
                 Button {
                     state.onAction?(.save)
@@ -59,7 +62,7 @@ struct SymptomSummaryView: View {
                 .accessibilityIdentifier("symptom.summary.save")
             }
             .padding(.horizontal, 24)
-            .padding(.top, 40)
+            .padding(.top, usesLargeLayout ? 12 : 40)
             .padding(.bottom, 2)
             // Figma: 위쪽만 살짝 흐려지는 흰 바탕 (아래 카드가 비친다)
             .background(LinearGradient(stops: [.init(color: .white.opacity(0), location: 0), .init(color: .white, location: 0.106)],
@@ -97,6 +100,13 @@ struct SymptomSummaryView: View {
     private var editingEntry: SymptomEntryDisplay? {
         state.editingEntryID.flatMap { id in state.record.symptoms.first { $0.id == id } }
     }
+
+    private var editHint: some View {
+        Text("눌러서 수정할 수 있어요")
+            .modifier(SymptomTextStyle(size: 14, weight: .medium))
+            .foregroundStyle(Color(white: 114 / 255))
+            .multilineTextAlignment(.center)
+    }
 }
 
 /// Figma 447:10860 증상 카드: 이름(부위)과 횟수·지속 시간, 그 아래 상세 내용. 5줄이 넘으면 접어 두고 ⌄로 펼친다
@@ -105,6 +115,7 @@ private struct SymptomSummaryCard: View {
     let canEdit: Bool
     let onEdit: () -> Void
     @State private var isExpanded = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private static let text = Color(red: 43 / 255, green: 40 / 255, blue: 43 / 255)
     // ponytail: 글자 수로 5줄 넘는 글을 가린다. 정확히 필요하면 텍스트 높이를 재서 바꾼다
@@ -112,15 +123,17 @@ private struct SymptomSummaryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+            headingLayout {
                 Text(title).modifier(SymptomTextStyle(size: 16, weight: .semibold)).tracking(0.24)
                     .foregroundStyle(Self.text)
-                Spacer(minLength: 8)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
                 if let value {
-                    HStack(spacing: 2) {
+                    HStack(alignment: dynamicTypeSize.isAccessibilitySize ? .firstTextBaseline : .center, spacing: 2) {
                         Image("CareSummaryDot").frame(width: 24, height: 24).accessibilityHidden(true)
                         Text(value).modifier(SymptomTextStyle(size: 14, weight: .medium)).tracking(-0.14)
                             .foregroundStyle(Self.text)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -134,7 +147,7 @@ private struct SymptomSummaryCard: View {
                     Button { isExpanded.toggle() } label: {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down").font(.system(size: 16))
                             .foregroundStyle(Color(white: 131 / 255))
-                            .frame(maxWidth: .infinity, minHeight: 24)
+                            .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 44 : 24)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -158,10 +171,17 @@ private struct SymptomSummaryCard: View {
         .accessibilityAction { if canEdit { onEdit() } }
     }
 
+    private var headingLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 8))
+    }
+
     private var title: String {
         let location = entry.rawLocationText.flatMap { $0.isEmpty ? nil : $0 }
             ?? entry.bodyPart.map { part in [entry.bodySide?.displayName, part.displayName].compactMap { $0 }.joined(separator: " ") }
-        return location.map { "\(entry.symptomType.displayName) (\($0))" } ?? entry.symptomType.displayName
+        let separator = dynamicTypeSize.isAccessibilitySize ? "\n" : " "
+        return location.map { "\(entry.symptomType.displayName)\(separator)(\($0))" } ?? entry.symptomType.displayName
     }
 
     private var value: String? {

@@ -119,7 +119,7 @@ struct Ledger: Sendable {
         entries[key]?.unsureAnswers += answers.map { step == .location ? "부위: " + $0 : $0 }
     }
 
-    /// 유무 질문 답을 원문으로 남긴다 (기록 요약·검토 표시는 바꾸지 않는다: 모델에 보내는 요약이 그대로여야 대화가 같다)
+    /// 유무 질문 답을 원문으로 남긴다 (기록 요약·검토 표시는 바꾸지 않는다)
     mutating func addAnswer(_ text: String, for key: String) {
         let said = text.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
         // 꼬리질문 답으로 이미 채운 말("구토 횟수: 네 한 번 토했어요")은 또 남기지 않는다

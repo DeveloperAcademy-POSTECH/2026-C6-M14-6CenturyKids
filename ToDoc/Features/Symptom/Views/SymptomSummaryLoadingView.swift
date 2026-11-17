@@ -2,14 +2,18 @@ import SwiftUI
 
 /// Figma 1:1816. 마지막 답변 처리 중에만 표시합니다.
 struct SymptomSummaryLoadingView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var rotating = false
+
+    private var usesLargeLayout: Bool { dynamicTypeSize >= .xxxLarge }
 
     var body: some View {
         GeometryReader { geometry in
             ScrollView {
-                VStack(spacing: 60) {
-                    Image("CareSummaryLoading").resizable().frame(width: 100, height: 100)
+                VStack(spacing: usesLargeLayout ? 24 : 60) {
+                    Image("CareSummaryLoading").resizable()
+                        .frame(width: usesLargeLayout ? 72 : 100, height: usesLargeLayout ? 72 : 100)
                         .rotationEffect(.degrees(rotating && !reduceMotion ? 360 : 0))
                         .accessibilityHidden(true)
                     VStack(spacing: 24) {
@@ -22,7 +26,7 @@ struct SymptomSummaryLoadingView: View {
                     .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, max(24, geometry.size.height * 0.27))
+                .padding(.top, usesLargeLayout ? 24 : max(24, geometry.size.height * 0.27))
                 .padding(.bottom, 24)
                 .frame(maxWidth: .infinity)
             }

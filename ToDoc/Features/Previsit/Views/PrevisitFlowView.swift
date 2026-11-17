@@ -30,10 +30,10 @@ struct PrevisitFlowView: View {
             if showsLetter, let letter, let sentID {
                 PrevisitLetterView(viewModel: letter, id: sentID, patientName: patientName, onClose: { dismiss() })
             } else if let sentID, let sent = letter?.letter(sentID) {
-                PrevisitPromptView(completedDraft: sent.draft, doctorName: doctorName, patientName: patientName,
+                PrevisitPromptView(completedDraft: sent.draft,
                                    onStart: { showsLetter = true }, onClose: { dismiss() })
             } else {
-                PrevisitRecordView(doctorName: doctorName, patientName: patientName, onClose: close, onSubmit: letter.map { letter in { draft in
+                PrevisitRecordView(onClose: close, onSubmit: letter.map { letter in { draft in
                                        Task {
                                            let id = await letter.send(draft, to: doctorName) {
                                                session.analytics.startSubmission()
@@ -47,6 +47,7 @@ struct PrevisitFlowView: View {
                     .task(id: reloadID) { await loadRecords() }
             }
         }
+        .presentationBackground(.clear)
         .toolbar(.hidden, for: .navigationBar)
     }
 

@@ -56,34 +56,43 @@ enum PrevisitRecordedDays {
                 if $0.painBefore != $1.painBefore { return $0.painBefore < $1.painBefore }
                 return $0.recordedDate < $1.recordedDate
             }
+            let painRows = dailyPain.map(painRow)
+            let symptomRows = dailySymptoms.flatMap(Self.symptomRows)
             return PrevisitDay(
                 id: "recorded-day-\(date.timeIntervalSince1970)",
                 dateLabel: "\(calendar.component(.month, from: date))/\(calendar.component(.day, from: date))",
                 weekday: calendar.weekdaySymbols[calendar.component(.weekday, from: date) - 1],
-                entries: dailySymptoms.flatMap { symptomLines($0) } + dailyPain.map { painLine($0) },
+                entries: symptomRows.map(\.entry) + painRows.map(\.entry),
                 recordedDate: date, painRecordIDs: dailyPain.map(\.id), symptomRecordIDs: dailySymptoms.map(\.id),
                 painBefore: badgePain?.painBefore, painAfter: badgePain?.painAfter,
-                symptomCount: dailySymptoms.flatMap(\.symptoms).filter { $0.presence == .present }.count
+                symptomCount: dailySymptoms.flatMap(\.symptoms).filter { $0.presence == .present }.count,
+                painRows: painRows, symptomRows: symptomRows, representativePain: badgePain.map(painRow)
             )
         }
     }
 
-    private static func painLine(_ record: PainRecord) -> String {
+    private static func painRow(_ record: PainRecord) -> PrevisitDay.PainRow {
         let locations = record.location.map { location in
             [location.bodySide == .unspecified ? nil : location.bodySide.displayName, location.bodyPart.displayName]
                 .compactMap { $0 }.joined(separator: " ")
         }.joined(separator: ", ")
-        let after = record.painAfter.map { String($0) } ?? "사후 통증 미기록"
-        return "\(locations) 통증 \(record.painBefore) → \(after)"
+        return .init(location: locations, before: record.painBefore, after: record.painAfter)
     }
 
-    private static func symptomLines(_ record: SymptomRecord) -> [String] {
-        var lines = text(record.conditionText).map { [$0] } ?? []
+    private static func symptomRows(_ record: SymptomRecord) -> [PrevisitDay.SymptomRow] {
+        var rows = [PrevisitDay.SymptomRow]()
+        if let note = text(record.conditionText) {
+            rows.append(.init(label: "증상", detail: note, entry: note))
+        }
         let present = record.symptoms.filter { $0.presence == .present }
         let entries = present.isEmpty ? record.symptoms : present
-        if entries.isEmpty { lines.append("증상 항목 없이 기록") }
-        lines += entries.map { entry in
-            var values = [entry.symptomType.displayName]
+        if entries.isEmpty {
+            let empty = "증상 항목 없이 기록"
+            rows.append(.init(label: "증상", detail: empty, entry: empty))
+        }
+        rows += entries.map { entry in
+            let label = entry.symptomType.displayName
+            var values: [String] = []
             switch entry.presence {
             case .present: break
             case .absent: values.append("증상 없음으로 기록")
@@ -97,9 +106,10 @@ enum PrevisitRecordedDays {
             }
             if let location { values.append(location) }
             if let detail = text(entry.detail) { values.append(detail) }
-            return values.joined(separator: " · ")
+            return .init(label: label, detail: values.isEmpty ? nil : values.joined(separator: " · "),
+                         entry: ([label] + values).joined(separator: " · "))
         }
-        return lines
+        return rows
     }
 
     /// 빈 문장만 제외하고, 사용자가 말한 원문의 공백·줄바꿈은 바꾸지 않습니다.

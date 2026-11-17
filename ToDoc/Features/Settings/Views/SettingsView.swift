@@ -102,8 +102,18 @@ struct SettingsView: View {
                         .accessibilityIdentifier("settings.licenses")
                         #if DEBUG
                         SettingsDivider()
-                        Button(action: startLocalLiveActivity) {
-                            SettingsRow(title: "Live Activity 로컬 실행", chevron: true)
+                        Button(action: startLocalSymptomLiveActivity) {
+                            SettingsRow(title: "증상 Live Activity 테스트", chevron: true)
+                        }
+                        .accessibilityIdentifier("settings.debug.startLiveActivity")
+                        .alert("Live Activity를 실행할 수 없어요", isPresented: $showsLiveActivityError) {
+                            Button("확인", role: .cancel) {}
+                        } message: {
+                            Text(liveActivityErrorMessage)
+                        }
+                        SettingsDivider()
+                        Button(action: startLocalPainLiveActivity) {
+                            SettingsRow(title: "통증 Live Activity 테스트", chevron: true)
                         }
                         .accessibilityIdentifier("settings.debug.startLiveActivity")
                         .alert("Live Activity를 실행할 수 없어요", isPresented: $showsLiveActivityError) {
@@ -160,9 +170,18 @@ struct SettingsView: View {
     }
 
     #if DEBUG
-    private func startLocalLiveActivity() {
+    private func startLocalSymptomLiveActivity() {
         do {
-            try LiveActivityService.startLocalLiveActivity()
+            try LiveActivityService.startLocalSymptomLiveActivity()
+        } catch {
+            liveActivityErrorMessage = error.localizedDescription
+            showsLiveActivityError = true
+        }
+    }
+    
+    private func startLocalPainLiveActivity() {
+        do {
+            try LiveActivityService.startPainLiveActivity()
         } catch {
             liveActivityErrorMessage = error.localizedDescription
             showsLiveActivityError = true

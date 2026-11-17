@@ -22,13 +22,6 @@ func painLocationName(_ location: BodyLocation, among locations: [BodyLocation])
     return painLocationName(location) + (duplicates ? " (\(location.bodyView.displayName))" : "")
 }
 
-/// Figma 6-1·8: '가슴 외 2부위'
-func painLocationSummary(_ locations: [BodyLocation]) -> String {
-    guard let first = locations.first else { return "" }
-    let name = painLocationName(first, among: locations)
-    return locations.count > 1 ? "\(name) 외 \(locations.count - 1)부위" : name
-}
-
 /// Figma 규칙표의 통증 말 (Pain Scale과 같음)
 func painScoreWord(_ score: Int) -> String {
     let words = ["안 아파요", "거의 안 느껴져요", "느껴져도 괜찮아요", "가끔 신경 쓰여요", "할 일은 할 수 있어요",
@@ -48,11 +41,13 @@ func painLocationBadge(_ location: BodyLocation) -> String? {
 /// Figma 캡슐(규칙표): 폭 144, 높이 144 + 점수 × 10, 글자 묶음은 바닥 동그라미 정가운데(바닥에서 39).
 /// 먹기 전은 회색, 1시간 뒤는 라임 그라데이션이고 change(먹기 전 − 1시간 뒤)가 있으면 화살표를 그립니다.
 struct PainScoreCapsule: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let score: Int
     var isAfter = false
     var change: Int?
 
     private var height: CGFloat { 144 + CGFloat(min(max(score, 0), 10)) * 10 }
+    private var usesExpandedLayout: Bool { typeSize > .large }
 
     var body: some View {
         VStack(spacing: arrow.gap) {
@@ -61,12 +56,19 @@ struct PainScoreCapsule: View {
             }
             VStack(spacing: 8) {
                 Text("\(score)점").appTypography(.headline)
-                Text(painScoreWord(score)).appTypography(.bodySmall).lineLimit(1).fixedSize()
+                Text(painScoreWord(score))
+                    .appTypography(.bodySmall)
+                    .lineLimit(usesExpandedLayout ? nil : 1)
+                    .fixedSize(horizontal: !usesExpandedLayout, vertical: true)
             }
             .foregroundStyle(isAfter ? AppColors.Semantic.Text.default : AppColors.Semantic.Text.sub)
+            .multilineTextAlignment(.center)
         }
-        .padding(.bottom, 39)
-        .frame(width: 144, height: height, alignment: .bottom)
+        .padding(.horizontal, usesExpandedLayout ? 24 : 0)
+        .padding(.top, usesExpandedLayout ? 24 : 0)
+        .padding(.bottom, usesExpandedLayout ? 24 : 39)
+        .frame(width: usesExpandedLayout ? nil : 144, height: usesExpandedLayout ? nil : height, alignment: .bottom)
+        .frame(maxWidth: usesExpandedLayout ? .infinity : nil, minHeight: usesExpandedLayout ? height : nil, alignment: .bottom)
         .background {
             if isAfter {
                 LinearGradient(colors: [AppColors.Semantic.Primary.default, AppColors.Semantic.Primary.default.opacity(0.25)],
@@ -75,7 +77,7 @@ struct PainScoreCapsule: View {
                 AppColors.Semantic.Background.secondary
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 72))
+        .clipShape(RoundedRectangle(cornerRadius: usesExpandedLayout ? 32 : 72))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(isAfter ? "1시간 뒤" : "먹기 전") \(score)점, \(painScoreWord(score))")
     }
@@ -115,23 +117,59 @@ private struct PainChangeArrow: View {
 
 /// Figma Chip(더 보기): '외 N부위 ›'처럼 고른 부위 시트를 엽니다.
 struct PainMoreLocationsChip: View {
-    let title: String
-    let action: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
+    private let title: String
+    private let additionalLocations: String?
+    private let action: () -> Void
+
+    init(title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.additionalLocations = nil
+        self.action = action
+    }
+
+    init(locations: [BodyLocation], action: @escaping () -> Void) {
+        self.title = locations.first.map { painLocationName($0, among: locations) } ?? ""
+        self.additionalLocations = locations.count > 1 ? "외 \(locations.count - 1)부위" : nil
+        self.action = action
+    }
+
+    private var fullTitle: String {
+        additionalLocations.map { "\(title) \($0)" } ?? title
+    }
+
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Text(title).appTypography(.bodySmall).lineLimit(1)
+            HStack(spacing: typeSize > .large ? 8 : 4) {
+                ViewThatFits(in: .horizontal) {
+                    Text(fullTitle)
+                        .lineLimit(1)
+                        .appTypography(.bodySmall)
+                        .fixedSize()
+                    Text(additionalLocations.map { "\(title)\n\($0)" } ?? title)
+                        .appTypography(.bodySmall)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
                     .frame(width: 16, height: 16).accessibilityHidden(true)
             }
             .foregroundStyle(AppColors.Semantic.Text.sub)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, typeSize > .large ? 16 : 12)
+            .padding(.vertical, typeSize > .large ? 8 : 4)
             .frame(minHeight: 40)
-            .overlay(Capsule().strokeBorder(AppColors.Semantic.Border.default))
+            .overlay {
+                if typeSize > .large {
+                    RoundedRectangle(cornerRadius: 20).strokeBorder(AppColors.Semantic.Border.default)
+                } else {
+                    Capsule().strokeBorder(AppColors.Semantic.Border.default)
+                }
+            }
             .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(AppActions.PressStyle())
+        .accessibilityLabel(fullTitle)
         .accessibilityHint("고른 부위를 모두 봐요")
     }
 }
@@ -158,7 +196,7 @@ struct PainLocationSheet: View {
             .padding(.horizontal, 24).padding(.top, 10)
             // 부위가 많아 화면을 넘을 때만 시트 안에서 스크롤합니다
             ViewThatFits(in: .vertical) {
-                list
+                list.fixedSize(horizontal: false, vertical: true)
                 ScrollView { list }.scrollBounceBehavior(.basedOnSize)
             }
         }
@@ -189,8 +227,10 @@ struct PainLocationSheet: View {
             HStack(spacing: 8) {
                 Text(painLocationName(location)).appTypography(.body)
                     .foregroundStyle(AppColors.Semantic.Text.default)
+                    .fixedSize(horizontal: false, vertical: true)
                 if let badge = painLocationBadge(location) {
                     Text(badge).appTypography(.caption).foregroundStyle(AppColors.Semantic.Text.sub)
+                        .fixedSize()
                         .padding(.horizontal, 8).padding(.vertical, 2)
                         .background(AppColors.Semantic.Background.secondary, in: Capsule())
                 }
@@ -276,6 +316,27 @@ private struct PainBottomSheet<Sheet: View>: ViewModifier {
 extension View {
     func painSheet<Sheet: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Sheet) -> some View {
         modifier(PainBottomSheet(isPresented: isPresented, sheet: content))
+    }
+
+    func painBackButton(action: (() -> Void)?, reservesSpace: Bool, background: Color = .white) -> some View {
+        let button = Button { action?() } label: {
+            Image("PainBack").frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, 22)
+        .padding(.top, 3)
+        .accessibilityLabel("통증 기록에서 돌아가기")
+
+        return safeAreaInset(edge: .top, spacing: 0) {
+            if reservesSpace, action != nil {
+                button.frame(maxWidth: .infinity, alignment: .leading)
+                    .background(background)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if !reservesSpace, action != nil { button }
+        }
     }
 }
 

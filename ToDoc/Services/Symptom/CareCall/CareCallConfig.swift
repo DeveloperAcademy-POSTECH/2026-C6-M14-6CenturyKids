@@ -39,6 +39,10 @@ struct CareCallConfig: Decodable, Sendable {
         struct UsualAnswer: Decodable, Sendable {
             /// 답이 이 말로 끝나야 한다 ("먹어요", "마셔요")
             let endings: [String]
+            /// 평소와 같다는 끝말 ("그대로예요", "똑같아요"). 무엇이 그대로인지 풀어 말한 답("못 넘기는 건 여전해요")에는 쓰지 않는다
+            let sameEndings: [String]?
+            /// 평소가 아닌 날에 견준 말 ("어제", "지난주", "저번"). 이 말이 있으면 sameEndings를 쓰지 않는다 (그날도 줄어 있었을 수 있다)
+            let sameUnless: [String]?
             /// 이 말이 있으면 평소대로가 아니다 ("못", "조금", "겨우"). 낱말 뒤 "만"("죽만", "물만")도 아니다
             let unless: [String]
         }
@@ -88,7 +92,7 @@ struct CareCallConfig: Decodable, Sendable {
             }
         }
 
-        private static let deniedInClause = #"않|없|아니|괜찮|(^|\s)안\s|나았|멈췄|그쳤|가라앉|풀렸|사라졌"#
+        private static let deniedInClause = #"않|없|아니|괜찮|(^|\s)안\s|"# + KeywordMatcher.resolvedInDetailClause.joined(separator: "|")
     }
 
     let version: String
@@ -103,7 +107,6 @@ struct CareCallConfig: Decodable, Sendable {
     let aiVoiceNotice: String
     let openingQuestion: String
     let otherQuestion: String
-    /// 첫 질문 꼬리질문: 답에 증상 표현(symptomHints)이나 컨디션이 나쁘다는 말(openingConcerns)이 있고 목록 증상이 기록되지 않았으면 한 번
     /// 첫 답이 컨디션이 나쁘다는 말뿐일 때 한 번 되묻는 말 (무엇이 불편한지). 증상을 말했으면 otherDetail로 시작 시점을 묻는다
     let openingFollowUp: String
     /// 언제부터인지 이미 말한 답의 낱말 ("어제부터", "사흘째", "이틀 동안"). 이 말이 있으면 시작 시점을 다시 묻지 않는다.

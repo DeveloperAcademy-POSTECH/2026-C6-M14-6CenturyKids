@@ -25,17 +25,17 @@ final class MockAnalyzer: CareCallAI {
             : text.contains("네") || text.contains("있") ? .present : .unclear
         let id = key.hasPrefix("other:") ? "other" : key
         return TurnResult(mentions: [Mention(effectId: id, presence: presence, locations: [], quote: text)],
-                          answeredCurrentSlot: presence != .unclear, needsClarification: presence == .unclear,
+                          needsClarification: presence == .unclear,
                           emergencySignal: false, utterance: presence == .unclear ? "조금 더 자세히 말씀해 주시겠어요?" : "")
     }
 
 }
 
 extension TurnResult {
-    static let empty = TurnResult(mentions: [], answeredCurrentSlot: false, needsClarification: false,
+    static let empty = TurnResult(mentions: [], needsClarification: false,
                                   emergencySignal: false, utterance: "")
     static func mentions(_ m: Mention...) -> TurnResult {
-        TurnResult(mentions: m, answeredCurrentSlot: true, needsClarification: false, emergencySignal: false, utterance: "")
+        TurnResult(mentions: m, needsClarification: false, emergencySignal: false, utterance: "")
     }
 }
 
@@ -73,6 +73,19 @@ struct InterviewEngineTests {
         #expect(engine.ledger["nausea_vomiting"]?.details.map(\.text) == ["한 번이요"])
         #expect(next.phase == .slot(key: "constipation", step: .presence))
         #expect(!engine.ledger["nausea_vomiting"]!.askedSteps.contains(.presence))
+    }
+
+    @Test func 모델_없이_넘어간_차례를_알린다() async {
+        mock.script["어제 좀 토했어요, 그거 말고는 괜찮아요"] = .mentions(Mention(effectId: "nausea_vomiting", presence: .present))
+        _ = engine.start()
+        _ = await engine.handle(patientText: "어제 좀 토했어요, 그거 말고는 괜찮아요")
+        #expect(engine.analyzedLastTurn)
+        _ = await engine.handle(patientText: "한 번이요") // 꼬리질문 답
+        #expect(!engine.analyzedLastTurn)
+        _ = await engine.handle(patientText: "아니요") // 변비 유무
+        #expect(!engine.analyzedLastTurn)
+        _ = await engine.handle(patientText: "물처럼 나왔어요") // 설사 유무
+        #expect(engine.analyzedLastTurn)
     }
 
     @Test(arguments: [
@@ -361,6 +374,50 @@ struct InterviewEngineTests {
         await reach("dehydration_nutrition")
         _ = await engine.handle(patientText: answer)
         #expect((engine.ledger["dehydration_nutrition"]?.presence == .absent) == usual)
+    }
+
+    @Test(arguments: [("식사는 평소대로 해요", true), ("입맛은 예전하고 똑같아요", true), ("입맛은 그대로예요", true),
+                      ("식사는 잘 하고 있어요", true), ("입맛 없는 건 그대로예요", false), ("물이 안 넘어가는 건 여전해요", false),
+                      ("조금밖에 못 먹는 건 똑같아요", false), ("어제랑 똑같아요", false), ("지난주랑 똑같아요", false),
+                      ("저번이랑 비슷해요", false), ("며칠 전이랑 똑같아요", false), ("어저께랑 비슷해요", false)])
+    func 식사_질문에_평소와_같다는_답은_없음(answer: String, usual: Bool) async {
+        mock.script[answer] = .empty
+        await reach("dehydration_nutrition")
+        _ = await engine.handle(patientText: answer)
+        #expect((engine.ledger["dehydration_nutrition"]?.presence == .absent) == usual)
+    }
+
+    /// 항목 낱말에는 증상이 아닌 말(식사·대변·피부·입안)도 있다. 정상이라는 문장 뒤에 "괜찮아요"가 붙으면 없음, 증상을 말한 문장 뒤면 있음
+    @Test(arguments: [("dehydration_nutrition", "식사는 평소대로 해요. 괜찮아요.", false), ("dehydration_nutrition", "식사는 잘 하고 있어요. 괜찮아요.", false),
+                      ("dehydration_nutrition", "식사는 잘 하고 있어요 괜찮아요", false), ("constipation", "대변은 날마다 잘 보고 있어요. 괜찮아요.", false),
+                      ("rash_pruritus", "피부는 깨끗해요. 괜찮아요.", false), ("stomatitis", "입안은 멀쩡해요. 괜찮아요.", false),
+                      ("constipation", "변비가 좀 있어요. 괜찮아요.", true), ("rash_pruritus", "팔이 가려워요. 괜찮아요.", true),
+                      ("stomatitis", "혓바늘이 났는데요 괜찮아요.", true), ("diarrhea", "설사를 했는데요 괜찮아요.", true),
+                      ("diarrhea", "설사를 하고 있어요 괜찮아요", true), ("neuropathy", "손이 저리고 있어요 괜찮아요", true),
+                      ("stomatitis", "입안이 헐고 있어요 괜찮아요", true), ("rash_pruritus", "피부가 깨끗하다가 다시 가려워요. 괜찮아요.", true),
+                      ("constipation", "변비가 심해요. 잘 보고 있어요.", true), ("constipation", "변비가 좀 있어요. 잘 보고 있어요.", true),
+                      ("constipation", "변비가 있고 잘 보고 있어요", true), ("stomatitis", "입안이 헐어서 죽만 다 먹어요. 괜찮아요.", true),
+                      ("rash_pruritus", "가려워서 긁어도 잘 나와요. 괜찮아요.", true), ("dehydration_nutrition", "밥은 잘 먹어요 괜찮아요", false)])
+    func 정상이라는_문장_뒤의_괜찮아요는_없음(key: String, answer: String, present: Bool) async {
+        mock.script[answer] = .empty
+        await reach(key)
+        _ = await engine.handle(patientText: answer)
+        #expect(engine.ledger[key]?.presence == (present ? .present : .absent))
+    }
+
+    @Test(arguments: ["변비가 좀 있어요 잘 보고 있어요", "변비가 심해요 잘 보고 있어요", "변비가 심해요 잘 나와요"])
+    func 증상을_말한_문장_뒤의_정상_끝말은_없음으로_단정하지_않는다(answer: String) async {
+        mock.script[answer] = .empty
+        await reach("constipation")
+        _ = await engine.handle(patientText: answer)
+        #expect(mock.requests.last?.patientText == answer)
+        #expect(engine.ledger["constipation"]?.presence != .absent)
+    }
+
+    @Test func 변비_질문에_잘_보고_있다는_답은_없음() async {
+        await reach("constipation")
+        _ = await engine.handle(patientText: "대변은 날마다 잘 보고 있어요")
+        #expect(engine.ledger["constipation"]?.presence == .absent)
     }
 
     @Test(arguments: [("밥 두 공기 뚝딱 먹어요", true), ("보리차를 자주 마셔요", true), ("밥을 반 공기만 먹어요", false),

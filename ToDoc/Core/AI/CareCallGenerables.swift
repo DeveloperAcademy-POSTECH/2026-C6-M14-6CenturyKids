@@ -41,7 +41,6 @@ extension TurnAnalysis {
                 Mention(effectId: $0.effectId, otherName: $0.otherName, presence: $0.presence.mentionPresence,
                         locations: $0.locations, quote: $0.quote)
             },
-            answeredCurrentSlot: answeredCurrentSlot,
             needsClarification: needsClarification,
             emergencySignal: emergencySignal,
             utterance: utterance)

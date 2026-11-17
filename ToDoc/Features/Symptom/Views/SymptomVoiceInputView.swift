@@ -1,28 +1,22 @@
 import SwiftUI
 
 struct SymptomVoiceInputView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let question: SymptomConversationQuestion
     var transcript = ""
     var voiceState = SymptomVoiceState.thinking
     var onEnd: (() -> Void)?
     var onSwitchToText: (() -> Void)?
 
+    private var usesScrollableLayout: Bool { dynamicTypeSize >= .xxxLarge }
+
     var body: some View {
-        VStack(spacing: 0) {
-            AppNavigation.QuestionHeader(question.text, sub: question.guidance,
-                                         progress: question.progress ?? 0, onClose: onEnd ?? {})
-                .padding(.top, 40)
-            Spacer(minLength: 24)
-            SymptomVoiceCard(transcript: transcript, state: voiceState)
-                .background(alignment: .top) {
-                    SymptomCharacterVideos(state: voiceState)
-                        .frame(width: 252, height: 400)
-                        .offset(y: -337)
-                }
-                .padding(.bottom, 79)
-            AppActions.TextButton("글로 입력할게요") { onSwitchToText?() }
-                .disabled(onSwitchToText == nil)
-                .padding(.vertical, -12.5)
+        Group {
+            if usesScrollableLayout {
+                scrollableLayout
+            } else {
+                standardLayout
+            }
         }
         .padding(.horizontal, AppLayout.Phone.horizontalMargin)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -35,6 +29,61 @@ struct SymptomVoiceInputView: View {
             .ignoresSafeArea()
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var standardLayout: some View {
+        VStack(spacing: 0) {
+            AppNavigation.QuestionHeader(question.text, sub: question.guidance,
+                                         progress: question.progress ?? 0, onClose: onEnd ?? {})
+                .padding(.top, 40)
+            Spacer(minLength: 24)
+            voiceCard
+                .background(alignment: .top) {
+                    SymptomCharacterVideos(state: voiceState)
+                        .frame(width: 252, height: 400)
+                        .offset(y: -337)
+                }
+                .padding(.bottom, 79)
+            switchToText.padding(.vertical, -12.5)
+        }
+    }
+
+    private var scrollableLayout: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                Button { onEnd?() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(AppColors.Semantic.Text.default)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(onEnd == nil)
+                .accessibilityLabel("닫기")
+                AppNavigation.ProgressBar(value: question.progress ?? 0)
+            }
+            ScrollView {
+                VStack(spacing: 16) {
+                    AppNavigation.QuestionHeader(question.text, sub: question.guidance)
+                    SymptomCharacterVideos(state: voiceState)
+                        .aspectRatio(680.0 / 1080, contentMode: .fit)
+                        .frame(maxWidth: 252)
+                    voiceCard
+                }
+                .padding(.vertical, 12)
+            }
+            switchToText.padding(.vertical, 8)
+        }
+    }
+
+    private var voiceCard: some View {
+        SymptomVoiceCard(transcript: transcript, state: voiceState, showsFullTranscript: usesScrollableLayout)
+    }
+
+    private var switchToText: some View {
+        AppActions.TextButton("글로 입력할게요") { onSwitchToText?() }
+            .disabled(onSwitchToText == nil)
     }
 }
 
@@ -58,6 +107,7 @@ private struct SymptomCharacterVideos: View {
 private struct SymptomVoiceCard: View {
     let transcript: String
     let state: SymptomVoiceState
+    let showsFullTranscript: Bool
 
     private static let green = Color(red: 149 / 255, green: 217 / 255, blue: 40 / 255)
 
@@ -77,17 +127,19 @@ private struct SymptomVoiceCard: View {
                 }
             }
             .appTypography(.labelLarge)
-            .lineLimit(2)
+            .lineLimit(showsFullTranscript ? nil : 2)
             .truncationMode(.head)
+            .fixedSize(horizontal: false, vertical: showsFullTranscript)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("symptom.transcript")
             if isWorking || (state == .patientSpeaking && !transcript.isEmpty) {
-                HStack(spacing: 8) {
+                HStack(alignment: showsFullTranscript ? .firstTextBaseline : .center, spacing: 8) {
                     SymptomRemainingCircle(color: isWorking ? AppColors.Semantic.Text.action
                                                            : AppColors.Semantic.Text.default,
                                            duration: isWorking ? 2 : 1)
                     Text(isWorking ? "말씀을 정리하고 있어요" : "곧 넘어가요. 이어서 말씀하셔도 돼요")
                         .appTypography(.label)
+                        .fixedSize(horizontal: false, vertical: showsFullTranscript)
                         .foregroundStyle(isWorking ? AppColors.Semantic.Text.action : AppColors.Semantic.Text.sub)
                 }
             }

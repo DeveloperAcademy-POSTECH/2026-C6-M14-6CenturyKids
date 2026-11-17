@@ -10,11 +10,11 @@
 protocol CareCallAI {
     func analyze(_ request: AnalysisRequest) async throws -> TurnResult
     /// 첫 분석 전에 모델을 준비해 둔다 (첫 질문을 읽어 주는 동안)
-    func prewarm(_ request: AnalysisRequest) async
+    func prewarm() async
 }
 
 extension CareCallAI {
-    func prewarm(_ request: AnalysisRequest) async {}
+    func prewarm() async {}
 }
 
 /// 엔진이 AI에 넘기는 한 턴
@@ -25,18 +25,17 @@ struct AnalysisRequest: Sendable {
     var slotName: String?
     var step: CareCallStep?
     var question: String
-    /// 지금까지의 기록 (Ledger.summaryText)
+    /// 지금까지의 기록 (Ledger.summaryText). 프롬프트에는 넣지 않고(v16 slotTemplate에 자리가 없다) 평가기가 같은 요청인지 가릴 때 쓴다
     var ledgerSummary: String
 }
 
-/// AI가 돌려주는 한 턴의 분석 결과. AI 쪽 출력 형식(@Generable)과 분리된 타입 (변환은 FoundationModelsCareCallAdapter)
+/// AI가 돌려주는 한 턴의 분석 결과. AI 쪽 출력 형식(@Generable)과 분리된 타입 (변환은 TurnAnalysis.turnResult)
 struct TurnResult: Equatable, Sendable {
     var mentions: [Mention]
-    var answeredCurrentSlot: Bool
-    var needsClarification: Bool
-    var emergencySignal: Bool
+    var needsClarification = false
+    var emergencySignal = false
     /// 같은 항목을 다시 물을 때 쓰는 꼬리질문 문구. 다음 항목으로 넘어갈 때는 설정 파일 문구를 쓴다
-    var utterance: String
+    var utterance = ""
 }
 
 /// 환자 답에서 찾은 증상 하나. 기록장에 넣기 전에 Ledger.apply가 환자 말로 검증한다

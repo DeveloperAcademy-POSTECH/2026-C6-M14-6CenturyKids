@@ -15,29 +15,30 @@ struct PainLocationSelectionView: View {
     @State private var showsAllLocations = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
+    private var usesExpandedLayout: Bool { typeSize > .large }
+
     var body: some View {
         VStack(spacing: 0) {
-            if typeSize.isAccessibilitySize {
-                // 큰 글자에서는 제목이 몸 그림을 밀어내지 않도록 전체를 스크롤합니다.
-                ScrollView { VStack(spacing: 0) { header; bodyMapArea.frame(height: 420); selectedParts } }
+            if usesExpandedLayout {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        header
+                        bodyMapArea
+                        rotateButton.frame(maxWidth: .infinity, alignment: .trailing)
+                            .padding(.horizontal, 24)
+                        selectedParts
+                        footer
+                    }
+                }
             } else {
                 header
                 bodyMapArea.frame(maxHeight: .infinity)
                 selectedParts
+                footer
             }
-            if let errorMessage {
-                Text(errorMessage).font(.body).foregroundStyle(.red).padding(16)
-            }
-            PainInputFooter(title: "선택 부위 통증 고르기", isEnabled: !locations.isEmpty, onNext: onNext)
         }
         .background(.white)
-        .overlay(alignment: .topLeading) {
-            if let onClose {
-                Button(action: onClose) { Image("PainBack").frame(width: 40, height: 40) }
-                    .buttonStyle(.plain).padding(.leading, 24).padding(.top, 5)
-                    .accessibilityLabel("통증 기록에서 돌아가기")
-            }
-        }
+        .painBackButton(action: onClose, reservesSpace: usesExpandedLayout)
         .toolbar(.hidden, for: .navigationBar)
         // 시트에서 부위를 모두 빼면 시트를 닫고 처음 화면으로 돌아갑니다
         .onChange(of: locations.isEmpty) { _, isEmpty in
@@ -51,25 +52,40 @@ struct PainLocationSelectionView: View {
 
     private var header: some View {
         PainHeader(title: "지금 어디가 아프세요?", description: "그림에서 아픈 부위를 선택해 주세요.")
-            .padding(.top, typeSize.isAccessibilitySize ? 76 : 36)
+            .padding(.top, 36)
+    }
+
+    private var footer: some View {
+        VStack(spacing: 0) {
+            if let errorMessage {
+                Text(errorMessage).font(.body).foregroundStyle(.red).padding(16)
+            }
+            PainInputFooter(title: "선택 부위 통증 고르기", isEnabled: !locations.isEmpty, onNext: onNext)
+        }
     }
 
     /// Figma Body Map Area: 몸 그림은 가운데, 돌리기 버튼은 오른쪽 아래에 고정합니다.
     private var bodyMapArea: some View {
-        PainBodyMap(bodyView: bodyView, locations: locations, onToggle: onToggle)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        PainBodyMap(bodyView: bodyView, locations: locations,
+                    maximumWidth: usesExpandedLayout ? 272 : 227, onToggle: onToggle)
+            .frame(maxWidth: .infinity, maxHeight: usesExpandedLayout ? nil : .infinity)
             .overlay(alignment: .bottomTrailing) {
-                AppActions.IconButton(bodyView == .front ? "뒷면 보기" : "앞면 보기",
-                                      icon: Image(systemName: "arrow.triangle.2.circlepath"),
-                                      type: .labeled, fill: AppColors.Pain.primarySubtle) {
-                    bodyView = bodyView == .front ? .back : .front
+                if !usesExpandedLayout {
+                    rotateButton.padding(.bottom, 38)
                 }
-                .foregroundStyle(AppColors.Semantic.Text.default)
-                .padding(.bottom, 38)
-                .accessibilityIdentifier("pain.location.rotate")
             }
             .padding(.top, 24)
             .padding(.horizontal, 24)
+    }
+
+    private var rotateButton: some View {
+        AppActions.IconButton(bodyView == .front ? "뒷면 보기" : "앞면 보기",
+                              icon: Image(systemName: "arrow.triangle.2.circlepath"),
+                              type: .labeled, fill: AppColors.Pain.primarySubtle) {
+            bodyView = bodyView == .front ? .back : .front
+        }
+        .foregroundStyle(AppColors.Semantic.Text.default)
+        .accessibilityIdentifier("pain.location.rotate")
     }
 
     /// Figma Supporting Content: 고른 부위 칩 또는 안내 문구
@@ -94,12 +110,17 @@ private struct PainSelectedLocationChips: View {
     let locations: [BodyLocation]
     let onRemove: (BodyLocation) -> Void
     let onShowAll: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) { chips(shown: 2) }
-            HStack(spacing: 8) { chips(shown: 1) }
-            VStack(spacing: 8) { chips(shown: 1) }
+        if typeSize > .large {
+            VStack(spacing: 8) { chips(shown: 2) }
+        } else {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { chips(shown: 2) }
+                HStack(spacing: 8) { chips(shown: 1) }
+                VStack(spacing: 8) { chips(shown: 1) }
+            }
         }
     }
 
@@ -107,7 +128,8 @@ private struct PainSelectedLocationChips: View {
         ForEach(locations.prefix(shown), id: \.self) { location in
             Button { onRemove(location) } label: {
                 HStack(spacing: 4) {
-                    Text(painLocationName(location, among: locations)).appTypography(.bodySmall).lineLimit(1)
+                    Text(painLocationName(location, among: locations)).appTypography(.bodySmall)
+                        .fixedSize(horizontal: false, vertical: true)
                     Image(systemName: "xmark").font(.system(size: 12, weight: .semibold))
                         .frame(width: 16, height: 16).accessibilityHidden(true)
                 }
@@ -119,12 +141,12 @@ private struct PainSelectedLocationChips: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(AppActions.PressStyle())
-            .fixedSize()
+            .fixedSize(horizontal: typeSize <= .large, vertical: true)
             .accessibilityLabel("\(painLocationName(location)) \(location.bodyView.displayName) 빼기")
         }
         if locations.count > shown {
             PainMoreLocationsChip(title: "외 \(locations.count - shown)부위", action: onShowAll)
-                .fixedSize()
+                .fixedSize(horizontal: typeSize <= .large, vertical: true)
                 .accessibilityIdentifier("pain.location.more")
         }
     }
@@ -133,8 +155,10 @@ private struct PainSelectedLocationChips: View {
 /// 원본 신체 이미지(앞·뒤가 나란히 있음)에서 한 면만 잘라 보여 주고, 그 면의 부위 선택 영역만 겹칩니다.
 /// 좌/우는 환자 기준입니다. 한쪽씩 선택해도 자동으로 both로 합치지 않습니다.
 private struct PainBodyMap: View {
+    private static let aspectRatio: CGFloat = 227 / 510
     let bodyView: BodyView
     let locations: [BodyLocation]
+    let maximumWidth: CGFloat
     let onToggle: (BodyLocation) -> Void
 
     var body: some View {
@@ -160,8 +184,8 @@ private struct PainBodyMap: View {
                 .clipped()
             }
         }
-        .aspectRatio(227 / 510, contentMode: .fit)
-        .frame(maxWidth: 227, maxHeight: 510)
+        .aspectRatio(Self.aspectRatio, contentMode: .fit)
+        .frame(maxWidth: maximumWidth, maxHeight: maximumWidth / Self.aspectRatio)
     }
 
     private func regionButton(_ region: Region, side: CGFloat) -> some View {

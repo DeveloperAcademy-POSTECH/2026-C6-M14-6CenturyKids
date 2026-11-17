@@ -16,28 +16,26 @@ struct PainScoreInputView: View {
     @State private var showsLocations = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
+    private var usesExpandedLayout: Bool { typeSize > .large }
+
     var body: some View {
         VStack(spacing: 0) {
-            if typeSize.isAccessibilitySize {
-                // 큰 글자에서는 안내/버튼이 게이지를 가리지 않도록 전체를 스크롤합니다.
-                ScrollView { VStack(spacing: 24) { header; locationChip; gauge } }
+            if usesExpandedLayout {
+                ScrollView {
+                    inputContent
+                    footer.padding(.top, 24)
+                }
             } else {
                 // Figma Pain Scale Area: 칩 아래 남은 자리의 세로 가운데에 게이지를 둡니다. 자리가 모자라면 스크롤합니다.
                 ViewThatFits(in: .vertical) {
                     inputContent
                     ScrollView { inputContent }
                 }
+                footer
             }
-            footer
         }
         .background(.white)
-        .overlay(alignment: .topLeading) {
-            if let onClose {
-                Button(action: onClose) { Image("PainBack").frame(width: 40, height: 40) }
-                    .buttonStyle(.plain).padding(.leading, 24).padding(.top, 5)
-                    .accessibilityLabel("통증 기록에서 돌아가기")
-            }
-        }
+        .painBackButton(action: onClose, reservesSpace: usesExpandedLayout)
         .toolbar(.hidden, for: .navigationBar)
         .painSheet(isPresented: $showsLocations) {
             PainLocationSheet(locations: locations, onReselect: onReselectLocations.map { reselect in
@@ -58,7 +56,7 @@ struct PainScoreInputView: View {
         if before == nil {
             // Figma 6-1: Header(제목 + 설명), 아래 칩까지 24
             PainHeader(title: "약을 먹기 전, 얼마나 아프세요?", description: "손잡이를 위아래로 움직여 점수를 골라주세요")
-                .padding(.top, typeSize.isAccessibilitySize ? 76 : 36)
+                .padding(.top, 36)
                 .padding(.bottom, 24)
         } else {
             // Figma 9: 작은 윗글 + 제목, 아래 칩까지 16
@@ -68,13 +66,13 @@ struct PainScoreInputView: View {
                     .accessibilityAddTraits(.isHeader)
             }
             .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 24)
-            .padding(.top, typeSize.isAccessibilitySize ? 76 : 32)
+            .padding(.top, 32)
             .padding(.bottom, 16)
         }
     }
 
     private var locationChip: some View {
-        PainMoreLocationsChip(title: painLocationSummary(locations)) { showsLocations = true }
+        PainMoreLocationsChip(locations: locations) { showsLocations = true }
             .padding(.horizontal, 24)
             .accessibilityIdentifier("pain.score.locations")
     }

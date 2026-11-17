@@ -15,31 +15,30 @@ struct SymptomQuestionLayout<Content: View>: View {
     var onEnd: (() -> Void)?
     var onSwitch: (() -> Void)?
     @ViewBuilder let content: () -> Content
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(spacing: 40) {
-                    progress
-                    VStack(spacing: 8) {
-                        if let guidance = question.guidance {
-                            Text(guidance).modifier(SymptomTextStyle(size: 16))
-                                .foregroundStyle(Color(white: 114 / 255))
-                        }
-                        Text(question.text)
-                            .modifier(SymptomTextStyle(size: 20, weight: .medium))
-                            .tracking(-0.2)
+        AppConversationLayout {
+            VStack(spacing: typeSize.isAccessibilitySize ? 24 : 40) {
+                progress
+                VStack(spacing: 8) {
+                    if let guidance = question.guidance {
+                        Text(guidance).modifier(SymptomTextStyle(size: 16))
+                            .foregroundStyle(Color(white: 114 / 255))
                     }
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, minHeight: 52)
-                    .accessibilityElement(children: .combine)
-                    content()
+                    Text(question.text)
+                        .modifier(SymptomTextStyle(size: 20, weight: .medium))
+                        .tracking(-0.2)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 40)
-                .padding(.bottom, 24)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .accessibilityElement(children: .combine)
+                content()
             }
-            .scrollDismissesKeyboard(.interactively)
+            .padding(.horizontal, 24)
+            .padding(.top, typeSize.isAccessibilitySize ? 24 : 40)
+            .padding(.bottom, 24)
+        } footer: {
             VStack(spacing: 24) {
                 HStack {
                     control("종료하기", asset: "CareConversationClose", action: onEnd)
@@ -47,27 +46,11 @@ struct SymptomQuestionLayout<Content: View>: View {
                     control(switchTitle, asset: "CareConversationText", action: onSwitch)
                 }
                 if showsNext {
-                    HStack(spacing: 20) {
-                        if showsPrevious {
-                            Button("이전") { onPrevious?() }
-                                .buttonStyle(AppButtonStyle(kind: .back))
-                                .disabled(onPrevious == nil)
-                        }
-                        Button { onNext?() } label: {
-                            HStack {
-                                Color.clear.frame(width: 12, height: 12)
-                                Spacer(minLength: 8)
-                                Text(nextTitle)
-                                Spacer(minLength: 8)
-                                Image("CareConversationNext").frame(width: 12, height: 12)
-                                    .accessibilityHidden(true)
-                            }
-                        }
-                        .buttonStyle(AppButtonStyle())
-                        .disabled(!nextIsStatus && (!canProceed || onNext == nil))
-                        .allowsHitTesting(!nextIsStatus)
-                        .accessibilityRemoveTraits(nextIsStatus ? .isButton : [])
-                        .accessibilityIdentifier("symptom.next")
+                    let layout = typeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(spacing: 12))
+                        : AnyLayout(HStackLayout(spacing: 20))
+                    layout {
+                        navigationButtons
                     }
                 }
             }
@@ -78,6 +61,22 @@ struct SymptomQuestionLayout<Content: View>: View {
         }
         .background(.white)
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    @ViewBuilder private var navigationButtons: some View {
+        if showsPrevious {
+            Button("이전") { onPrevious?() }
+                .buttonStyle(AppButtonStyle(kind: typeSize.isAccessibilitySize ? .secondary : .back))
+                .disabled(onPrevious == nil)
+        }
+        Button { onNext?() } label: {
+            AppForwardLabel(title: nextTitle, asset: "CareConversationNext")
+        }
+        .buttonStyle(AppButtonStyle())
+        .disabled(!nextIsStatus && (!canProceed || onNext == nil))
+        .allowsHitTesting(!nextIsStatus)
+        .accessibilityRemoveTraits(nextIsStatus ? .isButton : [])
+        .accessibilityIdentifier("symptom.next")
     }
 
     private var progress: some View {
@@ -105,6 +104,8 @@ struct SymptomQuestionLayout<Content: View>: View {
                     .accessibilityHidden(true)
                 Text(title).modifier(SymptomTextStyle(size: 10))
                     .foregroundStyle(Color(white: 101 / 255))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .buttonStyle(.plain)

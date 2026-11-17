@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Figma 02-A 전체 기록(782:1293, 빈 화면 782:1514). 보낸 달마다 묶어 최신순으로 보여 줍니다.
+/// 보낸 진료 전 기록을 달별로 묶어 최신순으로 보여 줍니다.
 struct PrevisitLetterListView: View {
     let viewModel: PrevisitLetterViewModel
     var onSelect: (UUID) -> Void = { _ in }
@@ -9,7 +9,7 @@ struct PrevisitLetterListView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                PrevisitScreenHeader(overline: "지난 기록", title: "진료 전 기록", backLabel: "뒤로") { dismiss() }
+                PrevisitSentHeader(backLabel: "뒤로") { dismiss() }
                 if viewModel.isLoading { ProgressView("기록을 불러오고 있어요") }
                 if let error = viewModel.errorMessage {
                     Text(error).appTypography(.bodySmall)
@@ -18,13 +18,18 @@ struct PrevisitLetterListView: View {
                 if !viewModel.isLoading && viewModel.errorMessage == nil && viewModel.letters.isEmpty {
                     emptyState
                 }
-                ForEach(viewModel.months) { month in
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(month.id).appTypography(.labelLarge).foregroundStyle(AppColors.Semantic.Text.default)
-                            .accessibilityAddTraits(.isHeader)
-                        ForEach(month.letters) { letter in
-                            Button { onSelect(letter.id) } label: { row(letter) }
-                                .buttonStyle(.plain).accessibilityIdentifier("previsitLetters.\(letter.id)")
+                LazyVStack(alignment: .leading, spacing: 32) {
+                    ForEach(viewModel.months) { month in
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text(month.id)
+                                .appTypography(.labelLarge)
+                                .foregroundStyle(AppColors.Semantic.Text.default)
+                                .accessibilityAddTraits(.isHeader)
+                            ForEach(month.letters) { letter in
+                                Button { onSelect(letter.id) } label: { row(letter) }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("previsitLetters.\(letter.id)")
+                            }
                         }
                     }
                 }
@@ -44,31 +49,77 @@ struct PrevisitLetterListView: View {
             .accessibilityElement(children: .combine).accessibilityIdentifier("previsitLetters.empty")
     }
 
-    /// Figma Record List Item: 기분 아바타 + 날짜 + 첫 줄 + 배지 + ›
     private func row(_ letter: PrevisitLetter) -> some View {
-        HStack(spacing: 16) {
-            (letter.draft.mood ?? .unsure).avatar
-            VStack(alignment: .leading, spacing: 2) {
-                Text(viewModel.sentDate(letter)).appTypography(.labelLarge).foregroundStyle(AppColors.Semantic.Text.default)
-                Text(viewModel.preview(letter)).appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
-                    .lineLimit(1).truncationMode(.tail)
-                let badges = viewModel.badges(letter)
-                if !badges.isEmpty {
-                    HStack(spacing: 6) {
-                        ForEach(badges, id: \.self) { badge in
-                            Text(badge).appTypography(.caption)
-                                .foregroundStyle(AppColors.Semantic.Text.sub)
-                                .padding(.horizontal, 8).padding(.vertical, 2)
-                                .background(AppColors.Semantic.Background.secondary, in: Capsule())
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(viewModel.sentDate(letter))
+                        .appTypography(.labelLarge)
+                        .foregroundStyle(AppColors.Semantic.Text.default)
+                    if let mood = letter.draft.mood {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(AppColors.Semantic.Primary.default)
+                                .frame(width: 6, height: 6)
+                                .accessibilityHidden(true)
+                            Text(mood.historyLabel)
+                                .appTypography(.bodySmall)
+                                .foregroundStyle(AppColors.Semantic.Text.default)
                         }
-                    }.padding(.top, 8)
+                    }
                 }
+                Text(viewModel.preview(letter))
+                    .appTypography(.bodySmall)
+                    .foregroundStyle(AppColors.Semantic.Text.sub)
+                    .lineLimit(2)
             }.frame(maxWidth: .infinity, alignment: .leading)
-            AppCards.Chevron()
+            AppCards.Chevron().accessibilityHidden(true)
         }
-        .padding(.leading, 20).padding(.trailing, 16).padding(.vertical, 20)
-        .frame(maxWidth: .infinity, minHeight: 124)
+        .multilineTextAlignment(.leading)
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppColors.Semantic.Background.surface, in: RoundedRectangle(cornerRadius: 30))
         .contentShape(RoundedRectangle(cornerRadius: 30))
+    }
+}
+
+/// 목록과 상세에서 같은 위치에 제목과 뒤로 버튼을 배치합니다.
+struct PrevisitSentHeader: View {
+    var date: String?
+    let backLabel: String
+    let onBack: () -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
+            AppNavigation.PageTitle("진료 전 기록", alignment: .center)
+            if let date {
+                Text(date)
+                    .appTypography(.label)
+                    .foregroundStyle(AppColors.Semantic.Text.sub)
+            }
+        }
+        .padding(.horizontal, 44)
+        .padding(.top, 31)
+        .frame(maxWidth: .infinity, minHeight: 112, alignment: .top)
+        .overlay(alignment: .topLeading) {
+            AppActions.IconButton(
+                backLabel,
+                icon: Image("DesignSystem/Components/Navigation/Prev"),
+                fill: AppColors.Semantic.Background.secondary,
+                action: onBack
+            )
+        }
+    }
+}
+
+private extension StateOfMind {
+    var historyLabel: String {
+        switch self {
+        case .candid: "안정돼요"
+        case .comfortable: "긴장돼요"
+        case .slowly: "걱정돼요"
+        case .carefully: "불안해요"
+        case .unsure: "잘 모르겠어요"
+        }
     }
 }

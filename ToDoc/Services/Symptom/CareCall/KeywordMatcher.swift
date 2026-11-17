@@ -33,8 +33,7 @@ struct KeywordMatcher: Sendable {
                                       options: .regularExpression) != nil
                     // 다 나았다는 말 ("쑤시던 건 다 나았어요", "결리던 것도 다 풀렸어요")
                     let resolved = prefixNegation
-                        && rest.range(of: #"^(?:하|한|는|은|던|하던|했던)?(?:데|건|게|거|것|곳)(?:은|는|도|이|가)?(?:다|이제|이젠|싹)?(?:나았|풀렸|없어졌|괜찮아졌|가라앉았|멈췄|그쳤|빠졌)"#,
-                                      options: .regularExpression) != nil
+                        && rest.range(of: Self.resolvedAfterKeyword, options: .regularExpression) != nil
                     if !Self.negated(rest), !negatedBefore, !negatedPlace, !resolved { return keyword }
                     from = range.upperBound
                 }
@@ -63,4 +62,17 @@ struct KeywordMatcher: Sendable {
         guard let r = rest.range(of: head, options: .regularExpression) else { return false }
         return rest[r.upperBound...].range(of: "(않|없|아니|아냐|못)", options: .regularExpression) == nil
     }
+
+    private static let resolvedAfterKeyword = #"^(?:하|한|는|은|던|하던|했던)?(?:데|건|게|거|것|곳)(?:은|는|도|이|가)?(?:다|이제|이젠|싹)?(?:"#
+        + resolvedEndings.joined(separator: "|") + ")"
+}
+
+/// 다 나았다는 말. 쓰는 곳마다 목록이 다르다: 하나로 합치면 판단이 바뀌므로 그대로 두고, 합치려면 다시 평가한다
+extension KeywordMatcher {
+    /// 낱말 바로 뒤에 붙은 말 ("쑤시던 건 다 나았어요", matches)과 답의 끝말 (AnswerReading.saysNormal)
+    static let resolvedEndings = ["나았", "풀렸", "없어졌", "괜찮아졌", "가라앉았", "멈췄", "그쳤", "빠졌"]
+    /// 유무 질문 답의 마지막 절 (InterviewEngine.presenceByClauses)
+    static let resolvedInLastClause = ["나았", "멈췄", "멎었", "그쳤", "없어졌", "괜찮아졌", "가라앉았", "들어갔", "아물었", "풀렸", "사라졌"]
+    /// 꼬리질문 낱말이 든 절 (CareCallConfig.Effect.said)
+    static let resolvedInDetailClause = ["나았", "멈췄", "그쳤", "가라앉", "풀렸", "사라졌"]
 }
