@@ -15,7 +15,26 @@ struct DocumentWebView: View {
     }
 
     var body: some View {
-        if let url {
+        if OfflineMode.isOn {
+            // 기기에만 저장하는 모드에서는 웹페이지를 열지 않고 안내 글만 보여 준다
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("오프라인 체험 안내").font(.title2.bold())
+                        Text("지금은 계정이나 서버 연결 없이 사용하고 있어요. 진료 전 기록, 통증 기록, 증상 대화와 프로필은 이 기기에만 저장돼요.")
+                        Text("기록은 다른 기기로 옮겨지지 않고, 앱을 삭제하면 함께 삭제돼요. 설정의 관리자 메뉴에서 체험 기록을 지울 수 있어요.")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                }
+                .navigationTitle(title)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("닫기") { dismiss() }
+                    }
+                }
+            }
+        } else if let url {
             DocumentSafariView(url: url)
         } else {
             NavigationStack {

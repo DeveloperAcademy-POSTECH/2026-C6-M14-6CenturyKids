@@ -37,14 +37,17 @@ struct PersonalInfoEditView: View {
                 SettingsFeedback(error: state.validationMessage ?? state.errorMessage)
             } else { Text("개인정보를 먼저 불러와 주세요.").settingsText() }
             Spacer(minLength: 0)
-            Button { onWithdrawal?() } label: {
-                Text("회원 탈퇴").foregroundStyle(.red)
-            }
+            // 기기에만 저장하는 모드에는 계정이 없어 탈퇴를 보여 주지 않는다
+            if !OfflineMode.isOn {
+                Button { onWithdrawal?() } label: {
+                    Text("회원 탈퇴").foregroundStyle(.red)
+                }
                 .buttonStyle(.glass)
                 .fixedSize(horizontal: true, vertical: false)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .disabled(state?.isSaving == true || onWithdrawal == nil)
                 .accessibilityIdentifier("settings.withdrawal")
+            }
         }
         .tint(SettingsPalette.action)
         .sheet(isPresented: $showsBirthday) {

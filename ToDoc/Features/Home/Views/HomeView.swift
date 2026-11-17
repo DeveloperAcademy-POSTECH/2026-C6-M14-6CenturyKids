@@ -48,7 +48,7 @@ struct HomeView: View {
     private var header: some View {
         ZStack(alignment: .trailing) {
             VStack(spacing: 4) {
-                Text("내 주치의").appFont(.homeCaption).foregroundStyle(AppColors.Home.doctorCaption)
+                Text(OfflineMode.isOn ? "이 기기에만 저장" : "내 주치의").appFont(.homeCaption).foregroundStyle(AppColors.Home.doctorCaption)
                     .frame(minHeight: 15.6 * textScale)
                 Text(doctorTitle)
                     .appFont(.homeTitle).lineLimit(1).minimumScaleFactor(0.7)
@@ -68,7 +68,7 @@ struct HomeView: View {
     }
     private var doctorTitle: String {
         // 탭 재진입 조회 중에도 마지막으로 확인한 '연결 없음' 표시를 유지합니다.
-        if case .unlinked = state.doctor.connection { return "연결된 의료진 없음" }
+        if case .unlinked = state.doctor.connection { return OfflineMode.isOn ? "오프라인 체험" : "연결된 의료진 없음" }
         return state.doctorTitle
     }
     private func hero(width: CGFloat, height: CGFloat) -> some View {

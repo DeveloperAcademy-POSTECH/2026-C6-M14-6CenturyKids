@@ -164,16 +164,11 @@ final class SettingsViewModel {
                 return
             }
 
-            guard let disease = patient.disease else {
-                screenState.profile = nil
-                screenState.loadState = .failed
-                return
-            }
-
+            // 진단 정보가 없으면(기기에만 저장하는 체험자) 암종·병기를 '미등록'으로 보여 준다
             var profile = ProfileDisplayData(
                 name: patient.user.name,
-                cancerName: disease.carcinoma.displayName,
-                stageName: disease.stage.displayName,
+                cancerName: patient.disease?.carcinoma.displayName,
+                stageName: patient.disease?.stage.displayName,
                 hospitalName: nil,
                 doctorName: nil
             )
@@ -239,10 +234,7 @@ final class SettingsViewModel {
                 return
             }
 
-            guard let disease = patient.disease else {
-                state.errorMessage = "진단 정보를 찾지 못했어요."
-                return
-            }
+            let disease = patient.disease ?? CarcinomaDetail(carcinoma: .unknown, stage: .unknown)
 
             switch field {
             case .carcinoma: state.selection = .carcinoma(disease.carcinoma)
@@ -674,10 +666,7 @@ final class SettingsViewModel {
                 return
             }
 
-            guard var disease = patient.disease else {
-                state.errorMessage = "진단 정보를 찾지 못했어요."
-                return
-            }
+            var disease = patient.disease ?? CarcinomaDetail(carcinoma: .unknown, stage: .unknown)
 
             switch (field, selection) {
             case (.carcinoma, .carcinoma(let type)):

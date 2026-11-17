@@ -33,7 +33,7 @@ struct HomeDoctorMessage: Identifiable {
     var isLoading: Bool { doctor.isLoading }
     var doctorTitle: String {
         if let doctorName { return "Dr. \(doctorName)" }
-        if case .loaded(.unlinked) = doctor { return "연결된 의료진 없음" }
+        if case .loaded(.unlinked) = doctor { return OfflineMode.isOn ? "오프라인 체험" : "연결된 의료진 없음" }
         return isLoading ? "확인 중" : "의료진 정보 확인 필요"
     }
     var statusMessage: String? {
