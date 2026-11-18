@@ -15,6 +15,9 @@ struct PainRecordView: View {
     @State private var stage = Stage.start
     @State private var savedRecord: PainRecord?
     @State private var showsSaveFailed = false
+    @State private var isSkippingWait = false
+    @State private var skipWaitError: String?
+    @Environment(DemoAdminService.self) private var demoAdmin: DemoAdminService?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     var onClose: (() -> Void)?
@@ -103,6 +106,33 @@ struct PainRecordView: View {
         } message: {
             Text("잠시 후 다시 시도해 주세요.")
         }
+        .alert("시간을 넘기지 못했어요",
+               isPresented: Binding(get: { skipWaitError != nil }, set: { if !$0 { skipWaitError = nil } })) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(skipWaitError ?? "")
+        }
+    }
+
+    private var skipWaitAction: ((Date) -> Void)? {
+        guard demoAdmin != nil else { return nil }
+        return { skipWait(until: $0) }
+    }
+
+    private func skipWait(until availableDate: Date) {
+        guard let demoAdmin, !isSkippingWait else { return }
+        isSkippingWait = true
+        Task { @MainActor in
+            defer { isSkippingWait = false }
+            do {
+                try await demoAdmin.skipPainWait(until: availableDate)
+                await viewModel.refreshLiveActivity()
+            } catch {
+                skipWaitError = error.localizedDescription
+                // 실패하면서 기록이 지워졌을 수 있어 화면을 저장된 상태에 맞춥니다
+                await viewModel.load(silently: true)
+            }
+        }
     }
 
     private func load() async {
@@ -153,7 +183,8 @@ struct PainRecordView: View {
                                            attempt = nil
                                            stage = .location
                                        },
-                                       onClose: close, onStateViewed: trackTimerState)
+                                       onClose: close, onStateViewed: trackTimerState,
+                                       onSkipWait: skipWaitAction, isSkippingWait: isSkippingWait)
                         // 설정에서 알림을 켜고 돌아오면 안내를 지우고 알림을 다시 예약합니다
                         .task(id: scenePhase) {
                             if scenePhase == .active { await viewModel.refreshReminderPermission() }

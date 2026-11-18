@@ -22,7 +22,7 @@ final class DemoAdminService {
     }
 
     /// 스킵하면 복용 후 통증까지 남는 시간
-    static let skippedWait: TimeInterval = 30
+    static let skippedWait: TimeInterval = 2
 
     @ObservationIgnored private let patientId: UUID
     @ObservationIgnored private let pain: any PainRepository
@@ -46,16 +46,13 @@ final class DemoAdminService {
         self.cancelPainAfterReminder = cancelPainAfterReminder
     }
 
-    /// 기다리는 통증 기록의 시각을 앞당겨, 30초 뒤에 복용 후 통증을 기록할 수 있게 한다.
+    /// 기다리는 통증 기록의 시각을 앞당겨, available부터 복용 후 통증을 기록할 수 있게 한다.
     /// 서버가 기록 시각으로 1시간을 확인하므로 같은 id·부위·복용 전 점수로 시각만 바꿔 다시 저장한다.
-    func skipPainWait(now: Date = .now) async throws -> String {
+    func skipPainWait(until available: Date) async throws {
         guard let pending = try await pain.findLatestByPatientId(patientId), pending.painAfter == nil else {
             throw Failure.nothing("복용 후 통증을 기다리는 기록이 없어요.")
         }
-        let available = now.addingTimeInterval(Self.skippedWait)
-        guard pending.recordedDate.addingTimeInterval(PainRecordViewModel.afterDelay) > available else {
-            return "이미 복용 후 통증을 기록할 수 있어요."
-        }
+        guard pending.recordedDate.addingTimeInterval(PainRecordViewModel.afterDelay) > available else { return }
         let shifted = try PainRecord(id: pending.id, patientId: pending.patientId,
                                      recordedDate: available.addingTimeInterval(-PainRecordViewModel.afterDelay),
                                      location: pending.location, painBefore: pending.painBefore, painAfter: nil)
@@ -73,12 +70,7 @@ final class DemoAdminService {
             throw error
         }
         await schedulePainAfterReminder(available)
-        var activityWarning: String?
-        do { try await LiveActivityService.startPainLiveActivity(for: shifted, followUpAt: available) }
-        catch { activityWarning = error.localizedDescription }
         await onChanged()
-        return "30초 뒤에 복용 후 통증을 기록할 수 있어요." +
-            (activityWarning.map { "\n잠금화면 타이머를 표시하지 못했어요. \($0)" } ?? "")
     }
 
     /// 오늘 증상 기록(서버·폰에 남은 저장 대기 통화)을 지워 처음부터 다시 기록할 수 있게 한다.

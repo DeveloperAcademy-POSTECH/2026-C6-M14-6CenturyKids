@@ -18,7 +18,16 @@ struct PainAfterTimerView: View {
     /// 피그마에는 없지만, 시간이 다 되면 기록 말고 나갈 길이 없어 다른 통증 화면처럼 둡니다.
     var onClose: (() -> Void)?
     var onStateViewed: ((String) -> Void)?
+    /// 시연용: 빨리 감기가 끝나면 이제 기록할 수 있는 시각을 넘겨 저장하게 합니다.
+    var onSkipWait: ((Date) -> Void)?
+    var isSkippingWait = false
 
+    /// 빨리 감기에서 1초마다 앞당기는 시간
+    private static let fastForwardStep: TimeInterval = 10 * 60
+
+    @State private var isFastForwarding = false
+    /// 빨리 감기로 앞당겨 보여 주는 시간. 저장이 끝나면 실제 기록 시각을 쓰므로 0으로 돌아옵니다.
+    @State private var timeShift: TimeInterval = 0
     @State private var showsLocations = false
     @State private var showsNewRecordConfirmation = false
     @Environment(\.openURL) private var openURL
@@ -28,7 +37,8 @@ struct PainAfterTimerView: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            let phase = Phase(now: context.date, recordedDate: recordedDate, availableDate: availableDate)
+            let phase = Phase(now: context.date.addingTimeInterval(timeShift),
+                              recordedDate: recordedDate, availableDate: availableDate)
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 24) {
@@ -53,6 +63,16 @@ struct PainAfterTimerView: View {
         .background(AppColors.Semantic.Background.surface)
         .painBackButton(action: onClose, reservesSpace: usesExpandedLayout,
                         background: AppColors.Semantic.Background.surface)
+        .overlay(alignment: .topTrailing) { skipWaitButton }
+        .task(id: isFastForwarding) {
+            if isFastForwarding { await fastForward() }
+        }
+        .onChange(of: availableDate) { timeShift = 0 }
+        .onChange(of: isSkippingWait) { _, isSkipping in
+            guard !isSkipping else { return }
+            isFastForwarding = false
+            timeShift = 0
+        }
         .toolbar(.hidden, for: .navigationBar)
         .painSheet(isPresented: $showsLocations) {
             PainLocationSheet(locations: locations, onClose: { showsLocations = false })
@@ -69,6 +89,40 @@ struct PainAfterTimerView: View {
                     }
                     .padding(.horizontal, AppLayout.Phone.horizontalMargin)
                     .accessibilityAddTraits(.isModal)
+                }
+            }
+        }
+    }
+
+    /// 1초마다 10분씩 앞당기다가, 더 앞당기면 남길 시간보다 적어지는 때 남길 시간으로 맞추고 저장합니다.
+    private func fastForward() async {
+        let leftover = DemoAdminService.skippedWait
+        while !Task.isCancelled {
+            let remaining = availableDate.timeIntervalSinceNow - timeShift
+            guard remaining >= Self.fastForwardStep + leftover else {
+                timeShift += remaining - leftover
+                onSkipWait?(.now.addingTimeInterval(leftover))
+                return
+            }
+            timeShift += Self.fastForwardStep
+            try? await Task.sleep(for: .seconds(1))
+        }
+    }
+
+    /// 건너뛴 뒤 남는 시간보다 적게 남았으면 더 앞당길 수 없어 숨깁니다.
+    @ViewBuilder private var skipWaitButton: some View {
+        if onSkipWait != nil, !isFastForwarding, !isSkippingWait {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                if availableDate.timeIntervalSince(context.date) > DemoAdminService.skippedWait {
+                    Button { isFastForwarding = true } label: {
+                        Text("시간 넘기기").appTypography(.label)
+                            .foregroundStyle(AppColors.Semantic.Text.action)
+                            .frame(minHeight: 44).contentShape(Rectangle())
+                    }
+                    .buttonStyle(AppActions.PressStyle())
+                    .padding(.trailing, 24)
+                    .padding(.top, 3)
+                    .accessibilityIdentifier("pain.timer.skipWait")
                 }
             }
         }
@@ -117,7 +171,8 @@ struct PainAfterTimerView: View {
     }
 
     private var availableTime: String {
-        availableDate.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(Locale(identifier: "ko_KR")))
+        availableDate.addingTimeInterval(-timeShift)
+            .formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(Locale(identifier: "ko_KR")))
     }
 
     private func summary(_ phase: Phase) -> some View {
@@ -184,6 +239,8 @@ struct PainAfterTimerView: View {
                 VStack(spacing: 8) {
                     Text(PainAfterTimerView.remainingText(remaining)).appTypography(.headline).monospacedDigit()
                         .foregroundStyle(AppColors.Semantic.Text.default)
+                        .contentTransition(.numericText(countsDown: true))
+                        .animation(isFastForwarding ? .snappy : nil, value: PainAfterTimerView.remainingText(remaining))
                     Text("남았어요").appTypography(.bodySmall).foregroundStyle(AppColors.Semantic.Text.sub)
                 }
                 .modifier(TimerIndicatorSize(isExpanded: usesExpandedLayout))
@@ -195,6 +252,7 @@ struct PainAfterTimerView: View {
                                        startPoint: .top, endPoint: .bottom)
                             .frame(height: geometry.size.height * progress)
                             .frame(maxHeight: .infinity, alignment: .bottom)
+                            .animation(isFastForwarding ? .linear(duration: 1) : nil, value: progress)
                     }
                     .background(AppColors.Semantic.Background.default)
                 }
@@ -267,7 +325,10 @@ struct PainAfterTimerView: View {
                                         showsNewRecordConfirmation = true
                                     })
         } else {
-            AppActions.BottomAction(primary: .init("선택 부위 통증 고르기", isEnabled: onRecord != nil) { onRecord?() })
+            // 시간 넘기기 저장이 끝나기 전에는 기록이 다시 저장되는 중이라 넘어가지 않습니다
+            AppActions.BottomAction(primary: .init("선택 부위 통증 고르기", isEnabled: onRecord != nil && !isSkippingWait) {
+                onRecord?()
+            })
         }
     }
 
