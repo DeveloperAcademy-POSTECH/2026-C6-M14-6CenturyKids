@@ -60,10 +60,19 @@ import ToDocDomain
     }
 
     /// 요청이 서버에 닿지 못해 난 오류인지 (비행기 모드, 연결 끊김, 시간 초과 등).
-    /// 서버가 로그인을 거절한 경우는 URL 오류가 아니라 인증 오류로 온다.
+    /// 연결 문제로 확실한 코드만 인정한다. 인증서 오류나 잘못된 응답처럼 서버에 닿은 뒤의 오류는
+    /// 여기에 넣지 않아 기존처럼 로그아웃한다.
     private static func isConnectionFailure(_ error: any Error) -> Bool {
+        func isOffline(_ error: NSError) -> Bool {
+            error.domain == NSURLErrorDomain && offlineCodes.contains(error.code)
+        }
         let error = error as NSError
-        if error.domain == NSURLErrorDomain { return true }
-        return (error.userInfo[NSUnderlyingErrorKey] as? NSError)?.domain == NSURLErrorDomain
+        return isOffline(error) || (error.userInfo[NSUnderlyingErrorKey] as? NSError).map(isOffline) == true
     }
+
+    private static let offlineCodes: Set<Int> = [
+        NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost, NSURLErrorTimedOut,
+        NSURLErrorCannotConnectToHost, NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed,
+        NSURLErrorInternationalRoamingOff, NSURLErrorDataNotAllowed,
+    ]
 }
