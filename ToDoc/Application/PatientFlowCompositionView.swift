@@ -155,7 +155,7 @@ struct PatientFlowCompositionView: View {
         .task {
             // 관리자 기능으로 기록을 바꾸면 통증·진료 전·홈이 다시 불러온다
             demoAdmin.onChanged = {
-                await painViewModel.load()
+                await painViewModel.load(silently: true)
                 await loadPrevisitLetters()
                 homeViewModel.reload()
             }

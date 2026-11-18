@@ -106,10 +106,11 @@ final class PainRecordViewModel {
     #endif
 
     /// 화면에 들어올 때마다 불러 이어서 기록할 기록이 있는지 다시 확인합니다.
-    func load() async {
+    /// silently면 보고 있는 화면을 준비 중 화면으로 바꾸지 않고 내용만 새로 고칩니다.
+    func load(silently: Bool = false) async {
         guard !isLoading else { return }
         isLoading = true
-        connectionState = .loading
+        if !silently { connectionState = .loading }
         defer { isLoading = false }
 
         do {
