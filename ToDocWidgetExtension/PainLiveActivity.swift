@@ -61,7 +61,6 @@ struct PainLiveActivity: Widget {
                                 .foregroundStyle(Color("textDisabled"))
                         }
                         .multilineTextAlignment(.trailing)
-                        .padding(.trailing, 40)
                         .padding(.bottom, 12)
                     } else {
                         Image("PillHangno")
@@ -84,16 +83,11 @@ struct PainLiveActivity: Widget {
                                 .foregroundStyle(Color("textDisabled"))
                         }
                         .multilineTextAlignment(.trailing)
-                        .padding(.trailing, 40)
                         .padding(.bottom, 12)
                     }
                 }
                 
                 painRecordCapsule(timerInterval: medicationTakenAt...timerEndsAt)
-            }
-            .overlay(alignment: .topTrailing) {
-                LiveActivityCloseButton(activityID: context.activityID)
-                    .padding(.trailing, 8)
             }
             .activityBackgroundTint(Color.black)
             .activitySystemActionForegroundColor(Color.white)
@@ -102,10 +96,6 @@ struct PainLiveActivity: Widget {
             .widgetURL(painURL)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.trailing) {
-                    LiveActivityCloseButton(activityID: context.activityID)
-                }
-
                 let medicationTakenAt = context.attributes.medicationTakenAt
                 let timerEndsAt = context.attributes.timerEndsAt
                 

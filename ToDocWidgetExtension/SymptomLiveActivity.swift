@@ -51,7 +51,6 @@ struct SymptomLiveActivity: Widget {
                             .foregroundStyle(Color("textDisabled"))
                     }
                     .multilineTextAlignment(.trailing)
-                        .padding(.trailing, 40)
                     .padding(.bottom, 12)
                     .frame(maxWidth: .infinity, minHeight: 56, alignment: .bottomTrailing)
                 }
@@ -70,10 +69,6 @@ struct SymptomLiveActivity: Widget {
                 }
                 .buttonStyle(.plain)
             }
-            .overlay(alignment: .topTrailing) {
-                LiveActivityCloseButton(activityID: context.activityID)
-                    .padding(.trailing, 8)
-            }
             .activityBackgroundTint(Color.black)
             .activitySystemActionForegroundColor(Color.white)
             .padding(.horizontal, 20)
@@ -81,10 +76,6 @@ struct SymptomLiveActivity: Widget {
             
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.trailing) {
-                    LiveActivityCloseButton(activityID: context.activityID)
-                }
-
                 DynamicIslandExpandedRegion(.bottom) {
                     expandedContent(context)
                 }
