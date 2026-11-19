@@ -124,6 +124,18 @@ final class DemoAdminService {
         return "오늘 진료 전 기록을 지웠어요."
     }
 
+    /// 시연 한 판을 처음으로 되돌린다: 오늘 증상·통증·진료 전 기록을 지우고 증상 실시간 현황을 띄운다.
+    /// 지울 기록이 없는 것은 실패로 보지 않는다
+    func restartDemo() async throws {
+        func reset(_ run: () async throws -> String) async throws {
+            do { _ = try await run() } catch Failure.nothing {}
+        }
+        try await reset { try await resetTodaySymptoms() }
+        try await reset { try await resetTodayPain() }
+        try await reset { try await resetTodayPrevisit() }
+        try await LiveActivityService.startLocalSymptomLiveActivity()
+    }
+
     /// 10/16~11/19 증상·통증·진료 전 기록을 지우고 목데이터로 다시 채운다
     func seedMockData() async throws -> String {
         let data = try DemoMockData(patientId: patientId)

@@ -8,6 +8,10 @@ struct HomeView: View {
     private let onPrevisit: (() -> Void)?
     private let onReload: (() -> Void)?
     private let isVisible: Bool
+    @Environment(DemoAdminService.self) private var demoAdmin: DemoAdminService?
+    @State private var isRestartingDemo = false
+    @State private var demoRestartCount = 0
+    @State private var demoRestartError: String?
     init(state: HomeScreenState? = nil, onSelect: ((HomeDestination) -> Void)? = nil, onPrevisit: (() -> Void)? = nil, onReload: (() -> Void)? = nil, isVisible: Bool = true) {
         self.state = state ?? .init(); self.onSelect = onSelect
         self.onPrevisit = onPrevisit
@@ -64,6 +68,32 @@ struct HomeView: View {
             }.buttonStyle(AppPressStyle()).disabled(!canOpen)
                 .accessibilityLabel(state.showsUnreadBadge ? "알림, 읽지 않은 알림 있음" : "알림")
                 .accessibilityIdentifier("home.notifications").padding(.trailing, 16)
+        }
+        // 시연용: 머리말 왼쪽 빈 곳을 5번 누르면 오늘 기록을 지우고 증상 실시간 현황을 띄운다
+        .overlay(alignment: .leading) {
+            Color.clear.frame(width: 110).contentShape(Rectangle())
+                .onTapGesture(count: 5, perform: restartDemo)
+                .accessibilityHidden(true)
+        }
+        .sensoryFeedback(.success, trigger: demoRestartCount)
+        .alert("시연을 처음으로 되돌리지 못했어요", isPresented: Binding(get: { demoRestartError != nil },
+                                                               set: { if !$0 { demoRestartError = nil } })) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(demoRestartError ?? "")
+        }
+    }
+    private func restartDemo() {
+        guard let demoAdmin, !isRestartingDemo else { return }
+        isRestartingDemo = true
+        Task {
+            defer { isRestartingDemo = false }
+            do {
+                try await demoAdmin.restartDemo()
+                demoRestartCount += 1
+            } catch {
+                demoRestartError = error.localizedDescription
+            }
         }
     }
     private var doctorTitle: String {
