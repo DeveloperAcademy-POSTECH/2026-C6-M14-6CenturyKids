@@ -24,6 +24,8 @@ final class CareCallService: CareCalling {
         let followUp: Bool
         /// 시연: 처음 통화에서 물을 3개와 목데이터
         let demo: DemoCareCallPlan?
+        /// 다시 거는 통화에서 그날 기록에 아직 없는 항목 (처음 통화면 nil)
+        let unasked: Set<String>?
     }
     private var conversation: Conversation?
     private var noticed = false
@@ -61,9 +63,10 @@ final class CareCallService: CareCalling {
         guard let analyzer else { throw CareCallServiceError.notPrepared }
         // 시연: 관리자 설정에서 켜 두면 그날 처음 통화는 3개만 랜덤으로 묻는다 (다시 거는 통화는 그대로)
         let demo = previous == nil && DemoCareCallPlan.isEnabled ? DemoCareCallPlan(effectIds: config.effects.map(\.id)) : nil
-        let engine = InterviewEngine(config: config, rules: rules, analyzer: analyzer, followUp: previous.map(converter.unasked(in:)),
+        let unasked = previous.map(converter.unasked(in:))
+        let engine = InterviewEngine(config: config, rules: rules, analyzer: analyzer, followUp: unasked,
                                      askOnly: demo?.asked, locationWords: converter.bodyParts.parts.values.flatMap { $0 })
-        let conversation = Conversation(engine: engine, patientId: patientId, followUp: previous != nil, demo: demo)
+        let conversation = Conversation(engine: engine, patientId: patientId, followUp: previous != nil, demo: demo, unasked: unasked)
         self.conversation = conversation
         noticed = false
         return turn(conversation.engine.start(), of: conversation)
@@ -109,6 +112,15 @@ final class CareCallService: CareCalling {
         defer { conversation = nil }
         guard let conversation else { return .interrupted(nil) }
         return outcome(of: conversation, phase: conversation.engine.phase)
+    }
+
+    func skip() -> CareCallOutcome {
+        defer { conversation = nil }
+        guard let conversation else { return .interrupted(nil) }
+        // 다시 거는 통화는 그날 기록에 없는 항목만 채운다 (이미 답한 증상을 목데이터가 바꾸지 않게)
+        let ids = config.effects.map(\.id).filter { conversation.unasked?.contains($0) ?? true }
+        let plan = conversation.demo ?? DemoCareCallPlan(effectIds: ids)
+        return .completed(plan.fillingAll(record(of: conversation), of: ids, fillsCondition: !conversation.followUp))
     }
 
     private func turn(_ out: InterviewEngine.Output, of conversation: Conversation) -> CareCallTurn {

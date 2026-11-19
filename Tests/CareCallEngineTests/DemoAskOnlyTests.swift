@@ -47,4 +47,25 @@ struct DemoAskOnlyTests {
                                    touched: Set(plan.mocked))
         #expect(touched.symptoms.isEmpty)
     }
+
+    @Test func 대화를_넘기면_묻지_못한_항목까지_모두_채우고_답한_증상과_컨디션은_그대로_둔다() throws {
+        let ids = config.effects.map(\.id)
+        let plan = DemoCareCallPlan(effectIds: ids)
+        let answered = try SymptomEntry(id: UUID(), symptomType: .diarrhea, presence: .present, bodyPart: nil, bodySide: nil,
+                                        durationMinutes: nil, occurrenceCount: 5, detail: "다섯 번이요")
+        func record(condition: String?, _ symptoms: [SymptomEntry]) -> SymptomRecord {
+            SymptomRecord(id: UUID(), patientId: UUID(), recordedDate: .now, conditionText: condition, symptoms: symptoms)
+        }
+        let filled = plan.fillingAll(record(condition: "그럭저럭이요", [answered]), of: ids, fillsCondition: true)
+        #expect(Set(filled.symptoms.map(\.symptomType)).count == 7 && filled.symptoms.count == 7)
+        #expect(filled.symptoms.first { $0.symptomType == .diarrhea }?.id == answered.id)
+        #expect(filled.conditionText == "그럭저럭이요")
+        // 첫 질문에 답하기 전에 넘기면 컨디션도 채운다. 있음은 처음에 정한 두 항목뿐
+        let empty = plan.fillingAll(record(condition: nil, []), of: ids, fillsCondition: true)
+        #expect(empty.symptoms.count == 7 && empty.symptoms.filter { $0.presence == .present }.count == 2)
+        #expect(empty.conditionText?.isEmpty == false)
+        // 다시 거는 통화는 그날 기록에 없는 항목만 채우고 컨디션은 두지 않는다
+        let followUp = plan.fillingAll(record(condition: nil, []), of: ["diarrhea"], fillsCondition: false)
+        #expect(followUp.symptoms.map(\.symptomType) == [.diarrhea] && followUp.conditionText == nil)
+    }
 }

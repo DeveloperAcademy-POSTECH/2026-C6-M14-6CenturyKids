@@ -55,6 +55,7 @@ final class CareCallViewModel {
     private var leftCall = false
     private var callAfterTyping = false
     private var paused = false
+    private var skipping = false
     private var autoStart: Task<Void, Never>?
     var autoStartDelay: Duration = .zero
     private var hadEmergency = false
@@ -217,7 +218,31 @@ final class CareCallViewModel {
         case .stopForEmergency: stopForEmergency()
         case .continueAfterEmergency: continueAfterEmergency()
         case .finishSpeaking: finishSpeaking()
+        case .skip: skip()
         }
+    }
+
+    /// 시연용 대화 넘기기: 통화나 답 처리가 끝나기를 기다렸다가 마친 통화로 정리 화면을 연다
+    private func skip() {
+        guard began, !skipping, !isOver, !conversation.isEmergency else { return }
+        cancelAutoStart()
+        conversation.isSummarizing = true
+        if let call {
+            skipping = true
+            call.cancel()
+            Task { await service.stop() }
+        } else if typing != nil {
+            skipping = true
+        } else {
+            finishSkipped()
+        }
+    }
+
+    private func finishSkipped() {
+        skipping = false
+        guard began, !isOver else { return }
+        began = false // 서비스가 대화를 닫는다
+        finish(service.skip())
     }
 
     /// 시끄러운 곳에서는 주변 목소리 때문에 말이 끝난 것을 알아채지 못한다. 환자가 눌러서 지금까지 들은 말로 넘어간다
@@ -373,7 +398,9 @@ final class CareCallViewModel {
             conversation.isCalling = false
             let switched = switchingMode
             switchingMode = false
-            if leftCall, outcome == nil {
+            if skipping, !Self.isFinal(outcome) {
+                finishSkipped()
+            } else if leftCall, outcome == nil {
                 endText() // 통화를 걸기 전에 떠남: 문자로 받은 답이 있으면 그것까지 저장한다
             } else if switched, !leftCall, !Self.isFinal(outcome) {
                 // 방식을 바꿈: 끝까지 마친 게 아니면 같은 대화를 바꾼 방식으로 이어 간다 (끊는 중에 다시 바꿨으면 그 방식).
@@ -452,8 +479,10 @@ final class CareCallViewModel {
             typing = nil
             let wantsCall = callAfterTyping
             callAfterTyping = false
-            // 처리하는 동안 화면을 떠났거나 음성으로 바꿨으면 이어서 한다
-            if leftCall {
+            // 처리하는 동안 대화를 넘겼거나 화면을 떠났거나 음성으로 바꿨으면 이어서 한다
+            if skipping {
+                finishSkipped()
+            } else if leftCall {
                 endText()
             } else if wantsCall, conversation.mode == .voice, began, !isOver {
                 startCall()

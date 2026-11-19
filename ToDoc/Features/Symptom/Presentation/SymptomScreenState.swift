@@ -52,6 +52,8 @@ enum SymptomAction {
     case stopForEmergency, continueAfterEmergency
     /// 음성으로 답하다가 "다 말했어요"를 누름
     case finishSpeaking
+    /// 시연용: 대화를 넘기고 나머지를 목데이터로 채워 정리 화면으로 감
+    case skip
 }
 @Observable final class SymptomScreenState {
     var question: SymptomConversationQuestion?

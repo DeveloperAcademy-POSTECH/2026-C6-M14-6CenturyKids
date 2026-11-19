@@ -25,9 +25,21 @@ struct DemoCareCallPlan {
 
     /// 목데이터를 기록에 더한다. 환자가 답했거나 대화 중 다룬 증상(touched: 통화 기록의 항목 키)은 덮지 않는다
     func filling(_ record: SymptomRecord, touched: Set<String> = []) -> SymptomRecord {
+        adding(mocked.filter { !touched.contains($0) }, to: record, condition: record.conditionText)
+    }
+
+    /// 대화 넘기기: 물으려던 항목까지, ids 가운데 기록에 아직 없는 것을 모두 채운다 (처음에 '있음'으로 정한 항목만 있음).
+    /// fillsCondition이면 첫 질문에 답하기 전에 넘겼을 때 컨디션도 채운다
+    func fillingAll(_ record: SymptomRecord, of ids: [String], fillsCondition: Bool) -> SymptomRecord {
+        adding(ids, to: record, condition: record.conditionText ?? (fillsCondition ? Self.mockCondition : nil))
+    }
+
+    private static let mockCondition = "오늘은 컨디션이 괜찮아요"
+
+    private func adding(_ ids: [String], to record: SymptomRecord, condition: String?) -> SymptomRecord {
         let answered = Set(record.symptoms.map(\.symptomType))
-        let mocks = mocked.compactMap { id -> SymptomEntry? in
-            guard let mock = Self.mocks[id], !answered.contains(mock.type), !touched.contains(id) else { return nil }
+        let mocks = ids.compactMap { id -> SymptomEntry? in
+            guard let mock = Self.mocks[id], !answered.contains(mock.type) else { return nil }
             let present = mockPresent.contains(id)
             return try? SymptomEntry(id: UUID(), symptomType: mock.type, presence: present ? .present : .absent,
                                      bodyPart: present ? mock.part : nil, bodySide: present ? mock.side : nil,
@@ -35,7 +47,7 @@ struct DemoCareCallPlan {
                                      occurrenceCount: present ? mock.count : nil, detail: present ? mock.detail : "아니요")
         }
         return SymptomRecord(id: record.id, patientId: record.patientId, recordedDate: record.recordedDate,
-                             conditionText: record.conditionText, symptoms: record.symptoms + mocks)
+                             conditionText: condition, symptoms: record.symptoms + mocks)
     }
 
     private struct Mock {

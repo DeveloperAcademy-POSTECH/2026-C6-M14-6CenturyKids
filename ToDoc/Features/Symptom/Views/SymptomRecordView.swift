@@ -23,6 +23,7 @@ struct SymptomRecordView: View {
                 SymptomConversationContent(state: state, question: question, keepsKeyboard: $keepsKeyboard, onEnd: askEnd,
                     onSwitch: { state.onAction?(.switchMode($0)) })
                     .id(state.mode == .voice ? nil : question.id)
+                    .overlay(alignment: .topTrailing) { skipButton }
                     .overlay { popup }
             } else if state.errorMessage != nil, !state.isWorking {
                 SymptomServiceErrorView(onRetry: state.onAction.map { action in { action(.start) } },
@@ -58,6 +59,21 @@ struct SymptomRecordView: View {
             SymptomPopup.microphone(onConfirm: clearError, onSettings: openSettings)
         } else if state.errorMessage != nil {
             SymptomPopup.service(onConfirm: clearError, onSettings: openSettings)
+        }
+    }
+
+    /// 시연용: 대화를 넘기고 나머지를 목데이터로 채운다
+    @ViewBuilder private var skipButton: some View {
+        if let onAction = state.onAction {
+            Button { onAction(.skip) } label: {
+                Text("대화 넘기기").appTypography(.label)
+                    .foregroundStyle(AppColors.Semantic.Text.action)
+                    .frame(minHeight: 44).contentShape(Rectangle())
+            }
+            .buttonStyle(AppActions.PressStyle())
+            .padding(.trailing, 24)
+            .padding(.top, 3)
+            .accessibilityIdentifier("symptom.skip")
         }
     }
 

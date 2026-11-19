@@ -67,6 +67,15 @@ final class FakeCareCall: CareCalling {
         return endOutcome
     }
 
+    /// 대화 넘기기로 끝낼 때의 결과
+    var skipOutcome: CareCallOutcome = .interrupted(nil)
+    private(set) var skipCount = 0
+    func skip() -> CareCallOutcome {
+        skipCount += 1
+        current = nil
+        return skipOutcome
+    }
+
     private(set) var finishListeningCount = 0
     func finishListening() { finishListeningCount += 1 }
 
@@ -314,6 +323,39 @@ struct CareCallViewModelTests {
         #expect(service.finishListeningCount == 1)
         service.release()
         await task?.value
+    }
+
+    @Test func 통화_중에_대화를_넘기면_통화를_끊고_채운_기록으로_요약을_연다() async {
+        await enterVoiceCall()
+        let filled = record([entry(.nauseaVomiting, .present), entry(.diarrhea, .absent, "아니요")])
+        service.outcome = .interrupted(record([entry(.nauseaVomiting, .present)]))
+        service.skipOutcome = .completed(filled)
+        service.hold = .call
+        let task = viewModel.startCall()
+        await waitUntilHolding()
+        conversation.onAction?(.skip)
+        #expect(conversation.isSummarizing) // 끊는 동안 정리 화면
+        conversation.onAction?(.skip) // 끊는 동안 다시 눌러도 한 번만
+        await task?.value
+        #expect(service.stopCount == 1 && service.skipCount == 1 && service.endCount == 0)
+        guard case .completed(let kept)? = viewModel.outcome else { Issue.record("마친 기록 없음"); return }
+        #expect(kept.id == filled.id)
+        #expect(conversation.summary != nil && !conversation.isSummarizing)
+        await viewModel.save(showingResult: true)?.value
+        #expect(repository.saved.map(\.id) == [filled.id] && conversation.didSave)
+    }
+
+    @Test func 문자_대화에서_대화를_넘기면_바로_채운_기록으로_요약을_연다() async {
+        conversation.onAction?(.skip) // 대화를 시작하기 전에는 넘길 수 없다
+        #expect(service.skipCount == 0)
+        await viewModel.startText()?.value
+        let filled = record([entry(.constipation, .absent, "아니요")])
+        service.skipOutcome = .completed(filled)
+        conversation.onAction?(.skip)
+        #expect(service.skipCount == 1)
+        #expect(conversation.summary != nil)
+        conversation.onAction?(.skip) // 넘긴 뒤에는 다시 넘기지 않는다
+        #expect(service.skipCount == 1)
     }
 
     @Test func 끝까지_마치면_요약으로_넘어가고_없음_모름은_결과에만_남긴다() async {
