@@ -11,7 +11,9 @@ struct HomeView: View {
     @Environment(DemoAdminService.self) private var demoAdmin: DemoAdminService?
     @State private var isRestartingDemo = false
     @State private var demoRestartCount = 0
-    @State private var demoRestartError: String?
+    /// 되돌린 결과 알림창의 내용 (실패하면 이유)
+    @State private var demoRestartResult: String?
+    @State private var demoRestartFailed = false
     init(state: HomeScreenState? = nil, onSelect: ((HomeDestination) -> Void)? = nil, onPrevisit: (() -> Void)? = nil, onReload: (() -> Void)? = nil, isVisible: Bool = true) {
         self.state = state ?? .init(); self.onSelect = onSelect
         self.onPrevisit = onPrevisit
@@ -76,11 +78,11 @@ struct HomeView: View {
                 .accessibilityHidden(true)
         }
         .sensoryFeedback(.success, trigger: demoRestartCount)
-        .alert("시연을 처음으로 되돌리지 못했어요", isPresented: Binding(get: { demoRestartError != nil },
-                                                               set: { if !$0 { demoRestartError = nil } })) {
+        .alert(demoRestartFailed ? "초기화하지 못했어요" : "초기화했어요",
+               isPresented: Binding(get: { demoRestartResult != nil }, set: { if !$0 { demoRestartResult = nil } })) {
             Button("확인", role: .cancel) {}
         } message: {
-            Text(demoRestartError ?? "")
+            Text(demoRestartResult ?? "")
         }
     }
     private func restartDemo() {
@@ -91,8 +93,11 @@ struct HomeView: View {
             do {
                 try await demoAdmin.restartDemo()
                 demoRestartCount += 1
+                demoRestartFailed = false
+                demoRestartResult = "오늘 증상·통증·진료 전 기록을 지우고 증상 라이브 액티비티를 띄웠어요."
             } catch {
-                demoRestartError = error.localizedDescription
+                demoRestartFailed = true
+                demoRestartResult = error.localizedDescription
             }
         }
     }
