@@ -99,7 +99,7 @@ struct CareCallIncomingView: View {
                     .appTypography(.body)
                     .foregroundStyle(AppColors.Semantic.Text.sub)
             }
-            Text("Dr. 학로")
+            Text("Dr. 속닥이")
                 .appTypography(.headline)
                 .foregroundStyle(AppColors.Semantic.Text.default)
             Text("오늘 몸 상태를 여쭤볼게요")
